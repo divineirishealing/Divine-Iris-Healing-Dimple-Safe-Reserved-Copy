@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { Columns3, Filter, IndianRupee, Loader2, Pencil, RefreshCw, Search } from 'lucide-react';
+import { Columns3, Filter, IndianRupee, Loader2, Pencil, RefreshCw, Search, X } from 'lucide-react';
 import { getApiUrl } from '../../../lib/config';
 import { serverBandsToRows, validateBandRows, rowsToBandsPayload } from '../../../lib/indiaDiscountBandsUi';
 import { buildIndiaGpayOptions, buildIndiaBankOptions } from '../../../lib/indiaPaymentTags';
@@ -306,6 +306,42 @@ function buildAdminPayMethodPatch(rawVal) {
   return patch;
 }
 
+function buildFinanceGridDraft(cl) {
+  const sub = subscriptionBlock(cl);
+  const pmRaw = (sub.payment_mode || 'No EMI').trim();
+  const payment_mode = FINANCE_PKG_MODE_OPTIONS.includes(pmRaw) ? pmRaw : 'No EMI';
+  return {
+    payMethod: adminPayMethodSelectValue(cl),
+    preferred_india_gpay_id: (cl.preferred_india_gpay_id || '').trim(),
+    preferred_india_bank_id: (cl.preferred_india_bank_id || '').trim(),
+    total_fee:
+      sub.total_fee != null && sub.total_fee !== '' ? String(sub.total_fee).replace(/,/g, '') : '',
+    discount:
+      cl.india_discount_percent != null && cl.india_discount_percent !== ''
+        ? String(cl.india_discount_percent)
+        : '',
+    tax_enabled: !!cl.india_tax_enabled,
+    tax_percent: String(cl.india_tax_percent ?? 18),
+    ch_fee:
+      cl.crm_channelization_fee != null && cl.crm_channelization_fee !== ''
+        ? String(cl.crm_channelization_fee)
+        : '',
+    late_fee:
+      cl.crm_late_fee_per_day != null && cl.crm_late_fee_per_day !== ''
+        ? String(cl.crm_late_fee_per_day)
+        : '',
+    payment_mode,
+    num_emis: String(sub.num_emis ?? 0),
+    sur_pct: String(
+      sub.installment_surcharge_percent != null && sub.installment_surcharge_percent !== ''
+        ? sub.installment_surcharge_percent
+        : '0',
+    ),
+    iris_year: String(sub.iris_year ?? 1),
+    iris_year_mode: (sub.iris_year_mode || 'manual').toLowerCase() === 'auto' ? 'auto' : 'manual',
+  };
+}
+
 const FINANCE_FILTER_BLANKS = '(Blanks)';
 const FINANCE_FILTERABLE_COL_IDS = new Set(
   FINANCE_COLUMNS.filter((c) => c.id !== 'edit' && c.id !== 'sno').map((c) => c.id),
@@ -604,32 +640,77 @@ export default function ClientFinancesTab() {
   const indiaGpayOpts = useMemo(() => buildIndiaGpayOptions(indiaSite || {}), [indiaSite]);
   const indiaBankOpts = useMemo(() => buildIndiaBankOptions(indiaSite || {}), [indiaSite]);
 
-  const [financeRowSaving, setFinanceRowSaving] = useState({});
+  const [financeGridEditId, setFinanceGridEditId] = useState(null);
+  const [financeGridDraft, setFinanceGridDraft] = useState(null);
+  const [financeGridSaving, setFinanceGridSaving] = useState(false);
 
-  const saveClientFinanceInline = useCallback(
-    async (clientId, patchFields) => {
-      if (!clientId || !patchFields || typeof patchFields !== 'object') return;
-      setFinanceRowSaving((s) => ({ ...s, [clientId]: true }));
-      try {
-        await axios.put(`${API}/clients/${clientId}`, patchFields);
-        toast({ title: 'CRM saved', description: 'Rails, discount, tax, or fees updated for this row.' });
-        await fetchData();
-      } catch (e) {
-        toast({
-          title: 'Save failed',
-          description: e.response?.data?.detail || e.message,
-          variant: 'destructive',
-        });
-      } finally {
-        setFinanceRowSaving((s) => {
-          const next = { ...s };
-          delete next[clientId];
-          return next;
+  const cancelFinanceGridEdit = useCallback(() => {
+    setFinanceGridEditId(null);
+    setFinanceGridDraft(null);
+  }, []);
+
+  const startFinanceGridEdit = useCallback((rowCl) => {
+    setFinanceGridEditId(rowCl.id);
+    setFinanceGridDraft(buildFinanceGridDraft(rowCl));
+  }, []);
+
+  const saveFinanceGridRow = useCallback(async () => {
+    if (!financeGridEditId || !financeGridDraft) return;
+    const cl = clients.find((c) => c.id === financeGridEditId);
+    if (!cl) return;
+    const d = financeGridDraft;
+    setFinanceGridSaving(true);
+    try {
+      const chRaw = d.ch_fee.replace(/,/g, '').trim();
+      const lateRaw = d.late_fee.replace(/,/g, '').trim();
+      const discRaw = d.discount.replace(/,/g, '').trim();
+      const chNum = chRaw === '' ? null : parseFloat(chRaw);
+      const lateNum = lateRaw === '' ? null : parseFloat(lateRaw);
+      await axios.put(`${API}/clients/${financeGridEditId}`, {
+        ...buildAdminPayMethodPatch(d.payMethod),
+        preferred_india_gpay_id: (d.preferred_india_gpay_id || '').trim(),
+        preferred_india_bank_id: (d.preferred_india_bank_id || '').trim(),
+        india_discount_percent: discRaw === '' ? 0 : parseFloat(discRaw) || 0,
+        india_tax_enabled: d.tax_enabled,
+        india_tax_percent: d.tax_enabled
+          ? parseFloat(String(d.tax_percent).replace(/,/g, '')) || 0
+          : null,
+        crm_channelization_fee: chNum != null && Number.isFinite(chNum) ? chNum : null,
+        crm_late_fee_per_day: lateNum != null && Number.isFinite(lateNum) ? lateNum : null,
+      });
+      if (hasAnnualPackageRow(cl)) {
+        const tf = parseFloat(String(d.total_fee).replace(/,/g, ''));
+        const ne = Math.min(12, Math.max(0, parseInt(String(d.num_emis), 10) || 0));
+        const sur = Math.min(
+          100,
+          Math.max(0, parseFloat(String(d.sur_pct).replace(/,/g, '')) || 0),
+        );
+        const iy = Math.min(12, Math.max(1, parseInt(String(d.iris_year), 10) || 1));
+        const iym = d.iris_year_mode === 'auto' ? 'auto' : 'manual';
+        let pm = (d.payment_mode || 'No EMI').trim();
+        if (!FINANCE_PKG_MODE_OPTIONS.includes(pm)) pm = 'No EMI';
+        await axios.patch(`${API}/admin/subscribers/annual-package/${financeGridEditId}`, {
+          total_fee: Number.isFinite(tf) && tf >= 0 ? tf : 0,
+          payment_mode: pm,
+          num_emis: ne,
+          installment_surcharge_percent: sur,
+          iris_year: iy,
+          iris_year_mode: iym,
         });
       }
-    },
-    [fetchData, toast],
-  );
+      toast({ title: 'Saved', description: 'Finance row updated.' });
+      cancelFinanceGridEdit();
+      await fetchData();
+    } catch (e) {
+      toast({
+        title: 'Save failed',
+        description: e.response?.data?.detail || e.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setFinanceGridSaving(false);
+    }
+  }, [financeGridEditId, financeGridDraft, clients, fetchData, toast, cancelFinanceGridEdit]);
 
   const openEdit = useCallback((cl) => {
     setEditing(cl);
@@ -720,34 +801,6 @@ export default function ClientFinancesTab() {
     [columnFilters],
   );
 
-  const [packageSaving, setPackageSaving] = useState({});
-
-  const saveAnnualPackage = useCallback(async (clientId, patch) => {
-    if (!clientId) return;
-    setPackageSaving((s) => ({ ...s, [clientId]: true }));
-    try {
-      const { data } = await axios.patch(`${API}/admin/subscribers/annual-package/${clientId}`, patch);
-      const sub = data?.subscription;
-      if (sub) {
-        setClients((prev) => prev.map((c) => (c.id === clientId ? { ...c, subscription: sub } : c)));
-        setEditing((ed) => (ed && ed.id === clientId ? { ...ed, subscription: sub } : ed));
-      }
-      toast({ title: 'Package saved', description: 'Annual fee / EMI fields updated for this row.' });
-    } catch (e) {
-      toast({
-        title: 'Package save failed',
-        description: e.response?.data?.detail || e.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setPackageSaving((s) => {
-        const next = { ...s };
-        delete next[clientId];
-        return next;
-      });
-    }
-  }, [toast]);
-
   const editingSub = subscriptionBlock(editing);
   const editingAnnual = editing?.annual_subscription && typeof editing.annual_subscription === 'object'
     ? editing.annual_subscription
@@ -777,9 +830,9 @@ export default function ClientFinancesTab() {
     const fin = computedFinanceTotal(cl);
     const paidInfo = paidApprovedSummary(cl, rollup);
     const sub = subscriptionBlock(cl);
-    const pkgBusy = !!packageSaving[cl.id];
-    const crmBusy = !!financeRowSaving[cl.id];
-    const rowBusy = pkgBusy || crmBusy;
+    const rowEdit = financeGridEditId === cl.id;
+    const d = rowEdit ? financeGridDraft : null;
+    const gridBusy = rowEdit && financeGridSaving;
     const canPkg = hasAnnualPackageRow(cl);
     const prefLow = String(cl.preferred_payment_method || '').trim().toLowerCase();
     const tagLow = String(cl.india_payment_method || '').trim().toLowerCase();
@@ -796,6 +849,13 @@ export default function ClientFinancesTab() {
       tagLow === 'cash_deposit' ||
       tagLow === 'cash' ||
       tagLow === 'any';
+    const pmLowDraft = d ? String(d.payMethod || '').trim().toLowerCase() : '';
+    const gpayPick = d ? pmLowDraft === 'gpay_upi' || pmLowDraft === 'any' : showGpayRow;
+    const bankPick = d
+      ? pmLowDraft === 'bank_transfer' || pmLowDraft === 'cash_deposit' || pmLowDraft === 'any'
+      : showBankRow;
+    const needAcctPick =
+      (gpayPick && indiaGpayOpts.length >= 1) || (bankPick && indiaBankOpts.length >= 1);
 
     switch (colId) {
       case 'sno':
@@ -838,11 +898,27 @@ export default function ClientFinancesTab() {
         );
       }
       case 'iris':
+        if (!rowEdit) {
+          if (!canPkg) {
+            return (
+              <td className="py-2 px-2 align-top text-[10px] text-gray-800 max-w-[10rem] leading-snug">
+                {irisTierLine(cl)}
+              </td>
+            );
+          }
+          return (
+            <td className="py-2 px-2 align-top text-[10px] max-w-[11rem] text-gray-800 leading-snug">
+              <div>{irisTierLine(cl)}</div>
+              <div className="text-gray-500 mt-0.5">
+                Year {sub.iris_year ?? 1} · {sub.iris_year_mode || 'manual'}
+              </div>
+            </td>
+          );
+        }
         if (!canPkg) {
           return (
             <td className="py-2 px-2 align-top text-[10px] text-gray-800 max-w-[10rem] leading-snug">
               {irisTierLine(cl)}
-              <div className="text-[10px] text-gray-400 mt-0.5">Add subscriber row in Subscribers</div>
             </td>
           );
         }
@@ -856,44 +932,67 @@ export default function ClientFinancesTab() {
                 min={1}
                 max={12}
                 className="h-7 w-11 text-[10px] px-1 border border-slate-300"
-                disabled={rowBusy}
-                defaultValue={sub.iris_year ?? 1}
-                key={`iy-${cl.id}-${sub.iris_year}-${sub.iris_year_mode}`}
-                onBlur={(e) => {
-                  const n = parseInt(e.target.value, 10);
-                  if (!Number.isFinite(n)) return;
-                  const y = Math.min(12, Math.max(1, n));
-                  if (y !== Number(sub.iris_year)) saveAnnualPackage(cl.id, { iris_year: y });
-                }}
+                disabled={gridBusy}
+                value={d.iris_year}
+                onChange={(e) =>
+                  setFinanceGridDraft((prev) =>
+                    prev && financeGridEditId === cl.id ? { ...prev, iris_year: e.target.value } : prev,
+                  )
+                }
               />
               <select
                 className="h-7 text-[10px] border border-slate-300 rounded px-1 max-w-[4.75rem] bg-white"
-                disabled={rowBusy}
-                value={(sub.iris_year_mode || 'manual').toLowerCase() === 'auto' ? 'auto' : 'manual'}
-                onChange={(e) => saveAnnualPackage(cl.id, { iris_year_mode: e.target.value })}
+                disabled={gridBusy}
+                value={d.iris_year_mode === 'auto' ? 'auto' : 'manual'}
+                onChange={(e) =>
+                  setFinanceGridDraft((prev) =>
+                    prev && financeGridEditId === cl.id
+                      ? { ...prev, iris_year_mode: e.target.value }
+                      : prev,
+                  )
+                }
               >
                 <option value="manual">manual</option>
                 <option value="auto">auto</option>
               </select>
-              {rowBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+              {gridBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
             </div>
           </td>
         );
       case 'payMethod': {
-        const vSel = adminPayMethodSelectValue(cl);
-        const needAcctPick =
-          (showGpayRow && indiaGpayOpts.length >= 1) || (showBankRow && indiaBankOpts.length >= 1);
+        if (!rowEdit) {
+          return (
+            <td className="py-2 px-2 align-top text-[10px] whitespace-nowrap max-w-[11rem]">
+              <span className="leading-snug text-gray-800">{paymentMethodSummary(cl)}</span>
+            </td>
+          );
+        }
+        const vSel = d.payMethod;
         return (
           <td className="py-2 px-2 align-top text-[10px] whitespace-nowrap max-w-[11rem]">
             <div className="flex items-center gap-0.5 flex-nowrap">
               <select
                 className="h-7 w-[9.25rem] min-w-0 shrink text-[10px] border border-slate-300 rounded px-0.5 bg-white"
-                disabled={crmBusy}
+                disabled={gridBusy}
                 title="Admin-tagged payment method (checkout rails)"
                 value={vSel}
-                onChange={(e) =>
-                  saveClientFinanceInline(cl.id, buildAdminPayMethodPatch(e.target.value))
-                }
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setFinanceGridDraft((prev) => {
+                    if (!prev || financeGridEditId !== cl.id) return prev;
+                    const next = { ...prev, payMethod: v };
+                    const low = v.toLowerCase();
+                    if (low === 'stripe' || !v) {
+                      next.preferred_india_gpay_id = '';
+                      next.preferred_india_bank_id = '';
+                    } else if (low === 'bank_transfer' || low === 'cash_deposit') {
+                      next.preferred_india_gpay_id = '';
+                    } else if (low === 'gpay_upi') {
+                      next.preferred_india_bank_id = '';
+                    }
+                    return next;
+                  });
+                }}
               >
                 <option value="">—</option>
                 <option value="stripe">Stripe</option>
@@ -909,21 +1008,25 @@ export default function ClientFinancesTab() {
                       type="button"
                       title="Pin UPI / bank account from Site Settings"
                       className="h-7 w-7 shrink-0 inline-flex items-center justify-center rounded border border-slate-300 bg-white text-gray-600 text-sm leading-none hover:bg-gray-50 disabled:opacity-50"
-                      disabled={crmBusy}
+                      disabled={gridBusy}
                     >
                       ⋯
                     </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-64 p-2 text-[10px]" align="start" onClick={(e) => e.stopPropagation()}>
                     <p className="text-[9px] text-gray-500 mb-2">Tag a specific Divine Iris account (optional).</p>
-                    {showGpayRow && indiaGpayOpts.length >= 1 ? (
+                    {gpayPick && indiaGpayOpts.length >= 1 ? (
                       <div className="mb-2">
                         <span className="text-gray-600 font-medium block mb-0.5">UPI</span>
                         <select
                           className="h-8 w-full text-[10px] border border-slate-300 rounded px-1 bg-white"
-                          value={(cl.preferred_india_gpay_id || '').trim()}
+                          value={d.preferred_india_gpay_id}
                           onChange={(e) =>
-                            saveClientFinanceInline(cl.id, { preferred_india_gpay_id: e.target.value })
+                            setFinanceGridDraft((prev) =>
+                              prev && financeGridEditId === cl.id
+                                ? { ...prev, preferred_india_gpay_id: e.target.value }
+                                : prev,
+                            )
                           }
                         >
                           <option value="">All UPIs</option>
@@ -935,14 +1038,18 @@ export default function ClientFinancesTab() {
                         </select>
                       </div>
                     ) : null}
-                    {showBankRow && indiaBankOpts.length >= 1 ? (
+                    {bankPick && indiaBankOpts.length >= 1 ? (
                       <div>
                         <span className="text-gray-600 font-medium block mb-0.5">Bank</span>
                         <select
                           className="h-8 w-full text-[10px] border border-slate-300 rounded px-1 bg-white"
-                          value={(cl.preferred_india_bank_id || '').trim()}
+                          value={d.preferred_india_bank_id}
                           onChange={(e) =>
-                            saveClientFinanceInline(cl.id, { preferred_india_bank_id: e.target.value })
+                            setFinanceGridDraft((prev) =>
+                              prev && financeGridEditId === cl.id
+                                ? { ...prev, preferred_india_bank_id: e.target.value }
+                                : prev,
+                            )
                           }
                         >
                           <option value="">All accounts</option>
@@ -957,7 +1064,7 @@ export default function ClientFinancesTab() {
                   </PopoverContent>
                 </Popover>
               ) : null}
-              {crmBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400 shrink-0" /> : null}
+              {gridBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400 shrink-0" /> : null}
             </div>
           </td>
         );
@@ -970,32 +1077,30 @@ export default function ClientFinancesTab() {
             </td>
           );
         }
+        if (!rowEdit) {
+          return (
+            <td className="py-2 px-2 align-top text-[10px] tabular-nums whitespace-nowrap text-gray-800">
+              {annualFeeLine(cl)}
+            </td>
+          );
+        }
         return (
           <td className="py-2 px-2 align-top text-[10px]">
             <div className="flex items-center gap-1 flex-wrap">
               <Input
                 className="h-7 w-[6.75rem] text-[10px] tabular-nums px-1.5 border border-slate-300"
-                disabled={rowBusy}
-                defaultValue={
-                  sub.total_fee != null && sub.total_fee !== ''
-                    ? String(sub.total_fee).replace(/,/g, '')
-                    : ''
+                disabled={gridBusy}
+                value={d.total_fee}
+                onChange={(e) =>
+                  setFinanceGridDraft((prev) =>
+                    prev && financeGridEditId === cl.id ? { ...prev, total_fee: e.target.value } : prev,
+                  )
                 }
-                key={`tf-${cl.id}-${sub.total_fee}`}
-                onBlur={(e) => {
-                  const raw = e.target.value.replace(/,/g, '').trim();
-                  const n = parseFloat(raw);
-                  if (!Number.isFinite(n) || n < 0) return;
-                  const prev = Number(sub.total_fee);
-                  if (!Number.isFinite(prev) || Math.abs(n - prev) > 0.009) {
-                    saveAnnualPackage(cl.id, { total_fee: n });
-                  }
-                }}
               />
               <span className="text-[10px] text-gray-500 whitespace-nowrap">
                 {(sub.currency || 'INR').toString().slice(0, 3)}
               </span>
-              {rowBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 text-gray-400" /> : null}
+              {gridBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 text-gray-400" /> : null}
             </div>
           </td>
         );
@@ -1020,32 +1125,42 @@ export default function ClientFinancesTab() {
       case 'mode':
         if (!canPkg) {
           return (
-            <td className="py-2 px-2 align-top text-[10px] whitespace-nowrap text-gray-400">{installmentModeLabel(cl)}</td>
-          );
-        }
-        {
-          const pmRaw = (sub.payment_mode || 'No EMI').trim();
-          const pmSelect = FINANCE_PKG_MODE_OPTIONS.includes(pmRaw) ? pmRaw : 'No EMI';
-          return (
-            <td className="py-2 px-2 align-top text-[10px] whitespace-nowrap">
-              <div className="flex items-center gap-1">
-                <select
-                  className="h-7 text-[10px] border border-slate-300 rounded px-1 max-w-[6.75rem] bg-white"
-                  disabled={pkgBusy}
-                  value={pmSelect}
-                  onChange={(e) => saveAnnualPackage(cl.id, { payment_mode: e.target.value })}
-                >
-                  {FINANCE_PKG_MODE_OPTIONS.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-                {pkgBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
-              </div>
+            <td className="py-2 px-2 align-top text-[10px] whitespace-nowrap text-gray-400">
+              {installmentModeLabel(cl)}
             </td>
           );
         }
+        if (!rowEdit) {
+          const pmShow = (sub.payment_mode || '').trim() || installmentModeLabel(cl);
+          return (
+            <td className="py-2 px-2 align-top text-[10px] whitespace-nowrap text-gray-600">{pmShow}</td>
+          );
+        }
+        return (
+          <td className="py-2 px-2 align-top text-[10px] whitespace-nowrap">
+            <div className="flex items-center gap-1">
+              <select
+                className="h-7 text-[10px] border border-slate-300 rounded px-1 max-w-[6.75rem] bg-white"
+                disabled={gridBusy}
+                value={
+                  FINANCE_PKG_MODE_OPTIONS.includes(d.payment_mode) ? d.payment_mode : 'No EMI'
+                }
+                onChange={(e) =>
+                  setFinanceGridDraft((prev) =>
+                    prev && financeGridEditId === cl.id ? { ...prev, payment_mode: e.target.value } : prev,
+                  )
+                }
+              >
+                {FINANCE_PKG_MODE_OPTIONS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+              {gridBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+            </div>
+          </td>
+        );
       case 'emiCount':
         if (!canPkg) {
           return (
@@ -1055,7 +1170,15 @@ export default function ClientFinancesTab() {
           );
         }
         {
-          const isEmi = (sub.payment_mode || '').trim() === 'EMI';
+          const isEmiRead = (sub.payment_mode || '').trim() === 'EMI';
+          if (!rowEdit) {
+            return (
+              <td className="py-2 px-2 align-top text-[10px] tabular-nums whitespace-nowrap text-gray-800">
+                {isEmiRead ? String(sub.num_emis ?? 0) : '—'}
+              </td>
+            );
+          }
+          const isEmi = (d.payment_mode || '').trim() === 'EMI';
           return (
             <td className="py-2 px-2 align-top text-[10px] tabular-nums whitespace-nowrap">
               <div className="flex items-center gap-1">
@@ -1064,16 +1187,15 @@ export default function ClientFinancesTab() {
                   min={0}
                   max={12}
                   className="h-7 w-12 text-[10px] px-1 border border-slate-300"
-                  disabled={pkgBusy || !isEmi}
-                  defaultValue={isEmi ? String(sub.num_emis ?? 0) : '0'}
-                  key={`ne-${cl.id}-${sub.num_emis}-${isEmi}`}
-                  onBlur={(e) => {
-                    if (!isEmi) return;
-                    const n = Math.min(12, Math.max(0, parseInt(e.target.value, 10) || 0));
-                    if (n !== Number(sub.num_emis || 0)) saveAnnualPackage(cl.id, { num_emis: n });
-                  }}
+                  disabled={gridBusy || !isEmi}
+                  value={isEmi ? d.num_emis : '0'}
+                  onChange={(e) =>
+                    setFinanceGridDraft((prev) =>
+                      prev && financeGridEditId === cl.id ? { ...prev, num_emis: e.target.value } : prev,
+                    )
+                  }
                 />
-                {pkgBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+                {gridBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
               </div>
             </td>
           );
@@ -1084,7 +1206,24 @@ export default function ClientFinancesTab() {
             <td className="py-2 px-2 align-top text-[10px] text-gray-400 whitespace-nowrap">—</td>
           );
         }
-        const isEmi = (sub.payment_mode || '').trim() === 'EMI';
+        const isEmiRead = (sub.payment_mode || '').trim() === 'EMI';
+        if (!rowEdit) {
+          if (!isEmiRead) {
+            return (
+              <td className="py-2 px-2 align-top text-[10px] text-gray-400 whitespace-nowrap">
+                —
+                <p className="text-[9px] text-gray-400 mt-0.5">EMI only</p>
+              </td>
+            );
+          }
+          const s0 = Number(sub.installment_surcharge_percent || 0);
+          return (
+            <td className="py-2 px-2 align-top text-[10px] tabular-nums whitespace-nowrap text-gray-800">
+              {Number.isFinite(s0) ? `${s0}%` : '—'}
+            </td>
+          );
+        }
+        const isEmi = (d.payment_mode || '').trim() === 'EMI';
         return (
           <td className="py-2 px-2 align-top text-[10px] tabular-nums whitespace-nowrap text-gray-800">
             <div className="flex items-center gap-0.5">
@@ -1094,24 +1233,16 @@ export default function ClientFinancesTab() {
                 max={100}
                 step={0.5}
                 className="h-7 w-12 text-[10px] px-1 border border-slate-300"
-                disabled={pkgBusy || !isEmi}
-                defaultValue={
-                  isEmi && sub.installment_surcharge_percent != null && sub.installment_surcharge_percent !== ''
-                    ? String(sub.installment_surcharge_percent)
-                    : '0'
+                disabled={gridBusy || !isEmi}
+                value={d.sur_pct}
+                onChange={(e) =>
+                  setFinanceGridDraft((prev) =>
+                    prev && financeGridEditId === cl.id ? { ...prev, sur_pct: e.target.value } : prev,
+                  )
                 }
-                key={`sr-${cl.id}-${sub.installment_surcharge_percent}-${isEmi}`}
-                onBlur={(e) => {
-                  if (!isEmi) return;
-                  const n = Math.min(100, Math.max(0, parseFloat(e.target.value.replace(/,/g, '')) || 0));
-                  const prev = Number(sub.installment_surcharge_percent || 0);
-                  if (Math.abs(n - prev) > 0.001) {
-                    saveAnnualPackage(cl.id, { installment_surcharge_percent: n });
-                  }
-                }}
               />
               <span className="text-[10px] text-gray-500">%</span>
-              {pkgBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+              {gridBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
             </div>
             {!isEmi ? (
               <p className="text-[9px] text-gray-400 mt-0.5">EMI only</p>
@@ -1120,6 +1251,11 @@ export default function ClientFinancesTab() {
         );
       }
       case 'discount':
+        if (!rowEdit) {
+          return (
+            <td className="py-2 px-2 align-top text-[10px] text-gray-800">{discountSummary(cl)}</td>
+          );
+        }
         return (
           <td className="py-2 px-2 align-top text-[10px]">
             <div className="flex items-center gap-0.5">
@@ -1129,42 +1265,45 @@ export default function ClientFinancesTab() {
                 max={100}
                 step={0.5}
                 className="h-7 w-14 text-[10px] px-1 border border-slate-300"
-                disabled={crmBusy}
-                defaultValue={
-                  cl.india_discount_percent != null && cl.india_discount_percent !== ''
-                    ? String(cl.india_discount_percent)
-                    : ''
+                disabled={gridBusy}
+                value={d.discount}
+                onChange={(e) =>
+                  setFinanceGridDraft((prev) =>
+                    prev && financeGridEditId === cl.id ? { ...prev, discount: e.target.value } : prev,
+                  )
                 }
-                key={`dp-${cl.id}-${cl.india_discount_percent}`}
-                onBlur={(e) => {
-                  const t = e.target.value.replace(/,/g, '').trim();
-                  const n = t === '' ? 0 : parseFloat(t);
-                  if (!Number.isFinite(n) || n < 0) return;
-                  const prev = Number(cl.india_discount_percent || 0);
-                  if (Math.abs(n - prev) > 0.001) {
-                    saveClientFinanceInline(cl.id, { india_discount_percent: n });
-                  }
-                }}
               />
               <span className="text-[10px] text-gray-500">%</span>
-              {crmBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+              {gridBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
             </div>
           </td>
         );
       case 'tax':
+        if (!rowEdit) {
+          return (
+            <td className="py-2 px-2 align-top text-[10px] text-gray-800">{gstSummary(cl)}</td>
+          );
+        }
         return (
           <td className="py-2 px-2 align-top text-[10px]">
             <label className="flex items-center gap-1 text-[10px] cursor-pointer">
               <input
                 type="checkbox"
-                checked={!!cl.india_tax_enabled}
-                disabled={crmBusy}
+                checked={d.tax_enabled}
+                disabled={gridBusy}
                 onChange={(e) => {
                   const on = e.target.checked;
-                  saveClientFinanceInline(cl.id, {
-                    india_tax_enabled: on,
-                    india_tax_percent: on ? Number(cl.india_tax_percent ?? 18) || 18 : null,
-                  });
+                  setFinanceGridDraft((prev) =>
+                    prev && financeGridEditId === cl.id
+                      ? {
+                          ...prev,
+                          tax_enabled: on,
+                          tax_percent: on
+                            ? prev.tax_percent || String(cl.india_tax_percent ?? 18)
+                            : prev.tax_percent,
+                        }
+                      : prev,
+                  );
                 }}
                 className="rounded border-gray-300 shrink-0"
               />
@@ -1177,101 +1316,72 @@ export default function ClientFinancesTab() {
                 max={100}
                 step={0.5}
                 className="h-7 w-12 text-[10px] px-1 border border-slate-300"
-                disabled={crmBusy || !cl.india_tax_enabled}
-                defaultValue={String(cl.india_tax_percent ?? 18)}
-                key={`tx-${cl.id}-${cl.india_tax_enabled}-${cl.india_tax_percent}`}
-                onBlur={(e) => {
-                  if (!cl.india_tax_enabled) return;
-                  const n = parseFloat(e.target.value.replace(/,/g, ''));
-                  if (!Number.isFinite(n) || n < 0) return;
-                  const prev = Number(cl.india_tax_percent ?? 18);
-                  if (Math.abs(n - prev) > 0.001) {
-                    saveClientFinanceInline(cl.id, { india_tax_percent: n });
-                  }
-                }}
+                disabled={gridBusy || !d.tax_enabled}
+                value={d.tax_percent}
+                onChange={(e) =>
+                  setFinanceGridDraft((prev) =>
+                    prev && financeGridEditId === cl.id ? { ...prev, tax_percent: e.target.value } : prev,
+                  )
+                }
               />
               <span className="text-[10px] text-gray-500">%</span>
             </div>
           </td>
         );
-      case 'chFee':
+      case 'chFee': {
+        const chV = cl.crm_channelization_fee;
+        if (!rowEdit) {
+          return (
+            <td className="py-2 px-2 align-top text-[10px] tabular-nums text-gray-800">
+              {chV != null && chV !== '' ? String(chV) : '—'}
+            </td>
+          );
+        }
         return (
           <td className="py-2 px-2 align-top text-[10px] tabular-nums">
             <div className="flex items-center gap-1">
               <Input
                 className="h-7 w-[4.5rem] text-[10px] px-1 border border-slate-300"
-                disabled={crmBusy}
-                defaultValue={
-                  cl.crm_channelization_fee != null && cl.crm_channelization_fee !== ''
-                    ? String(cl.crm_channelization_fee)
-                    : ''
+                disabled={gridBusy}
+                value={d.ch_fee}
+                onChange={(e) =>
+                  setFinanceGridDraft((prev) =>
+                    prev && financeGridEditId === cl.id ? { ...prev, ch_fee: e.target.value } : prev,
+                  )
                 }
-                key={`ch-${cl.id}-${cl.crm_channelization_fee}`}
-                onBlur={(e) => {
-                  const t = e.target.value.replace(/,/g, '').trim();
-                  const n = t === '' ? null : parseFloat(t);
-                  const prevRaw = cl.crm_channelization_fee;
-                  const prev =
-                    prevRaw == null || prevRaw === '' ? null : Number(prevRaw);
-                  if (n == null && prev == null) return;
-                  if (
-                    n != null &&
-                    Number.isFinite(n) &&
-                    prev != null &&
-                    Number.isFinite(prev) &&
-                    Math.abs(n - prev) < 0.009
-                  ) {
-                    return;
-                  }
-                  saveClientFinanceInline(cl.id, {
-                    crm_channelization_fee:
-                      n != null && Number.isFinite(n) ? n : null,
-                  });
-                }}
               />
-              {crmBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+              {gridBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
             </div>
           </td>
         );
-      case 'lateFee':
+      }
+      case 'lateFee': {
+        const lfV = cl.crm_late_fee_per_day;
+        if (!rowEdit) {
+          return (
+            <td className="py-2 px-2 align-top text-[10px] tabular-nums text-gray-800">
+              {lfV != null && lfV !== '' ? String(lfV) : '—'}
+            </td>
+          );
+        }
         return (
           <td className="py-2 px-2 align-top text-[10px] tabular-nums">
             <div className="flex items-center gap-1">
               <Input
                 className="h-7 w-[4.5rem] text-[10px] px-1 border border-slate-300"
-                disabled={crmBusy}
-                defaultValue={
-                  cl.crm_late_fee_per_day != null && cl.crm_late_fee_per_day !== ''
-                    ? String(cl.crm_late_fee_per_day)
-                    : ''
+                disabled={gridBusy}
+                value={d.late_fee}
+                onChange={(e) =>
+                  setFinanceGridDraft((prev) =>
+                    prev && financeGridEditId === cl.id ? { ...prev, late_fee: e.target.value } : prev,
+                  )
                 }
-                key={`lf-${cl.id}-${cl.crm_late_fee_per_day}`}
-                onBlur={(e) => {
-                  const t = e.target.value.replace(/,/g, '').trim();
-                  const n = t === '' ? null : parseFloat(t);
-                  const prevRaw = cl.crm_late_fee_per_day;
-                  const prev =
-                    prevRaw == null || prevRaw === '' ? null : Number(prevRaw);
-                  if (n == null && prev == null) return;
-                  if (
-                    n != null &&
-                    Number.isFinite(n) &&
-                    prev != null &&
-                    Number.isFinite(prev) &&
-                    Math.abs(n - prev) < 0.009
-                  ) {
-                    return;
-                  }
-                  saveClientFinanceInline(cl.id, {
-                    crm_late_fee_per_day:
-                      n != null && Number.isFinite(n) ? n : null,
-                  });
-                }}
               />
-              {crmBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+              {gridBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
             </div>
           </td>
         );
+      }
       case 'totalAmount': {
         const title = fin.approximate
           ? 'Tiered group discounts: showing package fee + tax only — set exact payable in Subscribers.'
@@ -1327,21 +1437,74 @@ export default function ClientFinancesTab() {
           </td>
         );
       }
-      case 'edit':
+      case 'edit': {
+        const anotherEditing = financeGridEditId != null && financeGridEditId !== cl.id;
+        if (rowEdit) {
+          return (
+            <td className="py-2 px-2 align-top text-[10px] text-right whitespace-nowrap">
+              <div className="flex flex-wrap items-center justify-end gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 text-[10px] bg-[#D4AF37] hover:bg-[#b8962e] text-white"
+                  onClick={() => saveFinanceGridRow()}
+                  disabled={gridBusy}
+                >
+                  {gridBusy ? 'Saving…' : 'Save'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-[10px] gap-1"
+                  onClick={cancelFinanceGridEdit}
+                  disabled={gridBusy}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1 text-violet-700 hover:text-violet-900 hover:bg-violet-50 px-2"
+                  onClick={() => openEdit(cl)}
+                  disabled={gridBusy}
+                >
+                  Proofs
+                </Button>
+              </div>
+            </td>
+          );
+        }
         return (
-          <td className="py-2 px-2 align-top text-[10px] text-right">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1 text-violet-700 hover:text-violet-900 hover:bg-violet-50 px-2"
-              onClick={() => openEdit(cl)}
-            >
-              <Pencil size={14} className="text-[#D4AF37]" />
-              Proofs
-            </Button>
+          <td className="py-2 px-2 align-top text-[10px] text-right whitespace-nowrap">
+            <div className="flex flex-wrap items-center justify-end gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1 text-[#b8962e] hover:text-[#967d26] hover:bg-amber-50 px-2"
+                onClick={() => startFinanceGridEdit(cl)}
+                disabled={anotherEditing}
+              >
+                <Pencil size={14} className="text-[#D4AF37]" />
+                Edit
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1 text-violet-700 hover:text-violet-900 hover:bg-violet-50 px-2"
+                onClick={() => openEdit(cl)}
+                disabled={anotherEditing}
+              >
+                Proofs
+              </Button>
+            </div>
           </td>
         );
+      }
       default:
         return <td className="py-2 px-2 align-top text-[10px]">—</td>;
     }
@@ -1354,13 +1517,14 @@ export default function ClientFinancesTab() {
         <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">Iris Annual Abundance</h2>
       </div>
       <p className="text-xs text-gray-500 mt-0.5 mb-4 shrink-0 max-w-4xl">
-        Excel-style grid: <strong>S.No</strong> is row order in the current view. Edit <strong>pay method, annual fee,
-        discount, GST, channelization &amp; late fees, billing mode, EMIs, installment surcharge</strong> in-place — saved
-        values match the <strong>student dashboard</strong>. <strong>Student plan</strong> and <strong>Session mode</strong> come from
-        Sacred Home preferences. Installment rows bill on the <strong>27th</strong> (per month).{' '}
-        <strong>Total amount</strong> is estimated after discount + GST; tiered group bands show ~. Use{' '}
-        <strong>Columns</strong> / funnel filters as needed. <strong>Proofs</strong> opens payment history and optional group
-        discount rules only.
+        Excel-style grid: <strong>S.No</strong> is row order in the current view. Rows show read-only values like Client
+        Garden; click <strong>Edit</strong> on a row to change pay method, annual fee, discount, GST, channelization
+        &amp; late fees, billing mode, EMIs, surcharge, and iris year — then <strong>Save</strong> or{' '}
+        <strong>Cancel</strong>. Saved values match the <strong>student dashboard</strong>.{' '}
+        <strong>Student plan</strong> and <strong>Session mode</strong> come from Sacred Home preferences. Installment
+        rows bill on the <strong>27th</strong> (per month). <strong>Total amount</strong> is estimated after discount +
+        GST; tiered group bands show ~. Use <strong>Columns</strong> / funnel filters as needed.{' '}
+        <strong>Proofs</strong> opens payment history and optional group discount rules only.
       </p>
 
       <div className="flex flex-wrap items-center gap-2 mb-3 shrink-0">
@@ -1443,7 +1607,7 @@ export default function ClientFinancesTab() {
                 c.id === 'edit' ? (
                   <th
                     key={c.id}
-                    className="py-2 px-2 font-semibold text-right bg-gray-100 w-24"
+                    className="py-2 px-2 font-semibold text-right bg-gray-100 min-w-[11rem]"
                   >
                     {c.label}
                   </th>
@@ -1506,7 +1670,11 @@ export default function ClientFinancesTab() {
               displayedRows.map((cl, idx) => (
                 <tr
                   key={cl.id || cl.email}
-                  className="group border-b border-gray-100 align-top bg-white hover:bg-amber-50/30"
+                  className={`group border-b border-gray-100 align-top ${
+                    financeGridEditId === cl.id
+                      ? 'bg-amber-50/40 ring-1 ring-inset ring-amber-200/50'
+                      : 'bg-white hover:bg-amber-50/30'
+                  }`}
                 >
                   {visibleColumns.map((c) => (
                     <React.Fragment key={c.id}>{renderCell(cl, c.id, idx + 1)}</React.Fragment>
