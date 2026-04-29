@@ -815,6 +815,19 @@ const FinancialsPage = () => {
         ))}
       </div>
 
+      {fin.crm_discount_percent != null && Number(fin.crm_discount_percent) > 0 ? (
+        <p className="text-[11px] text-emerald-900 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 -mt-1">
+          Your totals reflect a <strong>{Number(fin.crm_discount_percent).toFixed(1).replace(/\.0$/, '')}%</strong> courtesy adjustment from your host
+          {fin.crm_discount_amount != null && Number(fin.crm_discount_amount) > 0 ? (
+            <>
+              {' '}
+              (−{fin.currency || ''} {Number(fin.crm_discount_amount).toLocaleString()} on the listed package fee)
+            </>
+          ) : null}
+          .
+        </p>
+      ) : null}
+
       {/* India Tax info badge */}
       {indiaTaxInfo?.enabled && indiaTaxInfo?.visible_on_dashboard && (
         <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 -mt-2">

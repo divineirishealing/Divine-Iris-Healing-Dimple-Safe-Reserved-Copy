@@ -31,6 +31,7 @@ from routes.currency import assert_claimed_hub_matches_stripe
 from country_normalize import normalize_country_iso2
 from utils.person_name import normalize_person_name
 from utils.garden_labels import iris_year_from_garden_label, label_stripe_key
+from utils.india_checkout_math import _resolve_india_discount_rule
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -118,6 +119,75 @@ def _portal_std_india_tax(site_doc: dict) -> float:
         return v
     g = _optional_float(ss.get("india_gst_percent"))
     return float(g if g is not None else 18.0)
+
+
+def _crm_only_discount_dict(client: Optional[dict]) -> dict:
+    """CRM `india_discount_percent` + member bands only (not site portal default %)."""
+    c = client or {}
+    return {
+        "india_discount_percent": c.get("india_discount_percent"),
+        "india_discount_member_bands": c.get("india_discount_member_bands"),
+    }
+
+
+def _dashboard_quote_participant_count(
+    include_self: bool,
+    imm_plain: int,
+    imm_peer: int,
+    ext_fc: int,
+) -> int:
+    n = (1 if include_self else 0) + max(0, int(imm_plain)) + max(0, int(imm_peer)) + max(0, int(ext_fc))
+    return max(1, n)
+
+
+def _apply_crm_discount_to_total(
+    total_before: float,
+    currency: str,
+    client: dict,
+    participant_count: int,
+) -> Tuple[float, float, Optional[float]]:
+    """Apply CRM percent / INR amount rules to a single total. Returns (after, discount_amt, percent_or_none)."""
+    cur = (currency or "").lower()
+    t = float(total_before or 0)
+    if t <= 0:
+        return t, 0.0, None
+    rule = _resolve_india_discount_rule(_crm_only_discount_dict(client), participant_count)
+    mode = rule.get("mode") or "percent"
+    disc_amt = 0.0
+    pct_out: Optional[float] = None
+    if mode == "percent":
+        pct = float(rule.get("percent") or 0)
+        if pct > 0:
+            disc_amt = round(t * pct / 100.0, 2)
+            pct_out = pct
+    elif mode == "amount" and cur == "inr":
+        amt = float(rule.get("amount_inr") or 0)
+        if amt > 0:
+            disc_amt = round(min(t, amt), 2)
+    after = round(max(0.0, t - disc_amt), 2)
+    return after, disc_amt, pct_out
+
+
+def _apply_crm_portal_discount_to_pricing_total(
+    pricing: dict,
+    client: dict,
+    currency: str,
+    participant_count: int,
+) -> dict:
+    """Extend portal pricing dict so Sacred Home quotes match Client Garden CRM discount."""
+    tot = float(pricing.get("total") or 0)
+    after, disc_amt, disc_pct = _apply_crm_discount_to_total(tot, currency, client, participant_count)
+    if disc_amt <= 0:
+        return {**pricing, "client_crm_discount_amount": None, "client_crm_discount_percent": None}
+    portal_disc = float(pricing.get("portal_discount_total") or 0)
+    return {
+        **pricing,
+        "total": after,
+        "offer_subtotal": after,
+        "portal_discount_total": round(portal_disc + disc_amt, 2),
+        "client_crm_discount_amount": disc_amt,
+        "client_crm_discount_percent": disc_pct,
+    }
 
 
 def _merge_client_india_pricing_portal(client: dict, sub: Optional[dict], site_doc: dict) -> Dict[str, Any]:
@@ -1919,6 +1989,8 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             apply_tier_offer_prices=True,
             booker_annual_portal=annual_dashboard_access,
         )
+        qc = _dashboard_quote_participant_count(include_self, imm_plain, imm_peer, ext_fc)
+        pricing = _apply_crm_portal_discount_to_pricing_total(pricing, client, cur, qc)
         total += float(pricing.get("total") or 0)
     return round(total, 2), cur
 
@@ -2082,6 +2154,14 @@ async def dashboard_quote(
             pricing["list_subtotal"] = co
             pricing["portal_discount_total"] = 0.0
 
+    qc = _dashboard_quote_participant_count(include_self, imm_plain, imm_peer, ext_fc)
+    pricing = _apply_crm_portal_discount_to_pricing_total(
+        pricing,
+        client,
+        str(pricing.get("currency") or currency or "aed"),
+        qc,
+    )
+
     peer_pkg_inc = max(0, int(peer_sel) - int(imm_peer)) if id_list else 0
     cur = str(pricing.get("currency") or "aed").lower()
     gst_pct = _site_gst_percent(settings_doc)
@@ -2200,6 +2280,8 @@ async def build_admin_dashboard_pricing_snapshot(
             apply_tier_offer_prices=True,
             booker_annual_portal=annual_dashboard_access,
         )
+        qc = _dashboard_quote_participant_count(include_self, 0, 0, 0)
+        pricing = _apply_crm_portal_discount_to_pricing_total(pricing, client, cur_in, qc)
         cur = str(pricing.get("currency") or cur_in).lower()
         tot = float(pricing.get("total") or 0)
         tax_included_estimate = 0.0
@@ -2317,6 +2399,8 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         apply_tier_offer_prices=True,
         booker_annual_portal=annual_dashboard_access,
     )
+    qc = _dashboard_quote_participant_count(not included, imm_plain, imm_peer, ext_fc)
+    quote = _apply_crm_portal_discount_to_pricing_total(quote, client, data.currency, qc)
     if quote["total"] < 0:
         raise HTTPException(status_code=400, detail="Invalid quote")
     if quote["total"] == 0 and not included:
@@ -2556,12 +2640,31 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     except (TypeError, ValueError):
         sur_pct = 0.0
     sur_pct = max(0.0, min(100.0, sur_pct))
-    base_package_fee = float(sub.get("total_fee") or 0)
+    raw_base_package_fee = float(sub.get("total_fee") or 0)
     is_emi_plan = pm_sub == "EMI" and len(emis) > 0
+    fam_n_fin = max(1, 1 + len(client.get("immediate_family") or []))
+    rule_fin = _resolve_india_discount_rule(_crm_only_discount_dict(client), fam_n_fin)
+    adj_base = raw_base_package_fee
+    crm_disc_pct_display = None
+    crm_disc_amt_display = None
+    if raw_base_package_fee > 0 and not is_emi_plan:
+        if rule_fin.get("mode") == "percent" and float(rule_fin.get("percent") or 0) > 0:
+            crm_disc_pct_display = float(rule_fin["percent"])
+            crm_disc_amt_display = round(raw_base_package_fee * crm_disc_pct_display / 100.0, 2)
+            adj_base = round(raw_base_package_fee - crm_disc_amt_display, 2)
+        elif (
+            rule_fin.get("mode") == "amount"
+            and float(rule_fin.get("amount_inr") or 0) > 0
+            and str(sub.get("currency") or "INR").lower() == "inr"
+        ):
+            raw_amt = float(rule_fin["amount_inr"])
+            crm_disc_amt_display = round(min(raw_base_package_fee, raw_amt), 2)
+            adj_base = round(max(0, raw_base_package_fee - crm_disc_amt_display), 2)
+
     effective_total_fee = (
-        round(base_package_fee * (1.0 + sur_pct / 100.0), 2)
-        if is_emi_plan and sur_pct > 0 and base_package_fee > 0
-        else base_package_fee
+        round(adj_base * (1.0 + sur_pct / 100.0), 2)
+        if is_emi_plan and sur_pct > 0 and adj_base > 0
+        else adj_base
     )
 
     # 3. Financials - derived from subscription
@@ -2581,7 +2684,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
             else ("EMI" if total_emis > 0 else "N/A")
         ),
         "total_fee": total_fee,
-        "base_package_fee": base_package_fee,
+        "base_package_fee": raw_base_package_fee,
         "installment_surcharge_percent": sur_pct if is_emi_plan else 0.0,
         "currency": sub.get("currency", "INR"),
         "total_paid": total_paid,
@@ -2591,6 +2694,8 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "emi_plan": f"{paid_emis}/{total_emis} EMIs Paid" if total_emis > 0 else "",
         "emis": emis,
         "next_due": "No pending dues",
+        "crm_discount_percent": crm_disc_pct_display,
+        "crm_discount_amount": crm_disc_amt_display,
     }
 
     # Find next due EMI

@@ -1367,6 +1367,13 @@ export default function AnnualPackagePurchasePage() {
                           <span className="text-base font-semibold text-[rgba(80,55,145,0.45)]">{quoteCur}</span>
                         </span>
                       </p>
+                      {quote?.client_crm_discount_amount > 0 && quote?.client_crm_discount_percent ? (
+                        <p className="text-[11px] text-emerald-900/95 text-center sm:text-left leading-snug">
+                          Includes your <strong>{Number(quote.client_crm_discount_percent).toFixed(1).replace(/\.0$/, '')}%</strong> membership courtesy
+                          (−{symbol}
+                          {Number(quote.client_crm_discount_amount).toLocaleString()} {quoteCur}).
+                        </p>
+                      ) : null}
                       {heroIsCatalogRenewalRef ? (
                         <p className="text-[11px] text-[rgba(60,35,115,0.72)] text-center sm:text-left leading-relaxed">
                           This is your <strong>Home Coming annual program</strong> figure for <strong>purchase or renewal</strong> on your pricing hub
