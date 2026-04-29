@@ -250,14 +250,60 @@ function paidApprovedSummary(cl, rollup) {
 }
 
 function paymentMethodSummary(cl) {
-  const pref = (cl.preferred_payment_method || '').trim();
-  const tag = (cl.india_payment_method || '').trim();
-  const pl = pref ? labelFrom(PREFERRED_LABEL, pref) : '';
-  const tl = tag ? labelFrom(TAG_LABEL, tag) : '';
-  if (pl && tl && pl !== tl) return `${pl} · ${tl}`;
-  if (pl) return pl;
-  if (tl) return tl;
-  return '—';
+  const tag = (cl.india_payment_method || '').trim().toLowerCase();
+  const pref = (cl.preferred_payment_method || '').trim().toLowerCase();
+  if (tag === 'any') {
+    const tl = labelFrom(TAG_LABEL, 'any');
+    return tl || 'Any / multiple';
+  }
+  const key = pref || tag;
+  if (!key) return '—';
+  return labelFrom(PREFERRED_LABEL, key) || key;
+}
+
+/** Value for single admin pay-method control (legacy rows may differ until re-saved). */
+function adminPayMethodSelectValue(cl) {
+  const tag = (cl.india_payment_method || '').trim().toLowerCase();
+  if (tag === 'any') return 'any';
+  const pref = (cl.preferred_payment_method || '').trim().toLowerCase();
+  const ind = (cl.india_payment_method || '').trim().toLowerCase();
+  if (pref && ind && pref === ind) return pref;
+  if (pref) return pref;
+  if (ind) return ind;
+  return '';
+}
+
+/** Sets both CRM fields so checkout and dashboard see one admin-tagged method. */
+function buildAdminPayMethodPatch(rawVal) {
+  const v = (rawVal || '').trim();
+  const low = v.toLowerCase();
+  if (!v) {
+    return {
+      preferred_payment_method: '',
+      india_payment_method: '',
+      preferred_india_gpay_id: '',
+      preferred_india_bank_id: '',
+    };
+  }
+  if (low === 'any') {
+    return {
+      preferred_payment_method: '',
+      india_payment_method: 'any',
+    };
+  }
+  const patch = {
+    preferred_payment_method: low,
+    india_payment_method: low,
+  };
+  if (low === 'stripe') {
+    patch.preferred_india_gpay_id = '';
+    patch.preferred_india_bank_id = '';
+  } else if (low === 'bank_transfer' || low === 'cash_deposit') {
+    patch.preferred_india_gpay_id = '';
+  } else if (low === 'gpay_upi') {
+    patch.preferred_india_bank_id = '';
+  }
+  return patch;
 }
 
 const FINANCE_FILTER_BLANKS = '(Blanks)';
@@ -585,32 +631,6 @@ export default function ClientFinancesTab() {
     [fetchData, toast],
   );
 
-  const putPreferredBody = (_cl, prefVal) => {
-    const low = (prefVal || '').trim().toLowerCase();
-    const body = { preferred_payment_method: low || '' };
-    if (low === 'stripe') {
-      body.preferred_india_gpay_id = '';
-      body.preferred_india_bank_id = '';
-    } else if (low === 'bank_transfer' || low === 'cash_deposit') {
-      body.preferred_india_gpay_id = '';
-    } else if (low === 'gpay_upi') {
-      body.preferred_india_bank_id = '';
-    }
-    return body;
-  };
-
-  const putIndiaTagBody = (_cl, tagVal) => {
-    const v = (tagVal || '').trim();
-    const body = { india_payment_method: v || '' };
-    const tag = v.toLowerCase();
-    const gpayOk = tag === 'gpay_upi' || tag === 'any' || tag === '';
-    const bankOk =
-      tag === 'bank_transfer' || tag === 'cash_deposit' || tag === 'any' || tag === '';
-    if (!gpayOk) body.preferred_india_gpay_id = '';
-    if (!bankOk) body.preferred_india_bank_id = '';
-    return body;
-  };
-
   const openEdit = useCallback((cl) => {
     setEditing(cl);
     setIndiaDiscountBandRows(serverBandsToRows(cl.india_discount_member_bands || []));
@@ -847,37 +867,27 @@ export default function ClientFinancesTab() {
           </td>
         );
       case 'payMethod': {
+        const vSel = adminPayMethodSelectValue(cl);
         const needAcctPick =
           (showGpayRow && indiaGpayOpts.length >= 1) || (showBankRow && indiaBankOpts.length >= 1);
         return (
-          <td className="px-1 py-1 align-middle whitespace-nowrap max-w-[13rem]">
+          <td className="px-1 py-1 align-middle whitespace-nowrap max-w-[11rem]">
             <div className="flex items-center gap-0.5 flex-nowrap">
               <select
-                className="h-7 w-[4.85rem] min-w-0 shrink text-[10px] border rounded px-0.5 bg-white"
+                className="h-7 w-[9.25rem] min-w-0 shrink text-[10px] border rounded px-0.5 bg-white"
                 disabled={crmBusy}
-                title="Preferred payment method"
-                value={(cl.preferred_payment_method || '').trim()}
-                onChange={(e) => saveClientFinanceInline(cl.id, putPreferredBody(cl, e.target.value))}
+                title="Admin-tagged payment method (checkout rails)"
+                value={vSel}
+                onChange={(e) =>
+                  saveClientFinanceInline(cl.id, buildAdminPayMethodPatch(e.target.value))
+                }
               >
-                <option value="">Pref</option>
-                <option value="gpay_upi">GPay</option>
-                <option value="bank_transfer">Bank</option>
-                <option value="cash_deposit">Cash</option>
+                <option value="">—</option>
                 <option value="stripe">Stripe</option>
-              </select>
-              <select
-                className="h-7 w-[4.85rem] min-w-0 shrink text-[10px] border rounded px-0.5 bg-white"
-                disabled={crmBusy}
-                title="Payment method tag (rails on checkout)"
-                value={(cl.india_payment_method || '').trim()}
-                onChange={(e) => saveClientFinanceInline(cl.id, putIndiaTagBody(cl, e.target.value))}
-              >
-                <option value="">Tag</option>
-                <option value="gpay_upi">GPay</option>
-                <option value="bank_transfer">Bank</option>
-                <option value="cash_deposit">Cash</option>
-                <option value="stripe">Stripe</option>
-                <option value="any">Any</option>
+                <option value="gpay_upi">GPay / UPI</option>
+                <option value="bank_transfer">Bank transfer</option>
+                <option value="cash_deposit">Cash deposit</option>
+                <option value="any">Any / multiple</option>
               </select>
               {needAcctPick ? (
                 <Popover>
