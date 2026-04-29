@@ -127,6 +127,39 @@ export function addMonthsSubscriptionEnd(dateStr, months) {
 }
 
 /**
+ * Sacred Home annual bundle end (membership window): use day `min(30, daysInMonth)` in the calendar month
+ * immediately before the anniversary month of `start + months` (same calendar roll as `addMonthsSubscriptionEnd`).
+ * Example: start `2026-05-03`, 12 months → anniversary May 2027 → bundle end `2027-04-30`.
+ */
+export function addMonthsAnnualBundleEnd(dateStr, months) {
+  if (!dateStr || !String(dateStr).trim()) return "";
+  const m = parseInt(months, 10);
+  const monthsAdd = Number.isFinite(m) && m > 0 ? m : 12;
+  const ds = String(dateStr).trim().slice(0, 10);
+  const parts = ds.split("-");
+  if (parts.length !== 3) return "";
+  const y = parseInt(parts[0], 10);
+  const mo = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(day)) return "";
+  const d = new Date(Date.UTC(y, mo - 1, day));
+  if (Number.isNaN(d.getTime())) return "";
+  const annivMonthIndex = d.getUTCMonth() + monthsAdd;
+  const annivYear = d.getUTCFullYear() + Math.floor(annivMonthIndex / 12);
+  const annivMonth = ((annivMonthIndex % 12) + 12) % 12;
+  let prevMonth = annivMonth - 1;
+  let prevYear = annivYear;
+  if (prevMonth < 0) {
+    prevMonth = 11;
+    prevYear -= 1;
+  }
+  const daysInPrev = new Date(Date.UTC(prevYear, prevMonth + 1, 0)).getUTCDate();
+  const dom = Math.min(30, daysInPrev);
+  const pad2 = (n) => String(n).padStart(2, "0");
+  return `${prevYear}-${pad2(prevMonth + 1)}-${pad2(dom)}`;
+}
+
+/**
  * Next local calendar date (YYYY-MM-DD) on or after `from`, whose day-of-month is `dom`.
  * Used for optional membership start anchored to e.g. the 3rd of each month. `dom` is clamped 1–28.
  */

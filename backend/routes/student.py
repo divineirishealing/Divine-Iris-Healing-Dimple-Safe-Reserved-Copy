@@ -635,7 +635,7 @@ def _parse_ymd_loose(s: Optional[str]) -> Optional[date]:
 
 
 def _add_months_subscription_end(date_str: str, months: int) -> str:
-    """End date for subscriptions: add months, day-30 anchor (matches ``addMonthsSubscriptionEnd`` in frontend utils)."""
+    """Annual bundle end: min(30, dim) in the month before the anniversary month (matches ``addMonthsAnnualBundleEnd``)."""
     if not (date_str or "").strip():
         return ""
     try:
@@ -651,16 +651,15 @@ def _add_months_subscription_end(date_str: str, months: int) -> str:
     y, m0 = d.year, d.month - 1
     target_month = m0 + months_i
     target_year = y + target_month // 12
-    actual_month = ((target_month % 12) + 12) % 12
-    days_in_month = calendar.monthrange(target_year, actual_month + 1)[1]
-    if days_in_month >= 30:
-        end = date(target_year, actual_month + 1, 30)
-    else:
-        spill = 30 - days_in_month
-        js_month_next = actual_month + 1
-        js_year = target_year + js_month_next // 12
-        js_month_final = js_month_next % 12
-        end = date(js_year, js_month_final + 1, spill)
+    anniv_m = ((target_month % 12) + 12) % 12
+    prev_m = anniv_m - 1
+    prev_y = target_year
+    if prev_m < 0:
+        prev_m = 11
+        prev_y -= 1
+    dim = calendar.monthrange(prev_y, prev_m + 1)[1]
+    dom = min(30, dim)
+    end = date(prev_y, prev_m + 1, dom)
     return end.isoformat()
 
 

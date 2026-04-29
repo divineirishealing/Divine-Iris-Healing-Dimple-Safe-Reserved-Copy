@@ -12,7 +12,7 @@ import {
   Package, UserPlus,
 } from 'lucide-react';
 import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
-import { formatDateDdMonYyyy, addMonthsSubscriptionEnd, nextDateWithDayOfMonth } from '../../../lib/utils';
+import { formatDateDdMonYyyy, addMonthsAnnualBundleEnd, nextDateWithDayOfMonth } from '../../../lib/utils';
 import { packageTaxDecimal, packageValidForStartDate } from '../../../lib/annualPackagePricing';
 
 export { packageTaxDecimal, packageValidForStartDate };
@@ -318,7 +318,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
     set('start_date', val);
     if (val) {
       const months = selectedPkg?.duration_months || 12;
-      set('end_date', addMonthsSubscriptionEnd(val, months));
+      set('end_date', addMonthsAnnualBundleEnd(val, months));
       // Regenerate EMI due dates: EMI #1 starts 1 month before batch start
       if (f.num_emis > 0) {
         const day = f.emi_day || 30;

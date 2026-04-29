@@ -25,7 +25,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import { cn, formatDateDdMonYyyy, formatDashboardStatDate, nextDateWithDayOfMonth, addMonthsSubscriptionEnd } from '../../lib/utils';
+import {
+  cn,
+  formatDateDdMonYyyy,
+  formatDashboardStatDate,
+  nextDateWithDayOfMonth,
+  addMonthsAnnualBundleEnd,
+} from '../../lib/utils';
 import { useToast } from '../../hooks/use-toast';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
@@ -95,30 +101,53 @@ function splitAmountsEqually(total, n) {
   return arr;
 }
 
+/** Home Coming illustrative schedule: every installment due on this calendar day (clamped to month length). */
+const HOME_COMING_EMI_DUE_DOM = 27;
+
+function pad2Ymd(n) {
+  return String(n).padStart(2, '0');
+}
+
+function utcYmdWithDom(year, month0, dom) {
+  const dim = new Date(Date.UTC(year, month0 + 1, 0)).getUTCDate();
+  const day = Math.min(dom, dim);
+  return `${year}-${pad2Ymd(month0 + 1)}-${pad2Ymd(day)}`;
+}
+
+function shiftCalendarMonths(year, month0, delta) {
+  const t = month0 + delta;
+  const yy = year + Math.floor(t / 12);
+  const mm = ((t % 12) + 12) % 12;
+  return { y: yy, m0: mm };
+}
+
 function buildEmiPreview(mode, total, startYmd, durationMonths) {
   if (!total || total <= 0 || mode === 'full' || mode === 'emi_flexi') return [];
   const n = emiInstallmentCount(mode, durationMonths);
   const amounts = splitAmountsEqually(total, n);
-  let base;
+  let startY;
+  let startM0;
   if (startYmd && /^\d{4}-\d{2}-\d{2}$/.test(startYmd)) {
-    base = new Date(`${startYmd}T12:00:00`);
+    const [ys, ms] = startYmd.split('-').map(Number);
+    startY = ys;
+    startM0 = ms - 1;
   } else {
-    base = new Date();
-    base.setHours(12, 0, 0, 0);
+    const now = new Date();
+    now.setHours(12, 0, 0, 0);
+    startY = now.getFullYear();
+    startM0 = now.getMonth();
   }
   const out = [];
-  for (let i = 0; i < n; i++) {
-    const due = new Date(base);
-    if (mode === 'emi_monthly') {
-      due.setMonth(due.getMonth() + i);
-    } else if (mode === 'emi_quarterly') {
-      due.setMonth(due.getMonth() + i * 3);
-    } else {
-      due.setFullYear(due.getFullYear() + i);
-    }
+  for (let i = 0; i < n; i += 1) {
+    let offsetMonths = 0;
+    if (mode === 'emi_monthly') offsetMonths = i;
+    else if (mode === 'emi_quarterly') offsetMonths = i * 3;
+    else offsetMonths = i * 12;
+    const { y, m0 } = shiftCalendarMonths(startY, startM0, offsetMonths);
+    const due = utcYmdWithDom(y, m0, HOME_COMING_EMI_DUE_DOM);
     out.push({
       n: i + 1,
-      due: due.toISOString().slice(0, 10),
+      due,
       amount: amounts[i] ?? 0,
     });
   }
@@ -268,9 +297,6 @@ export default function AnnualPackagePurchasePage() {
     }
     return m;
   }, [emis]);
-  const lateFeePerDay = Number(homeData?.late_fee_per_day ?? 0);
-  const channelizationFee = Number(homeData?.channelization_fee ?? 0);
-  const showLateFeesOnFile = homeData?.show_late_fees === true;
   const schedulePayTag = useMemo(() => {
     const pref = (homeData?.preferred_payment_method || '').trim();
     const indiaTag = (homeData?.client_india_pricing?.india_payment_method || '').trim();
@@ -280,7 +306,7 @@ export default function AnnualPackagePurchasePage() {
   const durationMonths = Math.max(1, Number(pkg.duration_months) || 12);
   const renewalEndYmd = useMemo(() => {
     if (!desiredStart || !/^\d{4}-\d{2}-\d{2}$/.test(desiredStart)) return '';
-    return addMonthsSubscriptionEnd(desiredStart, durationMonths) || '';
+    return addMonthsAnnualBundleEnd(desiredStart, durationMonths) || '';
   }, [desiredStart, durationMonths]);
   const preferredDom = Math.min(
     28,
@@ -858,9 +884,7 @@ export default function AnnualPackagePurchasePage() {
                               {nextSacredYearStartsLabel}
                             </span>
                             <span className="block normal-case tracking-normal text-[11px] font-medium text-[rgba(60,35,115,0.65)] mt-1 max-w-[22rem]">
-                              Start date for the bundle you are paying for (e.g. 3 May 2027). Your Iris journey year is
-                              placed automatically from your Client Garden path (Dew → Bloom, then Year 1–12, Purple Bees
-                              &amp; Iris Bees).
+                              Choose your bundle start date. Your Iris year follows your Client Garden path automatically.
                             </span>
                           </span>
                         </Label>
@@ -921,8 +945,8 @@ export default function AnnualPackagePurchasePage() {
                       </div>
                     ) : (
                       <p className="text-[11px] text-[rgba(90,55,135,0.62)]">
-                        Pick a start date to see the matching end date for your Home Coming bundle (same rule as Client
-                        Garden: month-span anchor).
+                        Pick a start date to see bundle end (30th of the month before the anniversary) and the installment
+                        schedule (due on the 27th).
                       </p>
                     )}
                     {!pinnedProgram ? (
@@ -1265,17 +1289,15 @@ export default function AnnualPackagePurchasePage() {
                       {scheduleTitle}
                     </p>
                     <div className="overflow-x-auto max-h-[min(28rem,70vh)] overflow-y-auto">
-                      <table className="w-full min-w-[900px] table-fixed border-collapse text-center text-[10px]">
+                      <table className="w-full min-w-[720px] table-fixed border-collapse text-center text-[10px]">
                         <colgroup>
-                          <col style={{ width: '6%' }} />
-                          <col style={{ width: '10%' }} />
+                          <col style={{ width: '7%' }} />
                           <col style={{ width: '14%' }} />
-                          <col style={{ width: '6%' }} />
-                          <col style={{ width: '6%' }} />
-                          <col style={{ width: '12%' }} />
-                          <col style={{ width: '12%' }} />
-                          <col style={{ width: '11%' }} />
-                          <col style={{ width: '23%' }} />
+                          <col style={{ width: '16%' }} />
+                          <col style={{ width: '14%' }} />
+                          <col style={{ width: '14%' }} />
+                          <col style={{ width: '14%' }} />
+                          <col style={{ width: '21%' }} />
                         </colgroup>
                         <thead>
                           <tr className="bg-[rgba(252,250,255,0.95)] border-b border-[rgba(160,100,240,0.12)] text-[rgba(80,55,145,0.75)]">
@@ -1287,12 +1309,6 @@ export default function AnnualPackagePurchasePage() {
                             </th>
                             <th className="font-bold uppercase tracking-wide py-2 pl-3 pr-1.5 align-bottom whitespace-nowrap">
                               Due date
-                            </th>
-                            <th className="font-bold uppercase tracking-wide px-0.5 py-2 align-bottom whitespace-nowrap">
-                              Late fee
-                            </th>
-                            <th className="font-bold uppercase tracking-wide px-0.5 py-2 align-bottom whitespace-nowrap">
-                              Ch. fee
                             </th>
                             <th className="font-bold uppercase tracking-wide px-1.5 py-2 align-bottom whitespace-nowrap">
                               Total amount
@@ -1319,16 +1335,10 @@ export default function AnnualPackagePurchasePage() {
                                 : hasNumericAmount
                                   ? `${symbol}${Number(toDisplay(row.amount)).toLocaleString()}`
                                   : '—';
-                            const onTimeLate = '—';
-                            const onTimeCh = '—';
-                            const lateNum = 0;
-                            const chNum = 0;
                             const totalAmountShown =
                               hasNumericAmount
-                                ? `${symbol}${Number(toDisplay(Number(row.amount) + lateNum + chNum)).toLocaleString()}`
+                                ? `${symbol}${Number(toDisplay(Number(row.amount))).toLocaleString()}`
                                 : energyExchangeShown;
-                            const showRateHint =
-                              showLateFeesOnFile && (lateFeePerDay > 0 || channelizationFee > 0);
                             const emiRow =
                               typeof row.n === 'number' && !Number.isNaN(row.n)
                                 ? emiByNumber.get(row.n)
@@ -1373,24 +1383,6 @@ export default function AnnualPackagePurchasePage() {
                                 </td>
                                 <td className="py-2.5 pl-3 pr-1.5 align-middle break-words text-[9px] sm:text-[10px] font-medium">
                                   {dueStr}
-                                </td>
-                                <td className="px-0.5 py-2.5 align-middle text-[9px] tabular-nums break-words">
-                                  {onTimeLate}
-                                  {showRateHint && lateFeePerDay > 0 ? (
-                                    <span className="mt-0.5 block text-[8px] font-normal text-[rgba(100,55,155,0.45)] normal-case">
-                                      if overdue: {symbol}
-                                      {Number(toDisplay(lateFeePerDay)).toLocaleString()}/day
-                                    </span>
-                                  ) : null}
-                                </td>
-                                <td className="px-0.5 py-2.5 align-middle text-[9px] tabular-nums break-words">
-                                  {onTimeCh}
-                                  {showRateHint && channelizationFee > 0 ? (
-                                    <span className="mt-0.5 block text-[8px] font-normal text-[rgba(100,55,155,0.45)] normal-case">
-                                      if late: {symbol}
-                                      {Number(toDisplay(channelizationFee)).toLocaleString()}
-                                    </span>
-                                  ) : null}
                                 </td>
                                 <td className="px-1.5 py-2.5 align-middle font-semibold tabular-nums break-words">
                                   {totalAmountShown}
@@ -1455,12 +1447,10 @@ export default function AnnualPackagePurchasePage() {
                         </tbody>
                       </table>
                     </div>
-                    {showLateFeesOnFile && (lateFeePerDay > 0 || channelizationFee > 0) ? (
-                      <p className="border-t border-[rgba(160,100,240,0.08)] bg-[rgba(250,245,255,0.4)] px-3 py-2 text-[9px] leading-snug text-[rgba(80,55,145,0.58)]">
-                        Illustrative rows assume <strong>on-time</strong> pay — no late or channelization charges. Your
-                        Client Garden rates apply if a kindness date is missed.
-                      </p>
-                    ) : null}
+                    <p className="border-t border-[rgba(160,100,240,0.08)] bg-[rgba(250,245,255,0.4)] px-3 py-2 text-[9px] leading-snug text-[rgba(80,55,145,0.58)]">
+                      Installment due dates are the <strong>27th</strong> of each schedule month (or the last day in shorter
+                      months).
+                    </p>
                   </div>
                 ) : null}
 

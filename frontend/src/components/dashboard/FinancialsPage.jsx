@@ -6,7 +6,7 @@ import {
   formatDateDdMonYyyy,
   formatDashboardStatDate,
   dashboardEmiTable,
-  addMonthsSubscriptionEnd,
+  addMonthsAnnualBundleEnd,
   nextDateWithDayOfMonth,
 } from '../../lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
@@ -710,7 +710,7 @@ const FinancialsPage = () => {
     data?.is_annual_subscriber && (pkg.package_id || '').trim();
   const computedMembershipEnd =
     membershipStart && /^\d{4}-\d{2}-\d{2}$/.test(membershipStart)
-      ? addMonthsSubscriptionEnd(membershipStart, durationMonths)
+      ? addMonthsAnnualBundleEnd(membershipStart, durationMonths)
       : '';
   const anyPaidEmi = emis.some((e) => e && e.status === 'paid');
   const catalogFrom = (pkg.catalog_valid_from || '').trim().slice(0, 10);
