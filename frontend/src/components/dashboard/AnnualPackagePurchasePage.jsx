@@ -103,6 +103,8 @@ function splitAmountsEqually(total, n) {
 
 /** Home Coming illustrative schedule: every installment due on this calendar day (clamped to month length). */
 const HOME_COMING_EMI_DUE_DOM = 27;
+/** First EMI is in the month *before* bundle start (e.g. 27 Apr when the batch starts 3 May). */
+const HOME_COMING_EMI_FIRST_MONTH_OFFSET = -1;
 
 function pad2Ymd(n) {
   return String(n).padStart(2, '0');
@@ -139,10 +141,10 @@ function buildEmiPreview(mode, total, startYmd, durationMonths) {
   }
   const out = [];
   for (let i = 0; i < n; i += 1) {
-    let offsetMonths = 0;
-    if (mode === 'emi_monthly') offsetMonths = i;
-    else if (mode === 'emi_quarterly') offsetMonths = i * 3;
-    else offsetMonths = i * 12;
+    let offsetMonths = HOME_COMING_EMI_FIRST_MONTH_OFFSET;
+    if (mode === 'emi_monthly') offsetMonths = HOME_COMING_EMI_FIRST_MONTH_OFFSET + i;
+    else if (mode === 'emi_quarterly') offsetMonths = HOME_COMING_EMI_FIRST_MONTH_OFFSET + i * 3;
+    else offsetMonths = HOME_COMING_EMI_FIRST_MONTH_OFFSET + i * 12;
     const { y, m0 } = shiftCalendarMonths(startY, startM0, offsetMonths);
     const due = utcYmdWithDom(y, m0, HOME_COMING_EMI_DUE_DOM);
     out.push({
@@ -456,6 +458,24 @@ export default function AnnualPackagePurchasePage() {
     return `${lbl} · anchor your membership start`;
   }, [autoRenewalYear]);
 
+  /** Rich title for the on-record cycle (package name + Iris year for that window). */
+  const lastAnnualCycleDisplayName = useMemo(() => {
+    if (!lap?.start_date && !lap?.end_date) return '';
+    const raw = (lap.program_label || '').trim();
+    const pkgName = (pkg.program_name || '').trim();
+    const programBit =
+      raw && !/^annual program$/i.test(raw)
+        ? raw
+        : pkgName && !/^no active package$/i.test(pkgName)
+          ? pkgName
+          : 'Divine Iris Home Coming';
+    const lapEndStr = (lap.end_date || '').trim().slice(0, 10);
+    const completed = lapEndStr.length === 10 && lapEndStr < todayYmd;
+    const ijYear = Math.min(12, Math.max(1, Number(homeData?.iris_journey?.year) || autoRenewalYear));
+    const nameYear = completed ? Math.max(1, ijYear - 1) : ijYear;
+    return `${programBit} · ${irisYearLabelNoPeriod(nameYear)}`;
+  }, [lap, pkg.program_name, homeData?.iris_journey?.year, autoRenewalYear, todayYmd]);
+
   /** Opening lines: renewal season vs in-journey vs Year 1 welcome. */
   const irisWelcomeLeadEl = useMemo(() => {
     const ij = homeData?.iris_journey;
@@ -627,6 +647,23 @@ export default function AnnualPackagePurchasePage() {
   const paymentScheduleRows = useMemo(
     () => buildPaymentScheduleRows(paymentMode, scheduleSplitTotal, desiredStart, durationMonths),
     [paymentMode, scheduleSplitTotal, desiredStart, durationMonths],
+  );
+
+  const paymentScheduleNumericTotal = useMemo(() => {
+    let s = 0;
+    for (const row of paymentScheduleRows) {
+      if (row.amount == null || row.amountDisplay != null || Number.isNaN(Number(row.amount))) continue;
+      const k = String(row.key || '');
+      if (k.startsWith('emi-') || k === 'pay-full' || k === 'flex-ref') {
+        s += Number(row.amount);
+      }
+    }
+    return Math.round(s * 100) / 100;
+  }, [paymentScheduleRows]);
+
+  const paymentScheduleEmiRowCount = useMemo(
+    () => paymentScheduleRows.filter((r) => String(r.key || '').startsWith('emi-')).length,
+    [paymentScheduleRows],
   );
 
   /** Hero number under “Quoted total”: catalog renewal/purchase reference when checkout line is ₹0. */
@@ -894,7 +931,7 @@ export default function AnnualPackagePurchasePage() {
                         Previous annual cycle · on record
                       </p>
                       <p className="text-sm font-semibold text-[#3b0764]" data-testid="last-annual-package-label">
-                        {lap.program_label || 'Annual program'}
+                        {lastAnnualCycleDisplayName || lap.program_label || 'Annual program'}
                       </p>
                       <dl className="mt-3 flex flex-wrap gap-x-10 gap-y-2 text-[13px] text-[rgba(60,35,115,0.88)] tabular-nums">
                         <div>
@@ -1489,11 +1526,30 @@ export default function AnnualPackagePurchasePage() {
                             );
                           })}
                         </tbody>
+                        {paymentScheduleNumericTotal > 0 ? (
+                          <tfoot>
+                            <tr className="bg-[rgba(244,240,255,0.95)] border-t-2 border-[rgba(160,100,240,0.22)] text-[#3b0764]">
+                              <td colSpan={2} className="px-1.5 py-2.5 text-left text-[9px] font-bold uppercase tracking-wide">
+                                Row total
+                                {paymentScheduleEmiRowCount > 0
+                                  ? ` · ${paymentScheduleEmiRowCount} installment${paymentScheduleEmiRowCount !== 1 ? 's' : ''}`
+                                  : null}
+                              </td>
+                              <td className="py-2.5 text-[9px] text-[rgba(80,55,145,0.55)]">—</td>
+                              <td className="px-1.5 py-2.5 text-[10px] font-bold tabular-nums">
+                                {symbol}
+                                {Number(toDisplay(paymentScheduleNumericTotal)).toLocaleString()}
+                              </td>
+                              <td colSpan={3} className="px-1.5 py-2.5 text-[9px] text-[rgba(80,55,145,0.6)] text-left font-normal normal-case">
+                                Illustrative schedule total (matches quoted bundle).
+                              </td>
+                            </tr>
+                          </tfoot>
+                        ) : null}
                       </table>
                     </div>
                     <p className="border-t border-[rgba(160,100,240,0.08)] bg-[rgba(250,245,255,0.4)] px-3 py-2 text-[9px] leading-snug text-[rgba(80,55,145,0.58)]">
-                      Installment due dates are the <strong>27th</strong> of each schedule month (or the last day in shorter
-                      months).
+                      First installment is due the <strong>month before</strong> your batch start on the <strong>27th</strong> (e.g. 27 Apr when the batch opens 3 May). Following rows stay on the 27th (or the last day in shorter months).
                     </p>
                   </div>
                 ) : null}

@@ -2728,6 +2728,17 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     }
 
     last_annual_package = _last_annual_package_portal_payload(client, sub, pkg_row_home)
+    if last_annual_package:
+        plab = (last_annual_package.get("program_label") or "").strip()
+        if (not plab) or (plab == "Annual program"):
+            pid = (last_annual_package.get("package_id") or sub.get("package_id") or "").strip()
+            if pid:
+                prow = await db.annual_packages.find_one(
+                    {"package_id": pid},
+                    {"_id": 0, "package_name": 1},
+                )
+                if prow and prow.get("package_name"):
+                    last_annual_package["program_label"] = str(prow["package_name"]).strip()
 
     # 5. Programs in their kitty — rich objects with duration, dates, status
     programs_list = await _raw_programs_from_subscription(sub)
