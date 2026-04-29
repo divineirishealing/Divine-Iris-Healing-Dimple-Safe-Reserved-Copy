@@ -24,8 +24,9 @@ import {
 import { useToast } from '../../../hooks/use-toast';
 import { useAuth } from '../../../context/AuthContext';
 import { getBackendUrl } from '../../../lib/config';
-import IndiaDiscountBandsEditor from '../IndiaDiscountBandsEditor';
-import { serverBandsToRows, rowsToBandsPayload, validateBandRows } from '../../../lib/indiaDiscountBandsUi';
+import { serverBandsToRows, validateBandRows } from '../../../lib/indiaDiscountBandsUi';
+import { buildClientFinancePutPayload } from '../../../lib/clientFinanceAdmin';
+import ClientFinanceFields from '../ClientFinanceFields';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -124,33 +125,6 @@ export default function DashboardAccessTab() {
 
   const indiaGpayOpts = useMemo(() => buildIndiaGpayOptions(indiaSite || {}), [indiaSite]);
   const indiaBankOpts = useMemo(() => buildIndiaBankOptions(indiaSite || {}), [indiaSite]);
-
-  /** Show Divine Iris GPay/UPI row picker — driven by preferred method and/or checkout tag. */
-  const showTaggedGpayPicker = useMemo(() => {
-    const pref = (preferredPaymentMethod || '').trim().toLowerCase();
-    const tag = (indiaPaymentMethod || '').trim().toLowerCase();
-    return (
-      pref === 'gpay_upi' ||
-      tag === 'gpay_upi' ||
-      tag === 'gpay' ||
-      tag === 'upi' ||
-      tag === 'any'
-    );
-  }, [preferredPaymentMethod, indiaPaymentMethod]);
-
-  /** Show Divine Iris bank row picker — driven by preferred method and/or checkout tag. */
-  const showTaggedBankPicker = useMemo(() => {
-    const pref = (preferredPaymentMethod || '').trim().toLowerCase();
-    const tag = (indiaPaymentMethod || '').trim().toLowerCase();
-    return (
-      pref === 'bank_transfer' ||
-      pref === 'cash_deposit' ||
-      tag === 'bank_transfer' ||
-      tag === 'cash_deposit' ||
-      tag === 'cash' ||
-      tag === 'any'
-    );
-  }, [preferredPaymentMethod, indiaPaymentMethod]);
 
   const showBulkGpayPicker = useMemo(() => {
     const pref = (bulkPreferred || '').trim().toLowerCase();
@@ -345,7 +319,6 @@ export default function DashboardAccessTab() {
       toast({ title: 'Group discount rules', description: bandErr, variant: 'destructive' });
       return;
     }
-    const bandsPayload = rowsToBandsPayload(indiaDiscountBandRows);
     setSaving(true);
     try {
       const wasPending = isPendingIntakeReview(editing);
@@ -356,30 +329,20 @@ export default function DashboardAccessTab() {
         annual_package_offer_monthly_emi_visible: annualPackageOfferMonthlyEmiVisible,
         portal_login_allowed: portalLoginAllowed,
         intake_pending: false,
-        // Empty string clears (backend treats "" as unset for these fields).
-        preferred_payment_method: (preferredPaymentMethod || '').trim().toLowerCase() || '',
-        india_payment_method: (indiaPaymentMethod || '').trim() || '',
-        india_discount_percent:
-          indiaDiscountPercent !== '' && indiaDiscountPercent !== null && indiaDiscountPercent !== undefined
-            ? parseFloat(String(indiaDiscountPercent).replace(/,/g, '')) || 0
-            : null,
-        india_tax_enabled: indiaTaxEnabled,
-        india_tax_percent: indiaTaxEnabled ? parseFloat(String(indiaTaxPercent)) || 0 : null,
-        india_tax_label: (indiaTaxLabel || 'GST').trim() || 'GST',
-        preferred_india_gpay_id: (preferredIndiaGpayId || '').trim() || '',
-        preferred_india_bank_id: (preferredIndiaBankId || '').trim() || '',
-        india_discount_member_bands: bandsPayload,
-        crm_late_fee_per_day: (() => {
-          if (crmLateFeePerDay === '' || crmLateFeePerDay == null) return null;
-          const n = parseFloat(String(crmLateFeePerDay).replace(/,/g, ''));
-          return Number.isFinite(n) ? n : null;
-        })(),
-        crm_channelization_fee: (() => {
-          if (crmChannelizationFee === '' || crmChannelizationFee == null) return null;
-          const n = parseFloat(String(crmChannelizationFee).replace(/,/g, ''));
-          return Number.isFinite(n) ? n : null;
-        })(),
-        crm_show_late_fees: crmShowLateFees === '' ? null : crmShowLateFees === 'true',
+        ...buildClientFinancePutPayload({
+          preferredPaymentMethod,
+          indiaPaymentMethod,
+          preferredIndiaGpayId,
+          preferredIndiaBankId,
+          indiaDiscountPercent,
+          indiaDiscountBandRows,
+          indiaTaxEnabled,
+          indiaTaxPercent,
+          indiaTaxLabel,
+          crmLateFeePerDay,
+          crmChannelizationFee,
+          crmShowLateFees,
+        }),
       });
       toast({
         title: 'Saved',
@@ -1003,209 +966,34 @@ export default function DashboardAccessTab() {
               </label>
             </div>
 
-            <div>
-              <Label className="text-xs text-gray-600">Preferred payment method</Label>
-              <p className="text-[10px] text-gray-400 mb-1">
-                Choose Bank or GPay/UPI to load Divine Iris accounts from Site Settings → Indian Payment.
-              </p>
-              <select
-                value={preferredPaymentMethod}
-                onChange={(e) => onPreferredPaymentChange(e.target.value)}
-                className="w-full text-sm border rounded-md px-2 py-2 bg-white mt-1"
-                data-testid="dashboard-access-preferred-payment"
-              >
-                <option value="">— Not set —</option>
-                <option value="gpay_upi">GPay / UPI</option>
-                <option value="bank_transfer">Bank transfer</option>
-                <option value="cash_deposit">Cash deposit</option>
-                <option value="stripe">Stripe</option>
-              </select>
-            </div>
-
-            <div>
-              <Label className="text-xs text-gray-600">Payment method tag</Label>
-              <p className="text-[10px] text-gray-400 mb-1.5">
-                Which rails show on checkout. Then pin a Divine Iris GPay or bank row from Site Settings → Indian Payment.
-              </p>
-              <select
-                value={indiaPaymentMethod}
-                onChange={(e) => setIndiaMethodTagged(e.target.value)}
-                className="w-full text-sm border rounded-md px-2 py-2 bg-white mt-1"
-              >
-                <option value="">— Not tagged —</option>
-                <option value="gpay_upi">GPay / UPI</option>
-                <option value="bank_transfer">Bank transfer</option>
-                <option value="cash_deposit">Cash deposit</option>
-                <option value="stripe">Stripe</option>
-                <option value="any">Any / multiple</option>
-              </select>
-            </div>
-
-            {showTaggedGpayPicker &&
-              (indiaGpayOpts.length >= 1 ? (
-                <div>
-                  <Label className="text-xs text-gray-600">Tagged UPI (Divine Iris — Indian Payment)</Label>
-                  <p className="text-[10px] text-gray-400 mb-1">
-                    Rows from site settings (e.g. Priyanka&apos;s GPay). Leave blank to allow every UPI on checkout.
-                  </p>
-                  <select
-                    value={preferredIndiaGpayId}
-                    onChange={(e) => setPreferredIndiaGpayId(e.target.value)}
-                    className="w-full text-sm border rounded-md px-2 py-2 bg-white mt-1"
-                    data-testid="dashboard-access-preferred-gpay"
-                  >
-                    <option value="">All UPIs (full list on payment)</option>
-                    {indiaGpayOpts.map((o) => (
-                      <option key={o.tag_id} value={o.tag_id}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div className="rounded-md border border-amber-200 bg-amber-50/80 px-3 py-2 text-[11px] text-amber-900">
-                  Add GPay / UPI rows under <strong>Admin → Indian Payment</strong> to tag a specific account here.
-                </div>
-              ))}
-
-            {showTaggedBankPicker &&
-              (indiaBankOpts.length >= 1 ? (
-                <div>
-                  <Label className="text-xs text-gray-600">Tagged bank account (Divine Iris — Indian Payment)</Label>
-                  <p className="text-[10px] text-gray-400 mb-1">
-                    Bank details loaded from site settings. Pick which account this client should use.
-                  </p>
-                  <select
-                    value={preferredIndiaBankId}
-                    onChange={(e) => setPreferredIndiaBankId(e.target.value)}
-                    className="w-full text-sm border rounded-md px-2 py-2 bg-white mt-1"
-                    data-testid="dashboard-access-preferred-bank"
-                  >
-                    <option value="">All accounts (student picks)</option>
-                    {indiaBankOpts.map((o) => (
-                      <option key={o.tag_id} value={o.tag_id}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div className="rounded-md border border-amber-200 bg-amber-50/80 px-3 py-2 text-[11px] text-amber-900">
-                  Add bank accounts under <strong>Admin → Indian Payment</strong> so bank details can be tagged here.
-                </div>
-              ))}
-
-            <div>
-              <Label className="text-xs text-gray-600">Discount % on base price</Label>
-              <p className="text-[10px] text-gray-400 mb-1">
-                Applied before GST. Leave empty for no client-specific flat discount (site default applies unless bands match below).
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.5"
-                  value={indiaDiscountPercent}
-                  onChange={(e) => setIndiaDiscountPercent(e.target.value)}
-                  placeholder="e.g. 9"
-                  className="text-sm"
-                />
-                <span className="text-xs text-gray-500">%</span>
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-xs text-gray-600">Optional: group discount by number of people</Label>
-              <p className="text-[10px] text-gray-400 mb-2">
-                Total participants on Sacred Exchange checkout. First matching rule wins. Choose either a percent or a fixed ₹ amount per row. Checkout label: Group discount.
-              </p>
-              <IndiaDiscountBandsEditor rows={indiaDiscountBandRows} onChange={setIndiaDiscountBandRows} />
-            </div>
-
-            <div className="rounded-lg border border-orange-100 bg-orange-50/40 px-3 py-3 space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={indiaTaxEnabled}
-                  onChange={(e) => setIndiaTaxEnabled(e.target.checked)}
-                  className="rounded border-orange-300"
-                />
-                <span className="text-sm font-medium text-gray-800">GST / tax applicable on after-discount price</span>
-              </label>
-              {indiaTaxEnabled && (
-                <div className="grid grid-cols-2 gap-2 pl-1">
-                  <div>
-                    <Label className="text-[10px] text-gray-500">Rate % (0 = no tax)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.5"
-                      value={indiaTaxPercent}
-                      onChange={(e) => setIndiaTaxPercent(e.target.value)}
-                      className="h-9 text-sm mt-0.5"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-gray-500">Label (e.g. GST)</Label>
-                    <Input
-                      value={indiaTaxLabel}
-                      onChange={(e) => setIndiaTaxLabel(e.target.value)}
-                      className="h-9 text-sm mt-0.5"
-                      placeholder="GST"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-3 space-y-3">
-              <p className="text-xs font-semibold text-gray-800">Late fee &amp; channelization (CRM)</p>
-              <p className="text-[10px] text-gray-500">
-                Optional defaults for Sacred Home. Leave blank to use site-wide portal defaults. If this client has a
-                priced subscriber row in Excel, filled cells there still override these (and empty Excel cells fall back
-                to CRM, then site).
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-[10px] text-gray-500">Late fee / day</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={crmLateFeePerDay}
-                    onChange={(e) => setCrmLateFeePerDay(e.target.value)}
-                    placeholder="Site default"
-                    className="h-9 text-sm mt-0.5"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-gray-500">Channelization fee</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={crmChannelizationFee}
-                    onChange={(e) => setCrmChannelizationFee(e.target.value)}
-                    placeholder="Site default"
-                    className="h-9 text-sm mt-0.5"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label className="text-[10px] text-gray-500">Show late-fee line</Label>
-                <select
-                  value={crmShowLateFees}
-                  onChange={(e) => setCrmShowLateFees(e.target.value)}
-                  className="w-full text-sm border rounded-md px-2 py-2 bg-white mt-0.5"
-                >
-                  <option value="">Site default</option>
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
-                </select>
-              </div>
-            </div>
+            <ClientFinanceFields
+              indiaSite={indiaSite}
+              preferredPaymentMethod={preferredPaymentMethod}
+              onPreferredPaymentChange={onPreferredPaymentChange}
+              indiaPaymentMethod={indiaPaymentMethod}
+              onIndiaPaymentMethodChange={setIndiaMethodTagged}
+              preferredIndiaGpayId={preferredIndiaGpayId}
+              onPreferredIndiaGpayIdChange={setPreferredIndiaGpayId}
+              preferredIndiaBankId={preferredIndiaBankId}
+              onPreferredIndiaBankIdChange={setPreferredIndiaBankId}
+              indiaDiscountPercent={indiaDiscountPercent}
+              onIndiaDiscountPercentChange={setIndiaDiscountPercent}
+              indiaDiscountBandRows={indiaDiscountBandRows}
+              onIndiaDiscountBandRowsChange={setIndiaDiscountBandRows}
+              indiaTaxEnabled={indiaTaxEnabled}
+              onIndiaTaxEnabledChange={setIndiaTaxEnabled}
+              indiaTaxPercent={indiaTaxPercent}
+              onIndiaTaxPercentChange={setIndiaTaxPercent}
+              indiaTaxLabel={indiaTaxLabel}
+              onIndiaTaxLabelChange={setIndiaTaxLabel}
+              crmLateFeePerDay={crmLateFeePerDay}
+              onCrmLateFeePerDayChange={setCrmLateFeePerDay}
+              crmChannelizationFee={crmChannelizationFee}
+              onCrmChannelizationFeeChange={setCrmChannelizationFee}
+              crmShowLateFees={crmShowLateFees}
+              onCrmShowLateFeesChange={setCrmShowLateFees}
+              testIdPrefix="dashboard-access"
+            />
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">

@@ -59,6 +59,7 @@ import ContactUpdateLinkTab from './tabs/ContactUpdateLinkTab';
 import AnnualSubscribersTab from './tabs/AnnualSubscribersTab';
 import AnnualPackageOfferTab from './tabs/AnnualPackageOfferTab';
 import AnnualPortalClientsTab from './tabs/AnnualPortalClientsTab';
+import ClientFinancesTab from './tabs/ClientFinancesTab';
 import DashboardAccessTab from './tabs/DashboardAccessTab';
 import RazorpayAdminCheckoutTab from './tabs/RazorpayAdminCheckoutTab';
 
@@ -411,6 +412,7 @@ const AdminPanel = () => {
     { label: 'Clients', icon: Users, tabs: [
       { key: 'clients', label: 'Client Garden', icon: Users },
       { key: 'dashboard_access', label: 'Dashboard access', icon: KeyRound },
+      { key: 'client_finances', label: 'Client finances', icon: IndianRupee },
       { key: 'annual_portal_clients', label: 'Annual + dashboard', icon: Sparkles },
       { key: 'add_annual_subscriber', label: 'Annual template', icon: Package },
       { key: 'subscribers_crm', label: 'Subscriptions & packages', icon: CreditCard },
@@ -545,6 +547,7 @@ const AdminPanel = () => {
         <main
           className={`flex flex-col min-h-0 flex-1 min-w-0 ${
             activeTab === 'dashboard_access' ||
+            activeTab === 'client_finances' ||
             activeTab === 'enrollments' ||
             activeTab === 'annual_portal_clients' ||
             activeTab === 'clients'
@@ -643,7 +646,15 @@ const AdminPanel = () => {
             </div>
           )}
           {activeTab === 'dashboard_access' && <DashboardAccessTab />}
-          {activeTab === 'annual_portal_clients' && <AnnualPortalClientsTab />}
+          {activeTab === 'client_finances' && <ClientFinancesTab />}
+          {activeTab === 'annual_portal_clients' && (
+            <AnnualPortalClientsTab
+              onNavigateToClientFinances={(id) => {
+                if (id) localStorage.setItem('admin_finance_focus_client_id', id);
+                switchTab('client_finances');
+              }}
+            />
+          )}
           {activeTab === 'contact_update_link' && <ContactUpdateLinkTab />}
           {activeTab === 'promotions' && <PromotionsTab programs={programs} />}
           {activeTab === 'discounts' && <DiscountsTab />}

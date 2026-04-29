@@ -6,6 +6,7 @@ import {
   LayoutList,
   Users,
   Pencil,
+  IndianRupee,
   Download,
   Upload,
   UploadCloud,
@@ -538,7 +539,7 @@ function AnnualPortalFilterableTh({
   );
 }
 
-export default function AnnualPortalClientsTab() {
+export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
   const { toast } = useToast();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1377,16 +1378,31 @@ export default function AnnualPortalClientsTab() {
                     )}
                     {flatColVisible('edit') && (
                       <td className={`${tdBase} text-center p-0`}>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-full rounded-none hover:bg-[#d4e8f7]"
-                          onClick={() => setEditRow(r)}
-                          aria-label="Edit annual subscription"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-stretch">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 flex-1 rounded-none hover:bg-[#d4e8f7]"
+                            onClick={() => setEditRow(r)}
+                            aria-label="Edit annual subscription"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          {typeof onNavigateToClientFinances === 'function' && (r.id || '').trim() ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 flex-1 rounded-none hover:bg-emerald-50 text-emerald-800"
+                              title="Client finances — tax, discount, payment rails"
+                              aria-label="Open client finances"
+                              onClick={() => onNavigateToClientFinances((r.id || '').trim())}
+                            >
+                              <IndianRupee className="h-3.5 w-3.5" />
+                            </Button>
+                          ) : null}
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -1614,15 +1630,29 @@ export default function AnnualPortalClientsTab() {
                               {(r.id || '').trim() || '—'}
                             </td>
                             <td className={`${tdBase} text-center p-0`}>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-full rounded-none hover:bg-[#d4e8f7]"
-                                onClick={() => setEditRow(r)}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
+                              <div className="flex items-stretch">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 flex-1 rounded-none hover:bg-[#d4e8f7]"
+                                  onClick={() => setEditRow(r)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                {typeof onNavigateToClientFinances === 'function' && (r.id || '').trim() ? (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 flex-1 rounded-none hover:bg-emerald-50 text-emerald-800"
+                                    title="Client finances — tax, discount, payment rails"
+                                    onClick={() => onNavigateToClientFinances((r.id || '').trim())}
+                                  >
+                                    <IndianRupee className="h-3.5 w-3.5" />
+                                  </Button>
+                                ) : null}
+                              </div>
                             </td>
                           </tr>
                         );})}
