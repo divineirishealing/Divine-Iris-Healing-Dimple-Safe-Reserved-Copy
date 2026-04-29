@@ -304,10 +304,6 @@ export default function AnnualPackagePurchasePage() {
     return formatSchedulePayTag(pref || indiaTag || finMode);
   }, [homeData?.preferred_payment_method, homeData?.client_india_pricing?.india_payment_method, fin.payment_mode]);
   const durationMonths = Math.max(1, Number(pkg.duration_months) || 12);
-  const renewalEndYmd = useMemo(() => {
-    if (!desiredStart || !/^\d{4}-\d{2}-\d{2}$/.test(desiredStart)) return '';
-    return addMonthsAnnualBundleEnd(desiredStart, durationMonths) || '';
-  }, [desiredStart, durationMonths]);
   const preferredDom = Math.min(
     28,
     Math.max(0, typeof pkg.preferred_membership_day_of_month === 'number' ? pkg.preferred_membership_day_of_month : parseInt(pkg.preferred_membership_day_of_month, 10) || 0),
@@ -394,12 +390,46 @@ export default function AnnualPackagePurchasePage() {
   const lap = homeData?.last_annual_package;
   const portalLife = homeData?.annual_portal_lifecycle;
   const lapEndYmd = (lap?.end_date || '').trim().slice(0, 10);
+  const lapStartYmd = (lap?.start_date || '').trim().slice(0, 10);
   const todayYmd = new Date().toISOString().slice(0, 10);
   const lapEnded = lapEndYmd.length === 10 && lapEndYmd < todayYmd;
   const isRenewalSeason =
     portalLife?.status === 'expired' ||
     portalLife?.status === 'renewal_due' ||
     lapEnded;
+  const subscriptionStartYmd = (pkg.start_date || '').trim().slice(0, 10);
+  const subscriptionEndYmd = (pkg.end_date || '').trim().slice(0, 10);
+  const recordStartYmd = /^\d{4}-\d{2}-\d{2}$/.test(subscriptionStartYmd)
+    ? subscriptionStartYmd
+    : lapStartYmd;
+  const recordEndYmd = /^\d{4}-\d{2}-\d{2}$/.test(subscriptionEndYmd)
+    ? subscriptionEndYmd
+    : lapEndYmd;
+  const anyEmiPaid = useMemo(
+    () => (emis || []).some((e) => e && String(e.status).toLowerCase() === 'paid'),
+    [emis],
+  );
+  const hasRecordedAnnualPayment =
+    anyEmiPaid ||
+    (Number(fin.total_fee || 0) > 0 && Number(fin.total_paid || 0) > 0);
+  /** After a payment is on file, subscription dates are fixed (renewal season opens choosing the next cycle). */
+  const membershipCycleDatesLocked =
+    !isRenewalSeason &&
+    hasRecordedAnnualPayment &&
+    /^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd);
+  const cycleDisplayStart = useMemo(() => {
+    if (membershipCycleDatesLocked) return recordStartYmd;
+    return desiredStart;
+  }, [membershipCycleDatesLocked, recordStartYmd, desiredStart]);
+  const cycleDisplayEnd = useMemo(() => {
+    if (membershipCycleDatesLocked && /^\d{4}-\d{2}-\d{2}$/.test(recordEndYmd)) {
+      return recordEndYmd;
+    }
+    if (cycleDisplayStart && /^\d{4}-\d{2}-\d{2}$/.test(cycleDisplayStart)) {
+      return addMonthsAnnualBundleEnd(cycleDisplayStart, durationMonths) || '';
+    }
+    return '';
+  }, [membershipCycleDatesLocked, recordEndYmd, cycleDisplayStart, durationMonths]);
   const autoRenewalYear = useMemo(
     () => Math.min(12, Math.max(1, parseInt(homeData?.renewal_entering_iris_year, 10) || 1)),
     [homeData?.renewal_entering_iris_year],
@@ -510,6 +540,13 @@ export default function AnnualPackagePurchasePage() {
       setPaymentMode('full');
     }
   }, [prefsLoaded, homeData, visiblePayModes, paymentMode]);
+
+  useEffect(() => {
+    if (!homeData || !prefsLoaded || !membershipCycleDatesLocked) return;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd)) {
+      setDesiredStart((prev) => (prev === recordStartYmd ? prev : recordStartYmd));
+    }
+  }, [homeData, prefsLoaded, membershipCycleDatesLocked, recordStartYmd]);
 
   useEffect(() => {
     if (!pinnedProgram || !baseCurrency) {
@@ -890,24 +927,31 @@ export default function AnnualPackagePurchasePage() {
                         </Label>
                         <Input
                           type="date"
-                          className="h-10 mt-1.5 w-[11.75rem] border-[rgba(160,80,220,0.22)] bg-white/75"
+                          className={cn(
+                            'h-10 mt-1.5 w-[11.75rem] border-[rgba(160,80,220,0.22)] bg-white/75',
+                            membershipCycleDatesLocked &&
+                              'cursor-not-allowed opacity-95 bg-violet-50/80 border-violet-200/90',
+                          )}
                           value={desiredStart}
                           onChange={(e) => setDesiredStart(e.target.value)}
+                          disabled={membershipCycleDatesLocked}
                           data-testid="annual-offer-start-date-hero"
                         />
+                        {membershipCycleDatesLocked ? (
+                          <p className="text-[10px] text-[rgba(80,45,130,0.72)] mt-1.5 leading-snug">
+                            Start and bundle end are locked to your Sacred Exchange record after payment.
+                          </p>
+                        ) : null}
                       </div>
                       <div className="min-w-0 max-w-full sm:max-w-[min(100%,20rem)] rounded-xl border border-white/80 bg-white/55 px-3 py-2">
                         <p className="text-[9px] uppercase tracking-[0.12em] text-[rgba(100,55,155,0.45)] font-semibold mb-1">
                           Entering (automatic)
                         </p>
-                        <p
-                          className="text-[12px] font-semibold text-[#3b0764] leading-snug"
-                          data-testid="annual-offer-renewal-year-auto"
-                        >
-                          {irisYearLabelNoPeriod(autoRenewalYear)}
+                        <p className="text-[11px] text-[rgba(60,35,115,0.55)] leading-snug">
+                          Placement follows your Client Garden path{membershipCycleDatesLocked ? ' — see dates below.' : '.'}
                         </p>
                       </div>
-                      {preferredDom >= 1 && preferredDom <= 28 ? (
+                      {preferredDom >= 1 && preferredDom <= 28 && !membershipCycleDatesLocked ? (
                         <Button
                           type="button"
                           variant="outline"
@@ -923,7 +967,7 @@ export default function AnnualPackagePurchasePage() {
                         </Button>
                       ) : null}
                     </div>
-                    {renewalEndYmd ? (
+                    {cycleDisplayEnd ? (
                       <div className="rounded-xl border border-violet-200/60 bg-white/65 px-3 py-2.5">
                         <p className="text-[11px] font-semibold text-[#3b0764]">
                           {irisYearLabelNoPeriod(autoRenewalYear)}
@@ -933,13 +977,13 @@ export default function AnnualPackagePurchasePage() {
                             <dt className="text-[9px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-0.5">
                               New cycle start
                             </dt>
-                            <dd>{formatDateDdMonYyyy(desiredStart)}</dd>
+                            <dd>{formatDateDdMonYyyy(cycleDisplayStart)}</dd>
                           </div>
                           <div>
                             <dt className="text-[9px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-0.5">
                               Bundle end ({durationMonths} mo)
                             </dt>
-                            <dd>{formatDateDdMonYyyy(renewalEndYmd)}</dd>
+                            <dd>{formatDateDdMonYyyy(cycleDisplayEnd)}</dd>
                           </div>
                         </dl>
                       </div>
