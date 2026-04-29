@@ -1395,8 +1395,8 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                               variant="ghost"
                               size="sm"
                               className="h-7 flex-1 rounded-none hover:bg-emerald-50 text-emerald-800"
-                              title="Client finances — tax, discount, payment rails"
-                              aria-label="Open client finances"
+                              title="Iris Annual Abundance — tax, discount, payment rails"
+                              aria-label="Open Iris Annual Abundance"
                               onClick={() => onNavigateToClientFinances((r.id || '').trim())}
                             >
                               <IndianRupee className="h-3.5 w-3.5" />
@@ -1646,7 +1646,8 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                                     variant="ghost"
                                     size="sm"
                                     className="h-7 flex-1 rounded-none hover:bg-emerald-50 text-emerald-800"
-                                    title="Client finances — tax, discount, payment rails"
+                                    title="Iris Annual Abundance — tax, discount, payment rails"
+                                    aria-label="Open Iris Annual Abundance"
                                     onClick={() => onNavigateToClientFinances((r.id || '').trim())}
                                   >
                                     <IndianRupee className="h-3.5 w-3.5" />

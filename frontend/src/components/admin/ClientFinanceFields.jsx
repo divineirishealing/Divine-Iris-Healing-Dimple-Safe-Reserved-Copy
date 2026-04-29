@@ -6,7 +6,7 @@ import IndiaDiscountBandsEditor from './IndiaDiscountBandsEditor';
 
 /**
  * Shared block: preferred / tagged India rails, discounts, tax, CRM late & channelization fees.
- * Used by Dashboard access and Client finances tabs (single source of truth for UI).
+ * Used by Dashboard access and Iris Annual Abundance tabs (single source of truth for UI).
  */
 export default function ClientFinanceFields({
   indiaSite,

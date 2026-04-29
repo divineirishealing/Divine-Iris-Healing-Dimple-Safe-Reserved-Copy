@@ -412,7 +412,7 @@ const AdminPanel = () => {
     { label: 'Clients', icon: Users, tabs: [
       { key: 'clients', label: 'Client Garden', icon: Users },
       { key: 'dashboard_access', label: 'Dashboard access', icon: KeyRound },
-      { key: 'client_finances', label: 'Client finances', icon: IndianRupee },
+      { key: 'client_finances', label: 'Iris Annual Abundance', icon: IndianRupee },
       { key: 'annual_portal_clients', label: 'Annual + dashboard', icon: Sparkles },
       { key: 'add_annual_subscriber', label: 'Annual template', icon: Package },
       { key: 'subscribers_crm', label: 'Subscriptions & packages', icon: CreditCard },

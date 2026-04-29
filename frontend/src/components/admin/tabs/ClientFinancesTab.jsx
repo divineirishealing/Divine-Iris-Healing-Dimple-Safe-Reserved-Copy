@@ -285,7 +285,7 @@ export default function ClientFinancesTab() {
     <div className="flex flex-col flex-1 min-h-0 p-6">
       <div className="flex items-center gap-2 mb-1 shrink-0">
         <IndianRupee size={20} className="text-[#D4AF37]" />
-        <h2 className="text-lg font-semibold text-gray-900">Client finances</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Iris Annual Abundance</h2>
       </div>
       <p className="text-xs text-gray-500 mb-4 shrink-0 max-w-3xl">
         <strong>Annual money view:</strong> Home Coming window, subscriber fee &amp; EMI mode from Excel/Subscribers, CRM
@@ -392,7 +392,7 @@ export default function ClientFinancesTab() {
       <Dialog open={dialogOpen} onOpenChange={(o) => !o && closeDialog()}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="client-finances-edit-dialog">
           <DialogHeader>
-            <DialogTitle>Annual subscriber finances</DialogTitle>
+            <DialogTitle>Iris Annual Abundance</DialogTitle>
             <DialogDescription>
               {(editing?.name || 'Client').trim()}
               {editing?.email ? ` · ${(editing.email || '').trim()}` : null}

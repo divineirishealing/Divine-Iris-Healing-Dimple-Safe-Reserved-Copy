@@ -827,7 +827,7 @@ async def list_annual_portal_subscribers():
 @router.get("/annual-finance-roster")
 async def list_annual_finance_roster(search: Optional[str] = None):
     """
-    Clients who should appear on **Client finances**: annual CRM flag **or** priced Home Coming window **or**
+    Clients who should appear on **Iris Annual Abundance**: annual CRM flag **or** priced Home Coming window **or**
     paid subscriber row (package / fee / EMIs). Includes people who have Excel/subscription data but never had
     ``annual_member_dashboard`` toggled in Client Garden.
     """
