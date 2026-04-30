@@ -317,7 +317,7 @@ const DashboardLayout = () => {
             </div>
           </NavLink>
 
-          <div className="flex-1 overflow-y-auto overscroll-contain px-2.5 py-2 pb-6">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-2.5 py-2 pb-6 font-lato">
             <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-gray-400 px-2.5 pt-1 pb-2">Journey</p>
             {visibleNavItems.map((item) => {
               const to = item.hash ? { pathname: '/dashboard', hash: item.hash } : item.to;
@@ -329,7 +329,7 @@ const DashboardLayout = () => {
                   end={item.exact}
                   onClick={() => setSidebarOpen(false)}
                   className={cn(
-                    'flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[13px] font-medium transition-colors mb-0.5',
+                    'flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[12px] font-medium uppercase tracking-[0.06em] transition-colors mb-0.5 font-lato',
                     active ? 'bg-violet-100 text-violet-900 shadow-sm shadow-violet-100' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   )}
                 >
@@ -346,13 +346,13 @@ const DashboardLayout = () => {
             {dv.nav_roadmap && (
               <>
                 <div className="border-t border-gray-100 my-3 mx-1" />
-                <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-gray-400 px-2.5 pt-1 pb-2">More</p>
+                <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-gray-400 px-2.5 pt-1 pb-2 font-lato">More</p>
                 <NavLink
                   to="/dashboard/roadmap"
                   onClick={() => setSidebarOpen(false)}
                   className={({ isActive }) =>
                     cn(
-                      'flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[13px] font-medium transition-colors mb-0.5',
+                      'flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[12px] font-medium uppercase tracking-[0.06em] transition-colors mb-0.5 font-lato',
                       isActive
                         ? 'bg-violet-100 text-violet-900 shadow-sm shadow-violet-100'
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -370,7 +370,7 @@ const DashboardLayout = () => {
             )}
           </div>
 
-          <div className="shrink-0 border-t border-gray-100 px-2.5 py-3 bg-gray-50/80">
+          <div className="shrink-0 border-t border-gray-100 px-2.5 py-3 bg-gray-50/80 font-lato">
             <button
               type="button"
               onClick={() => {
@@ -381,7 +381,7 @@ const DashboardLayout = () => {
                 logout();
                 window.location.href = '/';
               }}
-              className="flex w-full items-center gap-3 px-2.5 py-2.5 rounded-xl text-[13px] font-medium text-rose-600/90 hover:bg-rose-50 hover:text-rose-700 transition-colors"
+              className="flex w-full items-center gap-3 px-2.5 py-2.5 rounded-xl text-[12px] font-medium uppercase tracking-[0.06em] text-rose-600/90 hover:bg-rose-50 hover:text-rose-700 transition-colors"
             >
               <LogOut size={18} className="shrink-0 opacity-70" strokeWidth={1.75} />
               <span>{user?.impersonating ? 'End preview' : 'Sign Out'}</span>
