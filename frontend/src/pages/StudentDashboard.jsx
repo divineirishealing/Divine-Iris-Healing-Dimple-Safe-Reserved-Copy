@@ -407,6 +407,10 @@ const StudentDashboard = () => {
       : `Year ${effectiveIrisYear}: ${effectiveIrisTitle}`;
     return bit.toUpperCase();
   }, [effectiveIrisYear, effectiveIrisTitle, effectiveIrisSubtitle]);
+  /** Right-column journey badge: show with package *or* Home Coming payload so the Iris year line is never orphaned from HC copy. */
+  const showDashboardHeroJourneyBanner = Boolean(
+    heroIrisJourneyBanner && (!isNoActivePackage || Boolean(homeComing)),
+  );
   const journeyDisplayPct = progressPct > 0 ? progressPct : 64;
   const soulAlignPct = progressPct > 0 ? Math.min(99, progressPct + 16) : 80;
   const bodyAlignPct = progressPct > 0 ? Math.min(99, progressPct + 8) : 72;
@@ -548,9 +552,11 @@ const StudentDashboard = () => {
               <p className="text-[13px] font-light text-slate-600 tracking-[0.03em] max-w-xl leading-snug">
                 {welcomeSubtitle}
               </p>
-              {!isNoActivePackage && heroIrisJourneyBanner ? (
+            </div>
+            <div className="relative z-[1] flex flex-col gap-4 items-stretch md:items-end md:justify-center shrink-0 w-full md:w-auto md:max-w-[min(100%,22rem)]">
+              {showDashboardHeroJourneyBanner ? (
                 <div
-                  className="mt-3 flex flex-wrap items-start gap-2.5 sm:gap-3 rounded-2xl border border-[rgba(190,150,55,0.42)] bg-gradient-to-br from-white via-[#fffdfb] to-[rgba(255,252,245,0.98)] px-3.5 py-2.5 sm:px-4 sm:py-3 shadow-[0_6px_28px_rgba(120,90,30,0.1),inset_0_1px_0_rgba(255,255,255,0.95)] max-w-xl ring-1 ring-amber-200/40"
+                  className="flex w-full md:w-auto md:max-w-sm md:self-end flex-wrap items-start gap-2.5 sm:gap-3 rounded-2xl border border-[rgba(190,150,55,0.42)] bg-gradient-to-br from-white via-[#fffdfb] to-[rgba(255,252,245,0.98)] px-3.5 py-2.5 sm:px-4 sm:py-3 shadow-[0_6px_28px_rgba(120,90,30,0.1),inset_0_1px_0_rgba(255,255,255,0.95)] ring-1 ring-amber-200/40 md:text-left"
                   data-testid="dashboard-hero-iris-year"
                 >
                   <span
@@ -566,8 +572,7 @@ const StudentDashboard = () => {
                   </p>
                 </div>
               ) : null}
-            </div>
-            <div className="relative z-[1] flex flex-wrap items-stretch justify-start md:justify-end gap-3 shrink-0">
+              <div className="flex flex-wrap items-stretch justify-start md:justify-end gap-3 w-full md:w-auto md:self-end">
               {/* Sessions / Compass / Days Active — hidden when no subscriber package (re-enable when journey stats are live). */}
               {!isNoActivePackage &&
                 [
@@ -585,6 +590,7 @@ const StudentDashboard = () => {
                     </div>
                   </div>
                 ))}
+              </div>
             </div>
           </div>
         </section>
