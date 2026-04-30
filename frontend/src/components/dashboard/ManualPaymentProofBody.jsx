@@ -141,7 +141,7 @@ export function ManualPaymentProofBody({
     load();
   }, [enrollmentId]);
 
-  /** All India GPay / UPI rows from site settings; user tags one on the form when several exist. */
+  /** All India GPay / UPI rows from site settings (full list). */
   const gpayOptionsAll = useMemo(() => {
     const opts = buildIndiaGpayOptions({
       india_gpay_accounts: settings.india_gpay_accounts,
@@ -155,20 +155,26 @@ export function ManualPaymentProofBody({
     }));
   }, [settings.india_gpay_accounts, settings.india_upi_id]);
 
-  useEffect(() => {
+  /** When admin tags this member to one UPI row, only that payee + QR (same idea as filtered bank list). */
+  const gpayOptionsForForm = useMemo(() => {
     const pref = (studentPrefs.preferred_india_gpay_id || '').trim();
-    if (gpayOptionsAll.length === 0) return;
-    if (pref) {
-      const idx = gpayOptionsAll.findIndex((g) => gpayRowMatchesPreference(g, pref));
-      setSelectedGpayIndex(idx >= 0 ? idx : 0);
-    } else {
-      setSelectedGpayIndex(0);
-    }
+    if (!pref) return gpayOptionsAll;
+    return gpayOptionsAll.filter((g) => gpayRowMatchesPreference(g, pref));
   }, [gpayOptionsAll, studentPrefs.preferred_india_gpay_id]);
 
+  useEffect(() => {
+    if (gpayOptionsForForm.length === 0) return;
+    const pref = (studentPrefs.preferred_india_gpay_id || '').trim();
+    if (pref) {
+      setSelectedGpayIndex(0);
+      return;
+    }
+    setSelectedGpayIndex((i) => Math.min(Math.max(0, i), gpayOptionsForForm.length - 1));
+  }, [gpayOptionsForForm, studentPrefs.preferred_india_gpay_id]);
+
   const selectedGpay =
-    gpayOptionsAll.length > 0
-      ? gpayOptionsAll[Math.min(Math.max(0, selectedGpayIndex), gpayOptionsAll.length - 1)]
+    gpayOptionsForForm.length > 0
+      ? gpayOptionsForForm[Math.min(Math.max(0, selectedGpayIndex), gpayOptionsForForm.length - 1)]
       : null;
 
   const banks = useMemo(() => {
@@ -204,9 +210,9 @@ export function ManualPaymentProofBody({
   /** Prefer UPI when only GPay rows exist; bank transfer when only bank. */
   useEffect(() => {
     if (loading) return;
-    if (gpayOptionsAll.length > 0 && banks.length === 0) setPaymentMethod('upi');
-    else if (gpayOptionsAll.length === 0 && banks.length > 0) setPaymentMethod('bank_transfer');
-  }, [loading, gpayOptionsAll.length, banks.length]);
+    if (gpayOptionsForForm.length > 0 && banks.length === 0) setPaymentMethod('upi');
+    else if (gpayOptionsForForm.length === 0 && banks.length > 0) setPaymentMethod('bank_transfer');
+  }, [loading, gpayOptionsForForm.length, banks.length]);
 
   const currentBank = banks[selectedBank] || {};
   const hasBank = banks.length > 0;
@@ -429,13 +435,13 @@ export function ManualPaymentProofBody({
                   </div>
                 )}
 
-                {studentPrefs.preferred_india_gpay_id && gpayOptionsAll.length === 0 && (
+                {studentPrefs.preferred_india_gpay_id && gpayOptionsForForm.length === 0 && (
                   <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[11px] text-amber-950">
                     Your membership is set to a specific UPI, but it does not match any row in India proof. Ask your admin to fix the tag or site settings.
                   </div>
                 )}
 
-                {gpayOptionsAll.length > 0 && selectedGpay && (
+                {gpayOptionsForForm.length > 0 && selectedGpay && (
                   <div className="border rounded-xl p-5 mb-5 border-emerald-200 bg-emerald-50/50">
                     <div className="flex items-center gap-2 mb-3">
                       <Smartphone size={16} className="text-emerald-700" />
@@ -445,13 +451,13 @@ export function ManualPaymentProofBody({
                           : 'Divine Iris — Google Pay / UPI'}
                       </h3>
                     </div>
-                    {gpayOptionsAll.length > 1 ? (
+                    {gpayOptionsForForm.length > 1 ? (
                       <div className="mb-4">
                         <p className="text-[10px] font-semibold text-gray-700 mb-2">
                           Tag the account you paid to (only that QR is shown) *
                         </p>
                         <div className="space-y-2">
-                          {gpayOptionsAll.map((g, i) => (
+                          {gpayOptionsForForm.map((g, i) => (
                             <label
                               key={g.id || g.upi_id || i}
                               className={`flex items-start gap-2 rounded-lg border p-2.5 cursor-pointer text-xs ${
