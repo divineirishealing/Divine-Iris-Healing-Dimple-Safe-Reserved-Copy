@@ -690,103 +690,8 @@ const StudentDashboard = () => {
 
         <div className="w-full max-w-[68rem] mx-auto pl-4 pr-6 sm:pr-8 md:pl-6 md:pr-10 lg:pr-12 flex flex-col items-center">
 
-        {/* Desktop: ribbon schedule + bento (tall center spans two rows) */}
+        {/* Desktop: bento (schedule + Sacred Exchange tiles removed — use sidebar for calendar & financials) */}
         <div className="w-full hidden lg:block space-y-4">
-          {dv.schedule_card && (
-          <SanctuaryPetalCard overviewV2
-            variant="saffron"
-            testId="petal-schedule"
-            className="w-full p-4"
-            delay={100}
-            onClick={() => navigate('/dashboard/sessions')}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/20 flex items-center justify-center shrink-0">
-                  <Calendar size={16} className="text-[#D4AF37]" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{scheduleEyebrow}</h3>
-                  <p className="text-base font-bold text-slate-900 mt-0.5 leading-tight truncate">
-                    {scheduleHeadline}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight size={15} className="text-slate-300 group-hover:text-[#D4AF37] transition-colors shrink-0 mt-0.5" />
-            </div>
-            {sessionProgressSummary.sessionsDated > 0 && (
-              <p
-                className="mt-1.5 text-[10px] leading-snug text-slate-600"
-                data-testid="dashboard-session-progress"
-              >
-                <span className="font-semibold text-emerald-700 tabular-nums">{sessionProgressSummary.sessionsAvailed}</span>
-                {' '}session{sessionProgressSummary.sessionsAvailed !== 1 ? 's' : ''} availed ·{' '}
-                <span className="font-semibold text-amber-800 tabular-nums">{sessionProgressSummary.sessionsYetToAvail}</span>
-                {' '}yet to avail
-                <span className="text-slate-400"> · {sessionProgressSummary.programsAllAvailed}/{sessionProgressSummary.programsWithDated} program{sessionProgressSummary.programsWithDated !== 1 ? 's' : ''} fully done</span>
-              </p>
-            )}
-            {dashboardScheduleRows.length > 0 ? (
-              <div className="mt-2 border-t border-slate-100 pt-2 overflow-x-auto" onClick={(e) => e.stopPropagation()}>
-                <table className={cn(dashboardStudentScheduleTable.table, 'text-xs')} data-testid="dashboard-schedule-table">
-                  <thead>
-                    <tr className={cn(dashboardStudentScheduleTable.theadRow, 'text-[9px]')}>
-                      <th className={cn(dashboardStudentScheduleTable.th, 'pr-1 pb-1')}>Program</th>
-                      <th className={cn(dashboardStudentScheduleTable.th, 'whitespace-nowrap pb-1')}>Start</th>
-                      <th className={cn(dashboardStudentScheduleTable.th, 'whitespace-nowrap pb-1')}>End</th>
-                      <th className={cn(dashboardStudentScheduleTable.th, 'pb-1')}>Time</th>
-                      <th className={cn(dashboardStudentScheduleTable.thRight, 'w-[1%] pb-1')}>Mode</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dashboardScheduleRows.slice(0, 4).map((s) => (
-                      <tr key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="border-b border-slate-100">
-                        <td className={cn(dashboardStudentScheduleTable.tdProgram, 'pr-1 py-1.5 text-xs max-w-[120px]')} title={s.program_name}>
-                          {s.program_name}
-                        </td>
-                        <td className={cn(dashboardStudentScheduleTable.tdDate, 'py-1.5 text-xs')}>
-                          {formatDateDdMonYyyy(s.date) || '—'}
-                        </td>
-                        <td className={cn(dashboardStudentScheduleTable.tdDate, 'py-1.5 text-xs')}>
-                          {formatDateDdMonYyyy(s.end_date) || '—'}
-                        </td>
-                        <td className={cn(dashboardStudentScheduleTable.tdTime, 'py-1.5 text-xs')}>{formatDashboardTime(s.time)}</td>
-                        <td className={cn(dashboardStudentScheduleTable.td, 'text-right pl-1 py-1.5')}>
-                          <ScheduleModeToggle slot={s} onModeSaved={patchScheduleSlot} compact />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <>
-                <p className="mt-2 text-xs text-slate-600">{scheduleDetail}</p>
-                {scheduleTags.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {scheduleTags.map((t) => (
-                      <span key={t} className="text-[9px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80">{t}</span>
-                    ))}
-                  </div>
-                )}
-                {homeData?.schedule_preview?.length === 0 && !homeData?.package?.scheduled_dates?.length && !homeData?.upcoming_programs?.[0] && (
-                  <p className="mt-2 text-[11px] text-slate-400 italic">Open the calendar when your dates are set.</p>
-                )}
-              </>
-            )}
-            <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
-              <p className="text-[9px] text-slate-600 leading-snug line-clamp-2">
-                <span className="uppercase tracking-[0.1em] text-amber-800/90">{SANCTUARY_REFERENCE.speaksTagAnnouncement}</span>
-                {' '}{SANCTUARY_REFERENCE.scheduleAnnouncement}
-              </p>
-              <p className="text-[9px] text-slate-500 leading-snug line-clamp-2">
-                <span className="uppercase tracking-[0.08em] text-amber-800/75">{SANCTUARY_REFERENCE.speaksTagEvent}</span>
-                {' '}{SANCTUARY_REFERENCE.scheduleEventNote}
-              </p>
-            </div>
-          </SanctuaryPetalCard>
-          )}
-
           {dv.loyalty_points && pts?.enabled && (
             <SanctuaryPetalCard overviewV2 variant="gold" className="w-full p-4" testId="petal-points" delay={150} onClick={() => navigate('/dashboard/points')}>
               <div className="flex items-start justify-between gap-3">
@@ -955,49 +860,6 @@ const StudentDashboard = () => {
             </SanctuaryPetalCard>
             )}
 
-            {/* Financials — compact tile */}
-            {dv.financials_card && (
-            <SanctuaryPetalCard overviewV2
-              variant="ember"
-              testId="petal-financials"
-              className="p-4 min-h-0"
-              delay={400}
-              onClick={() => navigate('/dashboard/financials')}
-            >
-              <div className="flex items-center gap-2.5 mb-2">
-                <div className="w-9 h-9 rounded-xl bg-[#84A98C]/20 flex items-center justify-center shrink-0">
-                  <CreditCard size={16} className="text-[#84A98C]" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{SANCTUARY_REFERENCE.financialsEye}</h3>
-                  <p className="text-sm font-bold text-slate-900 truncate">
-                    {displayProgramLabel}
-                  </p>
-                </div>
-              </div>
-              {pkg.total_sessions > 0 && (
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-[9px] text-slate-500">
-                    <span>{pkg.used_sessions} Used</span>
-                    <span>{pkg.total_sessions - pkg.used_sessions} Left</span>
-                  </div>
-                  <div className="h-1 rounded-full bg-slate-100 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#84A98C] to-[#D4AF37] transition-all duration-1000"
-                      style={{ width: `${progressPct}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-[9px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                  {homeData?.financials?.status || 'N/A'}
-                </span>
-                <ArrowRight size={13} className="text-slate-300 group-hover:text-[#84A98C] transition-colors" />
-              </div>
-            </SanctuaryPetalCard>
-            )}
-
             {/* Diary — bento lower-left */}
             {dv.intentions_diary && (
             <SanctuaryPetalCard overviewV2
@@ -1121,77 +983,8 @@ const StudentDashboard = () => {
           </div>
         </div>
 
-        {/* ─── MOBILE LAYOUT ─── */}
+        {/* ─── MOBILE LAYOUT (schedule + Sacred Exchange tiles removed — sidebar links remain) ─── */}
         <div className="lg:hidden w-full max-w-md mx-auto space-y-3">
-          {dv.schedule_card && (dashboardScheduleRows.length > 0 ? (
-            <SanctuaryPetalCard overviewV2 variant="saffron" testId="petal-schedule-m" className="p-4" delay={100} onClick={() => navigate('/dashboard/sessions')}>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#D4AF3720' }}>
-                  <Calendar size={17} style={{ color: '#D4AF37' }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{scheduleEyebrow}</h3>
-                  <p className="text-xs text-slate-500">Tap card for calendar</p>
-                </div>
-                <ChevronRight size={16} className="text-slate-300 shrink-0" />
-              </div>
-              {sessionProgressSummary.sessionsDated > 0 && (
-                <p className="mb-2 text-[10px] leading-snug text-slate-600" data-testid="dashboard-session-progress-m">
-                  <span className="font-semibold text-emerald-700 tabular-nums">{sessionProgressSummary.sessionsAvailed}</span>
-                  {' '}availed ·{' '}
-                  <span className="font-semibold text-amber-800 tabular-nums">{sessionProgressSummary.sessionsYetToAvail}</span>
-                  {' '}yet to avail
-                  <span className="text-slate-400"> · {sessionProgressSummary.sessionsDated} dated</span>
-                </p>
-              )}
-              <div className="border-t border-slate-100 pt-2 overflow-x-auto -mx-1 px-1" onClick={(e) => e.stopPropagation()}>
-                <table className={cn(dashboardStudentScheduleTable.table, 'min-w-[300px] text-xs')}>
-                  <thead>
-                    <tr className={dashboardStudentScheduleTable.theadRow}>
-                      <th className={cn(dashboardStudentScheduleTable.th, 'pr-0.5')}>Program</th>
-                      <th className={cn(dashboardStudentScheduleTable.th, 'px-0.5 whitespace-nowrap')}>Start</th>
-                      <th className={cn(dashboardStudentScheduleTable.th, 'px-0.5 whitespace-nowrap')}>End</th>
-                      <th className={cn(dashboardStudentScheduleTable.th, 'px-0.5')}>Time</th>
-                      <th className={cn(dashboardStudentScheduleTable.thRight, 'pl-0.5 w-[1%]')}>Mode</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dashboardScheduleRows.slice(0, 4).map((s) => (
-                      <tr key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="border-b border-slate-100">
-                        <td className={cn(dashboardStudentScheduleTable.tdProgram, 'max-w-[72px] py-1.5 pr-0.5 text-xs')} title={s.program_name}>{s.program_name}</td>
-                        <td className={cn(dashboardStudentScheduleTable.tdDate, 'px-0.5 py-1.5')}>{formatDateDdMonYyyy(s.date) || '—'}</td>
-                        <td className={cn(dashboardStudentScheduleTable.tdDate, 'px-0.5 py-1.5')}>{formatDateDdMonYyyy(s.end_date) || '—'}</td>
-                        <td className={cn(dashboardStudentScheduleTable.tdTime, 'px-0.5 py-1.5')}>{formatDashboardTime(s.time)}</td>
-                        <td className={cn(dashboardStudentScheduleTable.td, 'py-1.5 pl-0.5 text-right')}><ScheduleModeToggle slot={s} onModeSaved={patchScheduleSlot} compact /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </SanctuaryPetalCard>
-          ) : (
-            <SanctuaryPetalCard overviewV2 variant="saffron" testId="petal-schedule-m" className="p-4" delay={100} onClick={() => navigate('/dashboard/sessions')}>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#D4AF3720' }}>
-                  <Calendar size={17} style={{ color: '#D4AF37' }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{scheduleEyebrow}</h3>
-                  <p className="text-sm font-bold text-slate-900 truncate">{mobileScheduleSub}</p>
-                </div>
-                <ChevronRight size={16} className="text-slate-300 shrink-0" />
-              </div>
-              {sessionProgressSummary.sessionsDated > 0 && (
-                <p className="mt-2 text-[10px] leading-snug text-slate-600" data-testid="dashboard-session-progress-m-empty">
-                  <span className="font-semibold text-emerald-700 tabular-nums">{sessionProgressSummary.sessionsAvailed}</span>
-                  {' '}availed ·{' '}
-                  <span className="font-semibold text-amber-800 tabular-nums">{sessionProgressSummary.sessionsYetToAvail}</span>
-                  {' '}yet to avail
-                  <span className="text-slate-400"> · {sessionProgressSummary.sessionsDated} dated</span>
-                </p>
-              )}
-            </SanctuaryPetalCard>
-          ))}
           {dv.loyalty_points && pts?.enabled && (
             <SanctuaryPetalCard overviewV2 variant="gold" testId="petal-points-m" className="p-4" delay={175} onClick={() => navigate('/dashboard/points')}>
               <div className="flex items-center gap-3">
@@ -1208,7 +1001,6 @@ const StudentDashboard = () => {
           )}
           {[
             { visKey: 'profile_card', testId: 'petal-profile-m', icon: User, color: '#f5c840', variant: 'gold', title: SANCTUARY_REFERENCE.profileEye, sub: user?.name || 'Student', to: '/dashboard/profile', delay: 200 },
-            { visKey: 'financials_card', testId: 'petal-financials-m', icon: CreditCard, color: '#fdba74', variant: 'ember', title: SANCTUARY_REFERENCE.financialsEye, sub: homeData?.financials?.status || displayProgramLabel, to: '/dashboard/financials', delay: 300 },
             { visKey: 'intentions_diary', testId: 'petal-diary-m', icon: BookOpen, color: '#93C5FD', variant: 'sky', title: SANCTUARY_REFERENCE.intentionsEye, sub: SANCTUARY_REFERENCE.intentionsTitle, to: '/dashboard/diary', delay: 400 },
             { visKey: 'transformations_card', testId: 'petal-galaxy-m', icon: Heart, color: '#F9A8D4', variant: 'rose', title: SANCTUARY_REFERENCE.speaksEye, sub: SANCTUARY_REFERENCE.transformationsHint, to: '/transformations', delay: 500 },
           ].filter((item) => dv[item.visKey]).map(item => (

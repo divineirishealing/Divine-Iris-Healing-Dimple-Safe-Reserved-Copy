@@ -48,8 +48,8 @@ const DIVINE_IRIS_HOME_COMING_PROGRAMS_LABEL =
 
 const HEART_QUOTE = 'You are exactly where you need to be — trust the becoming.';
 
-/** Full Home Coming bundle contents (shown in ALL CAPS). AWRP = Atomic Weight Release Program — one line only. */
-const HOME_COMING_BUNDLE_INCLUDES_LINES = [
+/** Full Home Coming bundle contents (shown in ALL CAPS). Shared with Household overview. */
+export const HOME_COMING_BUNDLE_INCLUDES_LINES = [
   '12-MONTH ATOMIC WEIGHT RELEASE PROGRAM (AWRP)',
   '6-MONTH MMM',
   '4 TURBO RELEASE',
@@ -667,9 +667,10 @@ export default function AnnualPackagePurchasePage() {
 
   /** Payable total: live quote and/or catalog offer amount. */
   const hasPayableCheckoutTotal = totalRaw > 0 || scheduleSplitTotal > 0;
-  const checkoutBlockedByAnnualInclusion = quote?.included_in_annual_package === true;
   const canContinueToCheckout = Boolean(
-    pinnedProgram && !quoteLoading && hasPayableCheckoutTotal && !checkoutBlockedByAnnualInclusion,
+    pinnedProgram &&
+      !quoteLoading &&
+      (hasPayableCheckoutTotal || quote?.included_in_annual_package === true),
   );
 
   const scheduleTitle = useMemo(() => {
@@ -1243,12 +1244,11 @@ export default function AnnualPackagePurchasePage() {
                       </p>
                     ) : null}
                   </div>
-                  <div className="min-w-0 flex flex-col items-center text-center lg:items-center lg:pl-8 lg:pr-8 lg:py-0.5 pt-6 lg:pt-0 border-t border-[rgba(160,100,240,0.14)] lg:border-t-0">
-                    <div className="w-full max-w-md">
+                  <div className="min-w-0 lg:pl-8 lg:pr-8 lg:py-0.5 pt-6 lg:pt-0 border-t border-[rgba(160,100,240,0.14)] lg:border-t-0 text-left">
                     <p className="font-[family-name:'Playfair_Display',Georgia,serif] text-[12px] sm:text-[13px] leading-relaxed text-[rgba(45,25,95,0.85)]">
                       One gentle annual home for your soul — what is held in this bundle:
                     </p>
-                    <ul className="mt-3 space-y-2.5 text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.09em] text-[#3b0764] list-none pl-0 text-center lg:text-center">
+                    <ul className="mt-3 space-y-2.5 text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.09em] text-[#3b0764] list-none pl-0">
                       {HOME_COMING_BUNDLE_INCLUDES_LINES.map((line) => (
                         <li key={line} className="leading-snug">
                           {line}
@@ -1261,7 +1261,6 @@ export default function AnnualPackagePurchasePage() {
                         {catalogTo ? ` · to ${formatDateDdMonYyyy(catalogTo)}` : ''} — when this catalog bundle may be purchased.
                       </p>
                     )}
-                    </div>
                   </div>
                 </div>
               </div>
