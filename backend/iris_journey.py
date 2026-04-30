@@ -62,6 +62,24 @@ def compute_auto_iris_year(start_date_str: Optional[str]) -> int:
     return min(12, max(1, elapsed + 1))
 
 
+def iris_journey_with_year(year: int, base: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Build the standard iris_journey shape for a given year (portal display).
+    Preserves ``mode`` / ``is_auto_computed`` from ``base`` when present.
+    """
+    base = base or {}
+    y = max(1, min(12, int(year)))
+    meta = IRIS_JOURNEY_YEARS.get(y) or IRIS_JOURNEY_YEARS[12]
+    return {
+        "year": y,
+        "title": meta["title"],
+        "subtitle": meta["subtitle"],
+        "label": f"Year {y}: {meta['title']} — {meta['subtitle']}",
+        "mode": (base.get("mode") if isinstance(base.get("mode"), str) else None) or "manual",
+        "is_auto_computed": bool(base.get("is_auto_computed")),
+    }
+
+
 def resolve_iris_journey(sub: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Resolve effective journey from subscription dict.

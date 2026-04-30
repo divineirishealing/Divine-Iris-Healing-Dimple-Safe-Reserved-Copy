@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from .auth import get_current_user, _get_valid_session_and_user
 from models_extended import JourneyLog
-from iris_journey import resolve_iris_journey
+from iris_journey import resolve_iris_journey, iris_journey_with_year
 from routes.programs import (
     fetch_programs_with_deadline_sync,
     program_dict_with_deadline_sync,
@@ -30,7 +30,11 @@ from routes.clients import (
 from routes.currency import assert_claimed_hub_matches_stripe
 from country_normalize import normalize_country_iso2
 from utils.person_name import normalize_person_name
-from utils.garden_labels import iris_year_from_garden_label, label_stripe_key
+from utils.garden_labels import (
+    iris_anniversary_year_from_client,
+    iris_year_from_garden_label,
+    label_stripe_key,
+)
 from utils.india_checkout_math import _resolve_india_discount_rule
 
 ROOT_DIR = Path(__file__).parent.parent
@@ -546,6 +550,27 @@ def _home_coming_payload(client: dict, sub: dict, iris_journey: dict) -> Optiona
     return _home_coming_branding_dict(client, iris_journey)
 
 
+def _effective_iris_journey_year(client: dict, sub: dict, iris_journey: dict) -> int:
+    """Best-effort Iris year for portal copy: subscription row, Client Garden year label, and anniversary from ``annual_subscription`` start."""
+    if not isinstance(client, dict):
+        return 1
+    label_raw = client.get("label") or ""
+    key = label_stripe_key(label_raw)
+    if key in ("dew", "seed", "root", "bloom", "iris_seeker") and not _is_annual_subscriber(sub, client):
+        return 1
+    try:
+        jy = int((iris_journey or {}).get("year") or 1)
+    except (TypeError, ValueError):
+        jy = 1
+    jy = max(1, min(12, jy))
+    y_label = iris_year_from_garden_label(label_raw)
+    if y_label is not None:
+        jy = max(jy, y_label)
+    ann = iris_anniversary_year_from_client(client)
+    jy = max(jy, ann)
+    return min(12, jy)
+
+
 def renewal_entering_iris_year(client: dict, sub: dict, iris_journey: dict) -> int:
     """Which Iris year (1–12) the member is *entering* on Home Coming — automatic from Client Garden label + journey.
 
@@ -553,25 +578,7 @@ def renewal_entering_iris_year(client: dict, sub: dict, iris_journey: dict) -> i
     follow subscription journey). When the annual period is in renewal window, lapsed, or past end date, steps
     forward one year (max 12).
     """
-    if not isinstance(client, dict):
-        return 1
-    label_raw = client.get("label") or ""
-    key = label_stripe_key(label_raw)
-
-    # Dew / Seed / Root / Bloom / Iris — The Seeker → first Sacred Home annual cycle
-    if key in ("dew", "seed", "root", "bloom", "iris_seeker"):
-        return 1
-
-    try:
-        jy = int((iris_journey or {}).get("year") or 1)
-    except (TypeError, ValueError):
-        jy = 1
-    jy = max(1, min(12, jy))
-
-    y_label = iris_year_from_garden_label(label_raw)
-    if y_label is not None:
-        jy = max(jy, y_label)
-
+    jy = _effective_iris_journey_year(client, sub, iris_journey or {})
     life = annual_portal_lifecycle_payload(client)
     st = (life or {}).get("status") or ""
     step_up = (
@@ -2798,10 +2805,12 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     banks = await db.bank_accounts.find({"is_active": True}, {"_id": 0}).to_list(10)
 
     iris_journey = resolve_iris_journey(sub)
-    home_coming = _home_coming_payload(client, sub, iris_journey)
+    eff_iris_y = _effective_iris_journey_year(client, sub, iris_journey)
+    iris_journey_merged = iris_journey_with_year(eff_iris_y, iris_journey)
+    home_coming = _home_coming_payload(client, sub, iris_journey_merged)
     if home_coming is None and last_annual_package:
         # Lapsed / between-year renewals: keep four-pillar copy when a previous annual window exists on file.
-        home_coming = _home_coming_branding_dict(client, iris_journey)
+        home_coming = _home_coming_branding_dict(client, iris_journey_merged)
     if home_coming:
         package = {**package, "home_coming_label": home_coming["full_label"]}
 
@@ -2878,7 +2887,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "payment_destinations": payment_destinations,
         "bank_accounts": banks,
         **_merge_portal_late_channel_show(client, sub, settings_doc),
-        "iris_journey": iris_journey,
+        "iris_journey": iris_journey_merged,
         # Automatic "journey year you are entering" for Home Coming renewal (garden label + lifecycle).
         "renewal_entering_iris_year": renewal_entering_iris_year(client, sub, iris_journey),
         # Manual / auto iris year from Client Garden subscription (renewal UI default).

@@ -1040,7 +1040,11 @@ def annual_renewal_reminder_for_portal(client: Dict[str, Any]) -> Optional[Dict[
                 "member pricing, package inclusions, and your journey benefits."
             ),
         }
-    if days_left <= _ANNUAL_RENEWAL_WARN_DAYS and bool(client.get("annual_member_dashboard")):
+    if days_left <= _ANNUAL_RENEWAL_WARN_DAYS and (
+        bool(client.get("annual_member_dashboard"))
+        or bool((client.get("annual_subscription") or {}).get("start_date"))
+        or bool((client.get("annual_subscription") or {}).get("end_date"))
+    ):
         if days_left == 0:
             msg = (
                 "Your annual plan ends today. Renew soon to continue uninterrupted member pricing and benefits."
