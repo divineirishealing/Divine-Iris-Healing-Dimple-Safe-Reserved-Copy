@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { resolveImageUrl, isLikelyImageUrl } from '../../lib/imageUtils';
 import { buildIndiaGpayOptions, gpayRowMatchesPreference } from '../../lib/indiaPaymentTags';
+import { computeIndiaManualProofPayableFromTaxableNet } from '../../lib/indiaClientPricing';
 import { formatDateDdMonYyyy } from '../../lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -82,6 +83,8 @@ export function ManualPaymentProofBody({
     preferred_payment_method: '',
     india_payment_method: '',
   });
+  /** Merged India tax/discount knobs from Sacred Home — for INR payable from enrollment taxable net. */
+  const [clientIndiaPricing, setClientIndiaPricing] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -108,6 +111,9 @@ export function ManualPaymentProofBody({
             preferred_payment_method: (homeRes.data.preferred_payment_method || '').trim(),
             india_payment_method: (cip && typeof cip === 'object' ? cip.india_payment_method : '') || '',
           });
+          setClientIndiaPricing(cip && typeof cip === 'object' ? cip : null);
+        } else {
+          setClientIndiaPricing(null);
         }
 
         if (enrollmentId) {
@@ -146,7 +152,19 @@ export function ManualPaymentProofBody({
               } catch {}
             }
             if (e.dashboard_mixed_total != null && e.dashboard_mixed_total !== '') {
-              setAmount(String(e.dashboard_mixed_total));
+              const rawTot = Number(e.dashboard_mixed_total);
+              const cur = (e.dashboard_mixed_currency || 'inr').toLowerCase();
+              const cip = homeRes?.data?.client_india_pricing;
+              if (cur === 'inr' && Number.isFinite(rawTot) && rawTot > 0) {
+                const adj = computeIndiaManualProofPayableFromTaxableNet(
+                  rawTot,
+                  cip && typeof cip === 'object' ? cip : null,
+                  settingsRes.data,
+                );
+                setAmount(String(adj ? adj.roundedTotal : rawTot));
+              } else {
+                setAmount(String(rawTot));
+              }
             }
           } catch {}
         }
@@ -255,6 +273,25 @@ export function ManualPaymentProofBody({
   const showBankSection = payRail !== 'gpay' && hasBank;
   const programTitle = enrollment?.item_title || itemDetails?.title || '';
   const quoteCurrency = (enrollment?.dashboard_mixed_currency || 'inr').toUpperCase();
+  /** Enrollment stores taxable net for INR; cart Total adds GST/platform — match that for proof amount. */
+  const enrollmentCartTotalDisplay = useMemo(() => {
+    if (enrollment?.dashboard_mixed_total == null || enrollment?.dashboard_mixed_total === '') return null;
+    const raw = Number(enrollment.dashboard_mixed_total);
+    if (!Number.isFinite(raw) || raw <= 0) return null;
+    const cur = (enrollment.dashboard_mixed_currency || 'inr').toLowerCase();
+    if (cur !== 'inr') {
+      return { amount: raw, subnote: null };
+    }
+    const adj = computeIndiaManualProofPayableFromTaxableNet(raw, clientIndiaPricing, settings);
+    if (!adj) return { amount: raw, subnote: null };
+    return {
+      amount: adj.roundedTotal,
+      subnote:
+        adj.gstPct > 0
+          ? `Includes ${adj.taxLabel} and any platform fee — same as your cart total above.`
+          : 'Same as your cart total above.',
+    };
+  }, [enrollment, clientIndiaPricing, settings]);
   const isUpiMethod = paymentMethod === 'upi';
   const screenshotRequired =
     paymentMethod === 'cheque' || paymentMethod === 'cash_deposit';
@@ -462,13 +499,17 @@ export function ManualPaymentProofBody({
                   Submit Manual Payment
                 </h1>
                 <p className="text-xs text-gray-500 mb-5">Upload your payment proof for admin approval.</p>
-                {enrollment?.dashboard_mixed_total != null && enrollment?.dashboard_mixed_total !== '' && (
-                  <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[11px] text-amber-950">
-                    Dashboard enrollment: expected total{' '}
-                    <span className="font-semibold tabular-nums">
-                      {quoteCurrency} {String(enrollment.dashboard_mixed_total)}
+                {enrollmentCartTotalDisplay && (
+                  <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50/90 px-3 py-2 text-[11px] text-violet-950">
+                    <span className="font-semibold">Pay this amount (final total): </span>
+                    <span className="font-bold tabular-nums">
+                      {quoteCurrency} {Number(enrollmentCartTotalDisplay.amount).toLocaleString()}
                     </span>
-                    . Enter the same amount you paid (and correct currency if your bank shows a converted value).
+                    {enrollmentCartTotalDisplay.subnote ? (
+                      <p className="mt-1 text-[10px] text-violet-900/85 leading-snug">
+                        {enrollmentCartTotalDisplay.subnote}
+                      </p>
+                    ) : null}
                   </div>
                 )}
 

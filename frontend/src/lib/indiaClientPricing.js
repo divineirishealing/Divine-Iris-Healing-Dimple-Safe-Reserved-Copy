@@ -197,3 +197,51 @@ export function computeIndiaCheckoutBreakdown(effectiveBase, clientPricing, sett
     roundedTotal,
   };
 }
+
+/**
+ * `dashboard_mixed_total` on enrollments is the **taxable net** (after CRM India discount) so INR Stripe
+ * stays aligned. Manual proof should show the same **final** rupees as Divine Cart Total (taxable + GST + platform).
+ *
+ * @param {number} taxableNet – enrollment `dashboard_mixed_total`
+ * @param {object|null} clientPricing – `client_india_pricing` from GET /api/student/home
+ * @param {object} settings – site settings (`india_gst_percent`, `india_platform_charge_percent`)
+ */
+export function computeIndiaManualProofPayableFromTaxableNet(taxableNet, clientPricing, settings) {
+  const taxable = Math.max(0, Number(taxableNet) || 0);
+  if (!Number.isFinite(taxable) || taxable <= 0) return null;
+
+  const s = settings || {};
+  const platformPctN = parseIndiaSitePercent(s, 'india_platform_charge_percent', 3);
+  const siteGstN = parseIndiaSitePercent(s, 'india_gst_percent', 18);
+
+  const cp = clientPricing || {};
+  const taxEnabled = clientPricing ? !!cp.india_tax_enabled : true;
+  const rawClientTaxPct = cp.india_tax_percent;
+  const clientTaxNum = Number(rawClientTaxPct);
+  const gstPct = !taxEnabled
+    ? 0
+    : cp.india_tax_enabled
+      ? rawClientTaxPct != null &&
+          rawClientTaxPct !== '' &&
+          Number.isFinite(clientTaxNum)
+        ? Math.max(0, Math.min(100, clientTaxNum))
+        : siteGstN
+      : siteGstN;
+  const taxLabel = String(cp.india_tax_label || 'GST').trim() || 'GST';
+
+  const gstAmount = (taxable * gstPct) / 100;
+  const platformAmount = (taxable * platformPctN) / 100;
+  const finalTotal = taxable + gstAmount + platformAmount;
+  const roundedTotal = Math.round(finalTotal);
+
+  return {
+    taxableBase: taxable,
+    gstPct,
+    taxLabel,
+    gstAmount,
+    platformPct: platformPctN,
+    platformAmount,
+    finalTotal,
+    roundedTotal,
+  };
+}
