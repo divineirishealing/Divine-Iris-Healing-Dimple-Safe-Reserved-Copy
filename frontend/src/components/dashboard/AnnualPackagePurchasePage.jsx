@@ -625,8 +625,6 @@ export default function AnnualPackagePurchasePage() {
   }, [desiredStart, paymentMode, annualParticipationMode, emiNotes, prefsLoaded, persistPrefs]);
 
   const totalRaw = Number(quote?.total ?? 0);
-  const displayTotal = toDisplay(totalRaw);
-  const quoteCur = (quote?.currency || baseCurrency || 'inr').toUpperCase();
 
   /** Basis for splitting the payment schedule: live quote when > 0, else Home Coming catalog (annual purchase / renewal). */
   const scheduleSplitTotal = useMemo(() => {
@@ -667,9 +665,7 @@ export default function AnnualPackagePurchasePage() {
     [paymentScheduleRows],
   );
 
-  /** Hero number under “Quoted total”: catalog renewal/purchase reference when checkout line is ₹0. */
-  const displayQuotedHero = totalRaw > 0 ? displayTotal : toDisplay(scheduleSplitTotal);
-  const heroIsCatalogRenewalRef = totalRaw <= 0 && scheduleSplitTotal > 0;
+  /** Payable total: live quote and/or catalog offer amount. */
   const hasPayableCheckoutTotal = totalRaw > 0 || scheduleSplitTotal > 0;
   const checkoutBlockedByAnnualInclusion = quote?.included_in_annual_package === true;
   const canContinueToCheckout = Boolean(
@@ -1005,9 +1001,24 @@ export default function AnnualPackagePurchasePage() {
                       ) : null}
                     </div>
                     {cycleDisplayEnd ? (
-                      <div className="rounded-xl border border-violet-200/60 bg-white/65 px-3 py-2.5">
-                        <p className="text-[11px] font-semibold text-[#3b0764]">
-                          {irisYearLabelNoPeriod(autoRenewalYear)}
+                      <div className="relative rounded-xl border border-violet-200/60 bg-white/65 px-3 py-2.5 pt-3 sm:pb-3 sm:pr-3 pr-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="absolute top-2 right-2 h-8 gap-1 px-2 border-[rgba(160,80,220,0.35)] bg-white/90 hover:bg-violet-50/95 text-slate-800 shadow-sm z-[1]"
+                          onClick={() => navigate('/dashboard/combined-checkout')}
+                        >
+                          <CreditCard size={14} className="text-violet-700 shrink-0" />
+                          <span className="text-[9px] font-bold uppercase tracking-wide">Divine cart</span>
+                          {cartCount > 0 ? (
+                            <span className="min-w-[1.1rem] h-4 px-1 rounded-full bg-violet-600 text-white text-[8px] font-bold tabular-nums flex items-center justify-center">
+                              {cartCount}
+                            </span>
+                          ) : null}
+                        </Button>
+                        <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-[0.14em] text-[#3b0764] pr-[5.5rem] sm:pr-32 leading-snug">
+                          {irisYearLabelNoPeriod(autoRenewalYear).replace(/\s+/g, ' ').trim().toUpperCase()}
                         </p>
                         <dl className="mt-2 flex flex-wrap justify-center gap-x-8 gap-y-1 text-[12px] text-[rgba(60,35,115,0.88)] tabular-nums">
                           <div>
@@ -1045,22 +1056,6 @@ export default function AnnualPackagePurchasePage() {
               {HEART_QUOTE}
               <Heart className="inline-block ml-1.5 w-3 h-3 text-rose-400/70 align-middle" aria-hidden />
             </p>
-            <div className="mt-5 flex w-full flex-wrap justify-center gap-2 sm:justify-center">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 px-4 border-[rgba(160,80,220,0.28)] bg-white/85 hover:bg-violet-50/90 text-slate-800 gap-2 shadow-sm"
-                onClick={() => navigate('/dashboard/combined-checkout')}
-              >
-                <CreditCard size={16} className="text-violet-700 shrink-0" />
-                <span className="text-xs font-semibold uppercase tracking-wide">DIVINE CART</span>
-                {cartCount > 0 ? (
-                  <span className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-violet-600 text-white text-[10px] font-bold tabular-nums flex items-center justify-center">
-                    {cartCount}
-                  </span>
-                ) : null}
-              </Button>
-            </div>
           </div>
 
           <div className="flex flex-col gap-5 px-5 md:px-8 pb-7 md:pb-9 pt-2">
@@ -1105,138 +1100,177 @@ export default function AnnualPackagePurchasePage() {
 
             {catalogBundle ? (
               <div
-                className={cn(glassInset, 'text-center sm:text-left')}
+                className={cn(glassInset, 'relative text-center sm:text-left')}
                 data-testid="home-coming-catalog-total"
               >
-                <div className="flex items-start gap-2 mb-2">
-                  <ShoppingCart size={18} className="text-[#5D3FD3] shrink-0 mt-0.5" aria-hidden />
-                  <div className="min-w-0">
-                    <h2 className="text-[15px] font-[family-name:'Cinzel',serif] font-semibold text-[#3b0764] tracking-wide">
-                      Total annual program price (Home Coming catalog)
-                    </h2>
-                    <p className="text-[11px] text-[rgba(60,35,115,0.55)] mt-1 leading-snug">
-                      {catalogBundle.package_name || 'Home Coming'}
-                      {typeof catalogBundle.duration_months === 'number'
-                        ? ` · ${catalogBundle.duration_months}-month bundle`
-                        : ''}
-                      {' — '}package offer totals from Admin (Sacred Home catalog enrollment uses the same row).
-                    </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-2 pr-0 sm:pr-1">
+                  <div className="min-w-0 flex items-start gap-2 text-left">
+                    <ShoppingCart size={18} className="text-[#5D3FD3] shrink-0 mt-1" aria-hidden />
+                    <div className="min-w-0">
+                      <h2
+                        className="text-base sm:text-lg md:text-xl font-[family-name:'Cinzel',serif] font-bold text-[#3b0764] tracking-[0.12em] uppercase leading-tight"
+                        data-testid="home-coming-annual-program-title"
+                      >
+                        Home Coming Annual Program
+                      </h2>
+                      <p className="text-[11px] text-[rgba(60,35,115,0.55)] mt-1.5 leading-snug normal-case tracking-normal font-normal">
+                        {catalogBundle.package_name || 'Home Coming'}
+                        {typeof catalogBundle.duration_months === 'number'
+                          ? ` · ${catalogBundle.duration_months}-month bundle`
+                          : ''}
+                        {' — '}totals from your Sacred Home catalog offer.
+                      </p>
+                    </div>
                   </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9 shrink-0 gap-2 border-[rgba(160,80,220,0.28)] bg-white/90 hover:bg-violet-50/90 text-slate-800 shadow-sm sm:mt-1 self-end sm:self-start"
+                    onClick={() => navigate('/dashboard/combined-checkout')}
+                  >
+                    <CreditCard size={15} className="text-violet-700 shrink-0" />
+                    <span className="text-[10px] font-bold uppercase tracking-wide">Divine cart</span>
+                    {cartCount > 0 ? (
+                      <span className="min-w-[1.15rem] h-5 px-1 rounded-full bg-violet-600 text-white text-[9px] font-bold tabular-nums flex items-center justify-center">
+                        {cartCount}
+                      </span>
+                    ) : null}
+                  </Button>
                 </div>
-                {catalogAmountHub != null && catalogDisplayAmount != null ? (
-                  <div className="mt-3 space-y-3">
-                    {catalogCourtesyBreakdown ? (
+                <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 lg:items-start">
+                  <div className="min-w-0 space-y-3">
+                    {catalogAmountHub != null && catalogDisplayAmount != null ? (
                       <>
-                        <p className="text-[11px] text-left text-[rgba(60,35,115,0.5)]">
-                          <span className="uppercase tracking-[0.12em] font-semibold text-[rgba(100,55,155,0.45)]">
-                            Catalog price
-                          </span>
-                        </p>
-                        <p className="text-left">
-                          <span className="text-xl sm:text-2xl font-semibold text-[rgba(80,55,145,0.45)] tabular-nums line-through decoration-[rgba(120,80,160,0.35)]">
-                            {symbol}
-                            {Number(catalogCourtesyBreakdown.listDisplay).toLocaleString()}
-                          </span>{' '}
-                          <span className="text-sm font-medium text-[rgba(80,55,145,0.45)]">
-                            {(baseCurrency || 'inr').toUpperCase()}
-                          </span>
-                        </p>
-                        <div className="rounded-xl border border-[rgba(212,175,55,0.35)] bg-gradient-to-r from-[#fffbf0]/95 via-white/90 to-[#fdf6e3]/90 px-3.5 py-3 text-left shadow-sm shadow-amber-900/5">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8b6914] mb-1">
-                            {catalogCourtesyBreakdown.ruleLabel}
-                          </p>
-                          <p className="text-[12px] text-[#5c4a12] leading-snug">
-                            {catalogCourtesyBreakdown.pctLabel ? (
-                              <>
-                                <strong className="text-[#6b5210]">{catalogCourtesyBreakdown.pctLabel}</strong> off your
-                                catalog bundle
-                              </>
-                            ) : catalogCourtesyBreakdown.isAmountBand ? (
-                              <>
-                                <strong className="text-[#6b5210] tabular-nums">
+                        {catalogCourtesyBreakdown ? (
+                          <>
+                            <p className="text-[11px] text-left text-[rgba(60,35,115,0.5)]">
+                              <span className="uppercase tracking-[0.12em] font-semibold text-[rgba(100,55,155,0.45)]">
+                                Catalog price
+                              </span>
+                            </p>
+                            <p className="text-left">
+                              <span className="text-xl sm:text-2xl font-semibold text-[rgba(80,55,145,0.45)] tabular-nums line-through decoration-[rgba(120,80,160,0.35)]">
+                                {symbol}
+                                {Number(catalogCourtesyBreakdown.listDisplay).toLocaleString()}
+                              </span>{' '}
+                              <span className="text-sm font-medium text-[rgba(80,55,145,0.45)]">
+                                {(baseCurrency || 'inr').toUpperCase()}
+                              </span>
+                            </p>
+                            <div className="rounded-xl border border-[rgba(212,175,55,0.35)] bg-gradient-to-r from-[#fffbf0]/95 via-white/90 to-[#fdf6e3]/90 px-3.5 py-3 text-left shadow-sm shadow-amber-900/5">
+                              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8b6914] mb-1">
+                                {catalogCourtesyBreakdown.ruleLabel}
+                              </p>
+                              <p className="text-[12px] text-[#5c4a12] leading-snug">
+                                {catalogCourtesyBreakdown.pctLabel ? (
+                                  <>
+                                    <strong className="text-[#6b5210]">{catalogCourtesyBreakdown.pctLabel}</strong> off your
+                                    catalog bundle
+                                  </>
+                                ) : catalogCourtesyBreakdown.isAmountBand ? (
+                                  <>
+                                    <strong className="text-[#6b5210] tabular-nums">
+                                      {symbol}
+                                      {Number(catalogCourtesyBreakdown.discountAmt).toLocaleString()}
+                                    </strong>{' '}
+                                    courtesy on this bundle
+                                  </>
+                                ) : (
+                                  <>
+                                    Courtesy savings:{' '}
+                                    <strong className="text-[#6b5210] tabular-nums">
+                                      {symbol}
+                                      {Number(catalogCourtesyBreakdown.discountAmt).toLocaleString()}
+                                    </strong>
+                                  </>
+                                )}
+                              </p>
+                            </div>
+                            <div className="pt-1">
+                              <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-[#3b0764]/80 mb-1 text-left">
+                                Final price
+                              </p>
+                              <p className="text-left">
+                                <span className="text-[2rem] sm:text-[2.35rem] font-bold text-[#1a0a3d] tabular-nums tracking-tight">
                                   {symbol}
-                                  {Number(catalogCourtesyBreakdown.discountAmt).toLocaleString()}
-                                </strong>{' '}
-                                courtesy on this bundle
-                              </>
-                            ) : (
-                              <>
-                                Courtesy savings:{' '}
-                                <strong className="text-[#6b5210] tabular-nums">
-                                  {symbol}
-                                  {Number(catalogCourtesyBreakdown.discountAmt).toLocaleString()}
-                                </strong>
-                              </>
-                            )}
-                          </p>
-                        </div>
-                        <div className="pt-1">
-                          <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-[#3b0764]/80 mb-1 text-left">
-                            Final price
-                          </p>
-                          <p className="text-left">
+                                  {Number(catalogCourtesyBreakdown.finalDisplay).toLocaleString()}
+                                </span>{' '}
+                                <span className="text-lg font-semibold text-[rgba(80,55,145,0.55)]">
+                                  {(baseCurrency || 'inr').toUpperCase()}
+                                </span>
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="mt-0 text-left">
                             <span className="text-[2rem] sm:text-[2.35rem] font-bold text-[#1a0a3d] tabular-nums tracking-tight">
                               {symbol}
-                              {Number(catalogCourtesyBreakdown.finalDisplay).toLocaleString()}
+                              {Number(catalogDisplayAmount).toLocaleString()}
                             </span>{' '}
                             <span className="text-lg font-semibold text-[rgba(80,55,145,0.55)]">
                               {(baseCurrency || 'inr').toUpperCase()}
                             </span>
                           </p>
-                        </div>
+                        )}
                       </>
+                    ) : catalogAllPositiveEntries.length > 0 ? (
+                      <div className="space-y-1">
+                        {catalogAllPositiveEntries.map(([k, v]) => (
+                          <p
+                            key={String(k)}
+                            className="text-[1.35rem] sm:text-[1.5rem] font-bold text-[#1a0a3d] tabular-nums"
+                          >
+                            <span className="text-base font-semibold text-[rgba(80,55,145,0.55)] mr-1.5 inline-block">
+                              {String(k).toUpperCase()}
+                            </span>
+                            {Number(v).toLocaleString()}
+                          </p>
+                        ))}
+                        {catalogAmountHub == null ? (
+                          <p className="text-[10px] text-[rgba(60,35,115,0.45)] mt-2 max-w-xl leading-relaxed">
+                            No catalog amount published for your current pricing hub (
+                            {(baseCurrency || 'inr').toUpperCase()}). Listed amounts above are entered in Admin.
+                          </p>
+                        ) : null}
+                      </div>
                     ) : (
-                      <p className="mt-0">
-                        <span className="text-[2rem] sm:text-[2.35rem] font-bold text-[#1a0a3d] tabular-nums tracking-tight">
-                          {symbol}
-                          {Number(catalogDisplayAmount).toLocaleString()}
-                        </span>{' '}
-                        <span className="text-lg font-semibold text-[rgba(80,55,145,0.55)]">
-                          {(baseCurrency || 'inr').toUpperCase()}
-                        </span>
+                      <p className="text-sm text-amber-900/90 bg-amber-50/95 border border-amber-200/80 rounded-xl px-3 py-2.5 leading-snug text-left">
+                        Your host has not entered the catalog package offer total yet. They set it under{' '}
+                        <strong>Admin → Home Coming catalog → Package offer</strong>
+                        {' — '}then your total annual price will show here.
                       </p>
                     )}
-                  </div>
-                ) : catalogAllPositiveEntries.length > 0 ? (
-                  <div className="mt-3 space-y-1">
-                    {catalogAllPositiveEntries.map(([k, v]) => (
-                      <p
-                        key={String(k)}
-                        className="text-[1.35rem] sm:text-[1.5rem] font-bold text-[#1a0a3d] tabular-nums"
-                      >
-                        <span className="text-base font-semibold text-[rgba(80,55,145,0.55)] mr-1.5 inline-block">
-                          {String(k).toUpperCase()}
-                        </span>
-                        {Number(v).toLocaleString()}
-                      </p>
-                    ))}
-                    {catalogAmountHub == null ? (
-                      <p className="text-[10px] text-[rgba(60,35,115,0.45)] mt-2 max-w-xl leading-relaxed">
-                        No catalog amount published for your current pricing hub (
-                        {(baseCurrency || 'inr').toUpperCase()}). Listed amounts above are entered in Admin.
+                    {catalogOtherCurrencies.length > 0 && catalogAmountHub != null ? (
+                      <p className="text-[10px] text-[rgba(60,35,115,0.48)] leading-relaxed text-left">
+                        Other pricing hubs:{' '}
+                        {catalogOtherCurrencies.map(([k, v], idx) => (
+                          <span key={`${k}-${idx}`}>
+                            {idx > 0 ? ' · ' : ''}
+                            <span className="font-semibold tabular-nums">
+                              {String(k).toUpperCase()} {Number(v).toLocaleString()}
+                            </span>
+                          </span>
+                        ))}
                       </p>
                     ) : null}
                   </div>
-                ) : (
-                  <p className="mt-3 text-sm text-amber-900/90 bg-amber-50/95 border border-amber-200/80 rounded-xl px-3 py-2.5 leading-snug">
-                    Your host has not entered the catalog package offer total yet. They set it under{' '}
-                    <strong>Admin → Home Coming catalog → Package offer</strong>
-                    {' — '}then your total annual price will show here.
-                  </p>
-                )}
-                {catalogOtherCurrencies.length > 0 && catalogAmountHub != null ? (
-                  <p className="text-[10px] text-[rgba(60,35,115,0.48)] mt-3 leading-relaxed">
-                    Other pricing hubs:{' '}
-                    {catalogOtherCurrencies.map(([k, v], idx) => (
-                      <span key={`${k}-${idx}`}>
-                        {idx > 0 ? ' · ' : ''}
-                        <span className="font-semibold tabular-nums">
-                          {String(k).toUpperCase()} {Number(v).toLocaleString()}
-                        </span>
-                      </span>
-                    ))}
-                  </p>
-                ) : null}
+                  <div className="min-w-0 text-left lg:border-l lg:border-[rgba(160,100,240,0.12)] lg:pl-6 pt-1 lg:pt-0">
+                    <p className="font-[family-name:'Playfair_Display',Georgia,serif] text-[12px] sm:text-[13px] leading-relaxed text-[rgba(45,25,95,0.85)]">
+                      One gentle annual home for your soul — what is held in this bundle:
+                    </p>
+                    <ul className="mt-3 space-y-2.5 text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.09em] text-[#3b0764] list-none pl-0">
+                      {HOME_COMING_BUNDLE_INCLUDES_LINES.map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                    {(catalogFrom || catalogTo) && (
+                      <p className="text-[11px] mt-4 text-[#6b4420] bg-[rgba(255,251,235,0.85)] border border-[rgba(212,175,55,0.28)] rounded-xl px-3 py-2.5 max-w-xl">
+                        Offer window{catalogFrom ? ` from ${formatDateDdMonYyyy(catalogFrom)}` : ''}
+                        {catalogTo ? ` · to ${formatDateDdMonYyyy(catalogTo)}` : ''} — when this catalog bundle may be purchased.
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             ) : null}
 
@@ -1256,37 +1290,28 @@ export default function AnnualPackagePurchasePage() {
               </div>
             ) : (
               <div className="space-y-5">
-                <div className="text-center sm:text-left border-b border-[rgba(160,100,240,0.12)] pb-4 mb-2">
-                  <h2
-                    className="font-[family-name:'Playfair_Display',Georgia,serif] text-xl text-[#1a0a3d]/95 font-semibold tracking-tight"
-                    data-testid="home-coming-annual-program-title"
-                  >
-                    Home Coming Annual Program
-                  </h2>
-                  <p className="mt-3 text-[12px] leading-relaxed text-[rgba(45,25,95,0.82)] font-[family-name:'Playfair_Display',Georgia,serif]">
-                    One gentle annual home for your soul — what is held in this bundle:
-                  </p>
-                  <ul className="mt-2 space-y-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.08em] text-[#3b0764] list-none pl-0">
-                    {HOME_COMING_BUNDLE_INCLUDES_LINES.map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
-                  {(catalogFrom || catalogTo) && (
-                    <p className="text-[11px] mt-4 text-[#6b4420] bg-[rgba(255,251,235,0.85)] border border-[rgba(212,175,55,0.28)] rounded-xl px-3 py-2.5 inline-block max-w-xl">
-                      Offer window{catalogFrom ? ` from ${formatDateDdMonYyyy(catalogFrom)}` : ''}
-                      {catalogTo ? ` · to ${formatDateDdMonYyyy(catalogTo)}` : ''} — when this catalog bundle may be purchased.
+                {!catalogBundle ? (
+                  <div className={cn(glassInset, 'text-left')}>
+                    <p className="font-[family-name:'Playfair_Display',Georgia,serif] text-[12px] sm:text-[13px] leading-relaxed text-[rgba(45,25,95,0.85)]">
+                      One gentle annual home for your soul — what is held in this bundle:
                     </p>
-                  )}
-                </div>
+                    <ul className="mt-3 space-y-2.5 text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.09em] text-[#3b0764] list-none pl-0">
+                      {HOME_COMING_BUNDLE_INCLUDES_LINES.map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
 
                 <div className="space-y-4">
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                  <div className="space-y-2 min-w-0">
                     <Label className="text-[11px] uppercase tracking-[0.12em] text-[rgba(70,35,125,0.65)] font-semibold">
                       Payment structure (preference)
                     </Label>
                     <Select value={paymentMode} onValueChange={setPaymentMode}>
                       <SelectTrigger
-                        className="h-10 max-w-md border-[rgba(160,80,220,0.22)] bg-white/75 text-[13px] font-medium text-[rgba(50,35,95,0.92)]"
+                        className="h-10 w-full max-w-none md:max-w-none border-[rgba(160,80,220,0.22)] bg-white/75 text-[13px] font-medium text-[rgba(50,35,95,0.92)]"
                         data-testid="annual-offer-payment-mode-select"
                       >
                         <SelectValue placeholder="Choose how you wish to pay" />
@@ -1305,13 +1330,13 @@ export default function AnnualPackagePurchasePage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 min-w-0">
                     <Label className="text-[11px] uppercase tracking-[0.12em] text-[rgba(70,35,125,0.65)] font-semibold">
                       Participation (annual path)
                     </Label>
                     <Select value={annualParticipationMode} onValueChange={setAnnualParticipationMode}>
                       <SelectTrigger
-                        className="h-10 max-w-md border-[rgba(160,80,220,0.22)] bg-white/75 text-[13px] font-medium text-[rgba(50,35,95,0.92)]"
+                        className="h-10 w-full max-w-none md:max-w-none border-[rgba(160,80,220,0.22)] bg-white/75 text-[13px] font-medium text-[rgba(50,35,95,0.92)]"
                         data-testid="annual-offer-participation-select"
                       >
                         <SelectValue placeholder="Online or offline" />
@@ -1325,10 +1350,11 @@ export default function AnnualPackagePurchasePage() {
                         </SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-[10px] text-[rgba(60,35,115,0.48)] leading-relaxed">
-                      Home Coming annual programs use online or offline participation only — there is no in-person seat type for this bundle.
-                    </p>
                   </div>
+                  </div>
+                  <p className="text-[10px] text-[rgba(60,35,115,0.48)] leading-relaxed">
+                    Home Coming annual programs use online or offline participation only — there is no in-person seat type for this bundle.
+                  </p>
                   <p className="text-[10px] text-[rgba(60,35,115,0.5)] flex items-start gap-1.5 leading-relaxed">
                     <Info size={12} className="shrink-0 mt-0.5 text-violet-500" aria-hidden />
                     We save your choices for your host. Pay in full, EMIs, or Flexi — all walk side by side below.
@@ -1527,65 +1553,6 @@ export default function AnnualPackagePurchasePage() {
                     </p>
                   </div>
                 ) : null}
-
-                <div className={cn(glassInset, 'space-y-3')}>
-                  <span className="block text-[10px] font-bold text-[rgba(55,35,115,0.85)] tracking-[0.14em] uppercase">
-                    {heroIsCatalogRenewalRef
-                      ? 'YOUR HOME COMING BUNDLE — PRICING REFERENCE'
-                      : 'QUOTED TOTAL — YOUR TIER & HUB'}
-                  </span>
-                  {quoteLoading ? (
-                    <p className="text-sm text-[rgba(60,35,115,0.45)] italic">Receiving your tier&apos;s whispered numbers…</p>
-                  ) : (
-                    <>
-                      <p className="text-center sm:text-left">
-                        <span className="text-3xl sm:text-[2rem] font-bold text-[#1a0a3d] tabular-nums tracking-tight drop-shadow-[0_1px_0_rgba(255,255,255,0.5)]" data-testid="annual-offer-quoted-amount">
-                          {symbol}
-                          {Number(displayQuotedHero || 0).toLocaleString()}{' '}
-                          <span className="text-base font-semibold text-[rgba(80,55,145,0.45)]">{quoteCur}</span>
-                        </span>
-                      </p>
-                      {quote?.client_crm_discount_amount > 0 && quote?.client_crm_discount_percent ? (
-                        <p className="text-[11px] text-emerald-900/95 text-center sm:text-left leading-snug">
-                          Includes your <strong>{Number(quote.client_crm_discount_percent).toFixed(1).replace(/\.0$/, '')}%</strong> membership courtesy
-                          (−{symbol}
-                          {Number(quote.client_crm_discount_amount).toLocaleString()} {quoteCur}).
-                        </p>
-                      ) : null}
-                      {quote?.included_in_annual_package ? (
-                        <div className="rounded-xl border border-emerald-300/35 bg-emerald-50/80 px-3.5 py-3 text-left">
-                          <p className="text-[11px] text-emerald-950/95 leading-snug font-medium">
-                            {heroIsCatalogRenewalRef ? (
-                              <>
-                                If your seat is already covered, checkout may show ₹0 — use{' '}
-                                <Link to="/dashboard/financials" className="underline font-semibold text-emerald-900">
-                                  SACRED EXCHANGE
-                                </Link>{' '}
-                                for renewals; family seats on{' '}
-                                <Link to="/dashboard#sacred-home-programs" className="underline font-semibold text-emerald-900">
-                                  UPCOMING PROGRAMS
-                                </Link>
-                                .
-                              </>
-                            ) : (
-                              <>
-                                Your seat rests inside your prepaid annual garden for this bundle. Invite paid seats for family from{' '}
-                                <Link to="/dashboard#sacred-home-programs" className="underline decoration-emerald-600/50 font-semibold text-emerald-900">
-                                  Upcoming programs
-                                </Link>
-                                .
-                              </>
-                            )}
-                          </p>
-                        </div>
-                      ) : !heroIsCatalogRenewalRef ? (
-                        <p className="text-[11px] text-[rgba(60,35,115,0.52)] text-center sm:text-left">
-                          Mirrors Divine Cart — catalog pricing for this hub &amp; tier.
-                        </p>
-                      ) : null}
-                    </>
-                  )}
-                </div>
 
                 <div>
                   <Label className="text-[11px] uppercase tracking-[0.1em] text-[rgba(70,35,125,0.55)] font-semibold">Note for your host (optional)</Label>
