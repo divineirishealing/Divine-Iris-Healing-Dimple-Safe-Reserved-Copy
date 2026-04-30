@@ -395,6 +395,18 @@ const StudentDashboard = () => {
     () => IRIS_JOURNEY_PARTS[effectiveIrisYear]?.title || String(irisJourney?.title || '').trim() || '',
     [effectiveIrisYear, irisJourney?.title],
   );
+  const effectiveIrisSubtitle = useMemo(
+    () => IRIS_JOURNEY_PARTS[effectiveIrisYear]?.subtitle || String(irisJourney?.subtitle || '').trim() || '',
+    [effectiveIrisYear, irisJourney?.subtitle],
+  );
+  /** One-line banner: YEAR n: IRIS … — THE … (matches garden labels, no membership tier name). */
+  const heroIrisJourneyBanner = useMemo(() => {
+    if (!effectiveIrisTitle) return '';
+    const bit = effectiveIrisSubtitle
+      ? `Year ${effectiveIrisYear}: ${effectiveIrisTitle} — ${effectiveIrisSubtitle}`
+      : `Year ${effectiveIrisYear}: ${effectiveIrisTitle}`;
+    return bit.toUpperCase();
+  }, [effectiveIrisYear, effectiveIrisTitle, effectiveIrisSubtitle]);
   const journeyDisplayPct = progressPct > 0 ? progressPct : 64;
   const soulAlignPct = progressPct > 0 ? Math.min(99, progressPct + 16) : 80;
   const bodyAlignPct = progressPct > 0 ? Math.min(99, progressPct + 8) : 72;
@@ -426,12 +438,15 @@ const StudentDashboard = () => {
     if (homeComing && effectiveIrisTitle) {
       return `✦ Home Coming · Year ${effectiveIrisYear} — ${effectiveIrisTitle}`;
     }
+    if (effectiveIrisTitle && effectiveIrisSubtitle) {
+      return `✦ Year ${effectiveIrisYear}: ${effectiveIrisTitle} — ${effectiveIrisSubtitle}`;
+    }
     if (effectiveIrisTitle) {
-      return `✦ ${tierLabel} — ${effectiveIrisTitle} · Year ${effectiveIrisYear}`;
+      return `✦ ${effectiveIrisTitle} · Year ${effectiveIrisYear}`;
     }
     if (user?.tier === 4) return SANCTUARY_REFERENCE.profileTierZenith;
     return `✦ ${tierLabel} path`;
-  }, [effectiveIrisTitle, effectiveIrisYear, homeComing, tierLabel, user?.tier]);
+  }, [effectiveIrisTitle, effectiveIrisSubtitle, effectiveIrisYear, homeComing, tierLabel, user?.tier]);
 
   const dashboardScheduleRows = useMemo(
     () => buildDashboardScheduleRows(homeData?.schedule_preview, homeData?.programs),
@@ -533,14 +548,23 @@ const StudentDashboard = () => {
               <p className="text-[13px] font-light text-slate-600 tracking-[0.03em] max-w-xl leading-snug">
                 {welcomeSubtitle}
               </p>
-              {!isNoActivePackage ? (
-                <p
-                  className="text-[11px] mt-2 font-[family-name:'Cinzel',serif] tracking-[0.1em] text-[#7a6410]"
+              {!isNoActivePackage && heroIrisJourneyBanner ? (
+                <div
+                  className="mt-3 flex flex-wrap items-start gap-2.5 sm:gap-3 rounded-2xl border border-[rgba(190,150,55,0.42)] bg-gradient-to-br from-white via-[#fffdfb] to-[rgba(255,252,245,0.98)] px-3.5 py-2.5 sm:px-4 sm:py-3 shadow-[0_6px_28px_rgba(120,90,30,0.1),inset_0_1px_0_rgba(255,255,255,0.95)] max-w-xl ring-1 ring-amber-200/40"
                   data-testid="dashboard-hero-iris-year"
                 >
-                  ✦ {tierLabel}
-                  {effectiveIrisTitle ? ` · ${effectiveIrisTitle} · Year ${effectiveIrisYear}` : ''}
-                </p>
+                  <span
+                    className="mt-0.5 shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-full border border-[rgba(200,160,70,0.45)] bg-gradient-to-br from-[rgba(252,240,200,0.55)] to-[rgba(255,250,235,0.95)] text-[12px] leading-none text-[#8a6810]"
+                    aria-hidden
+                  >
+                    ✦
+                  </span>
+                  <p
+                    className="min-w-0 flex-1 font-[family-name:'Cinzel',serif] text-[10px] sm:text-[11px] font-semibold tracking-[0.14em] sm:tracking-[0.17em] leading-snug sm:leading-relaxed bg-gradient-to-r from-[#4a3610] via-[#6b4818] to-[#4a3610] bg-clip-text text-transparent [filter:drop-shadow(0_1px_0_rgba(255,255,255,0.85))]"
+                  >
+                    {heroIrisJourneyBanner}
+                  </p>
+                </div>
               ) : null}
             </div>
             <div className="relative z-[1] flex flex-wrap items-stretch justify-start md:justify-end gap-3 shrink-0">
