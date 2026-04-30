@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { Loader2 } from 'lucide-react';
 import {
@@ -72,6 +72,11 @@ export default function AnnualSubscriptionEditDialog({ open, onOpenChange, row, 
   const [usageSource, setUsageSource] = useState('manual');
   const [editScope, setEditScope] = useState('current');
   const [sessions, setSessions] = useState([]);
+  const prevRowIdRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) prevRowIdRef.current = null;
+  }, [open]);
 
   useEffect(() => {
     if (!open || !row) return;
@@ -85,7 +90,12 @@ export default function AnnualSubscriptionEditDialog({ open, onOpenChange, row, 
     setUTurbo(u.turbo_sessions_used ?? '');
     setUMeta(u.meta_downloads_used ?? '');
     setUsageSource(sub.usage_source === 'system' ? 'system' : 'manual');
-    setEditScope('current');
+    const rid = (row.id || '').trim();
+    if (rid && prevRowIdRef.current !== rid) {
+      setEditScope('current');
+      prevRowIdRef.current = rid;
+    }
+    if (!rid) prevRowIdRef.current = null;
   }, [open, row]);
 
   useEffect(() => {
