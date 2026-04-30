@@ -128,7 +128,7 @@ function AnnualQuoteBreakdown({
           programOnAnnualPackageList &&
           !annualDashboardAccess &&
           ahSel > 0 ? (
-            <p className="text-[10px] text-slate-700 bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1.5 leading-snug">
+            <p className="text-[10px] text-violet-900/90 bg-violet-50/90 border border-violet-100 rounded-md px-2.5 py-1.5 leading-snug">
               This program is on the annual package list. Linked household members with their own Annual+Dashboard
               access may have seats covered by their package — see the household line below.
             </p>
@@ -1227,9 +1227,15 @@ export default function DashboardUpcomingProgramRowItem({
                         {(crossUnitAdj > 0 ? afterPromo : baseForPromo).toLocaleString()}
                       </span>
                     </div>
-                    <span className="text-xs text-slate-600 font-medium">
+                    <span className="text-xs text-violet-700 font-medium">
                       With {promoForProgramClicks} (on offer price)
                     </span>
+                    {crossUnitAdj > 0 ? (
+                      <span className="text-[10px] text-amber-900 font-medium">
+                        {crossSellDiscount?.label || 'Bundle'}: −{symbol}
+                        {crossUnitAdj.toLocaleString()} vs cart add-ons when combined programs are in your order
+                      </span>
+                    ) : null}
                     {offerPrice > 0 && price > offerPrice ? (
                       <span className="text-[10px] text-gray-400">List {symbol}
                         {price.toLocaleString()}
@@ -1244,6 +1250,12 @@ export default function DashboardUpcomingProgramRowItem({
                     <span className="text-xs text-gray-400 line-through tabular-nums">
                       {symbol} {price.toLocaleString()}
                     </span>
+                    {crossUnitAdj > 0 ? (
+                      <span className="text-[10px] text-amber-900 font-medium block w-full">
+                        {crossSellDiscount?.label || 'Bundle'}: −{symbol}
+                        {crossUnitAdj.toLocaleString()}
+                      </span>
+                    ) : null}
                   </>
                 ) : price > 0 ? (
                   <span className="text-xl font-bold text-gray-900 tabular-nums">
@@ -1395,7 +1407,7 @@ export default function DashboardUpcomingProgramRowItem({
                           </div>
                         )}
                         {showSpecialPromo && !showContact ? (
-                          <div className={`${rowClass} text-[10px] text-slate-600`}>
+                          <div className={`${rowClass} text-[10px] text-violet-700`}>
                             <span>With {promoForProgramClicks} (on offer price)</span>
                           </div>
                         ) : null}
@@ -1457,6 +1469,12 @@ export default function DashboardUpcomingProgramRowItem({
                       </span>
                     )}
                   </p>
+                  {crossSellLineDeduction > 0 ? (
+                    <p className="text-[10px] text-amber-900 font-medium">
+                      Includes {crossSellDiscount?.label || 'bundle'} (−{symbol}
+                      {crossSellLineDeduction.toLocaleString()})
+                    </p>
+                  ) : null}
                 </div>
               ) : !aq ? (() => {
                 const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
@@ -1534,7 +1552,7 @@ export default function DashboardUpcomingProgramRowItem({
             <div className="flex flex-col gap-4 flex-1 min-h-0 max-h-[min(26rem,55vh)] overflow-y-auto pr-1 pt-2">
               {annualHouseholdPeers.length > 0 ? (
                 <div className="min-w-0">
-                  <p className="text-[10px] font-bold tracking-wide text-slate-600 mb-2">
+                  <p className="text-[10px] font-bold tracking-wide text-violet-700 mb-2">
                     {annualDashboardAccess ? 'Annual Family Club' : 'Linked household'}
                   </p>
                   <ul className="space-y-1.5">
@@ -1581,7 +1599,7 @@ export default function DashboardUpcomingProgramRowItem({
                                 <span className="text-slate-500"> ({m.relationship})</span>
                               ) : null}
                               {showIncludedHint ? (
-                                <span className="block text-[10px] text-slate-600 mt-0.5 leading-snug">
+                                <span className="block text-[10px] text-violet-800/90 mt-0.5 leading-snug">
                                   {peerSeatPrepaidWhenPrimaryNotAnnual
                                     ? 'Already included in their Annual Package'
                                     : 'Already included in Annual Package'}
@@ -1742,11 +1760,11 @@ export default function DashboardUpcomingProgramRowItem({
                   — other upcoming programs keep their own choices. You can save browser defaults from the advanced modal.
                 </p>
                 {annualSeatUi.draft?.enrollmentDefaultsLoaded ? (
-                  <p className="text-[9px] text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1 leading-snug mb-2 w-full">
+                  <p className="text-[9px] text-violet-900 bg-violet-50 border border-violet-200/70 rounded px-2 py-1 leading-snug mb-2 w-full">
                     Loaded your <strong>saved defaults</strong> for this browser. Adjust below or{' '}
                     <button
                       type="button"
-                      className="font-semibold text-slate-800 underline underline-offset-2"
+                      className="font-semibold text-violet-800 underline underline-offset-2"
                       onClick={(e) => {
                         e.stopPropagation();
                         annualSeatUi.onClearSavedDefaults();
@@ -1882,7 +1900,7 @@ export default function DashboardUpcomingProgramRowItem({
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 w-full min-w-0">
                   <button
                     type="button"
-                    className="text-slate-600 font-bold tracking-wide text-[9px] underline underline-offset-2 hover:text-slate-900 p-0 bg-transparent border-0 cursor-pointer text-left shrink-0 sm:pt-0.5"
+                    className="text-violet-700 font-bold tracking-wide text-[9px] underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left shrink-0 sm:pt-0.5"
                     onClick={(e) => {
                       e.stopPropagation();
                       annualSeatUi.onOpenPerPersonSeatModal?.();
