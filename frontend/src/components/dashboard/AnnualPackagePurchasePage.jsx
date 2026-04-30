@@ -50,7 +50,6 @@ const HEART_QUOTE = 'You are exactly where you need to be — trust the becoming
 
 /** Full Home Coming bundle contents (shown in ALL CAPS). Shared with Household overview. */
 export const HOME_COMING_BUNDLE_INCLUDES_LINES = [
-  '12-MONTH ATOMIC WEIGHT RELEASE PROGRAM (AWRP)',
   '6-MONTH MMM',
   '4 TURBO RELEASE',
   '2 META DOWNLOADS',
@@ -1244,11 +1243,12 @@ export default function AnnualPackagePurchasePage() {
                       </p>
                     ) : null}
                   </div>
-                  <div className="min-w-0 lg:pl-8 lg:pr-8 lg:py-0.5 pt-6 lg:pt-0 border-t border-[rgba(160,100,240,0.14)] lg:border-t-0 text-left">
-                    <p className="font-[family-name:'Playfair_Display',Georgia,serif] text-[12px] sm:text-[13px] leading-relaxed text-[rgba(45,25,95,0.85)]">
+                  <div className="min-w-0 lg:pl-8 lg:pr-8 lg:py-0.5 pt-6 lg:pt-0 border-t border-slate-200 lg:border-t-0 text-left">
+                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:px-5 sm:py-5 shadow-sm">
+                    <p className="font-[family-name:'Playfair_Display',Georgia,serif] text-[12px] sm:text-[13px] leading-relaxed text-slate-700">
                       One gentle annual home for your soul — what is held in this bundle:
                     </p>
-                    <ul className="mt-3 space-y-2.5 text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.09em] text-[#3b0764] list-none pl-0">
+                    <ul className="mt-3 space-y-2.5 text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.09em] text-slate-800 list-none pl-0 border-l-2 border-amber-200/80 pl-3">
                       {HOME_COMING_BUNDLE_INCLUDES_LINES.map((line) => (
                         <li key={line} className="leading-snug">
                           {line}
@@ -1261,6 +1261,7 @@ export default function AnnualPackagePurchasePage() {
                         {catalogTo ? ` · to ${formatDateDdMonYyyy(catalogTo)}` : ''} — when this catalog bundle may be purchased.
                       </p>
                     )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1283,11 +1284,11 @@ export default function AnnualPackagePurchasePage() {
             ) : (
               <div className="space-y-5">
                 {!catalogBundle ? (
-                  <div className={cn(glassInset, 'text-left')}>
-                    <p className="font-[family-name:'Playfair_Display',Georgia,serif] text-[12px] sm:text-[13px] leading-relaxed text-[rgba(45,25,95,0.85)]">
+                  <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 md:px-5 md:py-5 shadow-sm text-left">
+                    <p className="font-[family-name:'Playfair_Display',Georgia,serif] text-[12px] sm:text-[13px] leading-relaxed text-slate-700">
                       One gentle annual home for your soul — what is held in this bundle:
                     </p>
-                    <ul className="mt-3 space-y-2.5 text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.09em] text-[#3b0764] list-none pl-0">
+                    <ul className="mt-3 space-y-2.5 text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.09em] text-slate-800 list-none pl-0 border-l-2 border-amber-200/80 pl-3">
                       {HOME_COMING_BUNDLE_INCLUDES_LINES.map((line) => (
                         <li key={line}>{line}</li>
                       ))}

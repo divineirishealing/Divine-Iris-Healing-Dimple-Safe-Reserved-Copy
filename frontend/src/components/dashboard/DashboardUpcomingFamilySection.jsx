@@ -2283,29 +2283,23 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         </div>
 
         <div
-          className="rounded-3xl border border-slate-200/80 bg-gradient-to-br from-white/98 via-slate-50/40 to-violet-50/25 backdrop-blur-xl px-5 py-5 md:px-7 md:py-7 shadow-[0_12px_44px_-16px_rgba(30,27,75,0.12)] ring-1 ring-slate-900/[0.04]"
+          className="rounded-3xl border border-slate-200/80 bg-white px-5 py-5 md:px-7 md:py-7 shadow-[0_12px_44px_-16px_rgba(15,23,42,0.08)]"
           data-overview-box="household"
         >
-        <div className="flex items-start gap-3 mb-6 px-5 pt-5 pb-5 -mx-5 md:-mx-7 -mt-5 md:-mt-7 md:pt-7 bg-gradient-to-r from-[#5b21b6] via-[#6d28d9] to-[#7c3aed] text-white border-b border-white/15 shadow-[inset_0_-1px_0_rgba(255,255,255,0.08)]">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white shadow-sm ring-1 ring-white/25">
-            <Users size={20} strokeWidth={1.75} aria-hidden />
-          </div>
-          <div className="min-w-0 pt-0.5">
-            <p className="text-[10px] font-semibold tracking-wide text-violet-100/95">Household</p>
-            <h3 className="text-base font-semibold leading-tight mt-0.5">
-              <span className="text-white font-bold">Family</span>
-              <span className="text-violet-100/95"> &amp; guests</span>
-            </h3>
-            <p className="text-[11px] text-violet-100/85 mt-1 leading-snug">
-              Who travels with you on programs — immediate family, annual club peers, and extended guests.
-            </p>
-          </div>
+        <div className="mb-6 pb-5 border-b border-slate-100">
+          <p className="text-[10px] font-semibold tracking-wide text-slate-500 uppercase">Household</p>
+          <h3 className="text-base font-semibold text-slate-900 mt-1 leading-tight">
+            Family <span className="text-slate-600 font-medium">&amp; guests</span>
+          </h3>
+          <p className="text-[11px] text-slate-500 mt-1.5 leading-snug max-w-3xl">
+            Who travels with you on programs — immediate family, annual club peers, and extended guests.
+          </p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
           <div className="min-w-0">
         <div className="pt-0">
           <div className="flex items-center gap-2 mb-3">
-            <Users size={16} className="text-violet-700" />
+            <Users size={16} className="text-slate-600" />
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Immediate family</h3>
             </div>
@@ -2406,7 +2400,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
         <div className="border-t border-slate-200/80 pt-4 mt-4">
           <div className="flex items-center gap-2 mb-2">
-            <Users size={16} className="text-violet-700" />
+            <Users size={16} className="text-slate-600" />
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Annual Family Club</h3>
               <p className="text-[11px] text-slate-500 mt-0.5 max-w-3xl">
@@ -2521,13 +2515,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         </div>
           </div>
           <aside
-            className="min-w-0 lg:border-l lg:border-slate-200/70 lg:pl-8 text-left pt-2 lg:pt-0"
+            className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm lg:shadow-none lg:rounded-none lg:border-0 lg:border-l lg:border-slate-200/70 lg:pl-8 text-left pt-2 lg:pt-0"
             data-testid="household-home-coming-bundle-aside"
           >
-            <p className="font-[family-name:'Playfair_Display',Georgia,serif] text-[12px] sm:text-[13px] leading-relaxed text-[rgba(45,25,95,0.85)]">
+            <p className="font-[family-name:'Playfair_Display',Georgia,serif] text-[12px] sm:text-[13px] leading-relaxed text-slate-700">
               One gentle annual home for your soul — what is held in this bundle:
             </p>
-            <ul className="mt-3 space-y-2.5 text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.09em] text-[#3b0764] list-none pl-0">
+            <ul className="mt-3 space-y-2.5 text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.09em] text-slate-800 list-none pl-0 border-l-2 border-amber-200/80 pl-3">
               {HOME_COMING_BUNDLE_INCLUDES_LINES.map((line) => (
                 <li key={line} className="leading-snug">
                   {line}
