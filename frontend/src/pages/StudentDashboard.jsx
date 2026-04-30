@@ -19,6 +19,7 @@ import DashboardUpcomingFamilySection from '../components/dashboard/DashboardUpc
 import { Button } from '../components/ui/button';
 
 import { getApiUrl, getBackendUrl } from '../lib/config';
+import { IRIS_JOURNEY_PARTS } from '../lib/irisJourney';
 
 function daysActiveSince(iso) {
   if (!iso) return null;
@@ -380,6 +381,20 @@ const StudentDashboard = () => {
   const progressPct = pkg.total_sessions ? Math.round((pkg.used_sessions / pkg.total_sessions) * 100) : 0;
   const tierLabel = { 1: 'Seeker', 2: 'Initiate', 3: 'Explorer', 4: 'Iris Zenith' }[user?.tier] || 'Seeker';
   const irisJourney = homeData?.iris_journey;
+  /** Same source as Annual / renewal UI: garden + subscription + lifecycle (renewal bumps +1). */
+  const effectiveIrisYear = useMemo(() => {
+    const r = Number(homeData?.renewal_entering_iris_year);
+    if (Number.isFinite(r) && r >= 1) return Math.min(12, Math.max(1, Math.floor(r)));
+    const y = Number(irisJourney?.year);
+    if (Number.isFinite(y) && y >= 1) return Math.min(12, Math.max(1, Math.floor(y)));
+    const hc = Number(homeComing?.year);
+    if (Number.isFinite(hc) && hc >= 1) return Math.min(12, Math.max(1, Math.floor(hc)));
+    return 1;
+  }, [homeData?.renewal_entering_iris_year, irisJourney?.year, homeComing?.year]);
+  const effectiveIrisTitle = useMemo(
+    () => IRIS_JOURNEY_PARTS[effectiveIrisYear]?.title || String(irisJourney?.title || '').trim() || '',
+    [effectiveIrisYear, irisJourney?.title],
+  );
   const journeyDisplayPct = progressPct > 0 ? progressPct : 64;
   const soulAlignPct = progressPct > 0 ? Math.min(99, progressPct + 16) : 80;
   const bodyAlignPct = progressPct > 0 ? Math.min(99, progressPct + 8) : 72;
@@ -391,7 +406,7 @@ const StudentDashboard = () => {
     const todayDisp = formatDateDdMonYyyy(ymd);
     const rawName = (pkg.program_name || '').trim();
     if (homeComing?.year != null) {
-      const programPhrase = `Home Coming · Year ${homeComing.year} journey`;
+      const programPhrase = `Home Coming · Year ${effectiveIrisYear} journey`;
       const weekN = typeof pkg.used_sessions === 'number' && pkg.used_sessions >= 0 ? pkg.used_sessions : null;
       const lead =
         weekN != null ? `Week ${weekN} of your ${programPhrase}` : `Your ${programPhrase}`;
@@ -405,18 +420,18 @@ const StudentDashboard = () => {
     const lead =
       weekN != null ? `Week ${weekN} of your ${programPhrase}` : `Your ${programPhrase}`;
     return `${lead} · ${weekday}, ${todayDisp} · ${SANCTUARY_REFERENCE.welcomeAffirmation}`;
-  }, [homeComing?.year, pkg.program_name, pkg.used_sessions]);
+  }, [effectiveIrisYear, homeComing?.year, pkg.program_name, pkg.used_sessions]);
 
   const profileTierLine = useMemo(() => {
-    if (homeComing?.year != null && irisJourney?.title) {
-      return `✦ Home Coming · Year ${homeComing.year} — ${irisJourney.title}`;
+    if (homeComing && effectiveIrisTitle) {
+      return `✦ Home Coming · Year ${effectiveIrisYear} — ${effectiveIrisTitle}`;
     }
-    if (irisJourney?.year != null && irisJourney.title) {
-      return `✦ ${tierLabel} — ${irisJourney.title} · Year ${irisJourney.year}`;
+    if (effectiveIrisTitle) {
+      return `✦ ${tierLabel} — ${effectiveIrisTitle} · Year ${effectiveIrisYear}`;
     }
     if (user?.tier === 4) return SANCTUARY_REFERENCE.profileTierZenith;
     return `✦ ${tierLabel} path`;
-  }, [homeComing?.year, irisJourney, tierLabel, user?.tier]);
+  }, [effectiveIrisTitle, effectiveIrisYear, homeComing, tierLabel, user?.tier]);
 
   const dashboardScheduleRows = useMemo(
     () => buildDashboardScheduleRows(homeData?.schedule_preview, homeData?.programs),
@@ -541,9 +556,12 @@ const StudentDashboard = () => {
                 <div className="font-[family-name:'Cinzel',serif] text-[11px] text-[#8a6800] tracking-[0.08em]">
                   ✦ {tierLabel}
                 </div>
-                <div className="text-[10px] text-[rgba(140,100,0,0.5)] mt-0.5 leading-snug line-clamp-2">
-                  {irisJourney?.title
-                    ? `${irisJourney.title}${irisJourney.year != null ? ` · Year ${irisJourney.year}` : ''}`
+                <div
+                  className="text-[10px] text-[rgba(140,100,0,0.5)] mt-0.5 leading-snug line-clamp-2"
+                  data-testid="dashboard-hero-iris-year"
+                >
+                  {effectiveIrisTitle
+                    ? `${effectiveIrisTitle} · Year ${effectiveIrisYear}`
                     : profileTierLine.replace(/^\s*✦\s*/, '')}
                 </div>
               </div>
