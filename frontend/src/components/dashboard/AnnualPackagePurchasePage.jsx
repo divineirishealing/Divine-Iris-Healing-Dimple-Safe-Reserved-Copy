@@ -916,9 +916,9 @@ export default function AnnualPackagePurchasePage() {
             >
               {subtitleFourPrograms}
             </p>
-            <div className="mt-6 w-full flex justify-center lg:justify-start">
+            <div className="mt-6 w-full flex justify-center md:justify-start">
               <div
-                className="w-full max-w-[34rem] rounded-[22px] border border-[rgba(196,168,252,0.45)] bg-gradient-to-br from-[#faf8ff]/96 via-[#fffefd]/93 to-[#f5f0ff]/93 px-3.5 py-5 sm:px-4 sm:py-6 text-left shadow-[0_12px_48px_rgba(124,58,237,0.12)] backdrop-blur-sm"
+                className="w-full max-w-[min(42rem,100%)] md:max-w-[min(48rem,calc(100%-0.5rem))] lg:max-w-[min(52rem,calc(100vw-2.25rem-max(13.5rem,24vw)))] rounded-[22px] border border-[rgba(196,168,252,0.45)] bg-gradient-to-br from-[#faf8ff]/96 via-[#fffefd]/93 to-[#f5f0ff]/93 px-3.5 py-5 sm:px-4 sm:py-6 md:px-5 md:py-6 text-left shadow-[0_12px_48px_rgba(124,58,237,0.12)] backdrop-blur-sm"
                 data-testid="home-coming-welcome-banner"
               >
               <div className="flex gap-3 sm:gap-4">
@@ -962,7 +962,7 @@ export default function AnnualPackagePurchasePage() {
                             <span className="block text-[10px] font-bold tracking-[0.14em] text-[rgba(100,55,155,0.45)]">
                               {nextSacredYearStartsLabel}
                             </span>
-                            <span className="block normal-case tracking-normal text-[11px] font-medium text-[rgba(60,35,115,0.65)] mt-1 max-w-[22rem]">
+                            <span className="block normal-case tracking-normal text-[11px] font-medium text-[rgba(60,35,115,0.65)] mt-1 max-w-[min(32rem,100%)]">
                               Choose your bundle start date. Your Iris year follows your Client Garden path automatically.
                             </span>
                           </span>
