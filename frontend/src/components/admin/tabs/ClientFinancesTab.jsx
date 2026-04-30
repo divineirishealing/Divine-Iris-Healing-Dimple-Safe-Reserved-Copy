@@ -107,7 +107,7 @@ function irisTierLine(cl) {
 function annualFeeLine(cl) {
   const sub = subscriptionBlock(cl);
   const fee = sub.total_fee;
-  const cur = (sub.currency || 'INR').toString().trim() || 'INR';
+  const cur = effectiveFinanceCurrency(cl, null);
   if (fee == null || fee === '') return '—';
   const n = Number(fee);
   if (!Number.isFinite(n)) return `${fee} ${cur}`;
@@ -117,6 +117,19 @@ function annualFeeLine(cl) {
 function subscriptionCurrency(cl) {
   const sub = subscriptionBlock(cl);
   return (sub.currency || 'INR').toString().trim() || 'INR';
+}
+
+/** Hub override (INR/AED/USD) or subscription currency — matches student `financials.currency` when hub is pinned. */
+function effectiveFinanceCurrency(cl, draft) {
+  const fromDraft = draft && String(draft.pricing_hub_override || '').trim().toLowerCase();
+  if (fromDraft === 'inr' || fromDraft === 'aed' || fromDraft === 'usd') {
+    return fromDraft.toUpperCase();
+  }
+  const fromClient = String(cl?.pricing_hub_override || '').trim().toLowerCase();
+  if (fromClient === 'inr' || fromClient === 'aed' || fromClient === 'usd') {
+    return fromClient.toUpperCase();
+  }
+  return subscriptionCurrency(cl);
 }
 
 function offerPrefs(cl) {
@@ -183,7 +196,7 @@ function hasGroupDiscountBands(cl) {
  */
 function computedFinanceTotal(cl) {
   const fee = subscriptionFeeBeforeAdjustments(cl);
-  const currency = subscriptionCurrency(cl);
+  const currency = effectiveFinanceCurrency(cl, null);
   if (fee == null || !Number.isFinite(fee) || fee <= 0) {
     return { amount: null, approximate: false, currency };
   }
@@ -699,14 +712,19 @@ export default function ClientFinancesTab() {
       if (!FINANCE_PKG_MODE_OPTIONS.includes(pm)) pm = 'No EMI';
       const iy = Math.min(12, Math.max(1, parseInt(String(sub.iris_year ?? 1), 10) || 1));
       const iym = (sub.iris_year_mode || 'manual').toLowerCase() === 'auto' ? 'auto' : 'manual';
-      await axios.patch(`${API}/admin/subscribers/annual-package/${editing.id}`, {
+      const cur = effectiveFinanceCurrency(editing, null).toLowerCase();
+      const body = {
         total_fee: tf,
         payment_mode: pm,
         num_emis: ne,
         installment_surcharge_percent: sur,
         iris_year: iy,
         iris_year_mode: iym,
-      });
+      };
+      if (cur === 'inr' || cur === 'aed' || cur === 'usd') {
+        body.currency = cur.toUpperCase();
+      }
+      await axios.patch(`${API}/admin/subscribers/annual-package/${editing.id}`, body);
       toast({ title: 'Annual fee saved', description: 'Subscriber package updated.' });
       await fetchData();
       const refreshed = clients.find((c) => c.id === editing.id);
@@ -771,14 +789,18 @@ export default function ClientFinancesTab() {
         const iym = d.iris_year_mode === 'auto' ? 'auto' : 'manual';
         let pm = (d.payment_mode || 'No EMI').trim();
         if (!FINANCE_PKG_MODE_OPTIONS.includes(pm)) pm = 'No EMI';
-        await axios.patch(`${API}/admin/subscribers/annual-package/${financeGridEditId}`, {
+        const pkgBody = {
           total_fee: Number.isFinite(tf) && tf >= 0 ? tf : 0,
           payment_mode: pm,
           num_emis: ne,
           installment_surcharge_percent: sur,
           iris_year: iy,
           iris_year_mode: iym,
-        });
+        };
+        if (pricing_hub_override) {
+          pkgBody.currency = pricing_hub_override.toUpperCase();
+        }
+        await axios.patch(`${API}/admin/subscribers/annual-package/${financeGridEditId}`, pkgBody);
       }
       toast({ title: 'Saved', description: 'Finance row updated.' });
       cancelFinanceGridEdit();
@@ -1215,7 +1237,7 @@ export default function ClientFinancesTab() {
                 }
               />
               <span className="text-[10px] text-gray-500 whitespace-nowrap">
-                {(sub.currency || 'INR').toString().slice(0, 3)}
+                {effectiveFinanceCurrency(cl, d).slice(0, 3)}
               </span>
               {gridBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 text-gray-400" /> : null}
             </div>
@@ -1848,7 +1870,7 @@ export default function ClientFinancesTab() {
                         disabled={dialogFeeSaving}
                       />
                       <span className="text-[10px] text-gray-500">
-                        {(editingSub.currency || 'INR').toString().trim()}
+                        {effectiveFinanceCurrency(editing || {}, null)}
                       </span>
                       <Button
                         type="button"
@@ -1877,7 +1899,7 @@ export default function ClientFinancesTab() {
                   <span className="text-gray-500">Voluntary credits</span>
                   <p className="font-medium tabular-nums">
                     {Number(editingSub.voluntary_credits_total || 0).toLocaleString()}{' '}
-                    {(editingSub.currency || 'INR').toString().trim() || 'INR'}
+                    {effectiveFinanceCurrency(editing || {}, null)}
                   </p>
                 </div>
               </div>

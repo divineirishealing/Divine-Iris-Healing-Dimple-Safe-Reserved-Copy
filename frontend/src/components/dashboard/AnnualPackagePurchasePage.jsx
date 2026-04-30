@@ -305,6 +305,10 @@ export default function AnnualPackagePurchasePage() {
 
   const pkg = homeData?.package || {};
   const fin = homeData?.financials || {};
+  const sacredMoneyCurrency = useMemo(
+    () => (baseCurrency || fin.currency || 'aed').toString().toUpperCase(),
+    [baseCurrency, fin.currency],
+  );
   const emis = fin.emis || [];
   const emiByNumber = useMemo(() => {
     const m = new Map();
@@ -1121,8 +1125,8 @@ export default function AnnualPackagePurchasePage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 md:gap-3 text-center">
                   {[
                     { label: 'Status', value: fin.status || '—', accent: 'text-[#1e1b4b]' },
-                    { label: 'Total', value: `${fin.currency || ''} ${Number(fin.total_fee || 0).toLocaleString()}`, accent: 'text-[#1e1b4b]' },
-                    { label: 'Remaining', value: `${fin.currency || ''} ${Number(fin.remaining ?? 0).toLocaleString()}`, accent: fin.remaining > 0 ? 'text-amber-800' : 'text-emerald-800' },
+                    { label: 'Total', value: `${sacredMoneyCurrency} ${Number(fin.total_fee || 0).toLocaleString()}`, accent: 'text-[#1e1b4b]' },
+                    { label: 'Remaining', value: `${sacredMoneyCurrency} ${Number(fin.remaining ?? 0).toLocaleString()}`, accent: fin.remaining > 0 ? 'text-amber-800' : 'text-emerald-800' },
                     { label: 'Next due', value: formatDashboardStatDate(fin.next_due), accent: 'text-amber-900' },
                   ].map((row) => (
                     <div key={row.label} className="rounded-xl border border-white/70 bg-white/55 px-2 py-2.5">
@@ -1202,7 +1206,7 @@ export default function AnnualPackagePurchasePage() {
                             {Number(toDisplay(Number(fin.total_fee || 0))).toLocaleString()}
                           </span>{' '}
                           <span className="text-lg font-semibold text-[rgba(80,55,145,0.55)]">
-                            {(fin.currency || baseCurrency || 'inr').toUpperCase()}
+                            {(sacredMoneyCurrency || 'AED')}
                           </span>
                         </p>
                         <p className="text-[11px] text-[rgba(60,35,115,0.65)] leading-snug">

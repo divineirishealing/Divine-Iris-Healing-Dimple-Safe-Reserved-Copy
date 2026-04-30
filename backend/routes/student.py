@@ -2724,6 +2724,12 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     total_fee = effective_total_fee
     remaining = max(0, total_fee - total_paid)
 
+    hub_ov = str(client.get("pricing_hub_override") or "").strip().lower()
+    if hub_ov in ("aed", "usd", "inr"):
+        financials_currency = hub_ov.upper()
+    else:
+        financials_currency = str(sub.get("currency") or "INR").strip().upper() or "INR"
+
     financials = {
         "status": client.get("payment_status")
         or (
@@ -2734,7 +2740,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "total_fee": total_fee,
         "base_package_fee": raw_base_package_fee,
         "installment_surcharge_percent": sur_pct if is_emi_plan else 0.0,
-        "currency": sub.get("currency", "INR"),
+        "currency": financials_currency,
         "total_paid": total_paid,
         "remaining": remaining,
         "voluntary_credits_total": voluntary_credits,
