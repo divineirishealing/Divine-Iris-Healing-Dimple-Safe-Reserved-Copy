@@ -49,6 +49,15 @@ function hasAnnualPackageRow(cl) {
   return false;
 }
 
+/** Inline annual fee / EMIs / Iris year: allow when package row exists or CRM annual window is set (Iris Annual Abundance). */
+function canEditAnnualPackageFinance(cl) {
+  if (hasAnnualPackageRow(cl)) return true;
+  if (cl?.annual_member_dashboard) return true;
+  const asub = cl?.annual_subscription || {};
+  if ((asub.start_date || '').trim() || (asub.end_date || '').trim()) return true;
+  return false;
+}
+
 /** Column ids in table order. Only `hideable` columns appear in the Columns menu. */
 const FINANCE_COLUMNS = [
   { id: 'sno', label: 'S.No', hideable: false },
@@ -602,6 +611,8 @@ export default function ClientFinancesTab() {
   const [saving, setSaving] = useState(false);
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
+  const [dialogFeeDraft, setDialogFeeDraft] = useState('');
+  const [dialogFeeSaving, setDialogFeeSaving] = useState(false);
 
   const [indiaDiscountBandRows, setIndiaDiscountBandRows] = useState([]);
 
@@ -661,6 +672,56 @@ export default function ClientFinancesTab() {
   const [financeGridDraft, setFinanceGridDraft] = useState(null);
   const [financeGridSaving, setFinanceGridSaving] = useState(false);
 
+  useEffect(() => {
+    if (!dialogOpen || !editing) return;
+    const s = subscriptionBlock(editing);
+    setDialogFeeDraft(
+      s.total_fee != null && s.total_fee !== '' ? String(s.total_fee).replace(/,/g, '') : '',
+    );
+  }, [dialogOpen, editing?.id]);
+
+  const saveDialogAnnualFee = useCallback(async () => {
+    if (!editing?.id || !canEditAnnualPackageFinance(editing)) return;
+    const tf = parseFloat(String(dialogFeeDraft).replace(/,/g, ''));
+    if (!Number.isFinite(tf) || tf < 0) {
+      toast({ title: 'Enter a valid annual fee', variant: 'destructive' });
+      return;
+    }
+    setDialogFeeSaving(true);
+    try {
+      const sub = subscriptionBlock(editing);
+      const ne = Math.min(12, Math.max(0, parseInt(String(sub.num_emis ?? 0), 10) || 0));
+      const sur = Math.min(
+        100,
+        Math.max(0, parseFloat(String(sub.installment_surcharge_percent ?? 0).replace(/,/g, '')) || 0),
+      );
+      let pm = (sub.payment_mode || 'No EMI').trim();
+      if (!FINANCE_PKG_MODE_OPTIONS.includes(pm)) pm = 'No EMI';
+      const iy = Math.min(12, Math.max(1, parseInt(String(sub.iris_year ?? 1), 10) || 1));
+      const iym = (sub.iris_year_mode || 'manual').toLowerCase() === 'auto' ? 'auto' : 'manual';
+      await axios.patch(`${API}/admin/subscribers/annual-package/${editing.id}`, {
+        total_fee: tf,
+        payment_mode: pm,
+        num_emis: ne,
+        installment_surcharge_percent: sur,
+        iris_year: iy,
+        iris_year_mode: iym,
+      });
+      toast({ title: 'Annual fee saved', description: 'Subscriber package updated.' });
+      await fetchData();
+      const refreshed = clients.find((c) => c.id === editing.id);
+      if (refreshed) setEditing(refreshed);
+    } catch (e) {
+      toast({
+        title: 'Save failed',
+        description: e.response?.data?.detail || e.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setDialogFeeSaving(false);
+    }
+  }, [editing, dialogFeeDraft, clients, fetchData, toast]);
+
   const cancelFinanceGridEdit = useCallback(() => {
     setFinanceGridEditId(null);
     setFinanceGridDraft(null);
@@ -699,7 +760,7 @@ export default function ClientFinancesTab() {
         crm_late_fee_per_day: lateNum != null && Number.isFinite(lateNum) ? lateNum : null,
         pricing_hub_override,
       });
-      if (hasAnnualPackageRow(cl)) {
+      if (canEditAnnualPackageFinance(cl)) {
         const tf = parseFloat(String(d.total_fee).replace(/,/g, ''));
         const ne = Math.min(12, Math.max(0, parseInt(String(d.num_emis), 10) || 0));
         const sur = Math.min(
@@ -854,7 +915,7 @@ export default function ClientFinancesTab() {
     const rowEdit = financeGridEditId === cl.id;
     const d = rowEdit ? financeGridDraft : null;
     const gridBusy = rowEdit && financeGridSaving;
-    const canPkg = hasAnnualPackageRow(cl);
+    const canPkg = canEditAnnualPackageFinance(cl);
     const prefLow = String(cl.preferred_payment_method || '').trim().toLowerCase();
     const tagLow = String(cl.india_payment_method || '').trim().toLowerCase();
     const showGpayRow =
@@ -1758,10 +1819,10 @@ export default function ClientFinancesTab() {
 
           <div className="space-y-4 py-2">
             <div className="rounded-lg border border-violet-200/80 bg-violet-50/50 px-3 py-3 space-y-2 text-xs">
-              <p className="font-semibold text-gray-900">Annual window &amp; package (read-only)</p>
+              <p className="font-semibold text-gray-900">Annual window &amp; package</p>
               <p className="text-[10px] text-gray-500 -mt-1">
-                Most fields are edited in the grid. This panel is read-only summary, proofs, and optional{' '}
-                <strong>participant-count discount bands</strong>.
+                Dates follow Client Garden / subscriber row. Edit <strong>annual fee</strong> here or in the grid (Iris
+                Annual Abundance); students see totals on Sacred Exchange after save.
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <div>
@@ -1778,7 +1839,31 @@ export default function ClientFinancesTab() {
                 </div>
                 <div>
                   <span className="text-gray-500">Annual fee</span>
-                  <p className="font-medium tabular-nums">{annualFeeLine(editing || {})}</p>
+                  {canEditAnnualPackageFinance(editing || {}) ? (
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <Input
+                        className="h-8 max-w-[9rem] text-xs tabular-nums"
+                        value={dialogFeeDraft}
+                        onChange={(e) => setDialogFeeDraft(e.target.value)}
+                        disabled={dialogFeeSaving}
+                      />
+                      <span className="text-[10px] text-gray-500">
+                        {(editingSub.currency || 'INR').toString().trim()}
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 text-[10px]"
+                        disabled={dialogFeeSaving}
+                        onClick={() => saveDialogAnnualFee()}
+                      >
+                        {dialogFeeSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Save fee'}
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="font-medium tabular-nums">{annualFeeLine(editing || {})}</p>
+                  )}
                 </div>
                 <div>
                   <span className="text-gray-500">Mode</span>

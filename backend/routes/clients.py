@@ -1167,6 +1167,26 @@ def _append_annual_period_ledger(
         "annual_diid": (ps.get("annual_diid") or "").strip() or None,
         "package_sku": (ps.get("package_sku") or "").strip() or None,
     }
+    if ps.get("annual_program"):
+        entry["annual_program"] = str(ps.get("annual_program") or "").strip()[:500] or None
+    try:
+        ne = int(ps.get("num_emis") or 0)
+        if ne > 0:
+            entry["num_emis"] = max(0, min(12, ne))
+    except (TypeError, ValueError):
+        pass
+    try:
+        tf = ps.get("total_fee")
+        if tf is not None and str(tf).strip() != "":
+            entry["total_fee"] = round(max(0.0, float(tf)), 2)
+    except (TypeError, ValueError):
+        pass
+    cur = str(ps.get("currency") or "").strip().upper()
+    if cur:
+        entry["currency"] = cur[:12]
+    pm = str(ps.get("payment_mode") or "").strip()
+    if pm:
+        entry["payment_mode"] = pm[:32]
     if iris_year is not None:
         entry["iris_year_at_archive"] = int(iris_year)
     existing = list((client_doc or {}).get("annual_period_ledger") or [])

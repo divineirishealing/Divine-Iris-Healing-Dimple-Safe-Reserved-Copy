@@ -854,10 +854,31 @@ async def patch_annual_package_fields(client_id: str, data: AnnualPackageFieldsP
         raise HTTPException(status_code=404, detail="Client not found")
     sub = dict(client_doc.get("subscription") or {})
     if not sub:
-        raise HTTPException(
-            status_code=400,
-            detail="No subscription package on this client — create or link one in Subscribers first.",
-        )
+        asy = client_doc.get("annual_subscription") or {}
+        if bool(client_doc.get("annual_member_dashboard")) or (
+            (asy.get("start_date") or "").strip() or (asy.get("end_date") or "").strip()
+        ):
+            start_g = (asy.get("start_date") or "").strip()[:10]
+            sub = {
+                "currency": "INR",
+                "total_fee": 0.0,
+                "payment_mode": "No EMI",
+                "num_emis": 0,
+                "iris_year": 1,
+                "iris_year_mode": "manual",
+                "emis": [],
+                "installment_surcharge_percent": 0.0,
+            }
+            if start_g:
+                sub["start_date"] = start_g
+            end_g = (asy.get("end_date") or "").strip()[:10]
+            if end_g:
+                sub["end_date"] = end_g
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="No subscription package on this client — enable Annual dashboard access or set Home Coming dates, or add a row in Subscribers.",
+            )
 
     raw = data.model_dump(exclude_unset=True)
     if "currency" in raw:

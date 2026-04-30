@@ -649,6 +649,11 @@ const FinancialsPage = () => {
 
   useEffect(() => { fetchData(); }, []);
 
+  const annualPeriodLedger = useMemo(() => {
+    const raw = Array.isArray(data?.annual_period_ledger) ? data.annual_period_ledger : [];
+    return [...raw].sort((a, b) => String(b.archived_at || '').localeCompare(String(a.archived_at || '')));
+  }, [data?.annual_period_ledger]);
+
   /* Deep-link from annual package schedule: /dashboard/financials?payEmi=3 */
   useEffect(() => {
     if (loading || !data) return;
@@ -814,6 +819,79 @@ const FinancialsPage = () => {
           </div>
         ))}
       </div>
+
+      {(annualPeriodLedger.length > 0 || data?.last_annual_package) && (
+        <Card className="border-violet-200/80 bg-violet-50/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Annual program windows</CardTitle>
+            <p className="text-xs text-gray-600 font-normal leading-snug">
+              Your current Sacred Exchange totals follow the <strong className="font-semibold">Iris Annual Abundance</strong>{' '}
+              record (admin). Prior cycles are kept when your host archives a completed year.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            {data?.last_annual_package &&
+            (data.last_annual_package.start_date || data.last_annual_package.end_date) ? (
+              <div className="rounded-lg border border-white/80 bg-white/70 px-3 py-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-violet-800 mb-1">Current window (on file)</p>
+                <p className="font-semibold text-gray-900">
+                  {(data.last_annual_package.program_label || 'Annual program').trim()}
+                </p>
+                <dl className="mt-2 flex flex-wrap gap-x-8 gap-y-1 text-xs text-gray-700 tabular-nums">
+                  <div>
+                    <dt className="text-gray-500">Start</dt>
+                    <dd>{formatDateDdMonYyyy(String(data.last_annual_package.start_date || '').slice(0, 10)) || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">End</dt>
+                    <dd>{formatDateDdMonYyyy(String(data.last_annual_package.end_date || '').slice(0, 10)) || '—'}</dd>
+                  </div>
+                </dl>
+              </div>
+            ) : null}
+            {annualPeriodLedger.length > 0 ? (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-2">Prior annual cycles</p>
+                <ul className="space-y-2">
+                  {annualPeriodLedger.map((e) => (
+                    <li
+                      key={e.id || `${e.start_date}-${e.end_date}-${e.archived_at}`}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-800"
+                    >
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 tabular-nums">
+                        <span>
+                          <span className="text-gray-500">Start:</span>{' '}
+                          {formatDateDdMonYyyy(String(e.start_date || '').slice(0, 10)) || '—'}
+                        </span>
+                        <span>
+                          <span className="text-gray-500">End:</span>{' '}
+                          {formatDateDdMonYyyy(String(e.end_date || '').slice(0, 10)) || '—'}
+                        </span>
+                        {e.iris_year_at_archive != null ? (
+                          <span>
+                            <span className="text-gray-500">Iris year:</span> {e.iris_year_at_archive}
+                          </span>
+                        ) : null}
+                        {e.total_fee != null && e.total_fee !== '' ? (
+                          <span>
+                            <span className="text-gray-500">Fee:</span>{' '}
+                            {Number(e.total_fee).toLocaleString()} {(e.currency || fin.currency || 'INR').toString()}
+                          </span>
+                        ) : null}
+                      </div>
+                      {(e.annual_program || '').trim() ? (
+                        <p className="mt-1 text-[11px] text-gray-600">{(e.annual_program || '').trim()}</p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : !data?.last_annual_package ? (
+              <p className="text-xs text-gray-500">No archived cycles yet.</p>
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
 
       {fin.crm_discount_percent != null && Number(fin.crm_discount_percent) > 0 ? (
         <p className="text-[11px] text-emerald-900 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 -mt-1">

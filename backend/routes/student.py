@@ -551,9 +551,15 @@ def _home_coming_payload(client: dict, sub: dict, iris_journey: dict) -> Optiona
 
 
 def _effective_iris_journey_year(client: dict, sub: dict, iris_journey: dict) -> int:
-    """Best-effort Iris year for portal copy: subscription row, Client Garden year label, and anniversary from ``annual_subscription`` start."""
+    """Iris year for portal copy — aligns with Iris Annual Abundance / subscriber row.
+
+    **Manual** ``iris_year_mode``: use subscription ``iris_year`` only (admin grid / Subscribers).
+    **Auto**: subscription-computed year, then max with Client Garden ``Year n:`` label and
+    ``annual_subscription`` anniversary (months-based), capped 1–12.
+    """
     if not isinstance(client, dict):
         return 1
+    sub = sub or {}
     label_raw = client.get("label") or ""
     key = label_stripe_key(label_raw)
     if key in ("dew", "seed", "root", "bloom", "iris_seeker") and not _is_annual_subscriber(sub, client):
@@ -563,12 +569,48 @@ def _effective_iris_journey_year(client: dict, sub: dict, iris_journey: dict) ->
     except (TypeError, ValueError):
         jy = 1
     jy = max(1, min(12, jy))
+
+    mode = (sub.get("iris_year_mode") or "manual").strip().lower()
+    if mode not in ("manual", "auto"):
+        mode = "manual"
+    if mode == "manual":
+        return min(12, jy)
+
     y_label = iris_year_from_garden_label(label_raw)
     if y_label is not None:
         jy = max(jy, y_label)
     ann = iris_anniversary_year_from_client(client)
     jy = max(jy, ann)
     return min(12, jy)
+
+
+def _portal_annual_period_ledger_safe(raw: Any) -> List[Dict[str, Any]]:
+    """Student-safe slice of ``annual_period_ledger`` (prior Home Coming windows)."""
+    if not isinstance(raw, list):
+        return []
+    allow = {
+        "id",
+        "archived_at",
+        "source",
+        "start_date",
+        "end_date",
+        "annual_diid",
+        "package_sku",
+        "iris_year_at_archive",
+        "total_fee",
+        "currency",
+        "payment_mode",
+        "annual_program",
+        "num_emis",
+    }
+    out: List[Dict[str, Any]] = []
+    for e in raw:
+        if not isinstance(e, dict):
+            continue
+        row = {k: e[k] for k in allow if k in e}
+        if row:
+            out.append(row)
+    return out
 
 
 def renewal_entering_iris_year(client: dict, sub: dict, iris_journey: dict) -> int:
@@ -2931,6 +2973,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "annual_catalog_bundle": annual_catalog_bundle,
         # Enrollment window + label from subscription / annual_subscription — Home Coming gratitude card.
         "last_annual_package": last_annual_package,
+        "annual_period_ledger": _portal_annual_period_ledger_safe(client.get("annual_period_ledger")),
     }
 
 
