@@ -168,11 +168,18 @@ export const CartProvider = ({ children }) => {
       participants = [defaultParticipant];
     }
 
+    const hcTitle =
+      portalLineMeta &&
+      typeof portalLineMeta.homeComingCartTitle === 'string' &&
+      portalLineMeta.homeComingCartTitle.trim()
+        ? portalLineMeta.homeComingCartTitle.trim()
+        : null;
+
     const newItem = {
       id: `${program.id}-${normalizedTier}-${Date.now()}`,
       type: 'program',
       programId: program.id,
-      programTitle: program.title,
+      programTitle: hcTitle || program.title,
       programImage: program.image,
       programCategory: program.category,
       sessionMode: sess,
@@ -211,6 +218,10 @@ export const CartProvider = ({ children }) => {
         portalLineMeta && typeof portalLineMeta === 'object'
           ? { ...(existing?.portalLineMeta || {}), ...portalLineMeta }
           : existing?.portalLineMeta;
+      const lineTitle =
+        (mergedMeta?.homeComingCartTitle && String(mergedMeta.homeComingCartTitle).trim()) ||
+        hcTitle ||
+        program.title;
       const nextLine = {
         ...(existing || {}),
         ...newItem,
@@ -219,13 +230,15 @@ export const CartProvider = ({ children }) => {
         tierLabel: tier?.label || existing?.tierLabel || 'Standard',
         participants,
         portalLineMeta: mergedMeta,
+        programTitle: lineTitle,
       };
       try {
         if (
           existing &&
           normalizeTierFromCartItem(existing) === normalizedTier &&
           JSON.stringify(existing.participants) === JSON.stringify(participants) &&
-          JSON.stringify(existing.portalLineMeta || null) === JSON.stringify(nextLine.portalLineMeta || null)
+          JSON.stringify(existing.portalLineMeta || null) === JSON.stringify(nextLine.portalLineMeta || null) &&
+          String(existing.programTitle || '') === String(lineTitle || '')
         ) {
           return prev;
         }

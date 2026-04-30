@@ -661,11 +661,33 @@ export default function AnnualPackagePurchasePage() {
 
   const totalRaw = Number(quote?.total ?? 0);
 
-  /** Basis for splitting the payment schedule: on-file fee when that is what we show, else quote, else hub-matched catalog only. Never reuse another hub's catalog number (e.g. INR) as if it were AED / USD. */
+  /** True when Client Garden /student/home financials fee is in the same currency as the member's portal hub (e.g. AED). */
+  const crmSubscriptionFeeMatchesHub = useMemo(() => {
+    const n = Number(fin.total_fee || 0);
+    if (n <= 0) return false;
+    const fc = (fin.currency || '').toString().trim().toLowerCase();
+    const hub = (baseCurrency || '').toString().trim().toLowerCase();
+    return Boolean(fc && hub && fc === hub);
+  }, [fin.total_fee, fin.currency, baseCurrency]);
+
+  /** Divine Cart / checkout line title — pinned program title is AWRP; members expect Home Coming wording + Iris year. */
+  const homeComingCartTitle = useMemo(() => {
+    if (!homeData) return 'Home Coming Annual Program';
+    const yCurrent = Math.min(12, Math.max(1, Number(homeData.iris_journey?.year) || 1));
+    const yRenew = Math.min(
+      12,
+      Math.max(1, Number(homeData.renewal_entering_iris_year) || yCurrent),
+    );
+    const y = isRenewalSeason || showNextSacredHomeEnrollment ? yRenew : yCurrent;
+    return `Home Coming Annual Program · Year ${y}`;
+  }, [homeData, isRenewalSeason, showNextSacredHomeEnrollment]);
+
+  /** Basis for splitting the payment schedule: quote, then CRM fee in hub, then on-file guard, then hub-matched catalog only. */
   const scheduleSplitTotal = useMemo(() => {
     const onFileFee = Number(fin.total_fee || 0);
-    if (preferOnFilePackagePricing && onFileFee > 0) return onFileFee;
     if (totalRaw > 0) return totalRaw;
+    if (crmSubscriptionFeeMatchesHub && onFileFee > 0) return onFileFee;
+    if (preferOnFilePackagePricing && onFileFee > 0) return onFileFee;
     if (
       catalogCourtesyBreakdown != null &&
       Number(catalogCourtesyBreakdown.finalNum) > 0
@@ -676,6 +698,7 @@ export default function AnnualPackagePurchasePage() {
     return 0;
   }, [
     preferOnFilePackagePricing,
+    crmSubscriptionFeeMatchesHub,
     fin.total_fee,
     totalRaw,
     catalogAmountHub,
@@ -861,6 +884,7 @@ export default function AnnualPackagePurchasePage() {
       flushSync(() => {
         const meta = {
           fromAnnualOfferPage: true,
+          homeComingCartTitle,
           /** Roster pricing must treat the booker as package-covered so subtotal is not the full tier (only `homeComingQuotedTotal` is payable). */
           annualIncluded: true,
           annualOfferParticipation: annualParticipationMode,
@@ -1270,6 +1294,42 @@ export default function AnnualPackagePurchasePage() {
                           </p>
                         )}
                       </>
+                    ) : crmSubscriptionFeeMatchesHub && Number(fin.total_fee || 0) > 0 ? (
+                      <div className="space-y-2 text-left">
+                        <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-[rgba(100,55,155,0.45)]">
+                          Your annual exchange
+                        </p>
+                        <p className="text-left">
+                          <span className="text-[2rem] sm:text-[2.35rem] font-bold text-[#1a0a3d] tabular-nums tracking-tight">
+                            {symbol}
+                            {Number(toDisplay(Number(fin.total_fee || 0))).toLocaleString()}
+                          </span>{' '}
+                          <span className="text-lg font-semibold text-[rgba(80,55,145,0.55)]">
+                            {sacredMoneyCurrency || 'AED'}
+                          </span>
+                        </p>
+                        <p className="text-[10px] text-[rgba(60,35,115,0.55)] leading-snug">
+                          From <span className="font-semibold">Iris Annual Abundance</span> in your portal hub (
+                          {(baseCurrency || 'inr').toUpperCase()}). For a public list price in this hub, your host can add{' '}
+                          {(baseCurrency || 'aed').toUpperCase()} under <span className="font-semibold">Home Coming catalog</span>{' '}
+                          → package offer.
+                        </p>
+                        {catalogAllPositiveEntries.length > 0 ? (
+                          <div className="pt-2 mt-2 border-t border-violet-100/80 space-y-1">
+                            <p className="text-[9px] uppercase tracking-wide text-[rgba(100,55,155,0.4)] font-semibold">
+                              Catalog (other hubs)
+                            </p>
+                            {catalogAllPositiveEntries.map(([k, v]) => (
+                              <p
+                                key={String(k)}
+                                className="text-[11px] font-semibold tabular-nums text-[rgba(60,35,115,0.75)]"
+                              >
+                                {String(k).toUpperCase()} {Number(v).toLocaleString()}
+                              </p>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
                     ) : catalogAllPositiveEntries.length > 0 ? (
                       <div className="space-y-1">
                         {catalogAllPositiveEntries.map(([k, v]) => (

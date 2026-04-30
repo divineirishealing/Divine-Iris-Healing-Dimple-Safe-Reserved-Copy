@@ -1210,6 +1210,11 @@ export default function DashboardCombinedCheckoutPage() {
     return null;
   }, [items]);
 
+  const showHomeComingOfferBackLink = useMemo(
+    () => items.some((i) => i.portalLineMeta?.fromAnnualOfferPage),
+    [items],
+  );
+
   const crossSellDisplayRows = useMemo(() => {
     if (portalRosterSubtotalActive) return [];
     if (clientXs >= apiCrossSellDiscount && clientCrossSellRows.length > 0) {
@@ -1788,6 +1793,26 @@ export default function DashboardCombinedCheckoutPage() {
       </div>
 
       <div className="bg-white/95 backdrop-blur rounded-xl border border-[rgba(212,175,55,0.35)] shadow-lg p-4 sm:p-5 mb-6 w-full">
+        {showHomeComingOfferBackLink && !homeComingAnnualOfferPlan ? (
+          <div
+            className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-violet-200 bg-violet-50/95 px-3 py-2.5 text-sm text-violet-950"
+            data-testid="home-coming-fullpay-back-banner"
+          >
+            <p className="text-[12px] font-medium leading-snug">
+              Returning to Sacred Home? You can adjust your start date or installment choice on the same page.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0 border-violet-300 bg-white/90 text-violet-950 hover:bg-violet-100/80 h-8 text-[11px]"
+              onClick={() => navigate('/dashboard/home-coming-package')}
+              data-testid="home-coming-fullpay-back"
+            >
+              <ChevronLeft size={14} className="mr-0.5" /> Back to Home Coming
+            </Button>
+          </div>
+        ) : null}
         {homeComingAnnualOfferPlan ? (
           <div
             className="mb-4 rounded-lg border border-violet-200 bg-violet-50/95 px-3 py-2.5 text-sm text-violet-950"
