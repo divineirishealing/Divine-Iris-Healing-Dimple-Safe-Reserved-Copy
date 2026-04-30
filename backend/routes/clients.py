@@ -1085,6 +1085,227 @@ class AnnualSubscriptionUsagePatch(BaseModel):
         return int(v)
 
 
+# Home Coming — dated slots per annual window (current: ``annual_subscription``; prior: ``annual_period_ledger[]``).
+_HOME_COMING_PROGRAM_SLOTS: Dict[str, int] = {
+    "awrp": 12,
+    "mmm": 6,
+    "turbo": 4,
+    "meta": 2,
+}
+_HOME_COMING_SESSIONS_MAX = 48
+
+
+def _home_coming_program_key_from_global_name(name: str) -> Optional[str]:
+    """Map Admin → Subscribers global program row name to Home Coming pillar key."""
+    n = (name or "").strip().lower()
+    if "awrp" in n:
+        return "awrp"
+    if "money magic" in n or "multiplier" in n:
+        return "mmm"
+    if "turbo" in n or "quarterly" in n:
+        return "turbo"
+    if "meta" in n or "bi-annual" in n or "biannual" in n:
+        return "meta"
+    return None
+
+
+def _parse_cal_date_yyyy_mm_dd(s: str) -> Optional[date]:
+    t = (s or "").strip()
+    if len(t) < 10:
+        return None
+    try:
+        return datetime.strptime(t[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _normalize_home_coming_sessions_list(items: Any) -> List[Dict[str, Any]]:
+    """
+    Validate ``home_coming_sessions`` for Mongo. Each row: program, slot (1-based), optional date/time,
+    paused (default False), optional attended, source admin|schedule.
+    """
+    if items is None:
+        return []
+    if not isinstance(items, list):
+        raise HTTPException(
+            status_code=400, detail="home_coming_sessions must be a list"
+        )
+    if len(items) > _HOME_COMING_SESSIONS_MAX:
+        raise HTTPException(
+            status_code=400,
+            detail=f"home_coming_sessions: at most {_HOME_COMING_SESSIONS_MAX} rows",
+        )
+    seen: set = set()
+    out: List[Dict[str, Any]] = []
+    for i, raw in enumerate(items):
+        if not isinstance(raw, dict):
+            raise HTTPException(
+                status_code=400,
+                detail=f"home_coming_sessions[{i}] must be an object",
+            )
+        prog = str(raw.get("program") or "").strip().lower()
+        if prog not in _HOME_COMING_PROGRAM_SLOTS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"home_coming_sessions[{i}].program must be awrp, mmm, turbo, or meta",
+            )
+        try:
+            slot = int(raw.get("slot"))
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=400,
+                detail=f"home_coming_sessions[{i}].slot must be an integer",
+            )
+        mx = _HOME_COMING_PROGRAM_SLOTS[prog]
+        if slot < 1 or slot > mx:
+            raise HTTPException(
+                status_code=400,
+                detail=f"home_coming_sessions[{i}].slot must be 1–{mx} for {prog}",
+            )
+        key = (prog, slot)
+        if key in seen:
+            raise HTTPException(
+                status_code=400,
+                detail=f"duplicate home_coming_sessions row for {prog} slot {slot}",
+            )
+        seen.add(key)
+
+        ds = raw.get("date")
+        date_s: Optional[str] = None
+        if ds is None or ds == "":
+            date_s = None
+        else:
+            d_str = str(ds).strip()[:10]
+            if _parse_cal_date_yyyy_mm_dd(d_str) is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"home_coming_sessions[{i}].date must be YYYY-MM-DD or empty",
+                )
+            date_s = d_str
+
+        tm_raw = raw.get("time")
+        time_s = (str(tm_raw).strip()[:120] if tm_raw is not None else "") or None
+
+        paused = bool(raw.get("paused"))
+
+        attended: Optional[bool] = None
+        if "attended" in raw:
+            av = raw.get("attended")
+            if av is None or av == "":
+                attended = None
+            elif isinstance(av, bool):
+                attended = av
+            elif str(av).strip().lower() in ("1", "true", "yes", "y"):
+                attended = True
+            elif str(av).strip().lower() in ("0", "false", "no", "n"):
+                attended = False
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"home_coming_sessions[{i}].attended must be boolean or empty",
+                )
+
+        src = str(raw.get("source") or "admin").strip().lower()
+        if src not in ("admin", "schedule"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"home_coming_sessions[{i}].source must be admin or schedule",
+            )
+
+        sid = str(raw.get("id") or "").strip()
+        if not sid:
+            sid = str(uuid.uuid4())
+
+        row: Dict[str, Any] = {
+            "id": sid,
+            "program": prog,
+            "slot": int(slot),
+            "paused": paused,
+            "source": src,
+        }
+        if date_s:
+            row["date"] = date_s
+        if time_s:
+            row["time"] = time_s
+        if attended is not None:
+            row["attended"] = attended
+        out.append(row)
+    out.sort(key=lambda r: (r["program"], r["slot"]))
+    return out
+
+
+def _merge_home_coming_sessions_from_global(
+    existing: List[Dict[str, Any]], global_programs: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """
+    Fill dates/times from global program schedule. Skips paused rows and admin-entered **past** dates.
+    New or updated rows use source ``schedule``.
+    """
+    today = utc_today()
+    by_key: Dict[Tuple[str, int], Dict[str, Any]] = {}
+    for s in existing:
+        prog = str(s.get("program") or "").strip().lower()
+        try:
+            sl = int(s.get("slot") or 0)
+        except (TypeError, ValueError):
+            continue
+        if prog in _HOME_COMING_PROGRAM_SLOTS and sl > 0:
+            by_key[(prog, sl)] = dict(s)
+
+    for gprog in global_programs or []:
+        gname = str(gprog.get("name") or "")
+        hk = _home_coming_program_key_from_global_name(gname)
+        if not hk:
+            continue
+        mx = _HOME_COMING_PROGRAM_SLOTS[hk]
+        for gs in gprog.get("schedule") or []:
+            try:
+                key_num = int(gs.get("month") or gs.get("session") or 0)
+            except (TypeError, ValueError):
+                key_num = 0
+            if key_num < 1 or key_num > mx:
+                continue
+            raw_date = (str(gs.get("date") or "").strip()[:10] or "") or None
+            if raw_date and _parse_cal_date_yyyy_mm_dd(raw_date) is None:
+                raw_date = None
+            gtime = gs.get("time")
+            time_s = (str(gtime).strip()[:120] if gtime is not None else "") or None
+
+            key = (hk, key_num)
+            cur = by_key.get(key)
+            if cur and bool(cur.get("paused")):
+                continue
+            if cur:
+                src = str(cur.get("source") or "admin").strip().lower()
+                cur_date = _parse_cal_date_yyyy_mm_dd(str(cur.get("date") or ""))
+                if src == "admin" and cur_date is not None and cur_date < today:
+                    continue
+
+            base = dict(cur) if cur else {}
+            base["program"] = hk
+            base["slot"] = key_num
+            if not base.get("id"):
+                base["id"] = str(uuid.uuid4())
+            if raw_date:
+                base["date"] = raw_date
+            if time_s:
+                base["time"] = time_s
+            base["source"] = "schedule"
+            if "paused" not in base:
+                base["paused"] = False
+            by_key[key] = base
+
+    merged = list(by_key.values())
+    merged.sort(key=lambda r: (r["program"], r["slot"]))
+    return merged
+
+
+class AnnualLedgerHomeComingSessionsBody(BaseModel):
+    """PATCH /clients/{id}/annual-ledger-entry/{ledger_id} — backfill prior window sessions."""
+
+    home_coming_sessions: List[Dict[str, Any]]
+
+
 class AnnualSubscriptionUpdate(BaseModel):
     """
     Partial update for annual_subscription on a client (Home Coming SKU, DIID, dates, usage).
@@ -1099,6 +1320,8 @@ class AnnualSubscriptionUpdate(BaseModel):
     """manual = admin/backfill; system = derived from bookings (future)."""
 
     usage_source: Optional[str] = None
+    """Per-slot program dates / pauses for the **current** Home Coming window (see ``home_coming_sessions``)."""
+    home_coming_sessions: Optional[List[Dict[str, Any]]] = None
 
     @field_validator("usage_source")
     @classmethod
@@ -1189,6 +1412,9 @@ def _append_annual_period_ledger(
         entry["payment_mode"] = pm[:32]
     if iris_year is not None:
         entry["iris_year_at_archive"] = int(iris_year)
+    hcs = ps.get("home_coming_sessions")
+    if isinstance(hcs, list) and len(hcs) > 0:
+        entry["home_coming_sessions"] = list(hcs)
     existing = list((client_doc or {}).get("annual_period_ledger") or [])
     existing.append(entry)
     if len(existing) > _ANNUAL_PERIOD_LEDGER_MAX:
@@ -1275,6 +1501,13 @@ def _merge_annual_subscription(
                     u_prev[uk] = int(uv)
             out["usage"] = u_prev
 
+    if "home_coming_sessions" in patch:
+        v = patch["home_coming_sessions"]
+        if v is None:
+            out.pop("home_coming_sessions", None)
+        else:
+            out["home_coming_sessions"] = v
+
     out.pop("awrp_year_label", None)
     return out
 
@@ -1349,6 +1582,14 @@ async def patch_annual_subscription(client_id: str, data: AnnualSubscriptionUpda
         else:
             patch["usage"] = raw["usage"]
 
+    if "home_coming_sessions" in raw:
+        if raw["home_coming_sessions"] is None:
+            patch["home_coming_sessions"] = None
+        else:
+            patch["home_coming_sessions"] = _normalize_home_coming_sessions_list(
+                raw["home_coming_sessions"]
+            )
+
     prev_sub: Dict[str, Any] = dict(cl.get("annual_subscription") or {})
     merged = _merge_annual_subscription(prev_sub, patch)
 
@@ -1368,6 +1609,56 @@ async def patch_annual_subscription(client_id: str, data: AnnualSubscriptionUpda
     if ledger is not None:
         out["annual_period_ledger"] = ledger
     return out
+
+
+@router.post("/{client_id}/home-coming-sessions/sync-from-global-schedule")
+async def sync_home_coming_sessions_from_global_schedule(client_id: str):
+    """
+    Merge **Admin → Subscribers → Program schedule** dates/times into this client's current
+    ``annual_subscription.home_coming_sessions``. Paused rows and **admin** rows with a **past** date
+    are left unchanged; created/updated rows use ``source: schedule``.
+    """
+    cl = await db.clients.find_one({"id": client_id})
+    if not cl:
+        raise HTTPException(status_code=404, detail="Client not found")
+    sched_doc = await db.program_schedule.find_one({"id": "global"}, {"_id": 0})
+    global_programs = list((sched_doc or {}).get("programs") or [])
+    prev_sub: Dict[str, Any] = dict(cl.get("annual_subscription") or {})
+    existing = list(prev_sub.get("home_coming_sessions") or [])
+    merged_list = _merge_home_coming_sessions_from_global(existing, global_programs)
+    normalized = _normalize_home_coming_sessions_list(merged_list)
+    merged_sub = dict(prev_sub)
+    merged_sub["home_coming_sessions"] = normalized
+    now = datetime.now(timezone.utc).isoformat()
+    set_doc: Dict[str, Any] = {"annual_subscription": merged_sub, "updated_at": now}
+    await db.clients.update_one({"id": client_id}, {"$set": set_doc})
+    return {"annual_subscription": merged_sub}
+
+
+@router.patch("/{client_id}/annual-ledger-entry/{ledger_id}")
+async def patch_annual_ledger_home_coming_sessions(
+    client_id: str, ledger_id: str, body: AnnualLedgerHomeComingSessionsBody
+):
+    """Backfill ``home_coming_sessions`` on one archived annual period (renewal history row)."""
+    cl = await db.clients.find_one({"id": client_id})
+    if not cl:
+        raise HTTPException(status_code=404, detail="Client not found")
+    ledger = list(cl.get("annual_period_ledger") or [])
+    idx: Optional[int] = None
+    for i, entry in enumerate(ledger):
+        if str(entry.get("id") or "") == ledger_id:
+            idx = i
+            break
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Ledger entry not found")
+    normalized = _normalize_home_coming_sessions_list(body.home_coming_sessions)
+    ledger[idx] = {**ledger[idx], "home_coming_sessions": normalized}
+    now = datetime.now(timezone.utc).isoformat()
+    await db.clients.update_one(
+        {"id": client_id},
+        {"$set": {"annual_period_ledger": ledger, "updated_at": now}},
+    )
+    return {"annual_period_ledger": ledger, "entry": ledger[idx]}
 
 
 def _annual_upload_norm_header(h: Any) -> str:

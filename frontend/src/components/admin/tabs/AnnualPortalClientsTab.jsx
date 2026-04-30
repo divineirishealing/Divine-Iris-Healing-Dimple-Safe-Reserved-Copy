@@ -14,6 +14,8 @@ import {
   ArrowDownAZ,
   Search,
   X,
+  ChevronRight,
+  ChevronDown,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -26,6 +28,9 @@ import {
   HOME_COMING_SKU,
   HOME_COMING_DISPLAY,
   formatHomeComingUsageSummary,
+  buildHomeComingCycles,
+  summarizeHomeComingSessions,
+  homeComingSessionAttendLabel,
 } from '../../../lib/homeComingAnnual';
 import { formatDateDdMonYyyy } from '../../../lib/utils';
 
@@ -558,6 +563,14 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
   const [columnSort, setColumnSort] = useState(null);
   /** Free-text search across the row (name, email, id, household, dates, DIID, etc.). */
   const [listSearch, setListSearch] = useState('');
+  /** Row id → expanded Home Coming session sub-rows */
+  const [annualPortalExpanded, setAnnualPortalExpanded] = useState(() => ({}));
+
+  const toggleAnnualPortalExpand = useCallback((rid) => {
+    const id = String(rid || '').trim();
+    if (!id) return;
+    setAnnualPortalExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
 
   const filteredRows = useMemo(
     () =>
@@ -822,6 +835,7 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
   }, [sortedRows]);
 
   const colSpanFlat = Math.max(flatVisibleCount, 1);
+  const colSpanHouseholdTable = 12;
 
   const excelToolbar = (
     <div className="flex flex-wrap items-center gap-2">
@@ -1071,6 +1085,7 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
       </div>
 
       <AnnualSubscriptionEditDialog
+        key={editRow?.id || 'closed'}
         open={!!editRow}
         onOpenChange={(o) => !o && setEditRow(null)}
         row={editRow}
@@ -1304,8 +1319,12 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                   const stripe = idx % 2 === 0 ? rowEven : rowOdd;
                   const tone = annualPortalRowTone(r);
                   const life = r.annual_portal_lifecycle;
+                  const rowKey = r.id || r.email;
+                  const cycles = buildHomeComingCycles(r);
+                  const expanded = !!(r.id && annualPortalExpanded[r.id]);
                   return (
-                  <tr key={r.id || r.email} className={`${tone || stripe} ${tone ? '' : 'hover:bg-[#e8f4fc]'}`}>
+                  <React.Fragment key={rowKey}>
+                  <tr className={`${tone || stripe} ${tone ? '' : 'hover:bg-[#e8f4fc]'}`}>
                     {flatColVisible('sn') && (
                       <td className={`${tdBase} text-center tabular-nums text-neutral-700 font-medium bg-[#f3f3f3]`}>
                         {idx + 1}
@@ -1320,7 +1339,18 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                             : undefined
                         }
                       >
-                        <span className="inline-flex items-center gap-1.5 flex-wrap">
+                        <span className="inline-flex items-center gap-1 flex-wrap">
+                          {r.id ? (
+                            <button
+                              type="button"
+                              className="shrink-0 rounded p-0.5 text-neutral-500 hover:bg-neutral-200/90 hover:text-neutral-800"
+                              title={expanded ? 'Hide program sessions by year' : 'Show program sessions by year'}
+                              aria-expanded={expanded}
+                              onClick={() => toggleAnnualPortalExpand(r.id)}
+                            >
+                              {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                            </button>
+                          ) : null}
                           <span>{(r.name || '').trim() || '—'}</span>
                           {annualPortalGoogleLoginBlocked(r) && (
                             <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-950 bg-amber-100 border border-amber-300/90 px-1 py-px rounded-sm shrink-0">
@@ -1406,6 +1436,56 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                       </td>
                     )}
                   </tr>
+                  {expanded ? (
+                    <tr className="bg-slate-50/95">
+                      <td colSpan={colSpanFlat} className={`${tdBase} px-3 py-2 border-t border-[#c6d7e8]`}>
+                        <div className="text-[11px] text-neutral-800 space-y-2 max-w-5xl">
+                          <p className="font-semibold text-neutral-900">Home Coming · sessions by annual window</p>
+                          {cycles.length === 0 ? (
+                            <p className="text-neutral-600">No windows on file yet — set start/end in Edit, then add or sync session rows.</p>
+                          ) : (
+                            <ul className="space-y-2">
+                              {cycles.map((c, ci) => (
+                                <li
+                                  key={c.ledgerId || `current-${ci}`}
+                                  className="rounded border border-[#c6c6c6] bg-white px-2 py-1.5"
+                                >
+                                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 font-medium text-neutral-900">
+                                    <span>{c.isCurrent ? 'Current window' : 'Prior window'}</span>
+                                    <span className="text-neutral-600 font-normal tabular-nums">
+                                      {formatPortalSubscriptionDate(c.start)} – {formatPortalSubscriptionDate(c.end)}
+                                    </span>
+                                    <span className="text-[10px] font-normal text-neutral-500">
+                                      {summarizeHomeComingSessions(c.sessions)}
+                                    </span>
+                                  </div>
+                                  {c.sessions.length > 0 ? (
+                                    <ul className="mt-1.5 max-h-28 overflow-y-auto text-[10px] text-neutral-700 grid gap-0.5 font-lato">
+                                      {c.sessions.slice(0, 48).map((s) => (
+                                        <li key={s.id || `${s.program}-${s.slot}`} className="tabular-nums">
+                                          <span className="font-semibold uppercase">{s.program}</span> #{s.slot}
+                                          {(s.date || '').trim() ? ` · ${formatPortalSubscriptionDate(s.date)}` : ' · (no date)'}
+                                          {(s.time || '').trim() ? ` · ${String(s.time).slice(0, 32)}` : ''}
+                                          {s.paused ? ' · paused' : ''}
+                                          {' · '}
+                                          {homeComingSessionAttendLabel(s)}
+                                          {s.source === 'schedule' ? ' · schedule' : ''}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          <p className="text-[10px] text-neutral-500">
+                            Edit grid and sync from Admin → Subscribers → Program schedule in the pencil dialog.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                  </React.Fragment>
                 );})
               )}
             </tbody>
@@ -1578,8 +1658,12 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                           const stripe = ri % 2 === 0 ? rowEven : rowOdd;
                           const tone = annualPortalRowTone(r);
                           const life = r.annual_portal_lifecycle;
+                          const rowKey = r.id || r.email;
+                          const cycles = buildHomeComingCycles(r);
+                          const expanded = !!(r.id && annualPortalExpanded[r.id]);
                           return (
-                          <tr key={r.id || r.email} className={`${tone || stripe} ${tone ? '' : 'hover:bg-[#e8f4fc]'}`}>
+                          <React.Fragment key={rowKey}>
+                          <tr className={`${tone || stripe} ${tone ? '' : 'hover:bg-[#e8f4fc]'}`}>
                             <td
                               className={`${tdBase} text-center tabular-nums text-neutral-700 font-medium bg-[#f3f3f3]`}
                             >
@@ -1593,7 +1677,18 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                                   : undefined
                               }
                             >
-                              <span className="inline-flex items-center gap-1.5 flex-wrap">
+                              <span className="inline-flex items-center gap-1 flex-wrap">
+                                {r.id ? (
+                                  <button
+                                    type="button"
+                                    className="shrink-0 rounded p-0.5 text-neutral-500 hover:bg-neutral-200/90 hover:text-neutral-800"
+                                    title={expanded ? 'Hide program sessions by year' : 'Show program sessions by year'}
+                                    aria-expanded={expanded}
+                                    onClick={() => toggleAnnualPortalExpand(r.id)}
+                                  >
+                                    {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                  </button>
+                                ) : null}
                                 <span>{(r.name || '').trim() || '—'}</span>
                                 {annualPortalGoogleLoginBlocked(r) && (
                                   <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-950 bg-amber-100 border border-amber-300/90 px-1 py-px rounded-sm shrink-0">
@@ -1656,6 +1751,56 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                               </div>
                             </td>
                           </tr>
+                          {expanded ? (
+                            <tr className="bg-slate-50/95">
+                              <td colSpan={colSpanHouseholdTable} className={`${tdBase} px-3 py-2 border-t border-[#c6d7e8]`}>
+                                <div className="text-[11px] text-neutral-800 space-y-2 max-w-5xl">
+                                  <p className="font-semibold text-neutral-900">Home Coming · sessions by annual window</p>
+                                  {cycles.length === 0 ? (
+                                    <p className="text-neutral-600">No windows on file yet — set start/end in Edit, then add or sync session rows.</p>
+                                  ) : (
+                                    <ul className="space-y-2">
+                                      {cycles.map((c, ci) => (
+                                        <li
+                                          key={c.ledgerId || `current-${ci}`}
+                                          className="rounded border border-[#c6c6c6] bg-white px-2 py-1.5"
+                                        >
+                                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 font-medium text-neutral-900">
+                                            <span>{c.isCurrent ? 'Current window' : 'Prior window'}</span>
+                                            <span className="text-neutral-600 font-normal tabular-nums">
+                                              {formatPortalSubscriptionDate(c.start)} – {formatPortalSubscriptionDate(c.end)}
+                                            </span>
+                                            <span className="text-[10px] font-normal text-neutral-500">
+                                              {summarizeHomeComingSessions(c.sessions)}
+                                            </span>
+                                          </div>
+                                          {c.sessions.length > 0 ? (
+                                            <ul className="mt-1.5 max-h-28 overflow-y-auto text-[10px] text-neutral-700 grid gap-0.5 font-lato">
+                                              {c.sessions.slice(0, 48).map((s) => (
+                                                <li key={s.id || `${s.program}-${s.slot}`} className="tabular-nums">
+                                                  <span className="font-semibold uppercase">{s.program}</span> #{s.slot}
+                                                  {(s.date || '').trim() ? ` · ${formatPortalSubscriptionDate(s.date)}` : ' · (no date)'}
+                                                  {(s.time || '').trim() ? ` · ${String(s.time).slice(0, 32)}` : ''}
+                                                  {s.paused ? ' · paused' : ''}
+                                                  {' · '}
+                                                  {homeComingSessionAttendLabel(s)}
+                                                  {s.source === 'schedule' ? ' · schedule' : ''}
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          ) : null}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                  <p className="text-[10px] text-neutral-500">
+                                    Edit grid and sync from Admin → Subscribers → Program schedule in the pencil dialog.
+                                  </p>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : null}
+                          </React.Fragment>
                         );})}
                       </tbody>
                     </table>
