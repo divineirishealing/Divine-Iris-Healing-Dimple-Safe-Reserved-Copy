@@ -925,6 +925,7 @@ async def list_annual_finance_roster(search: Optional[str] = None):
         "crm_show_late_fees": 1,
         "annual_period_ledger": 1,
         "annual_package_offer_prefs": 1,
+        "pricing_hub_override": 1,
     }
     rows = await db.clients.find(query, proj).sort([("name", 1), ("id", 1)]).to_list(5000)
     out = []
@@ -2406,6 +2407,8 @@ class ClientUpdate(BaseModel):
     crm_late_fee_per_day: Optional[float] = None
     crm_channelization_fee: Optional[float] = None
     crm_show_late_fees: Optional[bool] = None
+    # When set (inr/aed/usd), logged-in portal user uses this pricing hub regardless of IP (see /currency/detect).
+    pricing_hub_override: Optional[str] = None
 
 
 @router.put("/{client_id}")
@@ -2546,6 +2549,19 @@ async def update_client(client_id: str, data: ClientUpdate):
     if "crm_show_late_fees" in incoming:
         raw = data.crm_show_late_fees
         update_fields["crm_show_late_fees"] = None if raw is None else bool(raw)
+
+    if "pricing_hub_override" in incoming:
+        raw_ph = data.pricing_hub_override
+        if raw_ph is None or (isinstance(raw_ph, str) and not str(raw_ph).strip()):
+            update_fields["pricing_hub_override"] = None
+        else:
+            v = str(raw_ph).strip().lower()
+            if v not in ("inr", "aed", "usd"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="pricing_hub_override must be inr, aed, usd, or empty to use automatic geo rules",
+                )
+            update_fields["pricing_hub_override"] = v
 
     if data.email is not None:
         new_em = normalize_email(data.email)

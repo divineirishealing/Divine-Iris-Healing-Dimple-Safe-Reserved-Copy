@@ -59,6 +59,7 @@ const FINANCE_COLUMNS = [
   { id: 'status', label: 'Status', hideable: true },
   { id: 'iris', label: 'Iris / label', hideable: true },
   { id: 'payMethod', label: 'Pay method', hideable: true },
+  { id: 'portalHub', label: 'Portal hub', hideable: true },
   { id: 'annualFee', label: 'Annual fee', hideable: true },
   { id: 'discount', label: 'Discount', hideable: true },
   { id: 'tax', label: 'Tax', hideable: true },
@@ -273,6 +274,15 @@ function adminPayMethodSelectValue(cl) {
   return '';
 }
 
+/** Per-client pricing hub for signed-in portal users (matches GET /api/currency/detect). */
+function portalHubSummary(cl) {
+  const h = String(cl?.pricing_hub_override || '').trim().toLowerCase();
+  if (h === 'inr') return 'INR';
+  if (h === 'aed') return 'AED';
+  if (h === 'usd') return 'USD';
+  return 'Auto';
+}
+
 /** Sets both CRM fields so checkout and dashboard see one admin-tagged method. */
 function buildAdminPayMethodPatch(rawVal) {
   const v = (rawVal || '').trim();
@@ -339,6 +349,11 @@ function buildFinanceGridDraft(cl) {
     ),
     iris_year: String(sub.iris_year ?? 1),
     iris_year_mode: (sub.iris_year_mode || 'manual').toLowerCase() === 'auto' ? 'auto' : 'manual',
+    pricing_hub_override: (() => {
+      const h = String(cl.pricing_hub_override || '').trim().toLowerCase();
+      if (h === 'inr' || h === 'aed' || h === 'usd') return h;
+      return '';
+    })(),
   };
 }
 
@@ -373,6 +388,8 @@ function getFinanceFilterValue(r, colId) {
       const pm = paymentMethodSummary(r);
       return pm === '—' ? FINANCE_FILTER_BLANKS : pm;
     }
+    case 'portalHub':
+      return portalHubSummary(r);
     case 'annualFee': {
       const af = annualFeeLine(r);
       return af === '—' ? FINANCE_FILTER_BLANKS : af;
@@ -666,6 +683,9 @@ export default function ClientFinancesTab() {
       const discRaw = d.discount.replace(/,/g, '').trim();
       const chNum = chRaw === '' ? null : parseFloat(chRaw);
       const lateNum = lateRaw === '' ? null : parseFloat(lateRaw);
+      const phRaw = String(d.pricing_hub_override || '').trim().toLowerCase();
+      const pricing_hub_override =
+        phRaw === 'inr' || phRaw === 'aed' || phRaw === 'usd' ? phRaw : null;
       await axios.put(`${API}/clients/${financeGridEditId}`, {
         ...buildAdminPayMethodPatch(d.payMethod),
         preferred_india_gpay_id: (d.preferred_india_gpay_id || '').trim(),
@@ -677,6 +697,7 @@ export default function ClientFinancesTab() {
           : null,
         crm_channelization_fee: chNum != null && Number.isFinite(chNum) ? chNum : null,
         crm_late_fee_per_day: lateNum != null && Number.isFinite(lateNum) ? lateNum : null,
+        pricing_hub_override,
       });
       if (hasAnnualPackageRow(cl)) {
         const tf = parseFloat(String(d.total_fee).replace(/,/g, ''));
@@ -1066,6 +1087,41 @@ export default function ClientFinancesTab() {
               ) : null}
               {gridBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400 shrink-0" /> : null}
             </div>
+          </td>
+        );
+      }
+      case 'portalHub': {
+        if (!rowEdit) {
+          const s = portalHubSummary(cl);
+          return (
+            <td
+              className="py-2 px-2 align-top text-[10px] whitespace-nowrap text-gray-800"
+              title="Pricing hub on the student dashboard when they are signed in. Auto uses IP and site email rules."
+            >
+              {s}
+            </td>
+          );
+        }
+        return (
+          <td className="py-2 px-2 align-top text-[10px] whitespace-nowrap">
+            <select
+              className="h-7 min-w-[6.5rem] text-[10px] border border-slate-300 rounded px-1 bg-white"
+              disabled={gridBusy}
+              title="Same hub column (INR / AED / USD) the client sees on Sacred Home after refresh."
+              value={d.pricing_hub_override || ''}
+              onChange={(e) =>
+                setFinanceGridDraft((prev) =>
+                  prev && financeGridEditId === cl.id
+                    ? { ...prev, pricing_hub_override: e.target.value }
+                    : prev,
+                )
+              }
+            >
+              <option value="">Auto</option>
+              <option value="inr">INR</option>
+              <option value="aed">AED</option>
+              <option value="usd">USD</option>
+            </select>
           </td>
         );
       }
@@ -1518,9 +1574,10 @@ export default function ClientFinancesTab() {
       </div>
       <p className="text-xs text-gray-500 mt-0.5 mb-4 shrink-0 max-w-4xl">
         Excel-style grid: <strong>S.No</strong> is row order in the current view. Rows show read-only values like Client
-        Garden; click <strong>Edit</strong> on a row to change pay method, annual fee, discount, GST, channelization
-        &amp; late fees, billing mode, EMIs, surcharge, and iris year — then <strong>Save</strong> or{' '}
-        <strong>Cancel</strong>. Saved values match the <strong>student dashboard</strong>.{' '}
+        Garden; click <strong>Edit</strong> on a row to change pay method, <strong>portal hub</strong> (INR / AED / USD
+        vs auto), annual fee, discount, GST, channelization &amp; late fees, billing mode, EMIs, surcharge, and iris
+        year — then <strong>Save</strong> or <strong>Cancel</strong>. Saved values match the{' '}
+        <strong>student dashboard</strong> (hub drives pricing after refresh).{' '}
         <strong>Student plan</strong> and <strong>Session mode</strong> come from Sacred Home preferences. Installment
         rows bill on the <strong>27th</strong> (per month). <strong>Total amount</strong> is estimated after discount +
         GST; tiered group bands show ~. Use <strong>Columns</strong> / funnel filters as needed.{' '}
@@ -1598,7 +1655,7 @@ export default function ClientFinancesTab() {
         data-testid="finance-roster-table-wrap"
       >
         <table
-          className="w-full min-w-[118rem] text-left border-collapse text-[10px] table-auto"
+          className="w-full min-w-[124rem] text-left border-collapse text-[10px] table-auto"
           data-testid="finance-roster-table"
         >
           <thead className="sticky top-0 z-10">
