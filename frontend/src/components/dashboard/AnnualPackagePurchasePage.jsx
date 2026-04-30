@@ -916,9 +916,9 @@ export default function AnnualPackagePurchasePage() {
             >
               {subtitleFourPrograms}
             </p>
-            <div className="mt-6 w-full flex justify-center pr-0 md:pr-[min(8vw,6rem)] lg:pr-[min(28vw,24rem)]">
+            <div className="mt-6 w-full flex justify-center md:justify-end lg:justify-end md:pl-3 lg:pl-4 md:pr-[min(14vw,10rem)] lg:pr-[min(16vw,12rem)]">
               <div
-                className="w-full max-w-[min(42rem,100%)] md:max-w-[min(46rem,calc(100%-0.5rem))] lg:max-w-[min(48rem,calc(100vw-2.5rem-max(14rem,28vw)))] rounded-[22px] border border-[rgba(196,168,252,0.45)] bg-gradient-to-br from-[#faf8ff]/96 via-[#fffefd]/93 to-[#f5f0ff]/93 px-4 py-5 sm:px-5 sm:py-6 md:px-6 md:py-6 text-center shadow-[0_12px_48px_rgba(124,58,237,0.12)] backdrop-blur-sm"
+                className="w-full max-w-[min(42rem,100%)] md:max-w-[min(48rem,calc(100%-0.25rem))] lg:max-w-[min(52rem,calc(100%-max(10rem,12vw)))] rounded-[22px] border border-[rgba(196,168,252,0.45)] bg-gradient-to-br from-[#faf8ff]/96 via-[#fffefd]/93 to-[#f5f0ff]/93 px-4 py-5 sm:px-5 sm:py-6 md:px-6 md:py-6 text-center shadow-[0_12px_48px_rgba(124,58,237,0.12)] backdrop-blur-sm"
                 data-testid="home-coming-welcome-banner"
               >
               <div className="flex flex-col items-center gap-4 sm:gap-5">
