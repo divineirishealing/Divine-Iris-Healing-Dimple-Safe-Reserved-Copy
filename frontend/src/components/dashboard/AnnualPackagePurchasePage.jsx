@@ -916,14 +916,17 @@ export default function AnnualPackagePurchasePage() {
             >
               {subtitleFourPrograms}
             </p>
-            <div className="mt-6 w-full flex justify-center md:justify-start">
+            <div className="mt-6 w-full flex justify-center pr-0 md:pr-[min(8vw,6rem)] lg:pr-[min(28vw,24rem)]">
               <div
-                className="w-full max-w-[min(42rem,100%)] md:max-w-[min(48rem,calc(100%-0.5rem))] lg:max-w-[min(52rem,calc(100vw-2.25rem-max(13.5rem,24vw)))] rounded-[22px] border border-[rgba(196,168,252,0.45)] bg-gradient-to-br from-[#faf8ff]/96 via-[#fffefd]/93 to-[#f5f0ff]/93 px-3.5 py-5 sm:px-4 sm:py-6 md:px-5 md:py-6 text-left shadow-[0_12px_48px_rgba(124,58,237,0.12)] backdrop-blur-sm"
+                className="w-full max-w-[min(42rem,100%)] md:max-w-[min(46rem,calc(100%-0.5rem))] lg:max-w-[min(48rem,calc(100vw-2.5rem-max(14rem,28vw)))] rounded-[22px] border border-[rgba(196,168,252,0.45)] bg-gradient-to-br from-[#faf8ff]/96 via-[#fffefd]/93 to-[#f5f0ff]/93 px-4 py-5 sm:px-5 sm:py-6 md:px-6 md:py-6 text-center shadow-[0_12px_48px_rgba(124,58,237,0.12)] backdrop-blur-sm"
                 data-testid="home-coming-welcome-banner"
               >
-              <div className="flex gap-3 sm:gap-4">
-                <Sparkles className="h-9 w-9 shrink-0 text-[#a855f7] opacity-[0.92] mt-0.5 drop-shadow-[0_0_12px_rgba(168,85,247,0.35)]" aria-hidden />
-                <div className="min-w-0 flex-1 space-y-4">
+              <div className="flex flex-col items-center gap-4 sm:gap-5">
+                <Sparkles
+                  className="h-9 w-9 shrink-0 text-[#a855f7] opacity-[0.92] drop-shadow-[0_0_12px_rgba(168,85,247,0.35)]"
+                  aria-hidden
+                />
+                <div className="w-full min-w-0 space-y-4">
                   <p
                     className="font-[family-name:'Playfair_Display',Georgia,serif] text-[17px] sm:text-lg leading-relaxed text-[#2e1067]/92"
                     data-testid="home-coming-welcome-lead"
@@ -938,7 +941,7 @@ export default function AnnualPackagePurchasePage() {
                       <p className="text-sm font-semibold text-[#3b0764]" data-testid="last-annual-package-label">
                         {lastAnnualCycleDisplayName || lap.program_label || 'Annual program'}
                       </p>
-                      <dl className="mt-3 flex flex-wrap gap-x-10 gap-y-2 text-[13px] text-[rgba(60,35,115,0.88)] tabular-nums">
+                      <dl className="mt-3 flex flex-wrap justify-center gap-x-10 gap-y-2 text-[13px] text-[rgba(60,35,115,0.88)] tabular-nums">
                         <div>
                           <dt className="text-[10px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-1">Start date</dt>
                           <dd>{lap.start_date ? formatDateDdMonYyyy(lap.start_date) : '—'}</dd>
@@ -954,15 +957,15 @@ export default function AnnualPackagePurchasePage() {
                     <p className="text-[10px] uppercase tracking-[0.16em] text-[rgba(100,55,155,0.48)] font-semibold">
                       Next Sacred Home cycle
                     </p>
-                    <div className="flex flex-wrap items-end gap-3">
-                      <div className="min-w-0 max-w-full">
-                        <Label className="text-[10px] flex items-start gap-2 text-[rgba(70,35,125,0.65)] uppercase tracking-[0.12em] font-semibold leading-snug">
-                          <Calendar size={12} className="opacity-70 shrink-0 mt-0.5" aria-hidden />
-                          <span>
+                    <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3">
+                      <div className="min-w-0 max-w-full flex flex-col items-center">
+                        <Label className="text-[10px] flex flex-col items-center gap-2 text-[rgba(70,35,125,0.65)] uppercase tracking-[0.12em] font-semibold leading-snug">
+                          <Calendar size={12} className="opacity-70 shrink-0" aria-hidden />
+                          <span className="text-center">
                             <span className="block text-[10px] font-bold tracking-[0.14em] text-[rgba(100,55,155,0.45)]">
                               {nextSacredYearStartsLabel}
                             </span>
-                            <span className="block normal-case tracking-normal text-[11px] font-medium text-[rgba(60,35,115,0.65)] mt-1 max-w-[min(32rem,100%)]">
+                            <span className="block normal-case tracking-normal text-[11px] font-medium text-[rgba(60,35,115,0.65)] mt-1 mx-auto max-w-[min(34rem,100%)]">
                               Choose your bundle start date. Your Iris year follows your Client Garden path automatically.
                             </span>
                           </span>
@@ -970,7 +973,7 @@ export default function AnnualPackagePurchasePage() {
                         <Input
                           type="date"
                           className={cn(
-                            'h-10 mt-1.5 w-[11.75rem] border-[rgba(160,80,220,0.22)] bg-white/75',
+                            'h-10 mt-1.5 w-[11.75rem] max-w-full border-[rgba(160,80,220,0.22)] bg-white/75 mx-auto',
                             membershipCycleDatesLocked &&
                               'cursor-not-allowed opacity-95 bg-violet-50/80 border-violet-200/90',
                           )}
@@ -980,7 +983,7 @@ export default function AnnualPackagePurchasePage() {
                           data-testid="annual-offer-start-date-hero"
                         />
                         {membershipCycleDatesLocked ? (
-                          <p className="text-[10px] text-[rgba(80,45,130,0.72)] mt-1.5 leading-snug">
+                          <p className="text-[10px] text-[rgba(80,45,130,0.72)] mt-1.5 leading-snug max-w-md mx-auto">
                             Start and bundle end are locked to your Sacred Exchange record after payment.
                           </p>
                         ) : null}
@@ -990,7 +993,7 @@ export default function AnnualPackagePurchasePage() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-10 border-violet-200/90 text-violet-900 bg-white/70 hover:bg-violet-50"
+                          className="h-10 border-violet-200/90 text-violet-900 bg-white/70 hover:bg-violet-50 shrink-0"
                           onClick={() => {
                             const ymd = nextDateWithDayOfMonth(null, preferredDom);
                             if (ymd) setDesiredStart(ymd);
@@ -1006,29 +1009,29 @@ export default function AnnualPackagePurchasePage() {
                         <p className="text-[11px] font-semibold text-[#3b0764]">
                           {irisYearLabelNoPeriod(autoRenewalYear)}
                         </p>
-                        <dl className="mt-2 flex flex-wrap gap-x-8 gap-y-1 text-[12px] text-[rgba(60,35,115,0.88)] tabular-nums">
+                        <dl className="mt-2 flex flex-wrap justify-center gap-x-8 gap-y-1 text-[12px] text-[rgba(60,35,115,0.88)] tabular-nums">
                           <div>
                             <dt className="text-[9px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-0.5">
                               New cycle start
                             </dt>
-                            <dd>{formatDateDdMonYyyy(cycleDisplayStart)}</dd>
+                            <dd className="text-center">{formatDateDdMonYyyy(cycleDisplayStart)}</dd>
                           </div>
                           <div>
                             <dt className="text-[9px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-0.5">
                               Bundle end ({durationMonths} mo)
                             </dt>
-                            <dd>{formatDateDdMonYyyy(cycleDisplayEnd)}</dd>
+                            <dd className="text-center">{formatDateDdMonYyyy(cycleDisplayEnd)}</dd>
                           </div>
                         </dl>
                       </div>
                     ) : (
-                      <p className="text-[11px] text-[rgba(90,55,135,0.62)]">
+                      <p className="text-[11px] text-[rgba(90,55,135,0.62)] max-w-xl mx-auto">
                         Pick a start date to see bundle end (30th of the month before the anniversary) and the installment
                         schedule (due on the 27th).
                       </p>
                     )}
                     {!pinnedProgram ? (
-                      <p className="text-[11px] text-amber-900/85 bg-amber-50/90 border border-amber-200/80 rounded-lg px-2.5 py-2">
+                      <p className="text-[11px] text-amber-900/85 bg-amber-50/90 border border-amber-200/80 rounded-lg px-2.5 py-2 text-left sm:text-center">
                         Your host still needs to pin the Home Coming catalog program on Sacred Home — then checkout opens
                         here with your dates.
                       </p>
