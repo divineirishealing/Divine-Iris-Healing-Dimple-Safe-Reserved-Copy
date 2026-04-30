@@ -48,6 +48,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async (redirectTo = '/login') => {
     if (!BACKEND_URL) {
       localStorage.removeItem('session_token');
+      try { localStorage.removeItem('currency_detect'); } catch (_) { /* ignore */ }
       setUser(null);
       navigate(redirectTo);
       return;
@@ -58,11 +59,13 @@ export const AuthProvider = ({ children }) => {
         headers: getAuthHeaders(),
       });
       localStorage.removeItem('session_token');
+      try { localStorage.removeItem('currency_detect'); } catch (_) { /* ignore */ }
       setUser(null);
       navigate(redirectTo);
     } catch (err) {
       console.error("Logout failed", err);
       localStorage.removeItem('session_token');
+      try { localStorage.removeItem('currency_detect'); } catch (_) { /* ignore */ }
       setUser(null);
       navigate(redirectTo);
     }

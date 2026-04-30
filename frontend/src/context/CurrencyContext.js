@@ -69,7 +69,7 @@ export const CurrencyProvider = ({ children }) => {
       clearTimeout(fallback);
       setReady(true);
     });
-  }, [user?.email, user?.pricing_country_override]);
+  }, [user?.email, user?.pricing_country_override, user?.client_id]);
 
   // Convert base amount to display amount
   const toDisplay = (amount) => {
