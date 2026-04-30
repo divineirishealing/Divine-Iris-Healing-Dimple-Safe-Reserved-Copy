@@ -457,10 +457,7 @@ export default function AnnualPackagePurchasePage() {
     return ALL_PAY_MODES.filter((m) => m.value !== 'emi_monthly' || monthlyOk);
   }, [homeData?.annual_package_offer_monthly_emi_visible]);
 
-  const nextSacredYearStartsLabel = useMemo(() => {
-    const lbl = irisYearLabelNoPeriod(autoRenewalYear);
-    return `${lbl} · anchor your membership start`;
-  }, [autoRenewalYear]);
+  const nextSacredYearTitleLine = useMemo(() => irisYearLabelNoPeriod(autoRenewalYear), [autoRenewalYear]);
 
   /** Rich title for the on-record cycle (package name + Iris year for that window). */
   const lastAnnualCycleDisplayName = useMemo(() => {
@@ -963,10 +960,13 @@ export default function AnnualPackagePurchasePage() {
                           <Calendar size={12} className="opacity-70 shrink-0" aria-hidden />
                           <span className="text-center">
                             <span className="block text-[10px] font-bold tracking-[0.14em] text-[rgba(100,55,155,0.45)]">
-                              {nextSacredYearStartsLabel}
+                              {nextSacredYearTitleLine}
+                            </span>
+                            <span className="block text-[10px] font-bold tracking-[0.14em] text-[rgba(100,55,155,0.45)] mt-1">
+                              Anchor your membership start
                             </span>
                             <span className="block normal-case tracking-normal text-[11px] font-medium text-[rgba(60,35,115,0.65)] mt-1 mx-auto max-w-none w-full">
-                              Choose your bundle start date. Your Iris year follows your Client Garden path automatically.
+                              Choose your bundle start date. Your Iris year follows your Iris Garden path automatically.
                             </span>
                           </span>
                         </Label>
