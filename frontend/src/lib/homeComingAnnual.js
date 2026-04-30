@@ -153,3 +153,87 @@ export function summarizeHomeComingSessions(sessions) {
   const withDate = list.filter((s) => (s.date || '').trim()).length;
   return `${withDate}/${list.length} dated${paused ? ` · ${paused} paused` : ''}`;
 }
+
+/** Calendar YYYY-MM-DD in UTC (matches backend ``utc_today`` for slot comparisons). */
+export function utcCalendarYmd() {
+  const d = new Date();
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Per program: counts for slots 1..maxSlots. Paused slots are excluded from availed/remaining.
+ * Availed: attended, or dated before today (UTC) when not explicitly marked not attended.
+ * Remaining: active (non-paused) slots not counted as availed.
+ */
+export function homeComingProgramSlotStats(sessions, program, maxSlots, todayYmd = utcCalendarYmd()) {
+  const prog = String(program || '').toLowerCase();
+  const bySlot = new Map();
+  for (const s of sessions || []) {
+    if (String(s.program || '').toLowerCase() !== prog) continue;
+    const sl = Number(s.slot);
+    if (Number.isFinite(sl)) bySlot.set(sl, s);
+  }
+  let paused = 0;
+  let availed = 0;
+  let remaining = 0;
+  for (let slot = 1; slot <= maxSlots; slot++) {
+    const sess = bySlot.get(slot);
+    if (!sess) {
+      remaining++;
+      continue;
+    }
+    if (sess.paused) {
+      paused++;
+      continue;
+    }
+    const d = (sess.date || '').trim().slice(0, 10);
+    const past = d && d < todayYmd;
+    if (sess.attended === true) {
+      availed++;
+      continue;
+    }
+    if (sess.attended === false) {
+      if (past) continue;
+      remaining++;
+      continue;
+    }
+    if (past) availed++;
+    else remaining++;
+  }
+  return { paused, availed, remaining, maxSlots };
+}
+
+function _cycleStableKey(c) {
+  if (c.ledgerId) return `L:${c.ledgerId}`;
+  if (c.isCurrent) return 'CURRENT';
+  return `S:${c.start}|${c.end}`;
+}
+
+/**
+ * Admin grid: **current** window first, then prior windows newest-first. Assigns ``yearOrdinal``
+ * (1 = oldest start date on file … N = current).
+ */
+export function orderHomeComingCyclesForAdminTable(cycles) {
+  const list = (cycles || []).filter(
+    (c) =>
+      (c.start || '').trim() ||
+      (c.end || '').trim() ||
+      (c.sessions && c.sessions.length > 0),
+  );
+  if (list.length === 0) return [];
+  const byStart = [...list].sort((a, b) => String(a.start || '').localeCompare(String(b.start || '')));
+  const yearOrdinal = new Map();
+  byStart.forEach((c, i) => yearOrdinal.set(_cycleStableKey(c), i + 1));
+  const display = [...list].sort((a, b) => {
+    if (a.isCurrent && !b.isCurrent) return -1;
+    if (!a.isCurrent && b.isCurrent) return 1;
+    return String(b.end || b.start || '').localeCompare(String(a.end || a.start || ''));
+  });
+  return display.map((c) => ({
+    ...c,
+    yearOrdinal: yearOrdinal.get(_cycleStableKey(c)) || 0,
+  }));
+}

@@ -29,8 +29,11 @@ import {
   HOME_COMING_DISPLAY,
   formatHomeComingUsageSummary,
   buildHomeComingCycles,
-  summarizeHomeComingSessions,
   homeComingSessionAttendLabel,
+  orderHomeComingCyclesForAdminTable,
+  homeComingProgramSlotStats,
+  HOME_COMING_PROGRAM_SLOTS,
+  utcCalendarYmd,
 } from '../../../lib/homeComingAnnual';
 import { formatDateDdMonYyyy } from '../../../lib/utils';
 
@@ -541,6 +544,194 @@ function AnnualPortalFilterableTh({
         />
       </div>
     </th>
+  );
+}
+
+const hcSchedTh =
+  'border border-[#c6c6c6] bg-[#eaeaea] px-1 py-1 text-[9px] font-semibold text-neutral-800 text-center whitespace-nowrap';
+const hcSchedTd =
+  'border border-[#d0d0d0] px-0.5 py-0.5 text-[9px] text-center tabular-nums text-neutral-800 align-middle';
+
+function shortSlotDateDisplay(ymd) {
+  const full = formatDateDdMonYyyy(String(ymd || '').trim().slice(0, 10));
+  if (!full) return '·';
+  const lastHyphen = full.lastIndexOf('-');
+  if (lastHyphen <= 0) return full.slice(0, 6);
+  return full.slice(0, lastHyphen);
+}
+
+function homeComingSlotTitle(sess) {
+  if (!sess) return '';
+  const parts = [];
+  if (sess.paused) parts.push('Paused');
+  if ((sess.date || '').trim()) parts.push(formatDateDdMonYyyy(String(sess.date).slice(0, 10)));
+  if ((sess.time || '').trim()) parts.push(String(sess.time));
+  parts.push(homeComingSessionAttendLabel(sess));
+  if (sess.source === 'schedule') parts.push('schedule');
+  return parts.join(' · ');
+}
+
+function homeComingProgramSlotCells(sessions, program, maxSlots) {
+  const prog = String(program || '').toLowerCase();
+  const bySlot = new Map();
+  for (const s of sessions || []) {
+    if (String(s.program || '').toLowerCase() !== prog) continue;
+    const sl = Number(s.slot);
+    if (Number.isFinite(sl)) bySlot.set(sl, s);
+  }
+  const cells = [];
+  for (let slot = 1; slot <= maxSlots; slot++) {
+    const sess = bySlot.get(slot);
+    let display = '—';
+    if (sess) {
+      if (sess.paused) display = 'P';
+      else if ((sess.date || '').trim()) display = shortSlotDateDisplay(sess.date);
+      else display = '·';
+    }
+    cells.push(
+      <td key={`${prog}-${slot}`} className={hcSchedTd} title={homeComingSlotTitle(sess)}>
+        {display}
+      </td>,
+    );
+  }
+  return cells;
+}
+
+/** Expandable panel: one table row per annual window — current first, prior years below (newest prior next). */
+function HomeComingAnnualWindowsTable({ cycles }) {
+  const ordered = orderHomeComingCyclesForAdminTable(cycles);
+  const todayYmd = utcCalendarYmd();
+  const { awrp, mmm, turbo, meta } = HOME_COMING_PROGRAM_SLOTS;
+  if (ordered.length === 0) {
+    return (
+      <p className="text-neutral-600 text-[11px]">
+        No windows on file yet — set start/end in Edit, then add or sync session rows.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-1">
+      <p className="font-semibold text-neutral-900 text-[11px]">Home Coming · by annual window</p>
+      <div className="overflow-x-auto border border-[#c6c6c6] rounded-sm bg-white">
+        <table className="border-collapse text-[10px] w-full min-w-[56rem] font-lato">
+          <thead>
+            <tr className="bg-[#e7e7e7]">
+              <th rowSpan={2} className={`${hcSchedTh} text-left min-w-[4rem]`}>
+                Year
+              </th>
+              <th rowSpan={2} className={`${hcSchedTh} text-left min-w-[5rem]`}>
+                Start
+              </th>
+              <th rowSpan={2} className={`${hcSchedTh} text-left min-w-[5rem]`}>
+                End
+              </th>
+              <th colSpan={awrp} className={hcSchedTh}>
+                AWRP (12 mo)
+              </th>
+              <th rowSpan={2} className={`${hcSchedTh} min-w-[3.75rem] leading-tight`}>
+                AWRP
+                <br />
+                avl / rem
+              </th>
+              <th colSpan={mmm} className={hcSchedTh}>
+                MMM (6 mo)
+              </th>
+              <th rowSpan={2} className={`${hcSchedTh} min-w-[3.75rem] leading-tight`}>
+                MMM
+                <br />
+                avl / rem
+              </th>
+              <th colSpan={turbo} className={hcSchedTh}>
+                Turbo (4)
+              </th>
+              <th rowSpan={2} className={`${hcSchedTh} min-w-[3.25rem] leading-tight`}>
+                T
+                <br />
+                avl / rem
+              </th>
+              <th colSpan={meta} className={hcSchedTh}>
+                Meta (2)
+              </th>
+              <th rowSpan={2} className={`${hcSchedTh} min-w-[3.25rem] leading-tight`}>
+                M
+                <br />
+                avl / rem
+              </th>
+            </tr>
+            <tr className="bg-[#efefef]">
+              {Array.from({ length: awrp }, (_, i) => (
+                <th key={`awrp-h-${i}`} className={hcSchedTh}>
+                  {i + 1}
+                </th>
+              ))}
+              {Array.from({ length: mmm }, (_, i) => (
+                <th key={`mmm-h-${i}`} className={hcSchedTh}>
+                  {i + 1}
+                </th>
+              ))}
+              {Array.from({ length: turbo }, (_, i) => (
+                <th key={`turbo-h-${i}`} className={hcSchedTh}>
+                  {i + 1}
+                </th>
+              ))}
+              {Array.from({ length: meta }, (_, i) => (
+                <th key={`meta-h-${i}`} className={hcSchedTh}>
+                  {i + 1}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {ordered.map((c, ri) => {
+              const stA = homeComingProgramSlotStats(c.sessions, 'awrp', awrp, todayYmd);
+              const stM = homeComingProgramSlotStats(c.sessions, 'mmm', mmm, todayYmd);
+              const stT = homeComingProgramSlotStats(c.sessions, 'turbo', turbo, todayYmd);
+              const stMe = homeComingProgramSlotStats(c.sessions, 'meta', meta, todayYmd);
+              const yearLabel = c.yearOrdinal ? `Year ${c.yearOrdinal}` : '—';
+              const rowKey = `${c.ledgerId || (c.isCurrent ? 'current' : 'prior')}-${c.start || ''}-${c.end || ''}-${ri}`;
+              const stripe = ri % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]';
+              return (
+                <tr key={rowKey} className={stripe}>
+                  <td className={`${hcSchedTd} text-left font-semibold whitespace-nowrap px-1.5`}>
+                    {yearLabel}
+                    {c.isCurrent ? (
+                      <span className="ml-1 text-[8px] font-bold uppercase text-[#1b5e20]">current</span>
+                    ) : null}
+                  </td>
+                  <td className={`${hcSchedTd} text-left whitespace-nowrap`}>
+                    {formatPortalSubscriptionDate(c.start)}
+                  </td>
+                  <td className={`${hcSchedTd} text-left whitespace-nowrap`}>
+                    {formatPortalSubscriptionDate(c.end)}
+                  </td>
+                  {homeComingProgramSlotCells(c.sessions, 'awrp', awrp)}
+                  <td className={`${hcSchedTd} font-semibold`} title={`Paused slots: ${stA.paused}`}>
+                    {stA.availed} / {stA.remaining}
+                  </td>
+                  {homeComingProgramSlotCells(c.sessions, 'mmm', mmm)}
+                  <td className={`${hcSchedTd} font-semibold`} title={`Paused slots: ${stM.paused}`}>
+                    {stM.availed} / {stM.remaining}
+                  </td>
+                  {homeComingProgramSlotCells(c.sessions, 'turbo', turbo)}
+                  <td className={`${hcSchedTd} font-semibold`} title={`Paused slots: ${stT.paused}`}>
+                    {stT.availed} / {stT.remaining}
+                  </td>
+                  {homeComingProgramSlotCells(c.sessions, 'meta', meta)}
+                  <td className={`${hcSchedTd} font-semibold`} title={`Paused slots: ${stMe.paused}`}>
+                    {stMe.availed} / {stMe.remaining}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[10px] text-neutral-500 leading-snug">
+        <strong>P</strong> = paused · <strong>·</strong> = slot row, no date yet · <strong>—</strong> = no row in grid ·{' '}
+        <strong>avl / rem</strong> = availed / remaining (vs UTC &quot;today&quot;). Edit in pencil dialog; sync from Admin →
+        Subscribers → Program schedule.
+      </p>
+    </div>
   );
 }
 
@@ -1438,50 +1629,8 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                   </tr>
                   {expanded ? (
                     <tr className="bg-slate-50/95">
-                      <td colSpan={colSpanFlat} className={`${tdBase} px-3 py-2 border-t border-[#c6d7e8]`}>
-                        <div className="text-[11px] text-neutral-800 space-y-2 max-w-5xl">
-                          <p className="font-semibold text-neutral-900">Home Coming · sessions by annual window</p>
-                          {cycles.length === 0 ? (
-                            <p className="text-neutral-600">No windows on file yet — set start/end in Edit, then add or sync session rows.</p>
-                          ) : (
-                            <ul className="space-y-2">
-                              {cycles.map((c, ci) => (
-                                <li
-                                  key={c.ledgerId || `current-${ci}`}
-                                  className="rounded border border-[#c6c6c6] bg-white px-2 py-1.5"
-                                >
-                                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 font-medium text-neutral-900">
-                                    <span>{c.isCurrent ? 'Current window' : 'Prior window'}</span>
-                                    <span className="text-neutral-600 font-normal tabular-nums">
-                                      {formatPortalSubscriptionDate(c.start)} – {formatPortalSubscriptionDate(c.end)}
-                                    </span>
-                                    <span className="text-[10px] font-normal text-neutral-500">
-                                      {summarizeHomeComingSessions(c.sessions)}
-                                    </span>
-                                  </div>
-                                  {c.sessions.length > 0 ? (
-                                    <ul className="mt-1.5 max-h-28 overflow-y-auto text-[10px] text-neutral-700 grid gap-0.5 font-lato">
-                                      {c.sessions.slice(0, 48).map((s) => (
-                                        <li key={s.id || `${s.program}-${s.slot}`} className="tabular-nums">
-                                          <span className="font-semibold uppercase">{s.program}</span> #{s.slot}
-                                          {(s.date || '').trim() ? ` · ${formatPortalSubscriptionDate(s.date)}` : ' · (no date)'}
-                                          {(s.time || '').trim() ? ` · ${String(s.time).slice(0, 32)}` : ''}
-                                          {s.paused ? ' · paused' : ''}
-                                          {' · '}
-                                          {homeComingSessionAttendLabel(s)}
-                                          {s.source === 'schedule' ? ' · schedule' : ''}
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  ) : null}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                          <p className="text-[10px] text-neutral-500">
-                            Edit grid and sync from Admin → Subscribers → Program schedule in the pencil dialog.
-                          </p>
-                        </div>
+                      <td colSpan={colSpanFlat} className={`${tdBase} px-2 py-2 border-t border-[#c6d7e8]`}>
+                        <HomeComingAnnualWindowsTable cycles={cycles} />
                       </td>
                     </tr>
                   ) : null}
@@ -1753,50 +1902,8 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                           </tr>
                           {expanded ? (
                             <tr className="bg-slate-50/95">
-                              <td colSpan={colSpanHouseholdTable} className={`${tdBase} px-3 py-2 border-t border-[#c6d7e8]`}>
-                                <div className="text-[11px] text-neutral-800 space-y-2 max-w-5xl">
-                                  <p className="font-semibold text-neutral-900">Home Coming · sessions by annual window</p>
-                                  {cycles.length === 0 ? (
-                                    <p className="text-neutral-600">No windows on file yet — set start/end in Edit, then add or sync session rows.</p>
-                                  ) : (
-                                    <ul className="space-y-2">
-                                      {cycles.map((c, ci) => (
-                                        <li
-                                          key={c.ledgerId || `current-${ci}`}
-                                          className="rounded border border-[#c6c6c6] bg-white px-2 py-1.5"
-                                        >
-                                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 font-medium text-neutral-900">
-                                            <span>{c.isCurrent ? 'Current window' : 'Prior window'}</span>
-                                            <span className="text-neutral-600 font-normal tabular-nums">
-                                              {formatPortalSubscriptionDate(c.start)} – {formatPortalSubscriptionDate(c.end)}
-                                            </span>
-                                            <span className="text-[10px] font-normal text-neutral-500">
-                                              {summarizeHomeComingSessions(c.sessions)}
-                                            </span>
-                                          </div>
-                                          {c.sessions.length > 0 ? (
-                                            <ul className="mt-1.5 max-h-28 overflow-y-auto text-[10px] text-neutral-700 grid gap-0.5 font-lato">
-                                              {c.sessions.slice(0, 48).map((s) => (
-                                                <li key={s.id || `${s.program}-${s.slot}`} className="tabular-nums">
-                                                  <span className="font-semibold uppercase">{s.program}</span> #{s.slot}
-                                                  {(s.date || '').trim() ? ` · ${formatPortalSubscriptionDate(s.date)}` : ' · (no date)'}
-                                                  {(s.time || '').trim() ? ` · ${String(s.time).slice(0, 32)}` : ''}
-                                                  {s.paused ? ' · paused' : ''}
-                                                  {' · '}
-                                                  {homeComingSessionAttendLabel(s)}
-                                                  {s.source === 'schedule' ? ' · schedule' : ''}
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          ) : null}
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  )}
-                                  <p className="text-[10px] text-neutral-500">
-                                    Edit grid and sync from Admin → Subscribers → Program schedule in the pencil dialog.
-                                  </p>
-                                </div>
+                              <td colSpan={colSpanHouseholdTable} className={`${tdBase} px-2 py-2 border-t border-[#c6d7e8]`}>
+                                <HomeComingAnnualWindowsTable cycles={cycles} />
                               </td>
                             </tr>
                           ) : null}
