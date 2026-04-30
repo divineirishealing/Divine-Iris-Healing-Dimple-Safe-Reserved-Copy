@@ -399,17 +399,17 @@ const StudentDashboard = () => {
     () => IRIS_JOURNEY_PARTS[effectiveIrisYear]?.subtitle || String(irisJourney?.subtitle || '').trim() || '',
     [effectiveIrisYear, irisJourney?.subtitle],
   );
-  /** One-line banner: YEAR n: IRIS … — THE … (matches garden labels, no membership tier name). */
-  const heroIrisJourneyBanner = useMemo(() => {
-    if (!effectiveIrisTitle) return '';
-    const bit = effectiveIrisSubtitle
-      ? `Year ${effectiveIrisYear}: ${effectiveIrisTitle} — ${effectiveIrisSubtitle}`
-      : `Year ${effectiveIrisYear}: ${effectiveIrisTitle}`;
-    return bit.toUpperCase();
-  }, [effectiveIrisYear, effectiveIrisTitle, effectiveIrisSubtitle]);
-  /** Right-column journey badge: show with package *or* Home Coming payload so the Iris year line is never orphaned from HC copy. */
+  /** Right column: Iris title + poetic subtitle only (no year prefix), matching welcome headline typography. */
+  const heroIrisJourneyTitleParts = useMemo(() => {
+    if (!effectiveIrisTitle) return null;
+    return {
+      title: effectiveIrisTitle,
+      subtitle: effectiveIrisSubtitle || '',
+    };
+  }, [effectiveIrisTitle, effectiveIrisSubtitle]);
+  /** Right-column journey line: show with package *or* Home Coming payload so it stays in sync with HC copy. */
   const showDashboardHeroJourneyBanner = Boolean(
-    heroIrisJourneyBanner && (!isNoActivePackage || Boolean(homeComing)),
+    heroIrisJourneyTitleParts && (!isNoActivePackage || Boolean(homeComing)),
   );
   const journeyDisplayPct = progressPct > 0 ? progressPct : 64;
   const soulAlignPct = progressPct > 0 ? Math.min(99, progressPct + 16) : 80;
@@ -553,24 +553,28 @@ const StudentDashboard = () => {
                 {welcomeSubtitle}
               </p>
             </div>
-            <div className="relative z-[1] flex flex-col gap-4 items-stretch md:items-end md:justify-center shrink-0 w-full md:w-auto md:max-w-[min(100%,22rem)]">
-              {showDashboardHeroJourneyBanner ? (
-                <div
-                  className="flex w-full md:w-auto md:max-w-sm md:self-end flex-wrap items-start gap-2.5 sm:gap-3 rounded-2xl border border-[rgba(190,150,55,0.42)] bg-gradient-to-br from-white via-[#fffdfb] to-[rgba(255,252,245,0.98)] px-3.5 py-2.5 sm:px-4 sm:py-3 shadow-[0_6px_28px_rgba(120,90,30,0.1),inset_0_1px_0_rgba(255,255,255,0.95)] ring-1 ring-amber-200/40 md:text-left"
+            <div className="relative z-[1] flex flex-col gap-4 items-stretch md:items-end md:justify-center shrink-0 w-full md:w-auto md:max-w-[min(100%,28rem)]">
+              {showDashboardHeroJourneyBanner && heroIrisJourneyTitleParts ? (
+                <h2
+                  className="font-[family-name:'Playfair_Display',serif] font-normal text-[clamp(1.35rem,3.2vw,1.9rem)] leading-tight tracking-wide text-left md:text-right w-full"
                   data-testid="dashboard-hero-iris-year"
                 >
-                  <span
-                    className="mt-0.5 shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-full border border-[rgba(200,160,70,0.45)] bg-gradient-to-br from-[rgba(252,240,200,0.55)] to-[rgba(255,250,235,0.95)] text-[12px] leading-none text-[#8a6810]"
-                    aria-hidden
-                  >
-                    ✦
-                  </span>
-                  <p
-                    className="min-w-0 flex-1 font-[family-name:'Cinzel',serif] text-[10px] sm:text-[11px] font-semibold tracking-[0.14em] sm:tracking-[0.17em] leading-snug sm:leading-relaxed bg-gradient-to-r from-[#4a3610] via-[#6b4818] to-[#4a3610] bg-clip-text text-transparent [filter:drop-shadow(0_1px_0_rgba(255,255,255,0.85))]"
-                  >
-                    {heroIrisJourneyBanner}
-                  </p>
-                </div>
+                  <span className="text-[#1a0a3d]">{heroIrisJourneyTitleParts.title}</span>
+                  {heroIrisJourneyTitleParts.subtitle ? (
+                    <>
+                      {' '}
+                      <span className="text-[rgba(26,10,61,0.35)] font-light">—</span>{' '}
+                      <span
+                        className="italic bg-clip-text text-transparent bg-[length:280%_auto] animate-[nameshift_8s_linear_infinite]"
+                        style={{
+                          backgroundImage: 'linear-gradient(90deg, #4c1d95, #7c3aed, #d97706, #4c1d95)',
+                        }}
+                      >
+                        {heroIrisJourneyTitleParts.subtitle}
+                      </span>
+                    </>
+                  ) : null}
+                </h2>
               ) : null}
               <div className="flex flex-wrap items-stretch justify-start md:justify-end gap-3 w-full md:w-auto md:self-end">
               {/* Sessions / Compass / Days Active — hidden when no subscriber package (re-enable when journey stats are live). */}
