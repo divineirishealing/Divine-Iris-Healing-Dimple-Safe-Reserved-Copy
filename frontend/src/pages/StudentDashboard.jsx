@@ -6,6 +6,7 @@ import {
   ArrowRight, ChevronRight,
   Coins,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
 import { cn, formatDateDdMonYyyy, formatDashboardTime, dashboardStudentScheduleTable } from '../lib/utils';
 import { buildDashboardScheduleRows, summarizeDatedProgramProgress } from '../lib/dashboardSchedule';
@@ -555,26 +556,31 @@ const StudentDashboard = () => {
             </div>
             <div className="relative z-[1] flex flex-col gap-4 items-stretch md:items-end md:justify-center shrink-0 w-full md:w-auto md:max-w-[min(100%,28rem)]">
               {showDashboardHeroJourneyBanner && heroIrisJourneyTitleParts ? (
-                <h2
-                  className="font-[family-name:'Playfair_Display',serif] font-normal text-[clamp(1.35rem,3.2vw,1.9rem)] leading-tight tracking-wide text-left md:text-right w-full"
+                <div
+                  className="flex gap-2.5 items-start justify-start md:justify-end w-full max-w-md md:max-w-[21rem]"
                   data-testid="dashboard-hero-iris-year"
                 >
-                  <span className="text-[#1a0a3d]">{heroIrisJourneyTitleParts.title}</span>
-                  {heroIrisJourneyTitleParts.subtitle ? (
-                    <>
-                      {' '}
-                      <span className="text-[rgba(26,10,61,0.35)] font-light">—</span>{' '}
+                  <Sparkles
+                    className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 mt-[0.2rem] text-[#c9a227] drop-shadow-[0_0_6px_rgba(212,175,55,0.45)]"
+                    strokeWidth={2}
+                    aria-hidden
+                  />
+                  <h2 className="font-[family-name:'Playfair_Display',serif] font-normal text-left md:text-right leading-snug tracking-wide min-w-0">
+                    <span className="block text-[clamp(1.05rem,2.35vw,1.38rem)] text-[#1a0a3d]">
+                      {heroIrisJourneyTitleParts.title}
+                    </span>
+                    {heroIrisJourneyTitleParts.subtitle ? (
                       <span
-                        className="italic bg-clip-text text-transparent bg-[length:280%_auto] animate-[nameshift_8s_linear_infinite]"
+                        className="block mt-1 text-[clamp(0.98rem,2.1vw,1.28rem)] italic bg-clip-text text-transparent bg-[length:280%_auto] animate-[nameshift_8s_linear_infinite]"
                         style={{
                           backgroundImage: 'linear-gradient(90deg, #4c1d95, #7c3aed, #d97706, #4c1d95)',
                         }}
                       >
                         {heroIrisJourneyTitleParts.subtitle}
                       </span>
-                    </>
-                  ) : null}
-                </h2>
+                    ) : null}
+                  </h2>
+                </div>
               ) : null}
               <div className="flex flex-wrap items-stretch justify-start md:justify-end gap-3 w-full md:w-auto md:self-end">
               {/* Sessions / Compass / Days Active — hidden when no subscriber package (re-enable when journey stats are live). */}
