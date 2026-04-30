@@ -662,8 +662,10 @@ export default function AnnualPackagePurchasePage() {
 
   const totalRaw = Number(quote?.total ?? 0);
 
-  /** Basis for splitting the payment schedule: live quote when > 0, else Home Coming catalog (annual purchase / renewal). */
+  /** Basis for splitting the payment schedule: on-file fee when that is what we show, else quote, else hub-matched catalog only. Never reuse another hub's catalog number (e.g. INR) as if it were AED / USD. */
   const scheduleSplitTotal = useMemo(() => {
+    const onFileFee = Number(fin.total_fee || 0);
+    if (preferOnFilePackagePricing && onFileFee > 0) return onFileFee;
     if (totalRaw > 0) return totalRaw;
     if (
       catalogCourtesyBreakdown != null &&
@@ -672,12 +674,14 @@ export default function AnnualPackagePurchasePage() {
       return Number(catalogCourtesyBreakdown.finalNum);
     }
     if (catalogAmountHub != null && Number(catalogAmountHub) > 0) return Number(catalogAmountHub);
-    for (const [, v] of catalogAllPositiveEntries) {
-      const n = Number(v);
-      if (!Number.isNaN(n) && n > 0) return n;
-    }
     return 0;
-  }, [totalRaw, catalogAmountHub, catalogCourtesyBreakdown, catalogAllPositiveEntries]);
+  }, [
+    preferOnFilePackagePricing,
+    fin.total_fee,
+    totalRaw,
+    catalogAmountHub,
+    catalogCourtesyBreakdown,
+  ]);
 
   const paymentScheduleRows = useMemo(
     () => buildPaymentScheduleRows(paymentMode, scheduleSplitTotal, desiredStart, durationMonths),
