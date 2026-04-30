@@ -511,12 +511,12 @@ const StudentDashboard = () => {
           className="relative z-10 w-full max-w-[68rem] mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 pt-4 pb-2 md:pt-6 md:pb-4 mb-4 md:mb-6 animate-[fadeSlideUp_0.8s_ease-out_both]"
         >
           <div
-            className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between rounded-[28px] border border-[rgba(160,100,240,0.2)] bg-white/45 backdrop-blur-xl px-6 py-6 md:px-9 md:py-7 shadow-[0_4px_48px_rgba(140,60,220,0.1)] overflow-hidden"
+            className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between rounded-[28px] border border-slate-200/80 bg-white/80 backdrop-blur-xl px-6 py-6 md:px-9 md:py-7 shadow-[0_4px_32px_rgba(15,23,42,0.06)] overflow-hidden"
             data-testid="dashboard-greeting"
           >
-            <div className="pointer-events-none absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#c084fc] via-[#f5c840] via-[#f9a8d4] to-transparent" />
+            <div className="pointer-events-none absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
             <div className="relative z-[1] flex-1 min-w-0 text-left">
-              <p className="mb-1.5 font-[family-name:'Cinzel',serif] text-[9px] uppercase tracking-[0.24em] text-[rgba(160,80,220,0.5)]">
+              <p className="mb-1.5 font-[family-name:'Cinzel',serif] text-[9px] uppercase tracking-[0.24em] text-slate-500">
                 {SANCTUARY_REFERENCE.welcomeKicker}
               </p>
               <h1 className="font-[family-name:'Playfair_Display',serif] font-normal text-[clamp(1.65rem,4vw,2.125rem)] text-[#1a0a3d] leading-tight tracking-wide mb-2">
@@ -524,15 +524,24 @@ const StudentDashboard = () => {
                 <span
                   className="italic bg-clip-text text-transparent bg-[length:280%_auto] animate-[nameshift_8s_linear_infinite]"
                   style={{
-                    backgroundImage: 'linear-gradient(90deg, #9333ea, #c084fc, #f5c840, #9333ea)',
+                    backgroundImage: 'linear-gradient(90deg, #4c1d95, #7c3aed, #d97706, #4c1d95)',
                   }}
                 >
                   {user?.name?.split(' ')[0] || sanctuary.greeting_title}
                 </span>
               </h1>
-              <p className="text-[13px] font-light text-[rgba(60,20,120,0.45)] tracking-[0.03em] max-w-xl leading-snug">
+              <p className="text-[13px] font-light text-slate-600 tracking-[0.03em] max-w-xl leading-snug">
                 {welcomeSubtitle}
               </p>
+              {!isNoActivePackage ? (
+                <p
+                  className="text-[11px] mt-2 font-[family-name:'Cinzel',serif] tracking-[0.1em] text-[#7a6410]"
+                  data-testid="dashboard-hero-iris-year"
+                >
+                  ✦ {tierLabel}
+                  {effectiveIrisTitle ? ` · ${effectiveIrisTitle} · Year ${effectiveIrisYear}` : ''}
+                </p>
+              ) : null}
             </div>
             <div className="relative z-[1] flex flex-wrap items-stretch justify-start md:justify-end gap-3 shrink-0">
               {/* Sessions / Compass / Days Active — hidden when no subscriber package (re-enable when journey stats are live). */}
@@ -544,27 +553,14 @@ const StudentDashboard = () => {
                 ].map(([num, lbl], i) => (
                   <div
                     key={lbl + String(i)}
-                    className="text-center rounded-[18px] border border-[rgba(160,80,220,0.1)] bg-[rgba(160,80,220,0.05)] px-4 py-3 min-w-[4.5rem]"
+                    className="text-center rounded-[18px] border border-slate-200/90 bg-white/90 px-4 py-3 min-w-[4.5rem] shadow-sm"
                   >
-                    <div className="font-[family-name:'Playfair_Display',serif] text-[1.65rem] leading-none text-[#5b0ecc] tabular-nums">{num}</div>
-                    <div className="mt-1 font-[family-name:'Cinzel',serif] text-[9px] tracking-[0.1em] text-[rgba(80,20,160,0.45)] uppercase">
+                    <div className="font-[family-name:'Playfair_Display',serif] text-[1.65rem] leading-none text-slate-800 tabular-nums">{num}</div>
+                    <div className="mt-1 font-[family-name:'Cinzel',serif] text-[9px] tracking-[0.1em] text-slate-500 uppercase">
                       {lbl}
                     </div>
                   </div>
                 ))}
-              <div className="self-center rounded-[14px] border border-[rgba(200,150,30,0.22)] bg-gradient-to-br from-[rgba(200,150,30,0.12)] to-[rgba(245,200,64,0.08)] px-4 py-2.5 text-center min-w-[7.5rem] max-w-[11rem]">
-                <div className="font-[family-name:'Cinzel',serif] text-[11px] text-[#8a6800] tracking-[0.08em]">
-                  ✦ {tierLabel}
-                </div>
-                <div
-                  className="text-[10px] text-[rgba(140,100,0,0.5)] mt-0.5 leading-snug line-clamp-2"
-                  data-testid="dashboard-hero-iris-year"
-                >
-                  {effectiveIrisTitle
-                    ? `${effectiveIrisTitle} · Year ${effectiveIrisYear}`
-                    : profileTierLine.replace(/^\s*✦\s*/, '')}
-                </div>
-              </div>
             </div>
           </div>
         </section>
@@ -583,8 +579,8 @@ const StudentDashboard = () => {
             aria-busy="true"
             data-testid="dashboard-home-loading"
           >
-            <div className="rounded-[28px] border border-[rgba(160,100,240,0.2)] bg-white/45 backdrop-blur-xl px-5 py-14 flex flex-col items-center justify-center gap-3 text-slate-600">
-              <Loader2 className="h-8 w-8 animate-spin text-[#5D3FD3]" aria-hidden />
+            <div className="rounded-[28px] border border-slate-200/80 bg-white/80 backdrop-blur-xl px-5 py-14 flex flex-col items-center justify-center gap-3 text-slate-600">
+              <Loader2 className="h-8 w-8 animate-spin text-slate-700" aria-hidden />
               <p className="text-sm text-center">Welcoming your Sacred Home…</p>
             </div>
           </section>
