@@ -27,7 +27,6 @@ import {
 import {
   cn,
   formatDateDdMonYyyy,
-  formatDashboardStatDate,
   nextDateWithDayOfMonth,
   addMonthsAnnualBundleEnd,
 } from '../../lib/utils';
@@ -914,8 +913,6 @@ export default function AnnualPackagePurchasePage() {
     );
   }
 
-  const showPaymentStatus = Number(fin.total_fee) > 0 || emis.length > 0;
-
   const glassOuter =
     'rounded-[28px] border border-[rgba(160,100,240,0.2)] bg-white/45 backdrop-blur-xl shadow-[0_4px_48px_rgba(140,60,220,0.1)] overflow-hidden';
 
@@ -1113,45 +1110,6 @@ export default function AnnualPackagePurchasePage() {
           </div>
 
           <div className="flex flex-col gap-5 px-5 md:px-8 pb-7 md:pb-9 pt-2">
-            {showPaymentStatus ? (
-              <div className={glassInset}>
-                <div className="flex items-start gap-2 mb-3">
-                  <CreditCard size={17} className="text-[#7c3aed] shrink-0 mt-0.5" aria-hidden />
-                  <div className="min-w-0 text-left">
-                    <h2 className="text-[15px] font-[family-name:'Cinzel',serif] font-semibold text-[#3b0764] tracking-wide">
-                      Your sacred exchange · on file
-                    </h2>
-                    <p className="text-[11px] text-[rgba(60,35,115,0.55)] mt-1 leading-snug">
-                      Same heartfelt numbers as Financials — from your Client Garden record.
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 md:gap-3 text-center">
-                  {[
-                    { label: 'Status', value: fin.status || '—', accent: 'text-[#1e1b4b]' },
-                    { label: 'Total', value: `${sacredMoneyCurrency} ${Number(fin.total_fee || 0).toLocaleString()}`, accent: 'text-[#1e1b4b]' },
-                    { label: 'Remaining', value: `${sacredMoneyCurrency} ${Number(fin.remaining ?? 0).toLocaleString()}`, accent: fin.remaining > 0 ? 'text-amber-800' : 'text-emerald-800' },
-                    { label: 'Next due', value: formatDashboardStatDate(fin.next_due), accent: 'text-amber-900' },
-                  ].map((row) => (
-                    <div key={row.label} className="rounded-xl border border-white/70 bg-white/55 px-2 py-2.5">
-                      <p className="text-[8px] uppercase tracking-[0.14em] text-[rgba(100,55,155,0.45)] font-semibold">{row.label}</p>
-                      <p className={cn('text-sm font-semibold mt-1 tabular-nums', row.accent)}>{row.value}</p>
-                    </div>
-                  ))}
-                </div>
-                <Button
-                  type="button"
-                  className="mt-4 w-full sm:w-auto bg-[#7c3aed] hover:bg-[#6d28d9] shadow-md shadow-violet-500/15"
-                  onClick={() => navigate('/dashboard/financials')}
-                  data-testid="annual-offer-go-pay"
-                >
-                  <CreditCard size={16} className="mr-2 shrink-0 opacity-95" />
-                  Pay next installment or upload proof
-                  <ArrowRight size={16} className="ml-2 shrink-0 opacity-90" />
-                </Button>
-              </div>
-            ) : null}
-
             {catalogBundle ? (
               <div
                 className={cn(glassInset, 'relative text-center sm:text-left')}
