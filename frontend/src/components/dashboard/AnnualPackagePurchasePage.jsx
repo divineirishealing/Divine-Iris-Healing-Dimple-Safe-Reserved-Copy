@@ -893,9 +893,6 @@ export default function AnnualPackagePurchasePage() {
           <div className="pointer-events-none h-px w-full bg-gradient-to-r from-transparent via-[#c084fc]/80 via-[#f5c840]/70 via-[#f9a8d4]/80 to-transparent shrink-0" />
 
           <div className="mb-5 md:mb-6 mt-6 md:mt-7 flex flex-col items-center text-center px-3 sm:px-5">
-            <p className="font-[family-name:'Cinzel',serif] text-[9px] uppercase tracking-[0.24em] text-[rgba(160,80,220,0.52)] mb-1">
-              Sacred enrollment
-            </p>
             <DashboardUpcomingProgramsIrisBloom />
             <h1
               id="divine-iris-home-coming-title"
