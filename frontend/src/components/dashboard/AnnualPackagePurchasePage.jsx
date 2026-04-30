@@ -1001,37 +1001,26 @@ export default function AnnualPackagePurchasePage() {
                       ) : null}
                     </div>
                     {cycleDisplayEnd ? (
-                      <div className="relative rounded-xl border border-violet-200/60 bg-white/65 px-3 py-2.5 pt-3 sm:pb-3 sm:pr-3 pr-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="absolute top-2 right-2 h-8 gap-1 px-2 border-[rgba(160,80,220,0.35)] bg-white/90 hover:bg-violet-50/95 text-slate-800 shadow-sm z-[1]"
-                          onClick={() => navigate('/dashboard/combined-checkout')}
-                        >
-                          <CreditCard size={14} className="text-violet-700 shrink-0" />
-                          <span className="text-[9px] font-bold uppercase tracking-wide">Divine cart</span>
-                          {cartCount > 0 ? (
-                            <span className="min-w-[1.1rem] h-4 px-1 rounded-full bg-violet-600 text-white text-[8px] font-bold tabular-nums flex items-center justify-center">
-                              {cartCount}
-                            </span>
-                          ) : null}
-                        </Button>
-                        <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-[0.14em] text-[#3b0764] pr-[5.5rem] sm:pr-32 leading-snug">
+                      <div className="rounded-xl border border-violet-200/60 bg-white/65 px-3 py-2.5 sm:px-4">
+                        <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-[0.14em] text-[#3b0764] leading-snug text-center">
                           {irisYearLabelNoPeriod(autoRenewalYear).replace(/\s+/g, ' ').trim().toUpperCase()}
                         </p>
-                        <dl className="mt-2 flex flex-wrap justify-center gap-x-8 gap-y-1 text-[12px] text-[rgba(60,35,115,0.88)] tabular-nums">
-                          <div>
-                            <dt className="text-[9px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-0.5">
+                        <dl className="mt-3 flex flex-wrap justify-center gap-x-10 gap-y-3 sm:gap-x-12 tabular-nums">
+                          <div className="min-w-[7.5rem]">
+                            <dt className="text-[9px] uppercase tracking-[0.12em] text-[rgba(100,55,155,0.42)] mb-1 font-semibold">
                               New cycle start
                             </dt>
-                            <dd className="text-center">{formatDateDdMonYyyy(cycleDisplayStart)}</dd>
+                            <dd className="text-center text-[13px] sm:text-sm font-bold uppercase tracking-[0.08em] text-[#3b0764]">
+                              {formatDateDdMonYyyy(cycleDisplayStart).toUpperCase()}
+                            </dd>
                           </div>
-                          <div>
-                            <dt className="text-[9px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-0.5">
+                          <div className="min-w-[7.5rem]">
+                            <dt className="text-[9px] uppercase tracking-[0.12em] text-[rgba(100,55,155,0.42)] mb-1 font-semibold">
                               Bundle end ({durationMonths} mo)
                             </dt>
-                            <dd className="text-center">{formatDateDdMonYyyy(cycleDisplayEnd)}</dd>
+                            <dd className="text-center text-[13px] sm:text-sm font-bold uppercase tracking-[0.08em] text-[#3b0764]">
+                              {formatDateDdMonYyyy(cycleDisplayEnd).toUpperCase()}
+                            </dd>
                           </div>
                         </dl>
                       </div>
@@ -1137,8 +1126,8 @@ export default function AnnualPackagePurchasePage() {
                     ) : null}
                   </Button>
                 </div>
-                <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 lg:items-start">
-                  <div className="min-w-0 space-y-3">
+                <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:divide-[rgba(160,100,240,0.14)]">
+                  <div className="min-w-0 space-y-3 lg:pr-8 lg:py-0.5">
                     {catalogAmountHub != null && catalogDisplayAmount != null ? (
                       <>
                         {catalogCourtesyBreakdown ? (
@@ -1254,21 +1243,25 @@ export default function AnnualPackagePurchasePage() {
                       </p>
                     ) : null}
                   </div>
-                  <div className="min-w-0 text-left lg:border-l lg:border-[rgba(160,100,240,0.12)] lg:pl-6 pt-1 lg:pt-0">
+                  <div className="min-w-0 flex flex-col items-center text-center lg:items-center lg:pl-8 lg:pr-8 lg:py-0.5 pt-6 lg:pt-0 border-t border-[rgba(160,100,240,0.14)] lg:border-t-0">
+                    <div className="w-full max-w-md">
                     <p className="font-[family-name:'Playfair_Display',Georgia,serif] text-[12px] sm:text-[13px] leading-relaxed text-[rgba(45,25,95,0.85)]">
                       One gentle annual home for your soul — what is held in this bundle:
                     </p>
-                    <ul className="mt-3 space-y-2.5 text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.09em] text-[#3b0764] list-none pl-0">
+                    <ul className="mt-3 space-y-2.5 text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.09em] text-[#3b0764] list-none pl-0 text-center lg:text-center">
                       {HOME_COMING_BUNDLE_INCLUDES_LINES.map((line) => (
-                        <li key={line}>{line}</li>
+                        <li key={line} className="leading-snug">
+                          {line}
+                        </li>
                       ))}
                     </ul>
                     {(catalogFrom || catalogTo) && (
-                      <p className="text-[11px] mt-4 text-[#6b4420] bg-[rgba(255,251,235,0.85)] border border-[rgba(212,175,55,0.28)] rounded-xl px-3 py-2.5 max-w-xl">
+                      <p className="text-[11px] mt-4 text-[#6b4420] bg-[rgba(255,251,235,0.85)] border border-[rgba(212,175,55,0.28)] rounded-xl px-3 py-2.5 text-left">
                         Offer window{catalogFrom ? ` from ${formatDateDdMonYyyy(catalogFrom)}` : ''}
                         {catalogTo ? ` · to ${formatDateDdMonYyyy(catalogTo)}` : ''} — when this catalog bundle may be purchased.
                       </p>
                     )}
+                    </div>
                   </div>
                 </div>
               </div>
