@@ -2282,7 +2282,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         </div>
 
         <div
-          className="rounded-3xl border border-slate-200/80 bg-white px-5 py-5 md:px-7 md:py-7 shadow-[0_12px_44px_-16px_rgba(15,23,42,0.08)]"
+          className="rounded-[28px] border border-[rgba(160,100,220,0.2)] bg-white/45 backdrop-blur-xl px-5 py-5 md:px-7 md:py-7 shadow-[0_4px_48px_rgba(140,60,220,0.1)]"
           data-overview-box="household"
         >
         <div className="mb-6 pb-5 border-b border-slate-100">
