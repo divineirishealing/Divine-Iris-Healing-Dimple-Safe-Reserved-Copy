@@ -50,6 +50,7 @@ const HEART_QUOTE = 'You are exactly where you need to be — trust the becoming
 
 /** Full Home Coming bundle contents (shown in ALL CAPS). Shared with Household overview. */
 export const HOME_COMING_BUNDLE_INCLUDES_LINES = [
+  '12-MONTH AWRP',
   '6-MONTH MMM',
   '4 TURBO RELEASE',
   '2 META DOWNLOADS',
