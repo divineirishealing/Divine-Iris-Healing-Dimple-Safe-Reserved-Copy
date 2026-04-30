@@ -1656,9 +1656,10 @@ export default function ClientFinancesTab() {
         <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">Iris Annual Abundance</h2>
       </div>
       <p className="text-xs text-gray-500 mt-0.5 mb-4 shrink-0 max-w-4xl">
-        Excel-style grid: <strong>S.No</strong> is row order in the current view. Rows show read-only values like Client
-        Garden; click <strong>Edit</strong> on a row to change pay method, <strong>portal hub</strong> (INR / AED / USD
-        vs auto), annual fee, discount, GST, channelization &amp; late fees, billing mode, EMIs, surcharge, and iris
+        Admin sidebar tab <strong>Iris Annual Abundance</strong> (not Client Garden). Excel-style grid:{' '}
+        <strong>S.No</strong> is row order in the current view. Rows mirror Client Garden; click <strong>Edit</strong>{' '}
+        on a row to change pay method, <strong>portal hub</strong> (INR / AED / USD vs auto — drives Stripe hub for
+        that client), annual fee, discount, GST, channelization &amp; late fees, billing mode, EMIs, surcharge, and iris
         year — then <strong>Save</strong> or <strong>Cancel</strong>. Saved values match the{' '}
         <strong>student dashboard</strong> (hub drives pricing after refresh).{' '}
         <strong>Student plan</strong> and <strong>Session mode</strong> come from Sacred Home preferences. Installment
