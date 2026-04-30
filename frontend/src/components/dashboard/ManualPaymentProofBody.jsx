@@ -17,6 +17,17 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const PROGRAM_TYPES = ['Personal Session', 'Flagship Program', 'Home Coming Circle'];
 const EMI_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
+/** Admin CRM: when set, manual proof shows only that rail (GPay vs bank). */
+function manualProofPayRail(prefs) {
+  const pref = (prefs?.preferred_payment_method || '').trim().toLowerCase();
+  const tag = (prefs?.india_payment_method || '').trim().toLowerCase();
+  const raw = pref || tag;
+  if (!raw || raw === 'any') return null;
+  if (raw === 'gpay_upi' || raw === 'gpay' || raw === 'upi') return 'gpay';
+  if (raw === 'bank_transfer' || raw === 'cash_deposit') return 'bank';
+  return null;
+}
+
 /**
  * Full manual India proof form — used on public ManualPaymentPage and embedded in Divine Cart (dashboard).
  * @param {{ enrollmentId?: string, variant?: 'page' | 'embed', onBack?: () => void, onSubmitted?: () => void }} props
@@ -68,6 +79,8 @@ export function ManualPaymentProofBody({
   const [studentPrefs, setStudentPrefs] = useState({
     preferred_india_gpay_id: '',
     preferred_india_bank_id: '',
+    preferred_payment_method: '',
+    india_payment_method: '',
   });
 
   useEffect(() => {
@@ -88,9 +101,12 @@ export function ManualPaymentProofBody({
         setSessions(sessionsRes.data || []);
         setPrograms(programsRes.data || []);
         if (homeRes?.data) {
+          const cip = homeRes.data.client_india_pricing;
           setStudentPrefs({
             preferred_india_gpay_id: (homeRes.data.preferred_india_gpay_id || '').trim(),
             preferred_india_bank_id: (homeRes.data.preferred_india_bank_id || '').trim(),
+            preferred_payment_method: (homeRes.data.preferred_payment_method || '').trim(),
+            india_payment_method: (cip && typeof cip === 'object' ? cip.india_payment_method : '') || '',
           });
         }
 
@@ -105,6 +121,8 @@ export function ManualPaymentProofBody({
               setStudentPrefs((prev) => ({
                 preferred_india_gpay_id: pg || prev.preferred_india_gpay_id,
                 preferred_india_bank_id: pb || prev.preferred_india_bank_id,
+                preferred_payment_method: prev.preferred_payment_method,
+                india_payment_method: prev.india_payment_method,
               }));
             }
             setPayerName(e.booker_name || '');
@@ -207,15 +225,34 @@ export function ManualPaymentProofBody({
     setPaymentDate(new Date().toISOString().slice(0, 10));
   }, [enrollmentId]);
 
-  /** Prefer UPI when only GPay rows exist; bank transfer when only bank. */
+  const payRail = useMemo(
+    () =>
+      manualProofPayRail({
+        preferred_payment_method: studentPrefs.preferred_payment_method,
+        india_payment_method: studentPrefs.india_payment_method,
+      }),
+    [studentPrefs.preferred_payment_method, studentPrefs.india_payment_method],
+  );
+
+  /** Prefer UPI vs bank from admin-tagged pay method when set; else infer from available rails. */
   useEffect(() => {
     if (loading) return;
+    if (payRail === 'gpay') {
+      if (gpayOptionsForForm.length > 0) setPaymentMethod('upi');
+      return;
+    }
+    if (payRail === 'bank') {
+      setPaymentMethod('bank_transfer');
+      return;
+    }
     if (gpayOptionsForForm.length > 0 && banks.length === 0) setPaymentMethod('upi');
     else if (gpayOptionsForForm.length === 0 && banks.length > 0) setPaymentMethod('bank_transfer');
-  }, [loading, gpayOptionsForForm.length, banks.length]);
+  }, [loading, payRail, gpayOptionsForForm.length, banks.length]);
 
   const currentBank = banks[selectedBank] || {};
   const hasBank = banks.length > 0;
+  const showGpaySection = payRail !== 'bank' && gpayOptionsForForm.length > 0 && selectedGpay;
+  const showBankSection = payRail !== 'gpay' && hasBank;
   const programTitle = enrollment?.item_title || itemDetails?.title || '';
   const quoteCurrency = (enrollment?.dashboard_mixed_currency || 'inr').toUpperCase();
   const isUpiMethod = paymentMethod === 'upi';
@@ -435,13 +472,26 @@ export function ManualPaymentProofBody({
                   </div>
                 )}
 
-                {studentPrefs.preferred_india_gpay_id && gpayOptionsForForm.length === 0 && (
+                {payRail === 'gpay' && gpayOptionsForForm.length === 0 && (
+                  <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[11px] text-amber-950">
+                    Your pay method is set to <strong>GPay / UPI</strong>, but no UPI is available for you here. Ask your
+                    admin to configure India payments or align your account tag.
+                  </div>
+                )}
+                {payRail === 'bank' && !hasBank && (
+                  <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[11px] text-amber-950">
+                    Your pay method is set to <strong>bank transfer</strong>, but no bank account is available for you
+                    here. Ask your admin to configure India payments or align your account tag.
+                  </div>
+                )}
+
+                {studentPrefs.preferred_india_gpay_id && gpayOptionsForForm.length === 0 && payRail !== 'bank' && (
                   <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[11px] text-amber-950">
                     Your membership is set to a specific UPI, but it does not match any row in India proof. Ask your admin to fix the tag or site settings.
                   </div>
                 )}
 
-                {gpayOptionsForForm.length > 0 && selectedGpay && (
+                {showGpaySection && (
                   <div className="border rounded-xl p-5 mb-5 border-emerald-200 bg-emerald-50/50">
                     <div className="flex items-center gap-2 mb-3">
                       <Smartphone size={16} className="text-emerald-700" />
@@ -506,14 +556,14 @@ export function ManualPaymentProofBody({
                   </div>
                 )}
 
-                {studentPrefs.preferred_india_bank_id && !hasBank && (
+                {studentPrefs.preferred_india_bank_id && !hasBank && payRail !== 'gpay' && (
                   <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[11px] text-amber-950">
                     Your membership is set to a specific bank account, but it does not match India proof. Ask your admin to fix the tag or site settings.
                   </div>
                 )}
 
                 {/* Bank Details */}
-                {hasBank && (
+                {showBankSection && (
                   <div className="border rounded-xl p-5 mb-5">
                     <div className="flex items-center gap-2 mb-3">
                       <Building2 size={16} className="text-blue-600" />
@@ -522,17 +572,26 @@ export function ManualPaymentProofBody({
                       </h3>
                     </div>
 
-                    {/* Always show account selector */}
-                    <div className="mb-3">
-                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">Which account did you send money to? *</label>
-                      <select value={selectedBank} onChange={e => setSelectedBank(parseInt(e.target.value))}
-                        className="w-full border rounded-lg text-xs h-9 px-3 text-gray-700 focus:ring-1 focus:ring-[#D4AF37]"
-                        data-testid="manual-bank-select">
-                        {banks.map((b, i) => (
-                          <option key={i} value={i}>{b.label || b.bank_name || b.account_name || `Account ${i + 1}`} {b.bank_name ? `(${b.bank_name})` : ''}</option>
-                        ))}
-                      </select>
-                    </div>
+                    {banks.length > 1 ? (
+                      <div className="mb-3">
+                        <label className="text-[10px] font-semibold text-gray-700 block mb-1">
+                          Which account did you send money to? *
+                        </label>
+                        <select
+                          value={selectedBank}
+                          onChange={(e) => setSelectedBank(parseInt(e.target.value, 10))}
+                          className="w-full border rounded-lg text-xs h-9 px-3 text-gray-700 focus:ring-1 focus:ring-[#D4AF37]"
+                          data-testid="manual-bank-select"
+                        >
+                          {banks.map((b, i) => (
+                            <option key={i} value={i}>
+                              {b.label || b.bank_name || b.account_name || `Account ${i + 1}`}{' '}
+                              {b.bank_name ? `(${b.bank_name})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
 
                     <div className="bg-gray-50 border rounded-lg p-4 space-y-2">
                       {currentBank.account_name && (
@@ -742,21 +801,37 @@ export function ManualPaymentProofBody({
 
                   <div>
                     <label className="text-[10px] font-semibold text-gray-700 block mb-1">Payment Method *</label>
-                    <select
-                      value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="w-full border rounded-lg text-xs h-9 px-3 text-gray-700 focus:ring-1 focus:ring-[#D4AF37]"
-                      data-testid={isEmbed ? 'manual-payment-method-embed' : 'manual-payment-method'}
-                    >
-                      <option value="bank_transfer">Bank Transfer (NEFT/IMPS/RTGS)</option>
-                      <option value="upi">UPI / GPay</option>
-                      <option value="cash_deposit">Cash Deposit</option>
-                      <option value="cheque">Cheque</option>
-                      <option value="other">Other</option>
-                    </select>
+                    {payRail === 'gpay' ? (
+                      <div
+                        className="w-full border rounded-lg text-xs h-9 px-3 flex items-center text-gray-700 bg-slate-50 border-slate-200"
+                        data-testid={isEmbed ? 'manual-payment-method-embed' : 'manual-payment-method'}
+                      >
+                        UPI / GPay <span className="text-[10px] text-gray-500 ml-2">(set by your admin)</span>
+                      </div>
+                    ) : payRail === 'bank' ? (
+                      <div
+                        className="w-full border rounded-lg text-xs h-9 px-3 flex items-center text-gray-700 bg-slate-50 border-slate-200"
+                        data-testid={isEmbed ? 'manual-payment-method-embed' : 'manual-payment-method'}
+                      >
+                        Bank transfer <span className="text-[10px] text-gray-500 ml-2">(set by your admin)</span>
+                      </div>
+                    ) : (
+                      <select
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        className="w-full border rounded-lg text-xs h-9 px-3 text-gray-700 focus:ring-1 focus:ring-[#D4AF37]"
+                        data-testid={isEmbed ? 'manual-payment-method-embed' : 'manual-payment-method'}
+                      >
+                        <option value="bank_transfer">Bank Transfer (NEFT/IMPS/RTGS)</option>
+                        <option value="upi">UPI / GPay</option>
+                        <option value="cash_deposit">Cash Deposit</option>
+                        <option value="cheque">Cheque</option>
+                        <option value="other">Other</option>
+                      </select>
+                    )}
                   </div>
 
-                  {!isUpiMethod && (
+                  {!isUpiMethod && !hasBank && (
                     <div>
                       <label className="text-[10px] font-semibold text-gray-700 block mb-1">Bank / App *</label>
                       <Input
