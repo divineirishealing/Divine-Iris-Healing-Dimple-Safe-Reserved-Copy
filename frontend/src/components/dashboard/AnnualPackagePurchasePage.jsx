@@ -916,9 +916,9 @@ export default function AnnualPackagePurchasePage() {
             >
               {subtitleFourPrograms}
             </p>
-            <div className="mt-6 w-full flex justify-center md:justify-end lg:justify-end md:pl-3 lg:pl-4 md:pr-[min(14vw,10rem)] lg:pr-[min(16vw,12rem)]">
+            <div className="mt-6 w-full flex justify-center md:justify-end lg:justify-end md:pl-2 lg:pl-3 md:pr-[min(11vw,8.5rem)] lg:pr-[min(13vw,10rem)]">
               <div
-                className="w-full max-w-[min(42rem,100%)] md:max-w-[min(48rem,calc(100%-0.25rem))] lg:max-w-[min(52rem,calc(100%-max(10rem,12vw)))] rounded-[22px] border border-[rgba(196,168,252,0.45)] bg-gradient-to-br from-[#faf8ff]/96 via-[#fffefd]/93 to-[#f5f0ff]/93 px-4 py-5 sm:px-5 sm:py-6 md:px-6 md:py-6 text-center shadow-[0_12px_48px_rgba(124,58,237,0.12)] backdrop-blur-sm"
+                className="w-full max-w-[min(46rem,100%)] md:max-w-[min(54rem,calc(100%-0.25rem))] lg:max-w-[min(60rem,calc(100%-max(7rem,8vw)))] xl:max-w-[min(62rem,calc(100%-max(6.5rem,7vw)))] rounded-[22px] border border-[rgba(196,168,252,0.45)] bg-gradient-to-br from-[#faf8ff]/96 via-[#fffefd]/93 to-[#f5f0ff]/93 px-4 py-5 sm:px-5 sm:py-6 md:px-6 md:py-6 text-center shadow-[0_12px_48px_rgba(124,58,237,0.12)] backdrop-blur-sm"
                 data-testid="home-coming-welcome-banner"
               >
               <div className="flex flex-col items-center gap-4 sm:gap-5">
@@ -965,7 +965,7 @@ export default function AnnualPackagePurchasePage() {
                             <span className="block text-[10px] font-bold tracking-[0.14em] text-[rgba(100,55,155,0.45)]">
                               {nextSacredYearStartsLabel}
                             </span>
-                            <span className="block normal-case tracking-normal text-[11px] font-medium text-[rgba(60,35,115,0.65)] mt-1 mx-auto max-w-[min(34rem,100%)]">
+                            <span className="block normal-case tracking-normal text-[11px] font-medium text-[rgba(60,35,115,0.65)] mt-1 mx-auto max-w-none w-full">
                               Choose your bundle start date. Your Iris year follows your Client Garden path automatically.
                             </span>
                           </span>
@@ -1025,7 +1025,7 @@ export default function AnnualPackagePurchasePage() {
                         </dl>
                       </div>
                     ) : (
-                      <p className="text-[11px] text-[rgba(90,55,135,0.62)] max-w-xl mx-auto">
+                      <p className="text-[11px] text-[rgba(90,55,135,0.62)] max-w-none mx-auto">
                         Pick a start date to see bundle end (30th of the month before the anniversary) and the installment
                         schedule (due on the 27th).
                       </p>
@@ -1041,7 +1041,7 @@ export default function AnnualPackagePurchasePage() {
               </div>
             </div>
             </div>
-            <p className="mt-4 max-w-lg text-[13px] sm:text-sm italic leading-relaxed font-[family-name:'Playfair_Display',Georgia,serif] text-[rgba(90,40,135,0.55)]">
+            <p className="mt-4 max-w-[min(40rem,100%)] md:max-w-[min(50rem,100%)] mx-auto text-[13px] sm:text-sm italic leading-relaxed font-[family-name:'Playfair_Display',Georgia,serif] text-[rgba(90,40,135,0.55)]">
               {HEART_QUOTE}
               <Heart className="inline-block ml-1.5 w-3 h-3 text-rose-400/70 align-middle" aria-hidden />
             </p>
