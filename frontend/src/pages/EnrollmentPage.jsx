@@ -542,6 +542,20 @@ function EnrollmentPage() {
   const priceSymbol = showIndiaHubPricing ? '₹' : rawSymbol;
   const symbol = priceSymbol; // Use INR symbol when override active
 
+  const { items: cartItems } = useCart();
+  const cartLineSummaries = useMemo(
+    () =>
+      cartItems.map((i) => ({
+        programId: i.programId,
+        tierIndex: normalizeCartItemTierIndex(i),
+      })),
+    [cartItems],
+  );
+  const programCartLines = useMemo(
+    () => cartItems.filter((i) => i.type === 'program'),
+    [cartItems],
+  );
+
   // Apply promo from URL once (e.g. dashboard / program detail ?promo=...) — uses priceCurrency so INR whitelist matches backend
   useEffect(() => {
     if (type !== 'program' || !item || !promoFromUrl?.trim() || promoUrlAppliedRef.current) return;
@@ -550,7 +564,18 @@ function EnrollmentPage() {
     setPromoCode(code);
     setPromoLoading(true);
     axios
-      .post(`${API}/promotions/validate`, { code, program_id: id, currency: priceCurrency })
+      .post(`${API}/promotions/validate`, {
+        code,
+        program_id: id,
+        currency: priceCurrency,
+        cart_items: [
+          { program_id: id, tier_index: selectedTier ?? 0 },
+          ...programCartLines.map((i) => ({
+            program_id: i.programId,
+            tier_index: i.tierIndex ?? 0,
+          })),
+        ],
+      })
       .then((res) => {
         setPromoResult(res.data);
         toast({ title: 'Promo applied', description: res.data?.message || `${code} is active for this enrollment.` });
@@ -560,7 +585,7 @@ function EnrollmentPage() {
         toast({ title: 'Promo could not be applied', description: 'Check the code or remove it and try again.', variant: 'destructive' });
       })
       .finally(() => setPromoLoading(false));
-  }, [type, item, id, priceCurrency, promoFromUrl, toast]);
+  }, [type, item, id, priceCurrency, promoFromUrl, toast, selectedTier, programCartLines]);
 
   const getLocalPrice = (item, tierIndex = null) => {
     if (!item) return 0;
@@ -602,19 +627,6 @@ function EnrollmentPage() {
   const pCount = participants.length;
 
   // Cross-sell: "buy" program in cart → discount only on seats whose participant is also on that buy line
-  const { items: cartItems } = useCart();
-  const cartLineSummaries = useMemo(
-    () =>
-      cartItems.map((i) => ({
-        programId: i.programId,
-        tierIndex: normalizeCartItemTierIndex(i),
-      })),
-    [cartItems],
-  );
-  const programCartLines = useMemo(
-    () => cartItems.filter((i) => i.type === 'program'),
-    [cartItems],
-  );
   const crossSellDiscount = computeCrossSellDiscount(
     crossSellRules,
     id,
@@ -759,7 +771,18 @@ function EnrollmentPage() {
     if (!promoCode.trim()) return;
     setPromoLoading(true);
     try {
-      const res = await axios.post(`${API}/promotions/validate`, { code: promoCode.trim(), program_id: id, currency: priceCurrency });
+      const res = await axios.post(`${API}/promotions/validate`, {
+        code: promoCode.trim(),
+        program_id: id,
+        currency: priceCurrency,
+        cart_items: [
+          { program_id: id, tier_index: selectedTier ?? 0 },
+          ...programCartLines.map((i) => ({
+            program_id: i.programId,
+            tier_index: i.tierIndex ?? 0,
+          })),
+        ],
+      });
       setPromoResult(res.data); toast({ title: res.data.message });
     } catch (err) { setPromoResult(null); toast({ title: 'Invalid Code', variant: 'destructive' }); }
     finally { setPromoLoading(false); }

@@ -1553,6 +1553,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             code,
             program_id: p.id,
             currency: portalQuoteCurrency,
+            tier_index: getDashboardTier(p),
           })
           .then((r) => ({ id: p.id, data: r.data }))
           .catch(() => ({ id: p.id, data: null }))
@@ -1569,7 +1570,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     return () => {
       cancelled = true;
     };
-  }, [promoForProgramClicks, currencyReady, portalQuoteCurrency, prefetchProgramsKey, programsForPrefetch]);
+  }, [promoForProgramClicks, currencyReady, portalQuoteCurrency, prefetchProgramsKey, programsForPrefetch, dashboardTierKey]);
 
   const toggleFamilyMember = (programId, memberId) => {
     const mid = String(memberId || '');

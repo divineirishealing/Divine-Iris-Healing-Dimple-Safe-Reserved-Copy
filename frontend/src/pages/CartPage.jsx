@@ -666,7 +666,15 @@ function CartPage() {
     if (!promoCode.trim()) return;
     setPromoLoading(true);
     try {
-      const res = await axios.post(`${API}/promotions/validate`, { code: promoCode.trim(), program_id: items[0]?.programId, currency });
+      const res = await axios.post(`${API}/promotions/validate`, {
+        code: promoCode.trim(),
+        program_id: items[0]?.programId,
+        currency,
+        cart_items: items.map((i) => ({
+          program_id: i.programId,
+          tier_index: i.tierIndex ?? 0,
+        })),
+      });
       setPromoResult(res.data); toast({ title: res.data.message });
     } catch { setPromoResult(null); toast({ title: 'Invalid Code', variant: 'destructive' }); }
     finally { setPromoLoading(false); }

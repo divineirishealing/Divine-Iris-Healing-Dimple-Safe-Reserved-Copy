@@ -1046,16 +1046,19 @@ def _pick_self_and_family_tier_indices(
     return 0, 0
 
 
-async def _promo_doc_for_program(code: str, program_id: str) -> Optional[dict]:
+async def _promo_doc_for_program(
+    code: str, program_id: str, tier_index: Optional[int] = None
+) -> Optional[dict]:
     if not (code or "").strip():
         return None
     promo = await db.promotions.find_one({"code": code.strip().upper(), "active": True}, {"_id": 0})
     if not promo:
         return None
-    if promo.get("applicable_to") == "specific":
-        ids = [str(x) for x in promo.get("applicable_program_ids", [])]
-        if str(program_id) not in ids:
-            return None
+    from utils.promotion_scope import promo_applies_to_cart_lines
+
+    ok, _ = promo_applies_to_cart_lines(promo, [(str(program_id).strip(), tier_index)])
+    if not ok:
+        return None
     return promo
 
 
@@ -1757,6 +1760,7 @@ async def _apply_portal_guest_line_offer(
     program: Optional[dict] = None,
     *,
     allow_tier_list_fallback: bool = True,
+    line_tier_index: Optional[int] = None,
 ) -> Tuple[float, float, str, bool]:
     """Apply family-style portal rules to one guest bucket. Returns (gross, after, rule, promo_applied).
 
@@ -1777,7 +1781,7 @@ async def _apply_portal_guest_line_offer(
         rule = (fo.get("pricing_rule") or "promo").lower().strip()
         if rule in ("promo", ""):
             code = (fo.get("promo_code") or "").strip()
-            fp_doc = await _promo_doc_for_program(code, program_id) if code else None
+            fp_doc = await _promo_doc_for_program(code, program_id, line_tier_index) if code else None
             d = _promo_discount_on_line(fp_doc, fam_line_gross, cur)
             fam_after = max(0.0, round(fam_line_gross - d, 2))
             family_promo_applied = bool(fp_doc) and d > 0
@@ -1869,7 +1873,7 @@ async def compute_dashboard_annual_family_pricing(
                 rule = (ao.get("pricing_rule") or "promo").lower().strip()
                 if rule in ("promo", ""):
                     code = (ao.get("promo_code") or "").strip()
-                    ap = await _promo_doc_for_program(code, program_id) if code else None
+                    ap = await _promo_doc_for_program(code, program_id, self_tier) if code else None
                     d = _promo_discount_on_line(ap, self_unit, cur)
                     self_after = max(0.0, round(self_unit - d, 2))
                     annual_promo_applied = bool(ap) and d > 0
@@ -1896,7 +1900,7 @@ async def compute_dashboard_annual_family_pricing(
             # Non-annual payer: "You" uses Extended / "other" column — not immediate family (₹1,111).
             self_unit = fam_unit
             _sg, self_after, member_rule, annual_promo_applied = await _apply_portal_guest_line_offer(
-                program_id, currency, fam_unit, 1, extended_guest_offer or {}, program
+                program_id, currency, fam_unit, 1, extended_guest_offer or {}, program, line_tier_index=fam_tier
             )
     else:
         self_after = 0.0
@@ -1912,13 +1916,26 @@ async def compute_dashboard_annual_family_pricing(
         ao,
         program,
         allow_tier_list_fallback=False,
+        line_tier_index=self_tier,
     )
     # Plain immediate family: Family portal column.
     ig_f, imm_after_f, imm_rule_f, imm_promo_f = await _apply_portal_guest_line_offer(
-        program_id, currency, fam_unit, imm_fc_plain, family_offer or {}, program
+        program_id,
+        currency,
+        fam_unit,
+        imm_fc_plain,
+        family_offer or {},
+        program,
+        line_tier_index=fam_tier,
     )
     eg, ext_after, ext_rule, ext_promo = await _apply_portal_guest_line_offer(
-        program_id, currency, fam_unit, ext_fc, extended_guest_offer or {}, program
+        program_id,
+        currency,
+        fam_unit,
+        ext_fc,
+        extended_guest_offer or {},
+        program,
+        line_tier_index=fam_tier,
     )
 
     ig = round(ig_p + ig_f, 2)

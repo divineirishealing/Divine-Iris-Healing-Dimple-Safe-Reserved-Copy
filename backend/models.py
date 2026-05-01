@@ -180,6 +180,9 @@ class Promotion(BaseModel):
     discount_usd: float = 0.0
     applicable_to: str = "all"  # all / specific
     applicable_program_ids: List[str] = []
+    # Optional: flagship tier indices (0-based) per program id. Missing program key or empty list = any tier.
+    # Example: {"awrp-id": [0]} = only first duration tier (e.g. 1 Month).
+    applicable_tier_indices_by_program: Optional[Dict[str, List[int]]] = None
     usage_limit: int = 0  # 0 = unlimited
     used_count: int = 0
     start_date: str = ""
@@ -198,6 +201,7 @@ class PromotionCreate(BaseModel):
     discount_usd: Optional[float] = 0.0
     applicable_to: Optional[str] = "all"
     applicable_program_ids: Optional[List[str]] = []
+    applicable_tier_indices_by_program: Optional[Dict[str, List[int]]] = None
     usage_limit: Optional[int] = 0
     start_date: Optional[str] = ""
     expiry_date: Optional[str] = ""

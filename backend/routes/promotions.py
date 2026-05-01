@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from models import Promotion, PromotionCreate
 from typing import List
+
+from utils.promotion_scope import build_cart_lines_from_payload, promo_applies_to_cart_lines
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -128,8 +130,13 @@ async def validate_promotion(data: dict):
     if promo.get("usage_limit", 0) > 0 and promo.get("used_count", 0) >= promo["usage_limit"]:
         raise HTTPException(status_code=400, detail="This coupon has reached its usage limit")
 
-    # Check program applicability
-    if promo.get("applicable_to") == "specific" and program_id:
+    lines = build_cart_lines_from_payload(data)
+    ok_scope, err_scope = promo_applies_to_cart_lines(promo, lines)
+    if not ok_scope:
+        raise HTTPException(status_code=400, detail=err_scope or "This coupon is not valid for this cart")
+
+    # Legacy single-field check when no structured lines were sent
+    if not lines and promo.get("applicable_to") == "specific" and program_id:
         if program_id not in promo.get("applicable_program_ids", []):
             raise HTTPException(status_code=400, detail="This coupon is not valid for this program")
 

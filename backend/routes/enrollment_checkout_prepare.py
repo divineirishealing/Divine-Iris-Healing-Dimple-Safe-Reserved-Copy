@@ -249,7 +249,21 @@ async def enrollment_checkout_prepare(
     promo_discount = 0
     if enrollment.get("dashboard_mixed_total") is None and data.promo_code:
         try:
+            from utils.promotion_scope import build_cart_lines_from_payload, promo_applies_to_cart_lines
+
             promo = await db.promotions.find_one({"code": data.promo_code.strip().upper(), "active": True}, {"_id": 0})
+            if promo:
+                ci = data.cart_items or []
+                scope_payload = (
+                    {"cart_items": ci}
+                    if ci
+                    else {"program_id": data.item_id, "tier_index": data.tier_index}
+                )
+                lines = build_cart_lines_from_payload(scope_payload)
+                ok_scope, err_scope = promo_applies_to_cart_lines(promo, lines)
+                if not ok_scope:
+                    logger.info("Promo not applied (scope): %s", err_scope)
+                    promo = None
             if promo:
                 discount_type = promo.get("discount_type", "percentage")
                 if discount_type == "percentage":

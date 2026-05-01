@@ -1130,6 +1130,12 @@ export default function DashboardCombinedCheckoutPage() {
         code: promoCode.trim(),
         program_id: items[0]?.programId,
         currency,
+        cart_items: items
+          .filter((i) => i.programId)
+          .map((i) => ({
+            program_id: i.programId,
+            tier_index: i.tierIndex ?? 0,
+          })),
       });
       setPromoResult(res.data);
       toast({ title: res.data.message });
@@ -1373,6 +1379,12 @@ export default function DashboardCombinedCheckoutPage() {
         code: code.trim(),
         program_id: items[0]?.programId,
         currency,
+        cart_items: items
+          .filter((i) => i.programId)
+          .map((i) => ({
+            program_id: i.programId,
+            tier_index: i.tierIndex ?? 0,
+          })),
       })
       .then((r) => {
         setPromoResult(r.data);

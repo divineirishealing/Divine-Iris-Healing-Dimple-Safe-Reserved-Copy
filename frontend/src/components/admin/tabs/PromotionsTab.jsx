@@ -31,7 +31,7 @@ const PromotionsTab = ({ programs }) => {
   const [form, setForm] = useState({
     name: '', code: '', type: 'coupon', discount_type: 'percentage',
     discount_percentage: 0, discount_aed: 0, discount_inr: 0, discount_usd: 0,
-    applicable_to: 'all', applicable_program_ids: [],
+    applicable_to: 'all', applicable_program_ids: [], applicable_tier_indices_by_program: {},
     usage_limit: 0, start_date: '', expiry_date: '', active: true,
   });
 
@@ -75,17 +75,42 @@ const PromotionsTab = ({ programs }) => {
     setForm({
       name: '', code: '', type: 'coupon', discount_type: 'percentage',
       discount_percentage: 0, discount_aed: 0, discount_inr: 0, discount_usd: 0,
-      applicable_to: 'all', applicable_program_ids: [],
+      applicable_to: 'all', applicable_program_ids: [], applicable_tier_indices_by_program: {},
       usage_limit: 0, start_date: '', expiry_date: '', active: true,
     });
   };
 
+  const sanitizePromotionPayload = (f) => {
+    const progList = programs || [];
+    const allowedIds = new Set(
+      f.applicable_to === 'specific'
+        ? f.applicable_program_ids
+        : progList.map((p) => p.id),
+    );
+    const raw = f.applicable_tier_indices_by_program || {};
+    const next = {};
+    for (const [k, v] of Object.entries(raw)) {
+      if (!allowedIds.has(k)) continue;
+      if (!Array.isArray(v) || v.length === 0) continue;
+      const prog = progList.find((p) => p.id === k);
+      const n = (prog?.duration_tiers || []).length;
+      const sorted = [...new Set(v.map((x) => parseInt(x, 10)).filter((x) => Number.isFinite(x)))].sort(
+        (a, b) => a - b,
+      );
+      if (sorted.length === 0) continue;
+      if (n > 0 && sorted.length >= n) continue;
+      next[k] = sorted;
+    }
+    return { ...f, applicable_tier_indices_by_program: Object.keys(next).length ? next : null };
+  };
+
   const savePromotion = async () => {
     try {
+      const payload = sanitizePromotionPayload(form);
       if (editingId) {
-        await axios.put(`${API}/promotions/${editingId}`, form);
+        await axios.put(`${API}/promotions/${editingId}`, payload);
       } else {
-        await axios.post(`${API}/promotions`, form);
+        await axios.post(`${API}/promotions`, payload);
       }
       resetForm();
       loadPromotions();
@@ -96,6 +121,7 @@ const PromotionsTab = ({ programs }) => {
 
   const editPromotion = (p) => {
     setEditingId(p.id);
+    const tpm = p.applicable_tier_indices_by_program;
     setForm({
       name: p.name || '', code: p.code || '', type: p.type || 'coupon',
       discount_type: p.discount_type || 'percentage',
@@ -103,6 +129,7 @@ const PromotionsTab = ({ programs }) => {
       discount_aed: p.discount_aed || 0, discount_inr: p.discount_inr || 0, discount_usd: p.discount_usd || 0,
       applicable_to: p.applicable_to || 'all',
       applicable_program_ids: p.applicable_program_ids || [],
+      applicable_tier_indices_by_program: tpm && typeof tpm === 'object' ? { ...tpm } : {},
       usage_limit: p.usage_limit || 0,
       start_date: p.start_date || '', expiry_date: p.expiry_date || '',
       active: p.active !== false,
@@ -119,9 +146,35 @@ const PromotionsTab = ({ programs }) => {
   const toggleProgram = (progId) => {
     const ids = [...form.applicable_program_ids];
     const idx = ids.indexOf(progId);
-    if (idx >= 0) ids.splice(idx, 1);
-    else ids.push(progId);
-    setForm({ ...form, applicable_program_ids: ids });
+    const nextTier = { ...(form.applicable_tier_indices_by_program || {}) };
+    if (idx >= 0) {
+      ids.splice(idx, 1);
+      delete nextTier[progId];
+    } else ids.push(progId);
+    setForm({ ...form, applicable_program_ids: ids, applicable_tier_indices_by_program: nextTier });
+  };
+
+  const tierCheckboxChecked = (progId, tierIdx, numTiers) => {
+    const cur = form.applicable_tier_indices_by_program || {};
+    if (!cur[progId] || cur[progId].length === 0) return true;
+    return cur[progId].includes(tierIdx);
+  };
+
+  const toggleTierForProgram = (progId, tierIdx, numTiers, checked) => {
+    const full = Array.from({ length: numTiers }, (_, i) => i);
+    const cur = form.applicable_tier_indices_by_program || {};
+    const selected = new Set(
+      !cur[progId] || cur[progId].length === 0 ? full : cur[progId],
+    );
+    if (checked) selected.add(tierIdx);
+    else {
+      if (selected.size <= 1) return;
+      selected.delete(tierIdx);
+    }
+    const nextMap = { ...cur };
+    if (selected.size === 0 || selected.size >= numTiers) delete nextMap[progId];
+    else nextMap[progId] = [...selected].sort((a, b) => a - b);
+    setForm({ ...form, applicable_tier_indices_by_program: nextMap });
   };
 
   const typeInfo = TYPE_OPTIONS.find(t => t.value === form.type) || TYPE_OPTIONS[0];
@@ -248,7 +301,7 @@ const PromotionsTab = ({ programs }) => {
           <div className="mb-4">
             <Label className="text-xs text-gray-500 mb-2 block">Applies To</Label>
             <div className="flex gap-2 mb-2">
-              <button onClick={() => setForm({ ...form, applicable_to: 'all' })}
+              <button onClick={() => setForm({ ...form, applicable_to: 'all', applicable_tier_indices_by_program: {} })}
                 className={`px-4 py-2 rounded-lg border-2 text-xs transition-all ${
                   form.applicable_to === 'all' ? 'border-[#D4AF37] bg-[#D4AF37]/5 font-semibold text-[#D4AF37]' : 'border-gray-200 text-gray-500'
                 }`}>All Programs</button>
@@ -258,14 +311,40 @@ const PromotionsTab = ({ programs }) => {
                 }`}>Specific Programs</button>
             </div>
             {form.applicable_to === 'specific' && (
-              <div className="bg-gray-50 rounded-lg p-3 max-h-40 overflow-y-auto">
-                {programs.map(p => (
-                  <label key={p.id} className="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-gray-100 rounded px-2">
-                    <input type="checkbox" checked={form.applicable_program_ids.includes(p.id)} onChange={() => toggleProgram(p.id)}
-                      className="w-4 h-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]" />
-                    <span className="text-xs text-gray-700">{p.title}</span>
-                  </label>
-                ))}
+              <div className="bg-gray-50 rounded-lg p-3 max-h-64 overflow-y-auto space-y-2">
+                {programs.map(p => {
+                  const tiers = p.duration_tiers || [];
+                  const tiered = tiers.length > 0 && !!p.is_flagship;
+                  const selectedProg = form.applicable_program_ids.includes(p.id);
+                  return (
+                    <div key={p.id} className="rounded-md border border-gray-100 bg-white/70 px-2 py-1.5">
+                      <label className="flex items-center gap-2 py-1 cursor-pointer hover:bg-gray-50 rounded px-1">
+                        <input type="checkbox" checked={selectedProg} onChange={() => toggleProgram(p.id)}
+                          className="w-4 h-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]" />
+                        <span className="text-xs text-gray-700">{p.title}</span>
+                      </label>
+                      {selectedProg && tiered && (
+                        <div className="pl-7 mt-1 pb-1 space-y-1 border-t border-gray-100 pt-2">
+                          <p className="text-[10px] text-gray-500">
+                            Limit which duration tiers this code applies to (at least one tier must stay selected).
+                            When all tiers are checked, the coupon is valid for any tier.
+                          </p>
+                          {tiers.map((t, ti) => (
+                            <label key={ti} className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={tierCheckboxChecked(p.id, ti, tiers.length)}
+                                onChange={(e) => toggleTierForProgram(p.id, ti, tiers.length, e.target.checked)}
+                                className="w-3.5 h-3.5 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+                              />
+                              <span className="text-[11px] text-gray-600">{t.label || `Tier ${ti + 1}`}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -327,6 +406,9 @@ const PromotionsTab = ({ programs }) => {
                     : `AED ${p.discount_aed} / INR ${p.discount_inr} / USD ${p.discount_usd} off`
                   }
                   {' · '}{p.applicable_to === 'all' ? 'All programs' : `${(p.applicable_program_ids || []).length} programs`}
+                  {p.applicable_tier_indices_by_program && Object.keys(p.applicable_tier_indices_by_program).length > 0
+                    ? ' · tier-specific'
+                    : ''}
                   {p.usage_limit > 0 && ` · ${p.used_count || 0}/${p.usage_limit} used`}
                   {p.expiry_date &&
                     ` · Expires ${formatDateDdMonYyyy(String(p.expiry_date).slice(0, 10)) || p.expiry_date}`}

@@ -60,7 +60,15 @@ function CartCheckoutPage() {
   // Validate promo on mount if provided (skipped when admin hides checkout promo)
   useEffect(() => {
     if (checkoutPromoVisible !== true || !promoCode || items.length === 0) return;
-    axios.post(`${API}/promotions/validate`, { code: promoCode, program_id: items[0]?.programId, currency })
+    axios.post(`${API}/promotions/validate`, {
+      code: promoCode,
+      program_id: items[0]?.programId,
+      currency,
+      cart_items: items.map((i) => ({
+        program_id: i.programId,
+        tier_index: i.tierIndex ?? 0,
+      })),
+    })
       .then(r => setPromoResult(r.data)).catch(() => {});
   }, [promoCode, currency, checkoutPromoVisible, items.length]);
 
