@@ -917,6 +917,8 @@ async def list_annual_finance_roster(search: Optional[str] = None):
         "preferred_india_bank_id": 1,
         "india_discount_percent": 1,
         "india_discount_member_bands": 1,
+        "home_coming_india_discount_percent": 1,
+        "home_coming_india_discount_member_bands": 1,
         "india_tax_enabled": 1,
         "india_tax_percent": 1,
         "india_tax_label": 1,
@@ -2851,6 +2853,9 @@ class ClientUpdate(BaseModel):
     india_discount_percent: Optional[float] = None  # client-specific discount on base price
     # When set, first matching band (by order) overrides india_discount_percent for that participant count.
     india_discount_member_bands: Optional[List[IndiaDiscountMemberBand]] = None
+    # Home Coming package courtesy only (Iris Annual Abundance). Ignored for Dashboard Access ``india_discount_*``.
+    home_coming_india_discount_percent: Optional[float] = None
+    home_coming_india_discount_member_bands: Optional[List[IndiaDiscountMemberBand]] = None
     preferred_payment_method: Optional[str] = None  # gpay_upi, bank_transfer, cash_deposit, stripe (intake / CRM)
     intake_pending: Optional[bool] = None
     family_pending_review: Optional[bool] = None
@@ -3079,6 +3084,18 @@ async def update_client(client_id: str, data: ClientUpdate):
             ]
         else:
             update_fields["india_discount_member_bands"] = None
+
+    if "home_coming_india_discount_percent" in incoming:
+        v = data.home_coming_india_discount_percent
+        update_fields["home_coming_india_discount_percent"] = None if v is None else float(v)
+    if "home_coming_india_discount_member_bands" in incoming:
+        hb = data.home_coming_india_discount_member_bands
+        if hb:
+            update_fields["home_coming_india_discount_member_bands"] = [
+                b.model_dump(exclude_none=True) for b in hb
+            ]
+        else:
+            update_fields["home_coming_india_discount_member_bands"] = None
 
     # New-intake queue clears when Google login is enabled (no separate "mark reviewed" needed)
     if data.portal_login_allowed is not None and bool(data.portal_login_allowed):

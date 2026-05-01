@@ -6,7 +6,7 @@ import IndiaDiscountBandsEditor from './IndiaDiscountBandsEditor';
 
 /**
  * Shared block: preferred / tagged India rails, discounts, tax, CRM late & channelization fees.
- * Used by Dashboard access and Iris Annual Abundance tabs (single source of truth for UI).
+ * Used by Dashboard access (discount = admin-only) and Iris Annual Abundance uses separate API fields in grid.
  */
 export default function ClientFinanceFields({
   indiaSite,
@@ -35,6 +35,8 @@ export default function ClientFinanceFields({
   crmShowLateFees,
   onCrmShowLateFeesChange,
   testIdPrefix = 'client-finance',
+  /** When `'dashboard_access'`, discount copy explains it does not drive Home Coming pricing. */
+  discountScope = 'default',
 }) {
   const indiaGpayOpts = useMemo(() => buildIndiaGpayOptions(indiaSite || {}), [indiaSite]);
   const indiaBankOpts = useMemo(() => buildIndiaBankOptions(indiaSite || {}), [indiaSite]);
@@ -159,10 +161,24 @@ export default function ClientFinanceFields({
         ))}
 
       <div>
-        <Label className="text-xs text-gray-600">Discount % on base price</Label>
+        <Label className="text-xs text-gray-600">
+          {discountScope === 'dashboard_access'
+            ? 'Discount % (Dashboard access — admin reference)'
+            : 'Discount % on base price'}
+        </Label>
         <p className="text-[10px] text-gray-400 mb-1">
-          Applied before GST. Leave empty for 0% from this field (site-wide default is not applied). Member bands below
-          still apply when matched.
+          {discountScope === 'dashboard_access' ? (
+            <>
+              Does <strong>not</strong> apply to Home Coming package pricing or flagship Divine Cart. For Sacred Home
+              bundle courtesy, use <strong>Admin → Iris Annual Abundance</strong> (Home Coming courtesy column / proofs
+              dialog).
+            </>
+          ) : (
+            <>
+              Applied before GST. Leave empty for 0% from this field (site-wide default is not applied). Member bands
+              below still apply when matched.
+            </>
+          )}
         </p>
         <div className="flex items-center gap-2 mt-1">
           <Input
@@ -182,8 +198,9 @@ export default function ClientFinanceFields({
       <div>
         <Label className="text-xs text-gray-600">Optional: group discount by number of people</Label>
         <p className="text-[10px] text-gray-400 mb-2">
-          Total participants on Sacred Exchange checkout. First matching rule wins. Choose either a percent or a fixed ₹
-          amount per row. Checkout label: Group discount.
+          {discountScope === 'dashboard_access'
+            ? 'Optional tiers for this admin field only — not sent to Home Coming checkout unless you also mirror them under Iris Annual Abundance.'
+            : 'Total participants on Sacred Exchange checkout. First matching rule wins. Choose either a percent or a fixed ₹ amount per row. Checkout label: Group discount.'}
         </p>
         <IndiaDiscountBandsEditor rows={indiaDiscountBandRows} onChange={onIndiaDiscountBandRowsChange} />
       </div>

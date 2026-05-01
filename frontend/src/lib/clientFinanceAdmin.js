@@ -1,8 +1,9 @@
 import { rowsToBandsPayload } from './indiaDiscountBandsUi';
 
 /**
- * Body fragment for PUT /api/clients/:id — payment rails, India discount/tax/bands, CRM Sacred Home fees.
- * Call {@link validateBandRows} first when the bands editor is shown.
+ * Body fragment for PUT /api/clients/:id — payment rails, India tax, CRM Sacred Home fees.
+ * ``india_discount_percent`` / bands here are the **Dashboard Access** fields (admin reference);
+ * Home Coming courtesy uses ``home_coming_india_discount_*`` from Iris Annual Abundance.
  */
 export function buildClientFinancePutPayload({
   preferredPaymentMethod,

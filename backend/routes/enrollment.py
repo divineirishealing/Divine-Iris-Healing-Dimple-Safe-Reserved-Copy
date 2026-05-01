@@ -907,6 +907,8 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
         "_id": 0,
         "india_discount_percent": 1,
         "india_discount_member_bands": 1,
+        "home_coming_india_discount_percent": 1,
+        "home_coming_india_discount_member_bands": 1,
         "india_tax_enabled": 1,
         "india_tax_percent": 1,
         "india_tax_label": 1,
@@ -916,6 +918,10 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
         client_pricing_doc = await db.clients.find_one({"id": client_id}, _cp_proj)
     if not client_pricing_doc and booker_email:
         client_pricing_doc = await db.clients.find_one({"email": booker_email}, _cp_proj)
+
+    from utils.home_coming_crm_fields import client_pricing_row_for_india_checkout
+
+    client_pricing_doc = client_pricing_row_for_india_checkout(client_pricing_doc)
 
     from utils.home_coming_discount_scope import (
         checkout_program_ids_from_submit,

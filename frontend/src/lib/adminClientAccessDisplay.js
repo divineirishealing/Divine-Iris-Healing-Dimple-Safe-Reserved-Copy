@@ -50,6 +50,39 @@ export function discountSummary(cl) {
   return parts.join(' · ');
 }
 
+/** Iris Annual Abundance / Home Coming courtesy (split fields or legacy ``india_discount_*``). */
+export function abundanceDiscountFields(cl) {
+  if (!cl || typeof cl !== 'object') return { pct: null, bands: null };
+  if (
+    Object.prototype.hasOwnProperty.call(cl, 'home_coming_india_discount_percent') ||
+    Object.prototype.hasOwnProperty.call(cl, 'home_coming_india_discount_member_bands')
+  ) {
+    return {
+      pct: cl.home_coming_india_discount_percent,
+      bands: cl.home_coming_india_discount_member_bands,
+    };
+  }
+  return {
+    pct: cl.india_discount_percent,
+    bands: cl.india_discount_member_bands,
+  };
+}
+
+export function irisAnnualAbundanceDiscountSummary(cl) {
+  const { pct, bands } = abundanceDiscountFields(cl);
+  const hasBands = Array.isArray(bands) && bands.length > 0;
+  const parts = [];
+  if (hasBands) parts.push('by # people');
+  if (pct !== null && pct !== undefined && pct !== '') {
+    const n = Number(pct);
+    if (!Number.isNaN(n)) parts.push(`${n}% fallback`);
+  } else if (!hasBands) {
+    parts.push('0%');
+  }
+  if (!parts.length) return '—';
+  return parts.join(' · ');
+}
+
 /** Resolve preferred method + Client Garden tag + pinned rows → labels from Site Settings → Indian Payment. */
 export function formatTaggedPaymentDetails(cl, siteInfo) {
   const method = String(cl.india_payment_method || '').trim().toLowerCase();

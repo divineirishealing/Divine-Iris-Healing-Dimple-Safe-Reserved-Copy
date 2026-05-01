@@ -1068,6 +1068,7 @@ export default function DashboardAccessTab() {
               crmShowLateFees={crmShowLateFees}
               onCrmShowLateFeesChange={setCrmShowLateFees}
               testIdPrefix="dashboard-access"
+              discountScope="dashboard_access"
             />
           </div>
 

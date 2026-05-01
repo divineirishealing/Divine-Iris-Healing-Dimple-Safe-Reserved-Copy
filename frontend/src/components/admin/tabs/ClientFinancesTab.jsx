@@ -7,7 +7,8 @@ import { buildIndiaGpayOptions, buildIndiaBankOptions } from '../../../lib/india
 import IndiaDiscountBandsEditor from '../IndiaDiscountBandsEditor';
 import {
   gstSummary,
-  discountSummary,
+  abundanceDiscountFields,
+  irisAnnualAbundanceDiscountSummary,
   labelFrom,
   PREFERRED_LABEL,
   TAG_LABEL,
@@ -70,7 +71,7 @@ const FINANCE_COLUMNS = [
   { id: 'payMethod', label: 'Pay method', hideable: true },
   { id: 'portalHub', label: 'Portal hub', hideable: true },
   { id: 'annualFee', label: 'Annual fee', hideable: true },
-  { id: 'discount', label: 'Discount', hideable: true },
+  { id: 'discount', label: 'HC courtesy %', hideable: true },
   { id: 'tax', label: 'Tax', hideable: true },
   { id: 'chFee', label: 'Ch. fee', hideable: true },
   { id: 'lateFee', label: 'Late fee', hideable: true },
@@ -186,7 +187,7 @@ function emiInstallmentCount(cl) {
 }
 
 function hasGroupDiscountBands(cl) {
-  const bands = cl.india_discount_member_bands;
+  const { bands } = abundanceDiscountFields(cl);
   return Array.isArray(bands) && bands.length > 0;
 }
 
@@ -205,9 +206,9 @@ function computedFinanceTotal(cl) {
   if (hasGroupDiscountBands(cl)) {
     approximate = true;
   } else {
-    const dp = cl.india_discount_percent;
-    if (dp != null && dp !== '') {
-      const d = Number(dp);
+    const { pct } = abundanceDiscountFields(cl);
+    if (pct != null && pct !== '') {
+      const d = Number(pct);
       if (Number.isFinite(d) && d > 0) x *= 1 - d / 100;
     }
   }
@@ -349,9 +350,10 @@ function buildFinanceGridDraft(cl) {
     total_fee:
       sub.total_fee != null && sub.total_fee !== '' ? String(sub.total_fee).replace(/,/g, '') : '',
     discount:
-      cl.india_discount_percent != null && cl.india_discount_percent !== ''
-        ? String(cl.india_discount_percent)
-        : '',
+      (() => {
+        const { pct } = abundanceDiscountFields(cl);
+        return pct != null && pct !== '' ? String(pct) : '';
+      })(),
     tax_enabled: !!cl.india_tax_enabled,
     tax_percent: String(cl.india_tax_percent ?? 18),
     ch_fee:
@@ -446,7 +448,7 @@ function getFinanceFilterValue(r, colId) {
       return ec === '—' ? FINANCE_FILTER_BLANKS : ec;
     }
     case 'discount': {
-      const d = discountSummary(r);
+      const d = irisAnnualAbundanceDiscountSummary(r);
       return d === '—' ? FINANCE_FILTER_BLANKS : d;
     }
     case 'tax': {
@@ -769,7 +771,7 @@ export default function ClientFinancesTab() {
         ...buildAdminPayMethodPatch(d.payMethod),
         preferred_india_gpay_id: (d.preferred_india_gpay_id || '').trim(),
         preferred_india_bank_id: (d.preferred_india_bank_id || '').trim(),
-        india_discount_percent: discRaw === '' ? 0 : parseFloat(discRaw) || 0,
+        home_coming_india_discount_percent: discRaw === '' ? 0 : parseFloat(discRaw) || 0,
         india_tax_enabled: d.tax_enabled,
         india_tax_percent: d.tax_enabled
           ? parseFloat(String(d.tax_percent).replace(/,/g, '')) || 0
@@ -818,7 +820,7 @@ export default function ClientFinancesTab() {
 
   const openEdit = useCallback((cl) => {
     setEditing(cl);
-    setIndiaDiscountBandRows(serverBandsToRows(cl.india_discount_member_bands || []));
+    setIndiaDiscountBandRows(serverBandsToRows((abundanceDiscountFields(cl).bands) || []));
     setDialogOpen(true);
   }, []);
 
@@ -861,7 +863,7 @@ export default function ClientFinancesTab() {
     setSaving(true);
     try {
       await axios.put(`${API}/clients/${editing.id}`, {
-        india_discount_member_bands: rowsToBandsPayload(indiaDiscountBandRows),
+        home_coming_india_discount_member_bands: rowsToBandsPayload(indiaDiscountBandRows),
       });
       toast({ title: 'Saved', description: 'Group discount rules updated.' });
       closeDialog();
@@ -1392,7 +1394,7 @@ export default function ClientFinancesTab() {
       case 'discount':
         if (!rowEdit) {
           return (
-            <td className="py-2 px-2 align-top text-[10px] text-gray-800">{discountSummary(cl)}</td>
+            <td className="py-2 px-2 align-top text-[10px] text-gray-800">{irisAnnualAbundanceDiscountSummary(cl)}</td>
           );
         }
         return (
@@ -1659,13 +1661,14 @@ export default function ClientFinancesTab() {
         Admin sidebar tab <strong>Iris Annual Abundance</strong> (not Iris Garden). Excel-style grid:{' '}
         <strong>S.No</strong> is row order in the current view. Rows mirror Iris Garden; click <strong>Edit</strong>{' '}
         on a row to change pay method, <strong>portal hub</strong> (INR / AED / USD vs auto — drives Stripe hub for
-        that client), annual fee, discount, GST, channelization &amp; late fees, billing mode, EMIs, surcharge, and iris
+        that client), annual fee, <strong>Home Coming courtesy %</strong> (Sacred Home bundle only — separate from Dashboard
+        Access), GST, channelization &amp; late fees, billing mode, EMIs, surcharge, and iris
         year — then <strong>Save</strong> or <strong>Cancel</strong>. Saved values match the{' '}
         <strong>student dashboard</strong> (hub drives pricing after refresh).{' '}
         <strong>Student plan</strong> and <strong>Session mode</strong> come from Sacred Home preferences. Installment
-        rows bill on the <strong>27th</strong> (per month). <strong>Total amount</strong> is estimated after discount +
+        rows bill on the <strong>27th</strong> (per month). <strong>Total amount</strong> is estimated after Home Coming courtesy +
         GST; tiered group bands show ~. Use <strong>Columns</strong> / funnel filters as needed.{' '}
-        <strong>Proofs</strong> opens payment history and optional group discount rules only.
+        <strong>Proofs</strong> opens payment history and optional Home Coming group discount rules only.
       </p>
 
       <div className="flex flex-wrap items-center gap-2 mb-3 shrink-0">

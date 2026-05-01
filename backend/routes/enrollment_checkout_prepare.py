@@ -412,6 +412,8 @@ async def enrollment_checkout_prepare(
                 "_id": 0,
                 "india_discount_percent": 1,
                 "india_discount_member_bands": 1,
+                "home_coming_india_discount_percent": 1,
+                "home_coming_india_discount_member_bands": 1,
                 "india_tax_enabled": 1,
                 "india_tax_percent": 1,
                 "india_tax_label": 1,
@@ -421,6 +423,9 @@ async def enrollment_checkout_prepare(
                 cp_doc = await db.clients.find_one({"id": cid}, cp_proj)
             if not cp_doc and booker_em:
                 cp_doc = await db.clients.find_one({"email": booker_em}, cp_proj)
+            from utils.home_coming_crm_fields import client_pricing_row_for_india_checkout
+
+            cp_doc = client_pricing_row_for_india_checkout(cp_doc)
             from utils.home_coming_discount_scope import (
                 checkout_program_ids_from_submit,
                 filter_client_pricing_for_home_coming_checkout,

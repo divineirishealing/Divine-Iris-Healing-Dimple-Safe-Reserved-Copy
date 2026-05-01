@@ -1130,6 +1130,8 @@ async def get_client_tax_for_enrollment(enrollment_id: str):
         "india_payment_method": 1,
         "india_discount_percent": 1,
         "india_discount_member_bands": 1,
+        "home_coming_india_discount_percent": 1,
+        "home_coming_india_discount_member_bands": 1,
         "india_tax_enabled": 1,
         "india_tax_percent": 1,
         "india_tax_label": 1,
@@ -1158,11 +1160,13 @@ async def get_client_tax_for_enrollment(enrollment_id: str):
         chk_ids = [str(enrollment.get("item_id")).strip()]
 
     from utils.home_coming_discount_scope import filter_client_pricing_for_home_coming_checkout
+    from utils.home_coming_crm_fields import home_coming_crm_discount_fields
 
+    _eff_disc = home_coming_crm_discount_fields(client_doc)
     cp_filtered = filter_client_pricing_for_home_coming_checkout(
         {
-            "india_discount_percent": client_doc.get("india_discount_percent"),
-            "india_discount_member_bands": client_doc.get("india_discount_member_bands"),
+            "india_discount_percent": _eff_disc["india_discount_percent"],
+            "india_discount_member_bands": _eff_disc["india_discount_member_bands"],
         },
         pin_program_id=pin_hc,
         checkout_program_ids=chk_ids,

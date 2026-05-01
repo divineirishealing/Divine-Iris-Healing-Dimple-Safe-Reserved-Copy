@@ -37,6 +37,7 @@ from utils.garden_labels import (
 )
 from utils.india_checkout_math import _resolve_india_discount_rule
 from utils.promotion_scope import fixed_promo_scales_with_participants
+from utils.home_coming_crm_fields import home_coming_crm_discount_fields
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -118,12 +119,8 @@ def _portal_std_india_tax(site_doc: dict) -> float:
 
 
 def _crm_only_discount_dict(client: Optional[dict]) -> dict:
-    """CRM `india_discount_percent` + member bands only (not site portal default %)."""
-    c = client or {}
-    return {
-        "india_discount_percent": c.get("india_discount_percent"),
-        "india_discount_member_bands": c.get("india_discount_member_bands"),
-    }
+    """Home Coming–scoped CRM % / bands (see ``home_coming_crm_discount_fields``)."""
+    return home_coming_crm_discount_fields(client)
 
 
 def _dashboard_quote_participant_count(
@@ -3269,6 +3266,8 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
             "offer_total": cat_row.get("offer_total") if isinstance(cat_row.get("offer_total"), dict) else {},
         }
 
+    _hc_disc_source = home_coming_crm_discount_fields(client)
+
     return {
         "client_id": client_id,
         "upcoming_programs": upcoming,
@@ -3340,8 +3339,8 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         # Raw CRM % / bands for **Home Coming package** UI only (`AnnualPackagePurchasePage`); not applied
         # to Sacred Exchange totals, `client_india_pricing`, or flagship checkout.
         "client_discount_source": {
-            "india_discount_percent": client.get("india_discount_percent"),
-            "india_discount_member_bands": client.get("india_discount_member_bands"),
+            "india_discount_percent": _hc_disc_source["india_discount_percent"],
+            "india_discount_member_bands": _hc_disc_source["india_discount_member_bands"],
         },
         "preferred_payment_method": (client.get("preferred_payment_method") or "").strip() or None,
         "preferred_india_gpay_id": pref_gpay_m,
