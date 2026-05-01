@@ -186,13 +186,14 @@ const OrderHistoryPage = () => {
           )}
           {!loading && !error && sorted.length > 0 && (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left border-collapse">
+              <table className="w-full min-w-[72rem] text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 border-b border-slate-200">
                     <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold whitespace-nowrap">Program / item</th>
                     <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold whitespace-nowrap">Date</th>
                     <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold whitespace-nowrap">Invoice</th>
                     <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold whitespace-nowrap text-center">Seats</th>
+                    <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold min-w-[10rem] max-w-xs">Participant name(s)</th>
                     <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold whitespace-nowrap">Enrollment</th>
                     <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold whitespace-nowrap">Status</th>
                     <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold whitespace-nowrap text-right">Amount</th>
@@ -205,10 +206,10 @@ const OrderHistoryPage = () => {
                     const title = row.item_title || (row.item_type === 'sponsor' ? 'Shine a Light' : row.item_id || 'Order');
                     const when = row.created_at || row.updated_at;
                     const dateStr = when ? (formatDateDdMonYyyy(when) || '—') : '—';
-                    const indiaBadge =
-                      row.payment_method === 'manual_proof' || row.is_india_proof_pending
-                        ? indiaProofMethodBadge(row)
-                        : null;
+                    const participantsLabel =
+                      row.participant_names != null && String(row.participant_names).trim() !== ''
+                        ? String(row.participant_names).trim()
+                        : '—';
                     return (
                       <tr
                         key={row.id || sid || idx}
@@ -241,6 +242,11 @@ const OrderHistoryPage = () => {
                         </td>
                         <td className="px-4 md:px-5 py-4 text-base md:text-[1.05rem] text-gray-700 text-center whitespace-nowrap">
                           {row.participant_count > 1 ? row.participant_count : row.participant_count === 1 ? '1' : '—'}
+                        </td>
+                        <td className="px-4 md:px-5 py-4 text-sm md:text-base text-gray-800 min-w-[10rem] max-w-xs">
+                          <span className="leading-snug block break-words font-medium" title={participantsLabel}>
+                            {participantsLabel}
+                          </span>
                         </td>
                         <td className="px-4 md:px-5 py-4 text-base md:text-[1.05rem] text-gray-700 font-mono text-sm md:text-base">
                           {row.enrollment_id || '—'}

@@ -3739,6 +3739,40 @@ def _india_proof_email_norm_expr(field: str, em: str) -> dict:
     }
 
 
+def _order_participant_names_display(
+    enrollment: Optional[dict],
+    order_row: dict,
+) -> str:
+    """Human-readable participant list for order history (comma-separated)."""
+    names: List[str] = []
+
+    def _collect_from_participant_list(raw: Any) -> None:
+        if not isinstance(raw, list):
+            return
+        for p in raw:
+            if not isinstance(p, dict):
+                continue
+            n = (p.get("name") or "").strip()
+            if n and n not in names:
+                names.append(n)
+
+    if enrollment:
+        _collect_from_participant_list(enrollment.get("participants"))
+    if not names:
+        _collect_from_participant_list(order_row.get("participants"))
+
+    if names:
+        return ", ".join(names)
+
+    bn = (order_row.get("booker_name") or "").strip()
+    if bn:
+        return bn
+    pn = (order_row.get("payer_name") or "").strip()
+    if pn:
+        return pn
+    return "—"
+
+
 def _serialize_payment_transaction_row(row: dict) -> dict:
     out: Dict = {}
     for k, v in row.items():
@@ -3959,6 +3993,9 @@ async def list_student_orders_impl(user: dict):
                 "created_at": p.get("created_at"),
                 "updated_at": p.get("updated_at") or p.get("created_at"),
                 "participant_count": p.get("participant_count", 1),
+                "booker_name": (p.get("payer_name") or p.get("booker_name") or "").strip() or None,
+                "participants": p.get("participants") or [],
+                "payer_name": (p.get("payer_name") or "").strip() or None,
             }
         )
 
@@ -3968,6 +4005,8 @@ async def list_student_orders_impl(user: dict):
 
     eids = {str(o.get("enrollment_id") or "").strip() for o in combined if o.get("enrollment_id")}
     eids.discard("")
+    by_eid: Dict[str, dict] = {}
+    prog_titles_by_id: Dict[str, str] = {}
     if eids:
         enrollments_list = await db.enrollments.find(
             {"id": {"$in": list(eids)}},
@@ -3983,7 +4022,6 @@ async def list_student_orders_impl(user: dict):
                 pid = str(line.get("program_id") or "").strip()
                 if pid and pid not in prog_ids:
                     prog_ids.append(pid)
-        prog_titles_by_id: Dict[str, str] = {}
         for o in combined:
             if (o.get("item_type") or "").lower() == "program":
                 tid = str(o.get("item_id") or "").strip()
@@ -3995,17 +4033,20 @@ async def list_student_orders_impl(user: dict):
                 {"_id": 0, "id": 1, "title": 1},
             ).to_list(len(prog_ids)):
                 prog_titles_by_id[p["id"]] = (p.get("title") or "").strip()
-        for o in combined:
-            eid = str(o.get("enrollment_id") or "").strip()
-            if not eid:
-                continue
-            if (o.get("item_type") or "").lower() == "sponsor":
-                continue
-            o["item_title"] = _order_display_title_from_enrollment(
-                by_eid.get(eid),
-                o,
-                prog_titles_by_id,
-            )
+
+    for o in combined:
+        eid = str(o.get("enrollment_id") or "").strip()
+        enr = by_eid.get(eid) if eid else None
+        o["participant_names"] = _order_participant_names_display(enr, o)
+        if not eid or eid not in by_eid:
+            continue
+        if (o.get("item_type") or "").lower() == "sponsor":
+            continue
+        o["item_title"] = _order_display_title_from_enrollment(
+            enr,
+            o,
+            prog_titles_by_id,
+        )
 
     return {"orders": combined}
 
