@@ -206,6 +206,27 @@ async def reject_profile(user_id: str):
     return {"message": "Profile update rejected"}
 
 
+@router.get("/profile-activity")
+async def get_profile_activity(limit: int = Query(80, ge=1, le=200)):
+    """Recent self-service profile saves with field-level diffs and timestamps (newest first)."""
+    users = await db.users.find(
+        {"profile_update_log.0": {"$exists": True}},
+        {"_id": 0, "id": 1, "email": 1, "name": 1, "profile_update_log": {"$slice": -35}},
+    ).to_list(250)
+    events = []
+    for u in users:
+        for entry in u.get("profile_update_log") or []:
+            events.append({
+                "user_id": u["id"],
+                "email": u.get("email"),
+                "name": u.get("name"),
+                "at": entry.get("at"),
+                "changes": entry.get("changes") or {},
+            })
+    events.sort(key=lambda x: str(x.get("at") or ""), reverse=True)
+    return events[:limit]
+
+
 @router.get("/{client_id}/dashboard-pricing-preview")
 async def dashboard_pricing_preview_get(
     client_id: str,

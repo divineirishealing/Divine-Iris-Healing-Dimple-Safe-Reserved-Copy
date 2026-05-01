@@ -655,6 +655,7 @@ async def get_me(request: Request):
                 "state": 1,
                 "country": 1,
                 "gender": 1,
+                "marital_status": 1,
             },
         )
     if not joined_divine_iris_at and client_doc and client_doc.get("created_at"):
@@ -677,6 +678,7 @@ async def get_me(request: Request):
         # First Client Garden record time (UTC ISO) — shown as "date of joining" on dashboard profile
         "joined_divine_iris_at": joined_divine_iris_at,
         "gender": _profile_overlay_with_client(user, pending, client_doc, "gender"),
+        "marital_status": _profile_overlay_with_client(user, pending, client_doc, "marital_status"),
         "city": _profile_overlay_with_client(user, pending, client_doc, "city"),
         "state": _profile_overlay_with_client(user, pending, client_doc, "state"),
         "country": _profile_overlay_with_client(user, pending, client_doc, "country"),

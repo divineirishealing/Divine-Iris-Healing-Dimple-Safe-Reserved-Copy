@@ -801,6 +801,7 @@ def _overlay_program_metadata(merged_programs: List[dict], old_detail: List[dict
 class ProfileUpdate(BaseModel):
     full_name: Optional[str] = None
     gender: Optional[str] = None
+    marital_status: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = None
@@ -808,8 +809,19 @@ class ProfileUpdate(BaseModel):
     profession: Optional[str] = None
     phone: Optional[str] = None
     phone_code: Optional[str] = None
-    # YYYY-MM-DD or ISO; shown as "date of joining Divine Iris", pending admin approval like other profile fields
+    # YYYY-MM-DD or ISO; "date of joining Divine Iris"
     joined_divine_iris_at: Optional[str] = None
+
+
+def _profile_payload_to_stored_fields(payload: dict) -> dict:
+    """Map dashboard profile payload onto user/client fields (`full_name` → `name`)."""
+    if not payload:
+        return {}
+    out = {k: v for k, v in payload.items() if k != "full_name"}
+    fn = payload.get("full_name")
+    if fn is not None and str(fn).strip():
+        out["name"] = normalize_person_name(str(fn).strip())
+    return out
 
 
 class PointsBonusClaim(BaseModel):
@@ -3585,17 +3597,67 @@ async def list_student_orders_impl(user: dict):
 
 @router.put("/profile")
 async def update_profile(data: ProfileUpdate, user: dict = Depends(get_current_student_user)):
-    """Submit profile for approval."""
-    update_dict = {k: v for k, v in data.dict().items() if v is not None}
-    
-    await db.users.update_one(
-        {"id": user["id"]},
-        {"$set": {
-            "pending_profile_update": update_dict,
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }}
-    )
-    return {"message": "Profile submitted for approval"}
+    """Save profile immediately. Diffs are appended to `profile_update_log` for admins."""
+    uid = user["id"]
+    doc = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    body = {k: v for k, v in data.dict().items() if v is not None}
+    stored_fields = _profile_payload_to_stored_fields(body)
+    if not stored_fields:
+        return {"message": "No profile fields to save", "saved": False}
+
+    changes: Dict[str, Any] = {}
+    for key, new_val in stored_fields.items():
+        old_val = doc.get(key)
+        o = "" if old_val is None else str(old_val).strip()
+        n = "" if new_val is None else str(new_val).strip()
+        if o != n:
+            changes[key] = {"from": old_val, "to": new_val}
+
+    now = datetime.now(timezone.utc).isoformat()
+    set_doc = {
+        **stored_fields,
+        "pending_profile_update": None,
+        "profile_approved": True,
+        "updated_at": now,
+    }
+    upd: Dict[str, Any] = {"$set": set_doc, "$unset": {"full_name": ""}}
+    if changes:
+        upd["$push"] = {
+            "profile_update_log": {
+                "$each": [{"at": now, "changes": changes}],
+                "$slice": -80,
+            }
+        }
+
+    await db.users.update_one({"id": uid}, upd)
+
+    if doc.get("client_id") and stored_fields:
+        await db.clients.update_one(
+            {"id": doc["client_id"]},
+            {"$set": {**stored_fields, "updated_at": now}},
+        )
+
+    try:
+        from routes.points_logic import try_award_activity_points, normalize_email
+
+        user_after = await db.users.find_one({"id": uid}, {"_id": 0, "email": 1})
+        merged_email = normalize_email((user_after or {}).get("email") or doc.get("email") or "")
+        if merged_email:
+            await try_award_activity_points(
+                db,
+                merged_email,
+                "profile_complete",
+                ref_unique=f"profile_complete:{uid}",
+                program_id=None,
+                meta={"user_id": uid},
+            )
+    except Exception:
+        pass
+
+    return {"message": "Profile saved", "saved": True}
 
 class JourneyLogCreate(BaseModel):
     date: str

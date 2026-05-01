@@ -114,7 +114,7 @@ async def test_student_profile_update():
             
             if response.status_code == 200:
                 result = response.json()
-                if "Profile submitted for approval" in result.get("message", ""):
+                if "Profile saved" in result.get("message", "") or "Profile submitted for approval" in result.get("message", ""):
                     print("✅ Profile update submitted successfully")
                     return True, result
                 else:
