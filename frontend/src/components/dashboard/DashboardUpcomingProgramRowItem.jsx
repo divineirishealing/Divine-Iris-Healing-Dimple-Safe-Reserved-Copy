@@ -73,6 +73,8 @@ function AnnualQuoteBreakdown({
   layout = 'list',
   /** Client Garden Dashboard Access = Annual — portal offer columns & per-program overrides apply. */
   annualDashboardAccess = false,
+  /** Cohort batch: portal quote uses offer columns without annual bundle — adjust intro copy. */
+  cohortPortalQuotePricing = false,
   /** Program is on admin annual-package list (MMM, AWRP, …) — used for non-annual payer copy. */
   programOnAnnualPackageList = false,
 }) {
@@ -120,7 +122,9 @@ function AnnualQuoteBreakdown({
           <p className="text-[10px] font-bold tracking-wide text-slate-500">
             {annualDashboardAccess
               ? 'Offer per person — Annual member · Annual Family Club · Immediate family'
-              : 'Offer per seat — same published rates as the main website for this tier · You · linked household · immediate family · friends & extended'}
+              : cohortPortalQuotePricing
+                ? 'Offer per person — cohort pricing for your tier on Sacred Home (member, family & extended columns as configured for your batch).'
+                : 'Offer per seat — same published rates as the main website for this tier · You · linked household · immediate family · friends & extended'}
           </p>
         ) : null}
         <div className="rounded-md border border-slate-200 bg-white w-full px-3 py-2.5 space-y-2">
@@ -364,6 +368,8 @@ export default function DashboardUpcomingProgramRowItem({
   isAnnual: _subscriberIsAnnual,
   /** Client Garden Dashboard Access = Annual — portal quote applies dashboard offer overlays. */
   annualDashboardAccess = false,
+  /** Cohort-tagged member: GET /dashboard-quote applies batch pricing without annual bundle (labels stay non-annual). */
+  cohortPortalQuotePricing = false,
   bookerEmail = '',
   detectedCountry,
   symbol,
@@ -403,6 +409,7 @@ export default function DashboardUpcomingProgramRowItem({
   const isInCart = cartItems.some((i) => String(i.programId) === String(p.id));
   const { toast } = useToast();
 
+  const portalQuotePipeline = annualDashboardAccess || cohortPortalQuotePricing;
   const tiers = p.duration_tiers || [];
   const hasTiers = p.is_flagship && tiers.length > 0;
   const familyPaidTierOptions = useMemo(() => nonYearLongTierIndices(p), [p]);
@@ -909,7 +916,7 @@ export default function DashboardUpcomingProgramRowItem({
     });
 
   const showMemberTierPickers =
-    annualDashboardAccess && enrollStatus === 'open' && hasTiers && tiers.length > 1;
+    portalQuotePipeline && enrollStatus === 'open' && hasTiers && tiers.length > 1;
 
   const outerShellClass = `w-full mr-auto transition-all duration-300 ${enrollStatus === 'closed' ? 'opacity-60' : ''}`;
 
@@ -1334,6 +1341,7 @@ export default function DashboardUpcomingProgramRowItem({
                         symbol={symbol}
                         includedPkg={includedPkg}
                         annualDashboardAccess={annualDashboardAccess}
+                        cohortPortalQuotePricing={cohortPortalQuotePricing}
                         programOnAnnualPackageList={programOnAnnualPackageList}
                         suppressIntro
                         layout="table"

@@ -14,6 +14,7 @@ from routes.student import (  # noqa: E402
     _client_awrp_batch_id,
     _merge_program_dashboard_offers,
     _merge_program_dashboard_offers_with_batch,
+    _merged_portal_offers_for_payer,
 )
 
 
@@ -69,3 +70,27 @@ def test_batch_portal_row_resolves_program_id_case():
     row = _batch_portal_row_for_program(root, "cohort-x", pid_lower)
     assert row is not None
     assert (row.get("annual") or {}).get("fixed_price_inr") == 13734
+
+
+def test_merged_offers_cohort_only_without_annual_access():
+    settings = {
+        "awrp_batch_program_offers": {
+            "c1": {
+                "prog-a": {
+                    "annual": {"pricing_rule": "fixed_price", "fixed_price_inr": 13734},
+                }
+            }
+        }
+    }
+    client = {"awrp_batch_id": "c1"}
+    ao, fo, eo, bid = _merged_portal_offers_for_payer(False, "prog-a", settings, client)
+    assert bid == "c1"
+    assert ao.get("enabled") is True
+    assert ao.get("fixed_price_inr") == 13734
+    assert fo == {} and eo == {}
+
+
+def test_client_awrp_batch_from_annual_subscription():
+    bid = "cohort-1777195028718"
+    c = {"annual_subscription": {"awrp_batch_id": bid}}
+    assert _client_awrp_batch_id(c) == bid

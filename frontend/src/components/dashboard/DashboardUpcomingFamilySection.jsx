@@ -686,6 +686,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     homeData?.annual_portal_access != null
       ? !!homeData.annual_portal_access
       : !!(homeData?.annual_member_dashboard || homeData?.subscription_annual_package_signals);
+  /** AWRP / existing-batch cohort: portal quotes apply without Home Coming annual (matches backend). */
+  const cohortPortalPricing = !!homeData?.awrp_batch?.id;
+  const portalQuoteEligible = annualPortalAccess || cohortPortalPricing;
   const immediateFamilyLocked = !!homeData?.immediate_family_locked;
   const immediateFamilyEditApproved = homeData?.immediate_family_editing_approved !== false;
   const familyApproved = !!homeData?.family_approved;
@@ -1267,7 +1270,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       setAnnualQuotes({});
       return;
     }
-    if (!annualPortalAccess) {
+    if (!portalQuoteEligible) {
       setAnnualQuotes({});
       return;
     }
@@ -1402,7 +1405,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       cancelled = true;
     };
   }, [
-    annualPortalAccess,
+    portalQuoteEligible,
+    cohortPortalPricing,
     currencyReady,
     portalQuoteCurrency,
     prefetchProgramsKey,
@@ -2107,7 +2111,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           </div>
         </div>
 
-        {!annualPortalAccess ? (
+        {!portalQuoteEligible ? (
           <p
             className="mb-4 text-center text-[11px] text-slate-600 leading-relaxed px-1"
             data-testid="dashboard-website-pricing-note"
@@ -2118,7 +2122,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           </p>
         ) : null}
 
-        {annualPortalAccess && homeData?.awrp_batch?.id ? (
+        {homeData?.awrp_batch?.id ? (
           <div
             className="mb-4 rounded-xl border border-teal-200/90 bg-gradient-to-r from-teal-50/90 via-white/60 to-emerald-50/50 px-3 py-2.5 text-center sm:text-left"
             data-testid="dashboard-awrp-cohort-banner"
@@ -2211,12 +2215,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   program={p}
                   isAnnual={isAnnualSubscriber}
                   annualDashboardAccess={annualPortalAccess}
+                  cohortPortalQuotePricing={cohortPortalPricing}
                   bookerEmail={bookerEmail}
                   detectedCountry={detectedCountry}
-                  symbol={annualPortalAccess ? portalQuoteSymbol : symbol}
-                  currency={annualPortalAccess ? portalQuoteCurrency : currency}
-                  getPrice={annualPortalAccess ? displayGetPrice : getPrice}
-                  getOfferPrice={annualPortalAccess ? displayGetOfferPrice : getOfferPrice}
+                  symbol={portalQuoteEligible ? portalQuoteSymbol : symbol}
+                  currency={portalQuoteEligible ? portalQuoteCurrency : currency}
+                  getPrice={portalQuoteEligible ? displayGetPrice : getPrice}
+                  getOfferPrice={portalQuoteEligible ? displayGetOfferPrice : getOfferPrice}
                   promoForProgramClicks={promoForProgramClicks}
                   promoByProgramId={promoByProgramId}
                   promoPricesLoading={promoPricesLoading}

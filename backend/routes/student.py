@@ -1240,6 +1240,17 @@ def _merge_program_dashboard_offers_with_batch(
     return ao, fo, eo
 
 
+def _portal_member_column_for_self(client: dict, annual_dashboard_access: bool) -> bool:
+    """Use the **member / annual** portal column for the booker's own seat (not the extended column).
+
+    Annual+Dashboard clients always do. Clients tagged with ``awrp_batch_id`` do as well so cohort member
+    prices apply even when they are not on the Home Coming annual bundle.
+    """
+    if annual_dashboard_access:
+        return True
+    return bool(_client_awrp_batch_id(client))
+
+
 def _merged_portal_offers_for_payer(
     annual_dashboard_access: bool,
     program_id: str,
@@ -1247,20 +1258,32 @@ def _merged_portal_offers_for_payer(
     client: dict,
     tier_index: Optional[int] = None,
 ) -> Tuple[dict, dict, dict, Optional[str]]:
-    """Annual+Dashboard: global + per-program + AWRP cohort overlays.
+    """Merged portal pricing columns for Sacred Home / Divine Cart.
 
-    Clients without Annual+Dashboard access use **catalog tier pricing only** (same basis as the public
-    website): no dashboard offer columns, no per-program portal overrides, no batch overlays.
+    **Annual+Dashboard:** global columns + per-program ``dashboard_program_offers`` + cohort batch row.
+
+    **Cohort-only** (``awrp_batch_id`` set, no annual portal access): **cohort batch row only** — no global
+    three columns and no per-program portal table (still annual-gated). Untagged non-annual clients use
+    catalog tier pricing only (empty merge).
     """
+    batch_id = _client_awrp_batch_id(client)
+    batch_root = settings_doc.get("awrp_batch_program_offers") or {}
+    brow = _batch_portal_row_for_program(batch_root, batch_id, program_id)
+
     if not annual_dashboard_access:
-        return {}, {}, {}, None
+        if not batch_id:
+            return {}, {}, {}, None
+        if not brow:
+            return {}, {}, {}, batch_id
+        ao, fo, eo = _merge_program_dashboard_offers_with_batch(
+            {}, {}, {}, program_id, {}, brow, tier_index
+        )
+        return ao, fo, eo, batch_id
+
     g_ao = settings_doc.get("dashboard_offer_annual") or {}
     g_fo = settings_doc.get("dashboard_offer_family") or {}
     g_eo = settings_doc.get("dashboard_offer_extended") or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
-    batch_root = settings_doc.get("awrp_batch_program_offers") or {}
-    batch_id = _client_awrp_batch_id(client)
-    brow = _batch_portal_row_for_program(batch_root, batch_id, program_id)
     ao, fo, eo = _merge_program_dashboard_offers_with_batch(
         g_ao, g_fo, g_eo, program_id, per_map, brow, tier_index
     )
@@ -2180,7 +2203,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             include_self=include_self,
             tier_index_override=line.tier_index,
             apply_tier_offer_prices=True,
-            booker_annual_portal=annual_dashboard_access,
+            booker_annual_portal=_portal_member_column_for_self(client, annual_dashboard_access),
         )
         qc = _dashboard_quote_participant_count(include_self, imm_plain, imm_peer, ext_fc)
         pricing = _apply_crm_portal_discount_to_pricing_total(pricing, client, cur, qc)
@@ -2231,8 +2254,8 @@ async def dashboard_quote(
     **Annual+Dashboard** clients use portal columns (annual / family / extended), per-program
     overrides, and AWRP cohort overlays.
 
-    **Other** logged-in clients (portal access without Annual+Dashboard) use **catalog tier pricing
-    only** — same basis as the public website (no dashboard offer columns or batch overlays).
+    **Cohort-tagged** clients without annual access use **cohort batch pricing only** (no global portal
+    columns or per-program portal table). Everyone else logged in uses **catalog tier pricing** only.
 
     Annual Family Club guest routing still applies when peers are selected; waived seats follow
     package rules only for annual payers.
@@ -2290,15 +2313,15 @@ async def dashboard_quote(
     ao, fo, eo, batch_id = _merged_portal_offers_for_payer(
         annual_dashboard_access, program_id, settings_doc, client, tier_index=tier_index
     )
-    if annual_dashboard_access:
-        brow = _batch_portal_row_for_program(
-            settings_doc.get("awrp_batch_program_offers") or {},
-            batch_id,
-            program_id,
-        )
-        program_portal_pricing_override = _program_has_portal_pricing_override(per_map, program_id, brow)
-    else:
-        program_portal_pricing_override = False
+    brow = _batch_portal_row_for_program(
+        settings_doc.get("awrp_batch_program_offers") or {},
+        batch_id,
+        program_id,
+    )
+    effective_per_map = per_map if annual_dashboard_access else {}
+    program_portal_pricing_override = _program_has_portal_pricing_override(
+        effective_per_map, program_id, brow
+    )
     plain_sel, peer_sel = 0, 0
     inc_cfg = settings_doc.get("annual_package_included_program_ids")
     if id_list:
@@ -2333,12 +2356,17 @@ async def dashboard_quote(
         include_self=include_self,
         tier_index_override=tier_index,
         apply_tier_offer_prices=True,
-        booker_annual_portal=annual_dashboard_access,
+        booker_annual_portal=_portal_member_column_for_self(client, annual_dashboard_access),
     )
     # Sacred Home pinned program: use Home Coming catalog PACKAGE OFFER total from annual_packages
     # (admin "Package offer (catalog total)") when tier-line math is empty or secondary.
     pin_program_id = (settings_doc.get("dashboard_sacred_home_annual_program_id") or "").strip()
-    if pin_program_id and str(program_id).strip() == str(pin_program_id).strip() and not included:
+    if (
+        pin_program_id
+        and str(program_id).strip() == str(pin_program_id).strip()
+        and not included
+        and not batch_id
+    ):
         pkg_cat = await _active_home_coming_package_catalog_row()
         co = _offer_total_from_annual_package(pkg_cat, currency)
         if co > 0:
@@ -2371,7 +2399,7 @@ async def dashboard_quote(
         "program_title": program.get("title", ""),
         "included_in_annual_package": included,
         "program_portal_pricing_override": bool(program_portal_pricing_override),
-        "awrp_batch_id": batch_id if annual_dashboard_access else None,
+        "awrp_batch_id": batch_id,
         **pricing,
         "annual_household_peer_selected_count": peer_sel,
         "annual_household_peer_package_included_count": peer_pkg_inc,
@@ -2449,15 +2477,13 @@ async def build_admin_dashboard_pricing_snapshot(
         ao, fo, eo, batch_id_snap = _merged_portal_offers_for_payer(
             annual_dashboard_access, pid, settings_doc, client, tier_index=tier_idx
         )
-        if annual_dashboard_access:
-            brow = _batch_portal_row_for_program(
-                settings_doc.get("awrp_batch_program_offers") or {},
-                batch_id_snap,
-                pid,
-            )
-            ppo = _program_has_portal_pricing_override(per_map, pid, brow)
-        else:
-            ppo = False
+        brow = _batch_portal_row_for_program(
+            settings_doc.get("awrp_batch_program_offers") or {},
+            batch_id_snap,
+            pid,
+        )
+        effective_per_map = per_map if annual_dashboard_access else {}
+        ppo = _program_has_portal_pricing_override(effective_per_map, pid, brow)
         pricing = await compute_dashboard_annual_family_pricing(
             program,
             pid,
@@ -2471,7 +2497,7 @@ async def build_admin_dashboard_pricing_snapshot(
             include_self=include_self,
             tier_index_override=tier_idx,
             apply_tier_offer_prices=True,
-            booker_annual_portal=annual_dashboard_access,
+            booker_annual_portal=_portal_member_column_for_self(client, annual_dashboard_access),
         )
         qc = _dashboard_quote_participant_count(include_self, 0, 0, 0)
         pricing = _apply_crm_portal_discount_to_pricing_total(pricing, client, cur_in, qc)
@@ -2590,7 +2616,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         include_self=not included,
         tier_index_override=pay_tier,
         apply_tier_offer_prices=True,
-        booker_annual_portal=annual_dashboard_access,
+        booker_annual_portal=_portal_member_column_for_self(client, annual_dashboard_access),
     )
     qc = _dashboard_quote_participant_count(not included, imm_plain, imm_peer, ext_fc)
     quote = _apply_crm_portal_discount_to_pricing_total(quote, client, data.currency, qc)
@@ -2783,9 +2809,9 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     dashboard_offer_extended = settings_doc.get("dashboard_offer_extended") or {}
     dashboard_program_offers = settings_doc.get("dashboard_program_offers") or {}
     awrp_batches_cfg = settings_doc.get("awrp_portal_batches") or []
-    batch_id_home = _client_awrp_batch_id(client) if annual_portal_access_effective else None
+    batch_id_home = _client_awrp_batch_id(client)
     awrp_batch_payload = None
-    if annual_portal_access_effective and batch_id_home and isinstance(awrp_batches_cfg, list):
+    if batch_id_home and isinstance(awrp_batches_cfg, list):
         meta = next(
             (
                 b
