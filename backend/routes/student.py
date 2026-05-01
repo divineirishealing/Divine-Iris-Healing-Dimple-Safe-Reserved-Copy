@@ -1054,6 +1054,50 @@ def _portal_tier_key(tier_index: Optional[int]) -> Optional[str]:
     return str(ti)
 
 
+def _portal_offer_scalar_float(val) -> float:
+    if val is None or str(val).strip() == "":
+        return 0.0
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _portal_offer_column_has_pricing_intent(col: dict) -> bool:
+    """True when a saved portal column patch clearly defines pricing (cohort / per-program rows).
+
+    Admin UIs often omit ``enabled``; global defaults may keep ``enabled: false``. Without this,
+    merged cohort fixed prices are ignored and checkout falls back to tier list (e.g. ₹13,999).
+    """
+    if not isinstance(col, dict) or not col:
+        return False
+    rule = (col.get("pricing_rule") or "promo").lower().strip()
+    if rule == "percent_off":
+        return _portal_offer_scalar_float(col.get("percent_off")) > 0
+    if rule == "amount_off":
+        for key, raw in col.items():
+            if isinstance(key, str) and key.startswith("amount_off_") and _portal_offer_scalar_float(raw) > 0:
+                return True
+        return _portal_offer_scalar_float(col.get("amount_off")) > 0
+    if rule == "fixed_price":
+        for key, raw in col.items():
+            if isinstance(key, str) and key.startswith("fixed_price_") and _portal_offer_scalar_float(raw) > 0:
+                return True
+        return False
+    # ``promo`` / empty rule — only intentful when a code is set
+    return bool(str(col.get("promo_code") or "").strip())
+
+
+def _merge_portal_offer_column(base: Optional[dict], patch: Optional[dict]) -> dict:
+    """Shallow-merge one portal column; infer ``enabled`` when a patch sets prices but not the flag."""
+    b = dict(base or {})
+    p = patch if isinstance(patch, dict) else {}
+    out = {**b, **p}
+    if p and "enabled" not in p and _portal_offer_column_has_pricing_intent(p):
+        out["enabled"] = True
+    return out
+
+
 def _tier_merge_offer_columns(
     base_annual: dict,
     base_family: dict,
@@ -1062,9 +1106,9 @@ def _tier_merge_offer_columns(
 ) -> Tuple[dict, dict, dict]:
     if not isinstance(tier_patch, dict):
         return base_annual, base_family, base_extended
-    ao = {**base_annual, **(tier_patch.get("annual") or {})}
-    fo = {**base_family, **(tier_patch.get("family") or {})}
-    eo = {**base_extended, **(tier_patch.get("extended") or {})}
+    ao = _merge_portal_offer_column(base_annual, tier_patch.get("annual"))
+    fo = _merge_portal_offer_column(base_family, tier_patch.get("family"))
+    eo = _merge_portal_offer_column(base_extended, tier_patch.get("extended"))
     return ao, fo, eo
 
 
@@ -1085,9 +1129,9 @@ def _merge_program_dashboard_offers(
     row = (per_map or {}).get(pid) if isinstance(per_map, dict) else None
     if not isinstance(row, dict):
         row = {}
-    ao = {**(global_ao or {}), **(row.get("annual") or {})}
-    fo = {**(global_fo or {}), **(row.get("family") or {})}
-    eo = {**(global_eo or {}), **(row.get("extended") or {})}
+    ao = _merge_portal_offer_column(global_ao, row.get("annual"))
+    fo = _merge_portal_offer_column(global_fo, row.get("family"))
+    eo = _merge_portal_offer_column(global_eo, row.get("extended"))
     tk = _portal_tier_key(tier_index)
     if tk:
         bt = row.get("by_tier")
@@ -1135,9 +1179,9 @@ def _merge_program_dashboard_offers_with_batch(
     )
     if not isinstance(batch_program_row, dict):
         return ao, fo, eo
-    ao = {**ao, **(batch_program_row.get("annual") or {})}
-    fo = {**fo, **(batch_program_row.get("family") or {})}
-    eo = {**eo, **(batch_program_row.get("extended") or {})}
+    ao = _merge_portal_offer_column(ao, batch_program_row.get("annual"))
+    fo = _merge_portal_offer_column(fo, batch_program_row.get("family"))
+    eo = _merge_portal_offer_column(eo, batch_program_row.get("extended"))
     tk = _portal_tier_key(tier_index)
     if tk:
         bt = batch_program_row.get("by_tier")
@@ -1183,6 +1227,10 @@ def _client_awrp_batch_id(client: Optional[dict]) -> Optional[str]:
             return str(raw).strip()
     sub = client.get("subscription") or {}
     raw = sub.get("awrp_batch_id")
+    if raw is not None and str(raw).strip():
+        return str(raw).strip()
+    annual_sub = client.get("annual_subscription") or {}
+    raw = annual_sub.get("awrp_batch_id")
     if raw is not None and str(raw).strip():
         return str(raw).strip()
     return None
