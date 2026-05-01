@@ -1879,6 +1879,19 @@ export default function DashboardCombinedCheckoutPage() {
             const meta = item.portalLineMeta;
             const selfIncluded =
               meta?.annualIncluded && String(p.relationship || '').trim() === 'Myself';
+            const homeComingSelfPayRaw = meta?.homeComingQuotedTotal;
+            const homeComingSelfPayNum =
+              typeof homeComingSelfPayRaw === 'number'
+                ? homeComingSelfPayRaw
+                : parseFloat(String(homeComingSelfPayRaw ?? ''), 10);
+            const homeComingSelfPayDisplay =
+              selfIncluded &&
+              meta?.fromAnnualOfferPage &&
+              !Number.isNaN(homeComingSelfPayNum) &&
+              homeComingSelfPayNum > 0
+                ? Math.round(toDisplay(homeComingSelfPayNum) * 100) / 100
+                : 0;
+            const homeComingSelfPayDisplayOk = homeComingSelfPayDisplay > 0;
             const lineQuote = annualQuotesByProgram[annualPortalQuoteMapKey(item)] || null;
             const guestBucketById = lineQuote ? effectiveGuestBucketById(item, lineQuote) : meta?.guestBucketById || {};
             const guestBucket = resolvePortalGuestBucket(p, guestBucketById);
@@ -1982,7 +1995,13 @@ export default function DashboardCombinedCheckoutPage() {
                 <div className="sm:col-span-1 min-w-0 text-right tabular-nums">
                   <span className="text-gray-500 text-[11px] uppercase tracking-wide sm:hidden">Seat · </span>
                   {selfIncluded ? (
-                    <span className="text-emerald-700 font-semibold text-xs sm:text-sm">Package</span>
+                    homeComingSelfPayDisplayOk ? (
+                      <span className="text-[#D4AF37] font-semibold text-xs sm:text-sm">
+                        {symbol} {homeComingSelfPayDisplay.toLocaleString()}
+                      </span>
+                    ) : (
+                      <span className="text-emerald-700 font-semibold text-xs sm:text-sm">Package</span>
+                    )
                   ) : ahIncludedPeer ? (
                     <span className="text-emerald-700 font-semibold text-xs sm:text-sm leading-snug text-right block">
                       Included in annual package
