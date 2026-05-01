@@ -89,6 +89,21 @@ const ALL_PAY_MODES = [
   { value: 'emi_flexi', label: 'FLEXI — ANY AMOUNT, ANY TIME' },
 ];
 
+/** PAY IN FULL always; each EMI / Flexi row requires the matching admin flag on the client (Dashboard access). */
+function isAnnualOfferPayModeEnabled(homeData, mode) {
+  if (mode === 'full') return true;
+  if (!homeData || typeof homeData !== 'object') return false;
+  const keyByMode = {
+    emi_monthly: 'annual_package_offer_monthly_emi_visible',
+    emi_quarterly: 'annual_package_offer_quarterly_emi_visible',
+    emi_yearly: 'annual_package_offer_yearly_emi_visible',
+    emi_flexi: 'annual_package_offer_flexi_visible',
+  };
+  const key = keyByMode[mode];
+  if (!key) return false;
+  return homeData[key] === true;
+}
+
 /** Calendar YYYY-MM-DD + delta days (UTC noon) for renewal window copy. */
 function ymdAddDays(ymd, deltaDays) {
   if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return '';
@@ -607,10 +622,16 @@ export default function AnnualPackagePurchasePage() {
     return raw.split(/\s+/)[0];
   }, [homeData?.user_details?.full_name]);
 
-  const visiblePayModes = useMemo(() => {
-    const monthlyOk = homeData?.annual_package_offer_monthly_emi_visible !== false;
-    return ALL_PAY_MODES.filter((m) => m.value !== 'emi_monthly' || monthlyOk);
-  }, [homeData?.annual_package_offer_monthly_emi_visible]);
+  const visiblePayModes = useMemo(
+    () => ALL_PAY_MODES.filter((m) => isAnnualOfferPayModeEnabled(homeData, m.value)),
+    [
+      homeData,
+      homeData?.annual_package_offer_monthly_emi_visible,
+      homeData?.annual_package_offer_quarterly_emi_visible,
+      homeData?.annual_package_offer_yearly_emi_visible,
+      homeData?.annual_package_offer_flexi_visible,
+    ],
+  );
 
   const nextSacredYearTitleLine = useMemo(() => irisYearLabelNoPeriod(autoRenewalYear), [autoRenewalYear]);
 
@@ -761,9 +782,9 @@ export default function AnnualPackagePurchasePage() {
     if (!homeData || prefsInitDone.current) return;
     prefsInitDone.current = true;
     const p = homeData.annual_package_offer_prefs;
-    const monthlyOk = homeData.annual_package_offer_monthly_emi_visible !== false;
-    const allowed = new Set(['full', 'emi_quarterly', 'emi_yearly', 'emi_flexi']);
-    if (monthlyOk) allowed.add('emi_monthly');
+    const allowed = new Set(
+      ALL_PAY_MODES.filter((row) => isAnnualOfferPayModeEnabled(homeData, row.value)).map((r) => r.value),
+    );
     if (p && typeof p === 'object') {
       if (p.desired_start_date) setDesiredStart(String(p.desired_start_date).slice(0, 10));
       if (p.payment_mode) {
@@ -780,14 +801,6 @@ export default function AnnualPackagePurchasePage() {
     }
     setPrefsLoaded(true);
   }, [homeData, preferredDom]);
-
-  useEffect(() => {
-    if (!homeData || !prefsLoaded) return;
-    const monthlyOk = homeData.annual_package_offer_monthly_emi_visible !== false;
-    if (!monthlyOk && paymentMode === 'emi_monthly') {
-      setPaymentMode('full');
-    }
-  }, [homeData, homeData?.annual_package_offer_monthly_emi_visible, prefsLoaded, paymentMode]);
 
   useEffect(() => {
     if (!prefsLoaded || !homeData) return;

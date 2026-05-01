@@ -101,8 +101,11 @@ export default function DashboardAccessTab() {
   const [clientEmail, setClientEmail] = useState('');
   const [saving, setSaving] = useState(false);
   const [annualMemberDashboard, setAnnualMemberDashboard] = useState(false);
-  /** When False, student Home Coming package page hides EMI — monthly for this client only. */
-  const [annualPackageOfferMonthlyEmiVisible, setAnnualPackageOfferMonthlyEmiVisible] = useState(true);
+  /** Home Coming package page: show each pay mode only when checked (opt-in). */
+  const [annualPackageOfferMonthlyEmiVisible, setAnnualPackageOfferMonthlyEmiVisible] = useState(false);
+  const [annualPackageOfferQuarterlyEmiVisible, setAnnualPackageOfferQuarterlyEmiVisible] = useState(false);
+  const [annualPackageOfferYearlyEmiVisible, setAnnualPackageOfferYearlyEmiVisible] = useState(false);
+  const [annualPackageOfferFlexiVisible, setAnnualPackageOfferFlexiVisible] = useState(false);
   const [portalLoginAllowed, setPortalLoginAllowed] = useState(true);
   const [preferredPaymentMethod, setPreferredPaymentMethod] = useState('');
   const [indiaPaymentMethod, setIndiaPaymentMethod] = useState('');
@@ -308,7 +311,10 @@ export default function DashboardAccessTab() {
     setEditing(cl);
     setClientEmail((cl.email || '').trim());
     setAnnualMemberDashboard(!!cl.annual_member_dashboard);
-    setAnnualPackageOfferMonthlyEmiVisible(cl.annual_package_offer_monthly_emi_visible !== false);
+    setAnnualPackageOfferMonthlyEmiVisible(cl.annual_package_offer_monthly_emi_visible === true);
+    setAnnualPackageOfferQuarterlyEmiVisible(cl.annual_package_offer_quarterly_emi_visible === true);
+    setAnnualPackageOfferYearlyEmiVisible(cl.annual_package_offer_yearly_emi_visible === true);
+    setAnnualPackageOfferFlexiVisible(cl.annual_package_offer_flexi_visible === true);
     setPortalLoginAllowed(cl.portal_login_allowed !== false);
     setPreferredPaymentMethod(cl.preferred_payment_method || '');
     setIndiaPaymentMethod(cl.india_payment_method || '');
@@ -354,6 +360,9 @@ export default function DashboardAccessTab() {
         email: (clientEmail || '').trim().toLowerCase(),
         annual_member_dashboard: annualMemberDashboard,
         annual_package_offer_monthly_emi_visible: annualPackageOfferMonthlyEmiVisible,
+        annual_package_offer_quarterly_emi_visible: annualPackageOfferQuarterlyEmiVisible,
+        annual_package_offer_yearly_emi_visible: annualPackageOfferYearlyEmiVisible,
+        annual_package_offer_flexi_visible: annualPackageOfferFlexiVisible,
         portal_login_allowed: portalLoginAllowed,
         intake_pending: false,
         ...buildClientFinancePutPayload({
@@ -948,7 +957,12 @@ export default function DashboardAccessTab() {
                 <option value="annual">Annual</option>
               </select>
               {annualMemberDashboard && (
-                <div className="mt-2 rounded-lg border border-violet-200/80 bg-violet-50/40 px-3 py-2.5">
+                <div className="mt-2 rounded-lg border border-violet-200/80 bg-violet-50/40 px-3 py-2.5 space-y-2">
+                  <p className="text-[10px] text-gray-600 font-semibold">Home Coming — payment structure options</p>
+                  <p className="text-[10px] text-gray-500 leading-snug">
+                    <strong>PAY IN FULL</strong> is always shown. Check each option below to expose it on this member&apos;s
+                    Home Coming package page (EMI / Flexi).
+                  </p>
                   <label className="flex items-start gap-2.5 cursor-pointer">
                     <input
                       type="checkbox"
@@ -958,9 +972,43 @@ export default function DashboardAccessTab() {
                       data-testid="dashboard-access-monthly-emi-on-package-page"
                     />
                     <span className="text-[11px] text-gray-800 leading-snug">
-                      <span className="font-semibold">Show monthly EMI</span> on the student{' '}
-                      <strong>Home Coming package</strong> page. Uncheck to hide the monthly installment option for this
-                      client only (quarterly, yearly, full pay, and Flexi stay available).
+                      <span className="font-semibold">EMI — Monthly</span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={annualPackageOfferQuarterlyEmiVisible}
+                      onChange={(e) => setAnnualPackageOfferQuarterlyEmiVisible(e.target.checked)}
+                      className="mt-0.5 rounded border-gray-300"
+                      data-testid="dashboard-access-quarterly-emi-on-package-page"
+                    />
+                    <span className="text-[11px] text-gray-800 leading-snug">
+                      <span className="font-semibold">EMI — Quarterly</span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={annualPackageOfferYearlyEmiVisible}
+                      onChange={(e) => setAnnualPackageOfferYearlyEmiVisible(e.target.checked)}
+                      className="mt-0.5 rounded border-gray-300"
+                      data-testid="dashboard-access-yearly-emi-on-package-page"
+                    />
+                    <span className="text-[11px] text-gray-800 leading-snug">
+                      <span className="font-semibold">EMI — Yearly</span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={annualPackageOfferFlexiVisible}
+                      onChange={(e) => setAnnualPackageOfferFlexiVisible(e.target.checked)}
+                      className="mt-0.5 rounded border-gray-300"
+                      data-testid="dashboard-access-flexi-on-package-page"
+                    />
+                    <span className="text-[11px] text-gray-800 leading-snug">
+                      <span className="font-semibold">Flexi — any amount, any time</span>
                     </span>
                   </label>
                 </div>

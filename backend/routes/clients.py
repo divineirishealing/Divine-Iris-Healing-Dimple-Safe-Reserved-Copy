@@ -2709,8 +2709,11 @@ class ClientUpdate(BaseModel):
     preferred_india_bank_id: Optional[str] = None
     # When True, Sacred Home uses annual-subscriber pricing like an Excel-tagged Iris member
     annual_member_dashboard: Optional[bool] = None
-    # When False (or unset only via explicit save), Home Coming package page hides Monthly EMI preference.
+    # Home Coming package page: each option is shown only when the corresponding flag is True (opt-in).
     annual_package_offer_monthly_emi_visible: Optional[bool] = None
+    annual_package_offer_quarterly_emi_visible: Optional[bool] = None
+    annual_package_offer_yearly_emi_visible: Optional[bool] = None
+    annual_package_offer_flexi_visible: Optional[bool] = None
     # CRM: same key on each family member’s client row; optional primary flag on the manager’s row
     household_key: Optional[str] = None
     is_primary_household_contact: Optional[bool] = None
@@ -2858,6 +2861,16 @@ async def update_client(client_id: str, data: ClientUpdate):
         update_fields["annual_package_offer_monthly_emi_visible"] = bool(
             data.annual_package_offer_monthly_emi_visible
         )
+    if data.annual_package_offer_quarterly_emi_visible is not None:
+        update_fields["annual_package_offer_quarterly_emi_visible"] = bool(
+            data.annual_package_offer_quarterly_emi_visible
+        )
+    if data.annual_package_offer_yearly_emi_visible is not None:
+        update_fields["annual_package_offer_yearly_emi_visible"] = bool(
+            data.annual_package_offer_yearly_emi_visible
+        )
+    if data.annual_package_offer_flexi_visible is not None:
+        update_fields["annual_package_offer_flexi_visible"] = bool(data.annual_package_offer_flexi_visible)
     if data.household_key is not None:
         hk = (data.household_key or "").strip()[:200]
         update_fields["household_key"] = hk if hk else None

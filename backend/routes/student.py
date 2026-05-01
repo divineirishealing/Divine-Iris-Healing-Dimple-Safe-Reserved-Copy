@@ -3164,8 +3164,12 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "annual_portal_lifecycle": annual_portal_lifecycle_payload(client),
         # Student-chosen prefs for Home Coming / annual package (shown on dedicated purchase page; admin-visible on client doc).
         "annual_package_offer_prefs": client.get("annual_package_offer_prefs") if isinstance(client.get("annual_package_offer_prefs"), dict) else None,
-        # When False, Sacred Home package page omits the monthly EMI option for this client (Admin → Dashboard access).
-        "annual_package_offer_monthly_emi_visible": client.get("annual_package_offer_monthly_emi_visible") is not False,
+        # Home Coming payment structure: each EMI / Flexi option only when admin set True on the client.
+        "annual_package_offer_monthly_emi_visible": client.get("annual_package_offer_monthly_emi_visible") is True,
+        "annual_package_offer_quarterly_emi_visible": client.get("annual_package_offer_quarterly_emi_visible")
+        is True,
+        "annual_package_offer_yearly_emi_visible": client.get("annual_package_offer_yearly_emi_visible") is True,
+        "annual_package_offer_flexi_visible": client.get("annual_package_offer_flexi_visible") is True,
         # Active Home Coming catalog row (admin annual_packages): multi-currency offer_total for display on Home Coming package page.
         "annual_catalog_bundle": annual_catalog_bundle,
         # Enrollment window + label from subscription / annual_subscription — Home Coming gratitude card.
@@ -3247,8 +3251,34 @@ async def put_annual_package_offer_preferences(
     elif start:
         raise HTTPException(status_code=400, detail="Start date must be YYYY-MM-DD.")
     mode = _normalize_annual_offer_payment_mode(data.payment_mode)
-    cli_pm = await db.clients.find_one({"id": cid}, {"_id": 0, "annual_package_offer_monthly_emi_visible": 1})
-    if mode == "emi_monthly" and cli_pm and cli_pm.get("annual_package_offer_monthly_emi_visible") is False:
+    cli_pm = (
+        await db.clients.find_one(
+            {"id": cid},
+            {
+                "_id": 0,
+                "annual_package_offer_monthly_emi_visible": 1,
+                "annual_package_offer_quarterly_emi_visible": 1,
+                "annual_package_offer_yearly_emi_visible": 1,
+                "annual_package_offer_flexi_visible": 1,
+            },
+        )
+        or {}
+    )
+
+    def _offer_mode_allowed(m: str) -> bool:
+        if m == "full":
+            return True
+        if m == "emi_monthly":
+            return cli_pm.get("annual_package_offer_monthly_emi_visible") is True
+        if m == "emi_quarterly":
+            return cli_pm.get("annual_package_offer_quarterly_emi_visible") is True
+        if m == "emi_yearly":
+            return cli_pm.get("annual_package_offer_yearly_emi_visible") is True
+        if m == "emi_flexi":
+            return cli_pm.get("annual_package_offer_flexi_visible") is True
+        return False
+
+    if not _offer_mode_allowed(mode):
         mode = "full"
     notes = (data.emi_notes or "").strip()
     if len(notes) > 800:
