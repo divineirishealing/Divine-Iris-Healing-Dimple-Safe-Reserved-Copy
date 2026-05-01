@@ -486,6 +486,37 @@ export default function AnnualPackagePurchasePage() {
     };
   }, [catalogAmountHub, homeData, baseCurrency, toDisplay]);
 
+  /** Iris Annual Abundance courtesy on on-file package fee — shown only on this page (Sacred Exchange uses raw totals). */
+  const onFilePackageCourtesyBreakdown = useMemo(() => {
+    const baseRaw = Number(fin.base_package_fee || 0);
+    if (!(baseRaw > 0) || !homeData) return null;
+    const src = homeData.client_discount_source;
+    if (!src) return null;
+    const hasBands =
+      Array.isArray(src.india_discount_member_bands) && src.india_discount_member_bands.length > 0;
+    const hasPct = src.india_discount_percent != null && src.india_discount_percent !== '';
+    if (!hasBands && !hasPct) return null;
+    const fam = homeData.immediate_family;
+    const n = Math.max(1, 1 + (Array.isArray(fam) ? fam.length : 0));
+    const cp = {
+      india_discount_percent: src.india_discount_percent,
+      india_discount_member_bands: src.india_discount_member_bands,
+    };
+    const rule = resolveIndiaDiscountRule(cp, n, 0);
+    const feeCur = String(fin.currency || baseCurrency || 'inr').toLowerCase();
+    if (rule.mode === 'amount' && rule.amountInr > 0 && feeCur !== 'inr') {
+      return null;
+    }
+    const applied = applyIndiaDiscountRuleToBase(baseRaw, rule);
+    const discountAmt = Math.round(Number(applied.discountAmt || 0) * 100) / 100;
+    if (discountAmt <= 0) return null;
+    const pctLabel =
+      applied.discountKind === 'percent' && applied.discountNominalPercent != null
+        ? `${Number(applied.discountNominalPercent).toFixed(1).replace(/\.0$/, '')}%`
+        : null;
+    return { discountAmt, pctLabel };
+  }, [fin.base_package_fee, fin.currency, homeData, baseCurrency]);
+
   const catalogOtherCurrencies = useMemo(() => {
     if (!catalogOfferTotal || typeof catalogOfferTotal !== 'object') return [];
     const hub = (baseCurrency || 'inr').toLowerCase();
@@ -1607,7 +1638,8 @@ export default function AnnualPackagePurchasePage() {
                         <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-[rgba(100,55,155,0.45)]">
                           Your renewal energy exchange
                         </p>
-                        {Number(fin.crm_discount_amount || 0) > 0.01 && Number(fin.base_package_fee || 0) > 0 ? (
+                        {onFilePackageCourtesyBreakdown != null &&
+                        Number(fin.base_package_fee || 0) > 0 ? (
                           <>
                             <p className="text-left">
                               <span className="text-xl sm:text-2xl font-semibold text-[rgba(80,55,145,0.45)] tabular-nums line-through decoration-[rgba(120,80,160,0.35)]">
@@ -1623,12 +1655,14 @@ export default function AnnualPackagePurchasePage() {
                                 Courtesy savings:{' '}
                                 <strong className="text-[#6b5210] tabular-nums">
                                   {symbol}
-                                  {Number(toDisplay(Number(fin.crm_discount_amount || 0))).toLocaleString()}
+                                  {Number(
+                                    toDisplay(Number(onFilePackageCourtesyBreakdown.discountAmt || 0)),
+                                  ).toLocaleString()}
                                 </strong>
-                                {fin.crm_discount_percent != null && Number(fin.crm_discount_percent) > 0 ? (
+                                {onFilePackageCourtesyBreakdown.pctLabel ? (
                                   <span className="text-[#6b5210]">
                                     {' '}
-                                    ({Number(fin.crm_discount_percent).toFixed(1).replace(/\.0$/, '')}%)
+                                    ({onFilePackageCourtesyBreakdown.pctLabel})
                                   </span>
                                 ) : null}
                               </p>

@@ -240,9 +240,9 @@ def _merge_client_india_pricing_portal(client: dict, sub: Optional[dict], site_d
     """Merged India manual-checkout fields for Sacred Home (Divine Cart, payment proofs).
 
     **Discount:** Only ``subscription.individual_discount_pct`` when the subscription row is authoritative
-    (Excel-style package). Iris Annual Abundance ``india_discount_percent`` / bands apply **only** to the
-    Home Coming annual path — see ``GET /student/home`` → ``client_discount_source``, ``financials``, and
-    pinned-program ``/dashboard-quote`` — not general India cart math.
+    (Excel-style package). Iris Annual Abundance ``india_discount_percent`` / bands are **not** merged here —
+    use ``client_discount_source`` for Home Coming package UI only; checkout math uses
+    ``filter_client_pricing_for_home_coming_checkout`` plus sacred-home catalog quotes.
     """
     sub = sub or {}
     auth = _subscription_is_authoritative(sub)
@@ -3070,25 +3070,12 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     sur_pct = max(0.0, min(100.0, sur_pct))
     raw_base_package_fee = float(sub.get("total_fee") or 0)
     is_emi_plan = pm_sub == "EMI" and len(emis) > 0
-    fam_n_fin = max(1, 1 + len(client.get("immediate_family") or []))
-    rule_fin = _resolve_india_discount_rule(_crm_only_discount_dict(client), fam_n_fin)
-    # Applies to Sacred Exchange ``subscription.total_fee`` (renewal / annual package on file), not cart lines.
+    # Iris Annual Abundance CRM ``india_discount_percent`` / bands apply only on the Home Coming package
+    # flow (catalog quotes + AnnualPackagePurchasePage via ``client_discount_source``). Do not alter
+    # Sacred Exchange balances or EMI math here — avoids flagship / other surfaces changing when CRM moves.
     adj_base = raw_base_package_fee
     crm_disc_pct_display = None
     crm_disc_amt_display = None
-    if raw_base_package_fee > 0:
-        if rule_fin.get("mode") == "percent" and float(rule_fin.get("percent") or 0) > 0:
-            crm_disc_pct_display = float(rule_fin["percent"])
-            crm_disc_amt_display = round(raw_base_package_fee * crm_disc_pct_display / 100.0, 2)
-            adj_base = round(raw_base_package_fee - crm_disc_amt_display, 2)
-        elif (
-            rule_fin.get("mode") == "amount"
-            and float(rule_fin.get("amount_inr") or 0) > 0
-            and str(sub.get("currency") or "INR").lower() == "inr"
-        ):
-            raw_amt = float(rule_fin["amount_inr"])
-            crm_disc_amt_display = round(min(raw_base_package_fee, raw_amt), 2)
-            adj_base = round(max(0, raw_base_package_fee - crm_disc_amt_display), 2)
 
     effective_total_fee = (
         round(adj_base * (1.0 + sur_pct / 100.0), 2)
@@ -3350,7 +3337,8 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "india_tax_info": india_tax_info,
         # Mirrors Client Garden + site portal defaults (subscription Excel overrides when authoritative).
         "client_india_pricing": _merge_client_india_pricing_portal(client, sub, settings_doc),
-        # Raw CRM % / bands (portal merge in `client_india_pricing` may inject site defaults — use this for catalog list vs offer).
+        # Raw CRM % / bands for **Home Coming package** UI only (`AnnualPackagePurchasePage`); not applied
+        # to Sacred Exchange totals, `client_india_pricing`, or flagship checkout.
         "client_discount_source": {
             "india_discount_percent": client.get("india_discount_percent"),
             "india_discount_member_bands": client.get("india_discount_member_bands"),
