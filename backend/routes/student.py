@@ -2932,6 +2932,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     is_emi_plan = pm_sub == "EMI" and len(emis) > 0
     fam_n_fin = max(1, 1 + len(client.get("immediate_family") or []))
     rule_fin = _resolve_india_discount_rule(_crm_only_discount_dict(client), fam_n_fin)
+    # Applies to Sacred Exchange ``subscription.total_fee`` (renewal / annual package on file), not cart lines.
     adj_base = raw_base_package_fee
     crm_disc_pct_display = None
     crm_disc_amt_display = None

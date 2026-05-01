@@ -866,6 +866,7 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
             "enrollment_razorpay_enabled": 1,
             "india_gst_percent": 1,
             "india_platform_charge_percent": 1,
+            "dashboard_sacred_home_annual_program_id": 1,
         },
     )
     if (ss_doc or {}).get("enrollment_razorpay_enabled") is False:
@@ -915,6 +916,19 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
         client_pricing_doc = await db.clients.find_one({"id": client_id}, _cp_proj)
     if not client_pricing_doc and booker_email:
         client_pricing_doc = await db.clients.find_one({"email": booker_email}, _cp_proj)
+
+    from utils.home_coming_discount_scope import (
+        checkout_program_ids_from_submit,
+        filter_client_pricing_for_home_coming_checkout,
+    )
+
+    pin_hc = str((ss_doc or {}).get("dashboard_sacred_home_annual_program_id") or "").strip()
+    chk_ids = checkout_program_ids_from_submit(data)
+    client_pricing_doc = filter_client_pricing_for_home_coming_checkout(
+        client_pricing_doc,
+        pin_program_id=pin_hc,
+        checkout_program_ids=chk_ids,
+    )
 
     from utils.india_checkout_math import compute_india_checkout_breakdown
 

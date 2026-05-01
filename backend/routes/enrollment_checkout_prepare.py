@@ -369,7 +369,12 @@ async def enrollment_checkout_prepare(
         try:
             ss_inr = await db.site_settings.find_one(
                 {"id": "site_settings"},
-                {"_id": 0, "india_gst_percent": 1, "india_platform_charge_percent": 1},
+                {
+                    "_id": 0,
+                    "india_gst_percent": 1,
+                    "india_platform_charge_percent": 1,
+                    "dashboard_sacred_home_annual_program_id": 1,
+                },
             )
             booker_em = (enrollment.get("booker_email") or "").strip().lower()
             cid = (enrollment.get("client_id") or "").strip()
@@ -386,6 +391,18 @@ async def enrollment_checkout_prepare(
                 cp_doc = await db.clients.find_one({"id": cid}, cp_proj)
             if not cp_doc and booker_em:
                 cp_doc = await db.clients.find_one({"email": booker_em}, cp_proj)
+            from utils.home_coming_discount_scope import (
+                checkout_program_ids_from_submit,
+                filter_client_pricing_for_home_coming_checkout,
+            )
+
+            pin_hc = str((ss_inr or {}).get("dashboard_sacred_home_annual_program_id") or "").strip()
+            chk_ids = checkout_program_ids_from_submit(data)
+            cp_doc = filter_client_pricing_for_home_coming_checkout(
+                cp_doc,
+                pin_program_id=pin_hc,
+                checkout_program_ids=chk_ids,
+            )
             from utils.india_checkout_math import compute_india_checkout_breakdown
 
             br = compute_india_checkout_breakdown(

@@ -1115,7 +1115,7 @@ async def get_client_tax_for_enrollment(enrollment_id: str):
     """
     enrollment = await db.enrollments.find_one(
         {"id": enrollment_id},
-        {"_id": 0, "booker_email": 1, "client_id": 1, "participants": 1},
+        {"_id": 0, "booker_email": 1, "client_id": 1, "participants": 1, "item_type": 1, "item_id": 1},
     )
     if not enrollment:
         return {"india_tax_enabled": False}
@@ -1148,10 +1148,30 @@ async def get_client_tax_for_enrollment(enrollment_id: str):
     if participant_count < 1:
         participant_count = 1
 
+    settings_pin = await db.site_settings.find_one(
+        {"id": "site_settings"},
+        {"_id": 0, "dashboard_sacred_home_annual_program_id": 1},
+    )
+    pin_hc = str((settings_pin or {}).get("dashboard_sacred_home_annual_program_id") or "").strip()
+    chk_ids: List[str] = []
+    if enrollment.get("item_type") == "program" and enrollment.get("item_id"):
+        chk_ids = [str(enrollment.get("item_id")).strip()]
+
+    from utils.home_coming_discount_scope import filter_client_pricing_for_home_coming_checkout
+
+    cp_filtered = filter_client_pricing_for_home_coming_checkout(
+        {
+            "india_discount_percent": client_doc.get("india_discount_percent"),
+            "india_discount_member_bands": client_doc.get("india_discount_member_bands"),
+        },
+        pin_program_id=pin_hc,
+        checkout_program_ids=chk_ids,
+    )
+
     return {
         "india_payment_method": client_doc.get("india_payment_method") or None,
-        "india_discount_percent": client_doc.get("india_discount_percent"),  # None = 0% (no client-specific discount)
-        "india_discount_member_bands": client_doc.get("india_discount_member_bands") or None,
+        "india_discount_percent": (cp_filtered or {}).get("india_discount_percent"),
+        "india_discount_member_bands": (cp_filtered or {}).get("india_discount_member_bands"),
         "participant_count": participant_count,
         "india_tax_enabled": bool(client_doc.get("india_tax_enabled")),
         "india_tax_percent": client_doc.get("india_tax_percent", 18.0),
