@@ -215,7 +215,10 @@ def _apply_crm_portal_discount_to_pricing_total(
     currency: str,
     participant_count: int,
 ) -> dict:
-    """Extend portal pricing dict so Sacred Home quotes match Client Garden CRM discount."""
+    """Apply Iris Annual Abundance CRM discount to portal pricing **only** for the Home Coming annual program.
+
+    Call this solely when ``program_id`` matches ``dashboard_sacred_home_annual_program_id``.
+    """
     tot = float(pricing.get("total") or 0)
     after, disc_amt, disc_pct = _apply_crm_discount_to_total(tot, currency, client, participant_count)
     if disc_amt <= 0:
@@ -232,11 +235,12 @@ def _apply_crm_portal_discount_to_pricing_total(
 
 
 def _merge_client_india_pricing_portal(client: dict, sub: Optional[dict], site_doc: dict) -> Dict[str, Any]:
-    """Merged India manual-checkout fields for Sacred Home.
+    """Merged India manual-checkout fields for Sacred Home (Divine Cart, payment proofs).
 
-    Discount: authoritative subscription ``individual_discount_pct`` when set; else CRM
-    ``india_discount_percent`` when parsed; else **0** (unset/blank CRM is not filled from site defaults).
-    Tax still follows subscription overrides or CRM/site merge below. Member bands use the merged percent context.
+    **Discount:** Only ``subscription.individual_discount_pct`` when the subscription row is authoritative
+    (Excel-style package). Iris Annual Abundance ``india_discount_percent`` / bands apply **only** to the
+    Home Coming annual path — see ``GET /student/home`` → ``client_discount_source``, ``financials``, and
+    pinned-program ``/dashboard-quote`` — not general India cart math.
     """
     sub = sub or {}
     auth = _subscription_is_authoritative(sub)
@@ -247,8 +251,7 @@ def _merge_client_india_pricing_portal(client: dict, sub: Optional[dict], site_d
     if auth and sub_disc_f is not None:
         eff_disc = float(sub_disc_f)
     else:
-        cp = _optional_float(client.get("india_discount_percent"))
-        eff_disc = float(cp if cp is not None else 0.0)
+        eff_disc = 0.0
 
     sub_tax_f = _optional_float(sub.get("individual_tax_pct")) if auth else None
 
@@ -265,15 +268,11 @@ def _merge_client_india_pricing_portal(client: dict, sub: Optional[dict], site_d
         else:
             eff_tax = float(_optional_float(client.get("india_tax_percent")) or 0.0)
 
-    bands = client.get("india_discount_member_bands")
-    if not isinstance(bands, list):
-        bands = None
-
     pm = (client.get("india_payment_method") or "").strip()
     return {
         "india_payment_method": pm or None,
         "india_discount_percent": eff_disc,
-        "india_discount_member_bands": bands or None,
+        "india_discount_member_bands": None,
         "india_tax_enabled": eff_tax_enabled,
         "india_tax_percent": eff_tax,
         "india_tax_label": eff_label,
@@ -2209,12 +2208,14 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             "annual_package_included_program_ids": 1,
             "dashboard_program_offers": 1,
             "awrp_batch_program_offers": 1,
+            "dashboard_sacred_home_annual_program_id": 1,
         },
     ) or {}
     fam_all = await _all_dashboard_guest_rows_with_household(client_id, client, for_payment=True)
     fam_by_id = {str(m.get("id")) for m in fam_all if m.get("id")}
     fam_by_row = {str(m.get("id")): m for m in fam_all if m.get("id")}
     inc_cfg = settings_doc.get("annual_package_included_program_ids")
+    pin_program_id = (settings_doc.get("dashboard_sacred_home_annual_program_id") or "").strip()
     total = 0.0
     for line in lines:
         pid = str(line.program_id).strip()
@@ -2266,7 +2267,8 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             booker_annual_portal=_portal_member_column_for_self(client, annual_dashboard_access),
         )
         qc = _dashboard_quote_participant_count(include_self, imm_plain, imm_peer, ext_fc)
-        pricing = _apply_crm_portal_discount_to_pricing_total(pricing, client, cur, qc)
+        if pin_program_id and pid == str(pin_program_id).strip():
+            pricing = _apply_crm_portal_discount_to_pricing_total(pricing, client, cur, qc)
         total += float(pricing.get("total") or 0)
     return round(total, 2), cur
 
@@ -2437,12 +2439,13 @@ async def dashboard_quote(
             pricing["portal_discount_total"] = 0.0
 
     qc = _dashboard_quote_participant_count(include_self, imm_plain, imm_peer, ext_fc)
-    pricing = _apply_crm_portal_discount_to_pricing_total(
-        pricing,
-        client,
-        str(pricing.get("currency") or currency or "aed"),
-        qc,
-    )
+    if pin_program_id and str(program_id).strip() == str(pin_program_id).strip():
+        pricing = _apply_crm_portal_discount_to_pricing_total(
+            pricing,
+            client,
+            str(pricing.get("currency") or currency or "aed"),
+            qc,
+        )
 
     peer_pkg_inc = max(0, int(peer_sel) - int(imm_peer)) if id_list else 0
     cur = str(pricing.get("currency") or "aed").lower()
@@ -2513,6 +2516,7 @@ async def build_admin_dashboard_pricing_snapshot(
             "awrp_batch_program_offers": 1,
             "india_gst_percent": 1,
             "dashboard_annual_quote_show_tax": 1,
+            "dashboard_sacred_home_annual_program_id": 1,
         },
     ) or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
@@ -2522,6 +2526,7 @@ async def build_admin_dashboard_pricing_snapshot(
     quote_show_tax = True if qst is None else bool(qst)
 
     cur_in = (currency or "inr").lower()
+    pin_program_id = (settings_doc.get("dashboard_sacred_home_annual_program_id") or "").strip()
     program_rows: List[dict] = []
     for raw in upcoming[: max(1, min(limit, 40))]:
         pid = str(raw.get("id") or "")
@@ -2561,7 +2566,8 @@ async def build_admin_dashboard_pricing_snapshot(
             booker_annual_portal=_portal_member_column_for_self(client, annual_dashboard_access),
         )
         qc = _dashboard_quote_participant_count(include_self, 0, 0, 0)
-        pricing = _apply_crm_portal_discount_to_pricing_total(pricing, client, cur_in, qc)
+        if pin_program_id and pid == str(pin_program_id).strip():
+            pricing = _apply_crm_portal_discount_to_pricing_total(pricing, client, cur_in, qc)
         cur = str(pricing.get("currency") or cur_in).lower()
         tot = float(pricing.get("total") or 0)
         tax_included_estimate = 0.0
@@ -2624,6 +2630,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
             "annual_package_included_program_ids": 1,
             "dashboard_program_offers": 1,
             "awrp_batch_program_offers": 1,
+            "dashboard_sacred_home_annual_program_id": 1,
         },
     ) or {}
     included = _portal_included_in_annual_package(
@@ -2679,7 +2686,9 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         booker_annual_portal=_portal_member_column_for_self(client, annual_dashboard_access),
     )
     qc = _dashboard_quote_participant_count(not included, imm_plain, imm_peer, ext_fc)
-    quote = _apply_crm_portal_discount_to_pricing_total(quote, client, data.currency, qc)
+    pin_pay = (settings_doc.get("dashboard_sacred_home_annual_program_id") or "").strip()
+    if pin_pay and str(data.program_id).strip() == str(pin_pay).strip():
+        quote = _apply_crm_portal_discount_to_pricing_total(quote, client, data.currency, qc)
     if quote["total"] < 0:
         raise HTTPException(status_code=400, detail="Invalid quote")
     if quote["total"] == 0 and not included:
