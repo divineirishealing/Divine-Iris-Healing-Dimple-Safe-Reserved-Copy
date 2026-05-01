@@ -25,7 +25,9 @@ const PromotionsTab = ({ programs }) => {
   const { toast } = useToast();
   const [promotions, setPromotions] = useState([]);
   const [checkoutPromoVisible, setCheckoutPromoVisible] = useState(true);
+  const [checkoutPromoDraft, setCheckoutPromoDraft] = useState(true);
   const [checkoutPromoLoaded, setCheckoutPromoLoaded] = useState(false);
+  const [savingCheckoutPromo, setSavingCheckoutPromo] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
@@ -42,24 +44,36 @@ const PromotionsTab = ({ programs }) => {
     axios
       .get(`${API}/settings`)
       .then((r) => {
-        setCheckoutPromoVisible(r.data?.checkout_promo_code_visible !== false);
+        const v = r.data?.checkout_promo_code_visible !== false;
+        setCheckoutPromoVisible(v);
+        setCheckoutPromoDraft(v);
         setCheckoutPromoLoaded(true);
       })
       .catch(() => setCheckoutPromoLoaded(true));
   }, []);
 
-  const persistCheckoutPromoVisible = async (v) => {
-    const prev = checkoutPromoVisible;
-    setCheckoutPromoVisible(v);
+  const checkoutPromoDirty = checkoutPromoDraft !== checkoutPromoVisible;
+
+  const saveCheckoutPromoVisibility = async () => {
+    setSavingCheckoutPromo(true);
     try {
-      await axios.put(`${API}/settings`, { checkout_promo_code_visible: v });
+      const r = await axios.put(`${API}/settings`, { checkout_promo_code_visible: checkoutPromoDraft });
+      const saved = r.data?.checkout_promo_code_visible !== false;
+      setCheckoutPromoVisible(saved);
+      setCheckoutPromoDraft(saved);
       toast({
-        title: v ? 'Promo code field is now visible' : 'Promo code field is hidden',
-        description: 'On cart and program enrollment.',
+        title: saved ? 'Promo code field is now visible' : 'Promo code field is hidden',
+        description: 'Saved for cart, program enrollment, and Divine Cart.',
       });
-    } catch {
-      setCheckoutPromoVisible(prev);
-      toast({ title: 'Could not save setting', variant: 'destructive' });
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      toast({
+        title: 'Could not save setting',
+        description: typeof detail === 'string' ? detail : 'Check your connection and try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingCheckoutPromo(false);
     }
   };
 
@@ -189,18 +203,32 @@ const PromotionsTab = ({ programs }) => {
           <div>
             <p className="text-sm font-semibold text-gray-900">Website: show “Promo code” box</p>
             <p className="text-xs text-gray-600 mt-1 max-w-xl">
-              Controls the promo field on the <strong>cart</strong> and <strong>program enrollment</strong> pages. Saves immediately when you flip the switch.
-              Enrollment links with <code className="text-[10px] bg-white/80 px-1 rounded border">?promo=</code> still work when this is off.
+              Controls the promo field on the <strong>cart</strong>, <strong>program enrollment</strong>, and{' '}
+              <strong>Divine Cart</strong>. Set the switch, then click <strong>Save</strong>. Enrollment links with{' '}
+              <code className="text-[10px] bg-white/80 px-1 rounded border">?promo=</code> still work when this is off.
             </p>
+            {checkoutPromoDirty && (
+              <p className="text-[11px] text-amber-800 mt-2 font-medium">You have unsaved changes — click Save to apply.</p>
+            )}
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-xs text-gray-600">{checkoutPromoVisible ? 'On' : 'Off'}</span>
+          <div className="flex items-center gap-3 flex-shrink-0 flex-wrap justify-end">
+            <span className="text-xs text-gray-600">{checkoutPromoDraft ? 'On' : 'Off'}</span>
             <Switch
               data-testid="promotions-checkout-promo-switch"
-              checked={checkoutPromoVisible}
-              onCheckedChange={persistCheckoutPromoVisible}
-              disabled={!checkoutPromoLoaded}
+              checked={checkoutPromoDraft}
+              onCheckedChange={setCheckoutPromoDraft}
+              disabled={!checkoutPromoLoaded || savingCheckoutPromo}
             />
+            <Button
+              type="button"
+              size="sm"
+              data-testid="promotions-checkout-promo-save"
+              className="bg-[#D4AF37] hover:bg-[#b8962e] text-white"
+              disabled={!checkoutPromoLoaded || savingCheckoutPromo || !checkoutPromoDirty}
+              onClick={saveCheckoutPromoVisibility}
+            >
+              {savingCheckoutPromo ? <span className="text-xs">Saving…</span> : <><Save size={14} className="mr-1 inline" /> Save</>}
+            </Button>
           </div>
         </div>
       </div>

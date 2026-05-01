@@ -165,9 +165,9 @@ async def update_settings(payload: Dict[str, Any]):
         update_data["pricing_hub_email_overrides"] = _normalize_pricing_hub_email_overrides(
             payload.get("pricing_hub_email_overrides")
         )
-    # Defensive: Pydantic v2 partial bodies should still persist explicit False
-    if hasattr(settings, "model_fields_set") and "checkout_promo_code_visible" in settings.model_fields_set:
-        update_data["checkout_promo_code_visible"] = bool(settings.checkout_promo_code_visible)
+    # Raw JSON — same as enable_cross_sell; ensures True/False always persist on partial PUTs
+    if "checkout_promo_code_visible" in payload:
+        update_data["checkout_promo_code_visible"] = bool(payload["checkout_promo_code_visible"])
     # Raw JSON — same as other toggles; ensures master cross-sell switch always persists on partial PUTs
     if "enable_cross_sell" in payload:
         update_data["enable_cross_sell"] = bool(payload["enable_cross_sell"])
