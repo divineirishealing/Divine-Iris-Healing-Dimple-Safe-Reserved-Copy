@@ -5,7 +5,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
-import { User, MapPin, Calendar, Briefcase, GraduationCap, Heart } from 'lucide-react';
+import { User, MapPin, Calendar, Briefcase, GraduationCap, Heart, Mail } from 'lucide-react';
 import axios from 'axios';
 import { getAuthHeaders } from '../../lib/authHeaders';
 import { getApiUrl } from '../../lib/config';
@@ -163,7 +163,6 @@ const ProfilePage = () => {
           <div className="min-w-0 flex-1 text-center sm:text-left">
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-800/80">Your presence</p>
             <h1 className="text-2xl font-light tracking-tight text-stone-900 sm:text-3xl">{user?.name || 'Welcome'}</h1>
-            <p className="mt-1 text-sm font-normal text-violet-800/90">{user?.email}</p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
               <span className="rounded-full border border-violet-200/80 bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-violet-800">
                 Tier {user?.tier}
@@ -186,11 +185,27 @@ const ProfilePage = () => {
         <CardHeader className="space-y-2 border-b border-stone-100 bg-gradient-to-r from-white to-stone-50/50 pb-6">
           <CardTitle className="text-xl font-normal tracking-tight text-stone-900">Detailed profile</CardTitle>
           <p className="text-xs font-normal leading-relaxed text-stone-600">
-            Values from <strong className="font-semibold text-stone-700">Client Garden</strong> may pre-fill these fields when your portal is linked. Save to update your record — changes are timestamped for our team.
+            Values from <strong className="font-semibold text-stone-700">Iris Garden</strong> may pre-fill these fields when your portal is linked. Save to update your record — changes are timestamped for our team.
           </p>
         </CardHeader>
         <CardContent className="pt-8">
           <form onSubmit={handleSubmit} className="grid gap-7 md:grid-cols-2">
+            <div className="space-y-2 border-b border-stone-100 pb-6 md:col-span-2">
+              <Label className="text-stone-700">Email</Label>
+              <div className="relative">
+                <Mail size={16} className="pointer-events-none absolute left-3 top-3 text-stone-400" aria-hidden />
+                <Input
+                  readOnly
+                  value={user?.email || ''}
+                  className="border-stone-200 bg-stone-50/80 pl-10 text-stone-700"
+                  aria-label="Account email"
+                />
+              </div>
+              <p className="text-[11px] text-stone-500">
+                Your sign-in address and Iris Garden contact email. To change it, update your Google account or reach out to your host.
+              </p>
+            </div>
+
             <div className="space-y-2 border-b border-stone-100 pb-6 md:col-span-2">
               <Label htmlFor="joined-divine-iris" className="text-stone-700">
                 Date of joining Divine Iris

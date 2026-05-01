@@ -410,7 +410,7 @@ const AdminPanel = () => {
       { key: 'inbox', label: 'Inbox', icon: Inbox },
     ]},
     { label: 'Clients', icon: Users, tabs: [
-      { key: 'clients', label: 'Client Garden', icon: Users },
+      { key: 'clients', label: 'Iris Garden', icon: Users },
       { key: 'dashboard_access', label: 'Dashboard access', icon: KeyRound },
       { key: 'client_finances', label: 'Iris Annual Abundance', icon: IndianRupee },
       { key: 'annual_portal_clients', label: 'Annual + dashboard', icon: Sparkles },

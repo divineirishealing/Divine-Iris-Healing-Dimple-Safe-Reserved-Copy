@@ -3014,7 +3014,7 @@ async def put_contact_email(data: ContactEmailBody, user: dict = Depends(get_cur
     """Set Client Garden + portal login email when missing or portal uses an admin preview placeholder."""
     cid = user.get("client_id")
     if not cid:
-        raise HTTPException(status_code=400, detail="Your account is not linked to Client Garden.")
+        raise HTTPException(status_code=400, detail="Your account is not linked to Iris Garden.")
     em = (data.email or "").strip().lower()
     if not em or "@" not in em or len(em) > 200:
         raise HTTPException(status_code=400, detail="Please enter a valid email address.")
@@ -3068,7 +3068,7 @@ async def put_annual_package_offer_preferences(
     """Store Home Coming / annual package purchase preferences on the client record (admin CRM)."""
     cid = user.get("client_id")
     if not cid:
-        raise HTTPException(status_code=400, detail="Your account is not linked to Client Garden.")
+        raise HTTPException(status_code=400, detail="Your account is not linked to Iris Garden.")
     start = (data.desired_start_date or "").strip()[:10]
     if start and len(start) == 10:
         try:
@@ -3106,7 +3106,7 @@ async def put_membership_period(data: MembershipPeriodBody, user: dict = Depends
     """Annual package members set membership start; end date is derived from the package duration (same rule as admin)."""
     cid = user.get("client_id")
     if not cid:
-        raise HTTPException(status_code=400, detail="Your account is not linked to Client Garden.")
+        raise HTTPException(status_code=400, detail="Your account is not linked to Iris Garden.")
     client = await _student_client_row_with_expiry(cid)
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
@@ -3194,7 +3194,7 @@ async def put_household_peers(data: HouseholdPeersBody, user: dict = Depends(get
     """Primary household contact: update Client Garden fields for other same-key annual portal members."""
     booker_cid = user.get("client_id")
     if not booker_cid:
-        raise HTTPException(status_code=400, detail="Your account is not linked to Client Garden.")
+        raise HTTPException(status_code=400, detail="Your account is not linked to Iris Garden.")
     me = await db.clients.find_one(
         {"id": booker_cid},
         {"_id": 0, "household_key": 1, "is_primary_household_contact": 1},

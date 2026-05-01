@@ -239,7 +239,7 @@ const BankTransactionsTab = () => {
 
       {/* Info */}
       <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-[10px] text-blue-700 leading-relaxed">
-        <strong>How to use:</strong> Download the template → paste in your GPay / UPI / bank export rows → Upload. Each imported row shows here. Click <strong>Tag</strong> to link a transaction to a client — this also auto-fills their payment method in Client Garden if not already set.
+        <strong>How to use:</strong> Download the template → paste in your GPay / UPI / bank export rows → Upload. Each imported row shows here. Click <strong>Tag</strong> to link a transaction to a member — this also auto-fills their payment method in Iris Garden if not already set.
       </div>
 
       {/* Filters */}

@@ -1656,8 +1656,8 @@ export default function ClientFinancesTab() {
         <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">Iris Annual Abundance</h2>
       </div>
       <p className="text-xs text-gray-500 mt-0.5 mb-4 shrink-0 max-w-4xl">
-        Admin sidebar tab <strong>Iris Annual Abundance</strong> (not Client Garden). Excel-style grid:{' '}
-        <strong>S.No</strong> is row order in the current view. Rows mirror Client Garden; click <strong>Edit</strong>{' '}
+        Admin sidebar tab <strong>Iris Annual Abundance</strong> (not Iris Garden). Excel-style grid:{' '}
+        <strong>S.No</strong> is row order in the current view. Rows mirror Iris Garden; click <strong>Edit</strong>{' '}
         on a row to change pay method, <strong>portal hub</strong> (INR / AED / USD vs auto — drives Stripe hub for
         that client), annual fee, discount, GST, channelization &amp; late fees, billing mode, EMIs, surcharge, and iris
         year — then <strong>Save</strong> or <strong>Cancel</strong>. Saved values match the{' '}
@@ -1844,7 +1844,7 @@ export default function ClientFinancesTab() {
             <div className="rounded-lg border border-violet-200/80 bg-violet-50/50 px-3 py-3 space-y-2 text-xs">
               <p className="font-semibold text-gray-900">Annual window &amp; package</p>
               <p className="text-[10px] text-gray-500 -mt-1">
-                Dates follow Client Garden / subscriber row. Edit <strong>annual fee</strong> here or in the grid (Iris
+                Dates follow Iris Garden / subscriber row. Edit <strong>annual fee</strong> here or in the grid (Iris
                 Annual Abundance); students see totals on Sacred Exchange after save.
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

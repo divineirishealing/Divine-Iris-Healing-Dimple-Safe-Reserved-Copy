@@ -205,7 +205,7 @@ function DashboardContactEmailPrompt({ apiBase, visible, onSaved }) {
         { email: trimmed },
         { withCredentials: true, headers: getAuthHeaders() },
       );
-      toast({ title: 'Email saved', description: 'Your Client Garden profile now has this contact email.' });
+      toast({ title: 'Email saved', description: 'Your Iris Garden profile now has this contact email.' });
       setEmail('');
       await checkAuth();
       onSaved?.();
@@ -228,7 +228,7 @@ function DashboardContactEmailPrompt({ apiBase, visible, onSaved }) {
           Contact email
         </h2>
         <p className="text-sm text-amber-950/85 leading-snug mb-3">
-          Add the email you want on your Client Garden record for enrollments, receipts, and matching your account.
+          Add the email you want on your Iris Garden record for enrollments, receipts, and matching your account.
           Use the address you check regularly.
         </p>
         <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row sm:items-end gap-3">

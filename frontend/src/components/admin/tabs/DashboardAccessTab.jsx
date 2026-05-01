@@ -244,7 +244,7 @@ export default function DashboardAccessTab() {
     if (!em && !cid) {
       toast({
         title: 'Cannot open dashboard',
-        description: 'This client record has no id — save the client in Client Garden first.',
+        description: 'This record has no id — save it in Iris Garden first.',
         variant: 'destructive',
       });
       return;
@@ -890,7 +890,7 @@ export default function DashboardAccessTab() {
 
           <div className="space-y-4 py-2">
             <div>
-              <Label className="text-xs text-gray-600">Client Garden email</Label>
+              <Label className="text-xs text-gray-600">Iris Garden email</Label>
               <p className="text-[10px] text-gray-400 mb-1">
                 You may use the same address on multiple clients. Google sign-in resolves to one row (newest with access
                 enabled). Welcome mail uses this address when you enable login below.

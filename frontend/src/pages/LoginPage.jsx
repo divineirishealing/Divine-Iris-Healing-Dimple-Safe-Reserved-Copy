@@ -80,7 +80,7 @@ const LoginPage = () => {
             <div className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/90 to-orange-50/40 px-4 py-3.5 text-xs text-amber-950 flex gap-3 items-start shadow-sm">
               <Lock size={16} className="mt-0.5 shrink-0 text-amber-800" />
               <p className="leading-relaxed">
-                <strong className="font-semibold">Members only.</strong> Use the Google email tied to your Client Garden
+                <strong className="font-semibold">Members only.</strong> Use the Google email tied to your Iris Garden
                 record. New students are enabled after your host approves portal access.
               </p>
             </div>

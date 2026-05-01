@@ -13,7 +13,7 @@
     { key: 'header_footer', label: 'Header & Footer', icon: Globe },
     { key: 'enrollments', label: 'Enrollments', icon: Users },
     { key: 'inbox', label: 'Inbox', icon: Inbox },
-    { key: 'clients', label: 'Client Garden', icon: Users },
+    { key: 'clients', label: 'Iris Garden', icon: Users },
     { key: 'promotions', label: 'Promotions', icon: Gift },
     { key: 'discounts', label: 'Discounts & Loyalty', icon: Tag },
     { key: 'exchange_rates', label: 'Exchange Rates', icon: Globe },

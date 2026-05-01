@@ -186,7 +186,7 @@ const DashboardLayout = () => {
   const isHealingSanctuaryBackdrop = cosmicVariant === 'sacred_home_light';
   const impersonationLabel =
     user?.email && String(user.email).endsWith('@impersonation.internal')
-      ? `${(user.name || '').trim() || 'Client'} (no email on Client Garden — admin preview login)`
+      ? `${(user.name || '').trim() || 'Member'} (no email on Iris Garden — admin preview login)`
       : user?.email;
 
   return (

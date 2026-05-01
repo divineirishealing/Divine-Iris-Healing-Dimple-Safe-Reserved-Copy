@@ -899,14 +899,14 @@ const ClientsTab = () => {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <Users size={18} className="text-[#D4AF37]" /> Client Garden
+            <Users size={18} className="text-[#D4AF37]" /> Iris Garden
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 max-w-3xl">
-            One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> for <strong className="font-semibold text-gray-700">name</strong>, <strong className="font-semibold text-gray-700">first seen</strong> (month and year; stored as the 1st of that month), <strong className="font-semibold text-gray-700">Home Coming</strong> portal (Yes/No), garden label, DIID middle (YYMM updates when you change first seen), contact fields, <strong className="font-semibold text-gray-700">how they found us</strong>, and <strong className="font-semibold text-gray-700">referrer UUID</strong>. <strong className="font-semibold text-gray-700">Google login</strong>, <strong className="font-semibold text-gray-700">preferred / tagged payment</strong>, <strong className="font-semibold text-gray-700">GST</strong>, and <strong className="font-semibold text-gray-700">discount</strong> mirror Dashboard access (read-only here; edit under Admin → Dashboard access).{' '}
-            <strong className="font-semibold text-gray-700">Portal hub</strong> (INR / AED / USD for Sacred Home checkout) is set per client under <strong className="font-semibold text-gray-700">Admin → Iris Annual Abundance</strong> — open <strong className="font-semibold text-gray-700">Columns</strong> there if &quot;Portal hub&quot; is hidden.{' '}
+            One row per member — use <strong className="font-semibold text-gray-700">Edit</strong> for <strong className="font-semibold text-gray-700">name</strong>, <strong className="font-semibold text-gray-700">first seen</strong> (month and year; stored as the 1st of that month), <strong className="font-semibold text-gray-700">Home Coming</strong> portal (Yes/No), garden label, DIID middle (YYMM updates when you change first seen), contact fields, <strong className="font-semibold text-gray-700">how they found us</strong>, and <strong className="font-semibold text-gray-700">referrer UUID</strong>. <strong className="font-semibold text-gray-700">Google login</strong>, <strong className="font-semibold text-gray-700">preferred / tagged payment</strong>, <strong className="font-semibold text-gray-700">GST</strong>, and <strong className="font-semibold text-gray-700">discount</strong> mirror Dashboard access (read-only here; edit under Admin → Dashboard access).{' '}
+            <strong className="font-semibold text-gray-700">Portal hub</strong> (INR / AED / USD for Sacred Home checkout) is set per member under <strong className="font-semibold text-gray-700">Admin → Iris Annual Abundance</strong> — open <strong className="font-semibold text-gray-700">Columns</strong> there if &quot;Portal hub&quot; is hidden.{' '}
             <strong className="font-semibold text-gray-700">View as</strong> opens their Sacred Home. Save or Cancel in Actions. Conversions/sources still come from sync.{' '}
             <strong className="font-semibold text-gray-700">Primary HH</strong> marks the primary household contact for that household key.{' '}
-            <strong className="font-semibold text-gray-700">Portal cohort</strong> ties a client to an AWRP / batch defined in Admin → Dashboard settings; they then see that cohort&apos;s portal prices on Sacred Home when they have annual dashboard access. Select rows with the checkboxes in <strong className="font-semibold text-gray-700">SR No</strong> to assign a cohort in bulk.{' '}
+            <strong className="font-semibold text-gray-700">Portal cohort</strong> ties a member to an AWRP / batch defined in Admin → Dashboard settings; they then see that cohort&apos;s portal prices on Sacred Home when they have annual dashboard access. Select rows with the checkboxes in <strong className="font-semibold text-gray-700">SR No</strong> to assign a cohort in bulk.{' '}
             <strong className="font-semibold text-gray-700">DIID</strong> and <strong className="font-semibold text-gray-700">UUID</strong> are shown in the last columns; use <strong className="font-semibold text-gray-700">Sync All Data</strong> to backfill DIID.
           </p>
         </div>
@@ -917,7 +917,7 @@ const ClientsTab = () => {
             variant="outline"
             className="text-[10px] h-8 gap-1.5 border-[#5D3FD3] text-[#5D3FD3] hover:bg-[#5D3FD3]/10"
           >
-            <UserPlus size={12} /> {showAddClient ? 'Close form' : 'Add client'}
+            <UserPlus size={12} /> {showAddClient ? 'Close form' : 'Add member'}
           </Button>
           <Button data-testid="clients-sync" onClick={handleSync} disabled={syncing} variant="outline" className="text-[10px] h-8 gap-1.5">
             <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing...' : 'Sync All Data'}
@@ -941,7 +941,7 @@ const ClientsTab = () => {
           data-testid="clients-add-manual-form"
           className="mb-4 rounded-xl border border-[#5D3FD3]/25 bg-gradient-to-r from-purple-50/80 to-white p-4 space-y-3"
         >
-          <p className="text-xs font-semibold text-gray-800">Add client manually</p>
+          <p className="text-xs font-semibold text-gray-800">Add member manually</p>
           <p className="text-[10px] text-gray-500">Creates a garden record with source &quot;Manual&quot;. Name is required; email and phone are optional (add later in edit if needed).</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -1150,7 +1150,7 @@ const ClientsTab = () => {
         {clients.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
             <Users size={32} className="mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No clients found. Use Add client or Sync All Data to populate.</p>
+            <p className="text-sm">No members found. Use Add member or Sync All Data to populate.</p>
           </div>
         ) : clientsRowFiltered.length === 0 && !editingId ? (
           <div className="text-center py-16 text-gray-400">
@@ -1319,7 +1319,7 @@ const ClientsTab = () => {
                 {isVisible('garden_label') && (
                   <FilterableTh
                     colId="garden_label"
-                    title="Client Garden journey label"
+                    title="Iris Garden journey label"
                     className="py-2 px-2 font-semibold min-w-[200px]"
                     optionClients={filterOptionBaseByCol.garden_label}
                     columnFilters={columnFilters}

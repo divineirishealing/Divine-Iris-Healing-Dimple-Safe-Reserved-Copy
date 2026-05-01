@@ -133,7 +133,7 @@ const ContactUpdateLinkTab = () => {
       </div>
       <p className="text-xs text-gray-500 mb-4 max-w-2xl">
         Share the link below (or create another). Collects name, email, phone, city, and country. When &quot;Dashboard
-        access&quot; is on, submitting also updates Client Garden and can sign them into the dashboard (not shown on the
+        access&quot; is on, submitting also updates Iris Garden and can sign them into the dashboard (not shown on the
         public form). Export CSV anytime.
       </p>
 

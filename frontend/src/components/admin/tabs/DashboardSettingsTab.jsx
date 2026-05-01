@@ -964,7 +964,7 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
             </div>
             <p className="text-[10px] text-gray-600 leading-relaxed">
               Bulk updates use <strong>.xlsx</strong> templates.{' '}
-              <strong>Annual Subscribers</strong> is a standalone list (optional roster; does not change Client Garden).{' '}
+              <strong>Annual Subscribers</strong> is a standalone list (optional roster; does not change Iris Garden).{' '}
               <strong>Annual Portal Clients</strong> updates existing clients — subscription dates, household keys, HomeComing
               package — for who appears on Sacred Home.
             </p>
@@ -1009,7 +1009,7 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
             <strong>friends &amp; extended</strong> column; immediate-family guests use the middle column; annual household peers use the annual column.
           </p>
           <p className="text-[10px] text-gray-600 mb-4 leading-snug rounded-md border border-slate-200/80 bg-slate-50/90 px-2.5 py-2">
-            <strong className="text-gray-800">Two dashboard access types (Client Garden):</strong>{' '}
+            <strong className="text-gray-800">Two dashboard access types (Iris Garden):</strong>{' '}
             <strong>Annual</strong> — programs ticked under &quot;Annual package — included programs&quot; do not charge the
             member&apos;s own seat; all other programs use the portal offers here (global + per-program).{' '}
             <strong>Non-annual</strong> — the account holder&apos;s seat uses the friends &amp; extended offers; package inclusion does not apply.
@@ -1501,7 +1501,7 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
               <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
                 Define cohorts (e.g. January 2025 AWRP), then set per-program prices below for each cohort. Assign people by
                 cohort ID in <strong className="text-gray-700">Admin → Subscribers</strong>, or in{' '}
-                <strong className="text-gray-700">Admin → Client Garden</strong> (Cohort column or bulk select via SR checkboxes).
+                <strong className="text-gray-700">Admin → Iris Garden</strong> (Cohort column or bulk select via SR checkboxes).
                 Clients need <strong className="text-gray-700">Annual = Yes</strong> (annual dashboard access) for these
                 overrides to apply on Sacred Home; batch pricing layers on top of the normal portal pricing table. Leave a
                 program empty to use defaults for that cohort.

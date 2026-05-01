@@ -224,7 +224,7 @@ async def _ensure_user_for_impersonation(
     if not client_doc:
         raise HTTPException(
             status_code=404,
-            detail="No client or portal user for this email. Add them to Client Garden first.",
+            detail="No Iris Garden profile or portal account for this email. Ask your host to add you to Iris Garden first.",
         )
 
     tier = client_tier_from_label(client_doc.get("label", ""))
