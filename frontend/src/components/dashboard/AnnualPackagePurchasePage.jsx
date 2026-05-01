@@ -6,6 +6,7 @@ import {
   ArrowRight,
   CreditCard,
   Calendar,
+  ChevronDown,
   Clock,
   Info,
   Sparkles,
@@ -55,6 +56,30 @@ export const HOME_COMING_BUNDLE_INCLUDES_LINES = [
   '4 TURBO RELEASE',
   '2 META DOWNLOADS',
 ];
+
+const HOME_COMING_PILLAR_SHORT = {
+  awrp: 'AWRP',
+  mmm: 'MMM',
+  turbo: 'TR',
+  meta: 'META',
+};
+
+/** Earliest dated slot per pillar (Home Coming sessions from ledger or subscription). */
+function earliestAvailedYmdByPillar(sessions) {
+  const buckets = { awrp: [], mmm: [], turbo: [], meta: [] };
+  for (const s of sessions || []) {
+    const p = String(s?.program || '').toLowerCase();
+    const d = String(s?.date || '').slice(0, 10);
+    if (buckets[p] && /^\d{4}-\d{2}-\d{2}$/.test(d)) buckets[p].push(d);
+  }
+  const minStr = (arr) => (arr.length ? arr.slice().sort()[0] : null);
+  return {
+    awrp: minStr(buckets.awrp),
+    mmm: minStr(buckets.mmm),
+    turbo: minStr(buckets.turbo),
+    meta: minStr(buckets.meta),
+  };
+}
 
 const ALL_PAY_MODES = [
   { value: 'full', label: 'PAY IN FULL' },
@@ -274,6 +299,7 @@ export default function AnnualPackagePurchasePage() {
   const prefsInitDone = useRef(false);
 
   const [desiredStart, setDesiredStart] = useState('');
+  const [priorSacredCycleOpen, setPriorSacredCycleOpen] = useState(false);
   const [paymentMode, setPaymentMode] = useState('full');
   /** Home Coming annual path: online vs offline only (no in-person seat on this bundle). */
   const [annualParticipationMode, setAnnualParticipationMode] = useState('online');
@@ -605,6 +631,76 @@ export default function AnnualPackagePurchasePage() {
     const nameYear = completed ? Math.max(1, ijYear - 1) : ijYear;
     return `${programBit} · ${irisYearLabelNoPeriod(nameYear)}`;
   }, [lap, pkg.program_name, homeData?.iris_journey?.year, autoRenewalYear, todayYmd]);
+
+  /**
+   * Prior annual window vs the locked displayed cycle (ledger archive preferred — carries home_coming_sessions).
+   */
+  const priorPeriodMeta = useMemo(() => {
+    const cStart = (cycleDisplayStart || '').trim().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(cStart)) return null;
+    const ledger = Array.isArray(homeData?.annual_period_ledger) ? homeData.annual_period_ledger : [];
+    let best = null;
+    let bestEnd = '';
+    for (const e of ledger) {
+      if (!e || typeof e !== 'object') continue;
+      const end = String(e.end_date || '').slice(0, 10);
+      if (end.length === 10 && end < cStart) {
+        if (!best || end > bestEnd) {
+          best = e;
+          bestEnd = end;
+        }
+      }
+    }
+    if (best) return { kind: 'ledger', ...best };
+    if (lapEndYmd.length === 10 && lapEndYmd < cStart && lapStartYmd.length === 10) {
+      const ijY = Math.min(12, Math.max(1, Number(homeData?.iris_journey?.year) || autoRenewalYear));
+      return {
+        kind: 'lap',
+        start_date: lapStartYmd,
+        end_date: lapEndYmd,
+        iris_year_at_archive: Math.max(1, ijY - 1),
+        annual_program: lap?.program_label || null,
+        home_coming_sessions: [],
+      };
+    }
+    if (lapEnded && lapStartYmd.length === 10 && lapEndYmd.length === 10) {
+      const ijY = Math.min(12, Math.max(1, Number(homeData?.iris_journey?.year) || autoRenewalYear));
+      return {
+        kind: 'lap',
+        start_date: lapStartYmd,
+        end_date: lapEndYmd,
+        iris_year_at_archive: Math.max(1, ijY - 1),
+        annual_program: lap?.program_label || null,
+        home_coming_sessions: [],
+      };
+    }
+    return null;
+  }, [
+    cycleDisplayStart,
+    homeData?.annual_period_ledger,
+    homeData?.iris_journey?.year,
+    lapEndYmd,
+    lapStartYmd,
+    lapEnded,
+    lap?.program_label,
+    autoRenewalYear,
+  ]);
+
+  const useCollapsiblePriorSacredCycle = Boolean(membershipCycleDatesLocked && priorPeriodMeta);
+
+  const priorPillarFirstDates = useMemo(
+    () => earliestAvailedYmdByPillar(priorPeriodMeta?.home_coming_sessions),
+    [priorPeriodMeta?.home_coming_sessions],
+  );
+
+  const priorCycleYearLabel = useMemo(() => {
+    if (!priorPeriodMeta) return '';
+    let y = priorPeriodMeta.iris_year_at_archive;
+    if (typeof y !== 'number' || y < 1 || y > 12) {
+      y = Math.max(1, autoRenewalYear - 1);
+    }
+    return irisYearLabelNoPeriod(y).replace(/\s+/g, ' ').trim();
+  }, [priorPeriodMeta, autoRenewalYear]);
 
   /** Opening lines: renewal season vs in-journey vs Year 1 welcome. */
   const irisWelcomeLeadEl = useMemo(() => {
@@ -1123,7 +1219,7 @@ export default function AnnualPackagePurchasePage() {
                   >
                     {irisWelcomeLeadEl}
                   </p>
-                  {lap?.start_date || lap?.end_date ? (
+                  {(lap?.start_date || lap?.end_date) && !useCollapsiblePriorSacredCycle ? (
                     <div className="rounded-2xl border border-white/80 bg-white/58 px-4 py-3.5 shadow-sm shadow-violet-200/40">
                       <p className="text-[10px] uppercase tracking-[0.16em] text-[rgba(100,55,155,0.42)] font-semibold mb-2">
                         {onRecordCycleBannerTitle}
@@ -1323,6 +1419,71 @@ export default function AnnualPackagePurchasePage() {
                       </>
                     )}
                   </div>
+                  {useCollapsiblePriorSacredCycle && priorPeriodMeta ? (
+                    <div
+                      className="rounded-2xl border border-white/80 bg-white/58 px-3 py-2 shadow-sm shadow-violet-200/40 text-left"
+                      data-testid="home-coming-prior-cycle-collapsible"
+                    >
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-2 text-left min-h-[2.5rem]"
+                        onClick={() => setPriorSacredCycleOpen((o) => !o)}
+                        aria-expanded={priorSacredCycleOpen}
+                      >
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-[rgba(100,55,155,0.5)] font-semibold">
+                          Previous Sacred Home cycle — tap to show details
+                        </span>
+                        <ChevronDown
+                          className={cn(
+                            'h-4 w-4 shrink-0 text-[#7c3aed] transition-transform duration-200',
+                            priorSacredCycleOpen ? 'rotate-180' : '',
+                          )}
+                          aria-hidden
+                        />
+                      </button>
+                      {priorSacredCycleOpen ? (
+                        <div className="mt-2 border-t border-violet-100/80 pt-2 text-[10px] sm:text-[11px] leading-relaxed text-[rgba(60,35,115,0.88)]">
+                          <p className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 font-medium tabular-nums">
+                            <span className="font-bold text-[#3b0764] uppercase tracking-wide">
+                              {priorCycleYearLabel}
+                            </span>
+                            <span className="text-[rgba(100,55,155,0.45)]">·</span>
+                            <span>
+                              {priorPeriodMeta.start_date
+                                ? formatDateDdMonYyyy(priorPeriodMeta.start_date)
+                                : '—'}{' '}
+                              –{' '}
+                              {priorPeriodMeta.end_date
+                                ? formatDateDdMonYyyy(priorPeriodMeta.end_date)
+                                : '—'}
+                            </span>
+                            <span className="text-[rgba(100,55,155,0.45)]">·</span>
+                            {Object.keys(HOME_COMING_PILLAR_SHORT).map((key, i) => {
+                              const d = priorPillarFirstDates[key];
+                              const label = HOME_COMING_PILLAR_SHORT[key];
+                              return (
+                                <React.Fragment key={key}>
+                                  {i > 0 ? (
+                                    <span className="text-[rgba(100,55,155,0.35)]">·</span>
+                                  ) : null}
+                                  <span>
+                                    <span className="text-[rgba(100,55,155,0.5)] uppercase text-[9px] font-semibold">
+                                      {label}
+                                    </span>{' '}
+                                    {d ? (
+                                      <span className="font-semibold text-[#3b0764]">{formatDateDdMonYyyy(d)}</span>
+                                    ) : (
+                                      <span className="text-[rgba(100,55,155,0.4)]">—</span>
+                                    )}
+                                  </span>
+                                </React.Fragment>
+                              );
+                            })}
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>

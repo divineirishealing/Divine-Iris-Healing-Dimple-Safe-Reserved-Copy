@@ -584,6 +584,36 @@ def _effective_iris_journey_year(client: dict, sub: dict, iris_journey: dict) ->
     return min(12, jy)
 
 
+def _portal_home_coming_sessions_student_safe(raw: Any) -> List[Dict[str, Any]]:
+    """Minimal session rows for student portal (program / slot / date / attended only)."""
+    if not isinstance(raw, list):
+        return []
+    out: List[Dict[str, Any]] = []
+    for item in raw[:48]:
+        if not isinstance(item, dict):
+            continue
+        prog = str(item.get("program") or "").strip().lower()
+        if prog not in ("awrp", "mmm", "turbo", "meta"):
+            continue
+        row: Dict[str, Any] = {"program": prog}
+        try:
+            slot = int(item.get("slot"))
+            if 1 <= slot <= 24:
+                row["slot"] = slot
+        except (TypeError, ValueError):
+            pass
+        ds = item.get("date")
+        if ds is not None and str(ds).strip():
+            d_str = str(ds).strip()[:10]
+            if len(d_str) == 10 and d_str[4] == "-" and d_str[7] == "-":
+                row["date"] = d_str
+        av = item.get("attended")
+        if isinstance(av, bool):
+            row["attended"] = av
+        out.append(row)
+    return out
+
+
 def _portal_annual_period_ledger_safe(raw: Any) -> List[Dict[str, Any]]:
     """Student-safe slice of ``annual_period_ledger`` (prior Home Coming windows)."""
     if not isinstance(raw, list):
@@ -608,6 +638,11 @@ def _portal_annual_period_ledger_safe(raw: Any) -> List[Dict[str, Any]]:
         if not isinstance(e, dict):
             continue
         row = {k: e[k] for k in allow if k in e}
+        hcs = e.get("home_coming_sessions")
+        if isinstance(hcs, list) and hcs:
+            safe_hcs = _portal_home_coming_sessions_student_safe(hcs)
+            if safe_hcs:
+                row["home_coming_sessions"] = safe_hcs
         if row:
             out.append(row)
     return out
