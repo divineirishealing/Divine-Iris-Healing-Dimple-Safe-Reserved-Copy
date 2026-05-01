@@ -1357,6 +1357,51 @@ def _should_archive_prior_period(prev_sub: Dict[str, Any], merged_sub: Dict[str,
     return _annual_period_triplet(ps) != _annual_period_triplet(merged_sub)
 
 
+def _apply_subscription_finance_snapshot_to_ledger_entry(
+    entry: Dict[str, Any], sub: Optional[Dict[str, Any]]
+) -> None:
+    """Attach Sacred Exchange subscriber row (fee, EMIs, mode) to a prior-period ledger entry."""
+    if not isinstance(sub, dict) or not sub:
+        return
+    try:
+        tf = sub.get("total_fee")
+        if tf is not None and str(tf).strip() != "":
+            entry["total_fee"] = round(max(0.0, float(tf)), 2)
+    except (TypeError, ValueError):
+        pass
+    cur = str(sub.get("currency") or "").strip().upper()
+    if cur:
+        entry["currency"] = cur[:12]
+    pm = str(sub.get("payment_mode") or "").strip()
+    if pm:
+        entry["payment_mode"] = pm[:32]
+    try:
+        ne = int(sub.get("num_emis") or 0)
+        if ne > 0:
+            entry["num_emis"] = max(0, min(12, ne))
+    except (TypeError, ValueError):
+        pass
+    try:
+        sur = float(sub.get("installment_surcharge_percent") or 0)
+        if sur > 0:
+            entry["installment_surcharge_percent"] = round(max(0.0, min(100.0, sur)), 2)
+    except (TypeError, ValueError):
+        pass
+    raw_emis = sub.get("emis")
+    if isinstance(raw_emis, list) and len(raw_emis) > 0:
+        entry["emis"] = [dict(e) for e in raw_emis if isinstance(e, dict)]
+    ap = sub.get("annual_program")
+    if ap and not entry.get("annual_program"):
+        entry["annual_program"] = str(ap).strip()[:500] or None
+    raw_disc = sub.get("individual_discount_pct")
+    if raw_disc is not None and str(raw_disc).strip() != "":
+        try:
+            d = float(raw_disc)
+            entry["individual_discount_pct"] = round(max(0.0, min(100.0, d)), 2)
+        except (TypeError, ValueError):
+            pass
+
+
 def _iris_year_int(client_doc: Dict[str, Any]) -> Optional[int]:
     sub0 = (client_doc or {}).get("subscription") or {}
     raw = sub0.get("iris_year")
@@ -1369,6 +1414,82 @@ def _iris_year_int(client_doc: Dict[str, Any]) -> Optional[int]:
         return None
 
 
+def _ledger_already_contains_period(client_doc: Dict[str, Any], period: Dict[str, Any]) -> bool:
+    """True if the ledger already archived this Home Coming window (start/end/DIID)."""
+    if not isinstance(period, dict):
+        return False
+    st = (period.get("start_date") or "").strip()[:10]
+    en = (period.get("end_date") or "").strip()[:10]
+    if len(st) != 10 or len(en) != 10:
+        return False
+    ad = normalize_annual_diid(str(period.get("annual_diid") or ""))
+    for e in client_doc.get("annual_period_ledger") or []:
+        if not isinstance(e, dict):
+            continue
+        est = (e.get("start_date") or "").strip()[:10]
+        een = (e.get("end_date") or "").strip()[:10]
+        if est != st or een != en:
+            continue
+        ead = normalize_annual_diid(str(e.get("annual_diid") or ""))
+        if ad and ead and ad != ead:
+            continue
+        return True
+    return False
+
+
+def _ledger_has_iris_year_snapshot(client_doc: Dict[str, Any], iy: int) -> bool:
+    """True if some ledger row was tagged with this Iris year when archived."""
+    for e in client_doc.get("annual_period_ledger") or []:
+        if not isinstance(e, dict):
+            continue
+        try:
+            if int(e.get("iris_year_at_archive")) == int(iy):
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
+
+
+def _append_iris_year_financial_ledger_if_needed(
+    client_doc: Dict[str, Any],
+    asy_snapshot: Dict[str, Any],
+    sub_snapshot: Dict[str, Any],
+    *,
+    source: str,
+    completed_iris_year: int,
+) -> Optional[List[Dict[str, Any]]]:
+    """
+    When admin bumps subscription iris_year without a date/DIID archive, freeze the prior Sacred
+    Exchange row. Skips if that Iris year was already archived (e.g. Client Garden date save ran first).
+    """
+    if _ledger_has_iris_year_snapshot(client_doc, completed_iris_year):
+        return None
+    st = (asy_snapshot.get("start_date") or "").strip()[:10]
+    en = (asy_snapshot.get("end_date") or "").strip()[:10]
+    entry: Dict[str, Any] = {
+        "id": str(uuid.uuid4()),
+        "archived_at": datetime.now(timezone.utc).isoformat(),
+        "source": source,
+        "start_date": st or None,
+        "end_date": en or None,
+        "annual_diid": (asy_snapshot.get("annual_diid") or "").strip() or None,
+        "package_sku": (asy_snapshot.get("package_sku") or "").strip() or None,
+        "iris_year_at_archive": int(completed_iris_year),
+    }
+    ap = asy_snapshot.get("annual_program")
+    if ap:
+        entry["annual_program"] = str(ap).strip()[:500] or None
+    hcs = asy_snapshot.get("home_coming_sessions")
+    if isinstance(hcs, list) and len(hcs) > 0:
+        entry["home_coming_sessions"] = list(hcs)
+    _apply_subscription_finance_snapshot_to_ledger_entry(entry, sub_snapshot)
+    existing = list((client_doc or {}).get("annual_period_ledger") or [])
+    existing.append(entry)
+    if len(existing) > _ANNUAL_PERIOD_LEDGER_MAX:
+        existing = existing[-_ANNUAL_PERIOD_LEDGER_MAX :]
+    return existing
+
+
 def _append_annual_period_ledger(
     client_doc: Dict[str, Any],
     prev_sub: Dict[str, Any],
@@ -1376,9 +1497,12 @@ def _append_annual_period_ledger(
     *,
     source: str,
     iris_year: Optional[int] = None,
+    fee_snapshot: Optional[Dict[str, Any]] = None,
 ) -> Optional[List[Dict[str, Any]]]:
     """Return a new ledger list if a completed prior window should be archived; else None."""
     if not _should_archive_prior_period(prev_sub, merged_sub):
+        return None
+    if _ledger_already_contains_period(client_doc, prev_sub):
         return None
     ps = dict(prev_sub or {})
     entry: Dict[str, Any] = {
@@ -1415,6 +1539,7 @@ def _append_annual_period_ledger(
     hcs = ps.get("home_coming_sessions")
     if isinstance(hcs, list) and len(hcs) > 0:
         entry["home_coming_sessions"] = list(hcs)
+    _apply_subscription_finance_snapshot_to_ledger_entry(entry, fee_snapshot)
     existing = list((client_doc or {}).get("annual_period_ledger") or [])
     existing.append(entry)
     if len(existing) > _ANNUAL_PERIOD_LEDGER_MAX:
@@ -1595,12 +1720,14 @@ async def patch_annual_subscription(client_id: str, data: AnnualSubscriptionUpda
 
     now = datetime.now(timezone.utc).isoformat()
     set_doc: Dict[str, Any] = {"annual_subscription": merged, "updated_at": now}
+    fee_snap = cl.get("subscription") if isinstance(cl.get("subscription"), dict) else None
     ledger = _append_annual_period_ledger(
         cl,
         prev_sub,
         merged,
         source="admin_patch",
         iris_year=_iris_year_int(cl),
+        fee_snapshot=fee_snap,
     )
     if ledger is not None:
         set_doc["annual_period_ledger"] = ledger
@@ -2483,12 +2610,14 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
             "updated_at": now,
         }
         prev_sub_ex = dict(cl.get("annual_subscription") or {})
+        fee_snap = cl.get("subscription") if isinstance(cl.get("subscription"), dict) else None
         ledger_ex = _append_annual_period_ledger(
             cl,
             prev_sub_ex,
             new_sub,
             source="excel_import",
             iris_year=_iris_year_int(cl),
+            fee_snapshot=fee_snap,
         )
         if ledger_ex is not None:
             set_doc["annual_period_ledger"] = ledger_ex

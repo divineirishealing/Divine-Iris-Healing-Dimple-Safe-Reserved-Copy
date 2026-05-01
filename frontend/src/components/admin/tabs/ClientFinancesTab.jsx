@@ -1910,7 +1910,10 @@ export default function ClientFinancesTab() {
               <div className="rounded-lg border border-amber-200/80 bg-amber-50/40 px-3 py-3 space-y-2 text-xs">
                 <p className="font-semibold text-gray-900">Past annual periods (ledger)</p>
                 <p className="text-[10px] text-gray-500 -mt-1">
-                  Archived when Home Coming start, end, or annual DIID changes (same client UUID).
+                  Saved when Home Coming start, end, or annual DIID changes. Each row keeps the subscriber package
+                  from that window (annual fee, billing mode, EMIs) so you can move to Year 2 without erasing Year 1
+                  billing. Renew: set the <span className="font-semibold">new</span> start/end in Client Garden
+                  first, then set Iris year and the new fee here.
                 </p>
                 <ul className="space-y-2 max-h-48 overflow-y-auto">
                   {editingLedger.map((e) => (
@@ -1921,6 +1924,27 @@ export default function ClientFinancesTab() {
                           <span className="text-gray-600 font-normal"> · {e.annual_diid}</span>
                         ) : null}
                       </p>
+                      {e.total_fee != null && Number(e.total_fee) > 0 ? (
+                        <p className="text-[10px] text-gray-700 mt-0.5 tabular-nums">
+                          {Number(e.total_fee).toLocaleString()}{' '}
+                          {(e.currency || editingSub.currency || 'INR').toString().toUpperCase()}
+                          {e.payment_mode ? (
+                            <span className="text-gray-600">
+                              {' '}
+                              ·{' '}
+                              {installmentModeLabel({
+                                subscription: {
+                                  payment_mode: e.payment_mode,
+                                  emis: Array.isArray(e.emis) ? e.emis : [],
+                                },
+                              })}
+                            </span>
+                          ) : null}
+                          {e.num_emis != null && Number(e.num_emis) > 0 ? (
+                            <span className="text-gray-600"> · {Number(e.num_emis)} EMIs</span>
+                          ) : null}
+                        </p>
+                      ) : null}
                       <p className="text-[10px] text-gray-500 mt-0.5">
                         Archived {formatAnnualDate((e.archived_at || '').slice(0, 10))}
                         {e.iris_year_at_archive != null
@@ -1931,8 +1955,10 @@ export default function ClientFinancesTab() {
                               e.source === 'excel_import'
                                 ? 'Excel import'
                                 : e.source === 'admin_patch'
-                                  ? 'API / admin'
-                                  : e.source
+                                  ? 'Client Garden save'
+                                  : e.source === 'admin_iris_year_renewal'
+                                    ? 'Iris year bump (finance grid)'
+                                    : e.source
                             }`
                           : ''}
                       </p>

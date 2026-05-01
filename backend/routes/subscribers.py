@@ -888,6 +888,9 @@ async def patch_annual_package_fields(client_id: str, data: AnnualPackageFieldsP
     if len(a_en) == 10 and a_en[4] == "-" and a_en[7] == "-":
         sub["end_date"] = a_en
 
+    pre_patch_sub = dict(sub)
+    pre_patch_asy = dict(client_doc.get("annual_subscription") or {})
+
     raw = data.model_dump(exclude_unset=True)
     if "currency" in raw:
         c = str(raw["currency"] or "").strip().upper()
@@ -936,9 +939,28 @@ async def patch_annual_package_fields(client_id: str, data: AnnualPackageFieldsP
     _regenerate_emi_schedule_inplace(sub)
     now = datetime.now(timezone.utc).isoformat()
     sub["updated_at"] = now
+    set_doc: Dict[str, Any] = {"subscription": sub, "updated_at": now}
+    if "iris_year" in raw:
+        try:
+            old_iy = int(pre_patch_sub.get("iris_year") or 1)
+            new_iy = int(sub.get("iris_year") or 1)
+        except (TypeError, ValueError):
+            old_iy, new_iy = 1, 1
+        if new_iy > old_iy:
+            from routes.clients import _append_iris_year_financial_ledger_if_needed
+
+            led = _append_iris_year_financial_ledger_if_needed(
+                client_doc,
+                pre_patch_asy,
+                pre_patch_sub,
+                source="admin_iris_year_renewal",
+                completed_iris_year=old_iy,
+            )
+            if led is not None:
+                set_doc["annual_period_ledger"] = led
     await db.clients.update_one(
         {"id": client_id},
-        {"$set": {"subscription": sub, "updated_at": now}},
+        {"$set": set_doc},
     )
     return {"subscription": sub}
 
