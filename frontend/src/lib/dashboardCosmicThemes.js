@@ -388,11 +388,8 @@ export function resolveCosmicTheme(variant) {
 export function getDashboardCosmicVariant(pathname) {
   const p = pathname || '';
   if (!p.startsWith('/dashboard')) return 'deep_space';
-  /** Light “Sacred Home” shell — dashboard overview and Home Coming enrollment use the same cozy healing backdrop. */
-  if (p === '/dashboard' || p === '/dashboard/' || p === '/dashboard/home-coming-package') {
-    return 'sacred_home_light';
-  }
-  return 'immersive_purple';
+  /** Same iris + mug “Sacred Home” artwork and light veil as Home Coming — all student portal routes. */
+  return 'sacred_home_light';
 }
 
 export function getDashboardCosmicTheme(pathname) {
