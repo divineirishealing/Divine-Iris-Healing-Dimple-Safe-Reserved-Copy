@@ -52,6 +52,8 @@ const OrderHistoryPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reloadToken, setReloadToken] = useState(0);
+  /** Default: completed payments from the last 48 hours (API `paid_within_days=2`). */
+  const [recentPaidOnly, setRecentPaidOnly] = useState(true);
 
   const fetchOrders = useCallback(async () => {
     if (!BACKEND_URL) {
@@ -60,7 +62,8 @@ const OrderHistoryPage = () => {
       return;
     }
     const apiBase = getApiUrl();
-    const opts = { withCredentials: true, headers: getAuthHeaders() };
+    const params = recentPaidOnly ? { paid_within_days: 2 } : {};
+    const opts = { withCredentials: true, headers: getAuthHeaders(), params };
     let res;
     try {
       res = await axios.get(`${apiBase}/student/orders`, opts);
@@ -74,7 +77,7 @@ const OrderHistoryPage = () => {
     }
     setOrders(Array.isArray(res.data?.orders) ? res.data.orders : []);
     setError(null);
-  }, []);
+  }, [recentPaidOnly]);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,10 +162,42 @@ const OrderHistoryPage = () => {
 
       <Card className="border border-slate-200/90 shadow-sm overflow-hidden">
         <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/80">
-          <CardTitle className="text-xl md:text-2xl font-semibold flex items-center gap-3 text-slate-800">
-            <Package size={24} className="text-[#5D3FD3]" />
-            Your orders
-          </CardTitle>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <CardTitle className="text-xl md:text-2xl font-semibold flex items-center gap-3 text-slate-800">
+              <Package size={24} className="text-[#5D3FD3]" />
+              Your orders
+            </CardTitle>
+            <div
+              className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm"
+              role="group"
+              aria-label="Order date range"
+            >
+              <Button
+                type="button"
+                variant={recentPaidOnly ? 'default' : 'ghost'}
+                size="sm"
+                className={`h-9 text-sm ${recentPaidOnly ? 'bg-[#5D3FD3] hover:bg-[#4c32b3] text-white shadow-sm' : 'text-slate-600'}`}
+                onClick={() => setRecentPaidOnly(true)}
+              >
+                Paid · last 2 days
+              </Button>
+              <Button
+                type="button"
+                variant={!recentPaidOnly ? 'default' : 'ghost'}
+                size="sm"
+                className={`h-9 text-sm ${!recentPaidOnly ? 'bg-[#5D3FD3] hover:bg-[#4c32b3] text-white shadow-sm' : 'text-slate-600'}`}
+                onClick={() => setRecentPaidOnly(false)}
+              >
+                All orders
+              </Button>
+            </div>
+          </div>
+          {recentPaidOnly ? (
+            <p className="text-sm text-slate-500 pt-1">
+              Showing completed payments from the last 48 hours (UTC). Pending approvals are listed under{' '}
+              <strong>All orders</strong>.
+            </p>
+          ) : null}
         </CardHeader>
         <CardContent className="p-0">
           {loading && (
@@ -176,11 +211,22 @@ const OrderHistoryPage = () => {
           )}
           {!loading && !error && sorted.length === 0 && (
             <div className="text-base text-gray-600 py-12 px-6 text-center space-y-3 max-w-2xl mx-auto">
-              <p className="text-lg font-medium text-gray-800">No orders matched this account yet.</p>
+              <p className="text-lg font-medium text-gray-800">
+                {recentPaidOnly ? 'No completed orders in the last 2 days.' : 'No orders matched this account yet.'}
+              </p>
               <p className="text-base text-gray-500 leading-relaxed">
-                If you paid with a different email than the one you use to sign in, ask your admin to align your growth
-                record email or add your profile email on the enrollment. Completed checkouts from the public site and
-                Divine Cart usually appear within a few seconds — try Refresh.
+                {recentPaidOnly ? (
+                  <>
+                    Try <strong>All orders</strong> for your full history, or <strong>Refresh</strong> after a payment
+                    completes.
+                  </>
+                ) : (
+                  <>
+                    If you paid with a different email than the one you use to sign in, ask your admin to align your growth
+                    record email or add your profile email on the enrollment. Completed checkouts from the public site and
+                    Divine Cart usually appear within a few seconds — try Refresh.
+                  </>
+                )}
               </p>
             </div>
           )}

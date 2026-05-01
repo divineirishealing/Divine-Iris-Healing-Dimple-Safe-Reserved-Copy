@@ -8,7 +8,7 @@ import logging
 from motor.motor_asyncio import AsyncIOMotorClient
 import calendar
 import math
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 from dotenv import load_dotenv
 from pathlib import Path
 from .auth import get_current_user, _get_valid_session_and_user
@@ -3861,11 +3861,15 @@ def _order_display_title_from_enrollment(
     return txn_fallback or tid or "Order"
 
 
-async def list_student_orders_impl(user: dict):
+async def list_student_orders_impl(user: dict, paid_within_days: Optional[int] = None):
     """
     Enrollment-related payment rows for this account: booker, sponsor donor,
     or a seat where this email appears on the enrollment.
     Includes pending India payment proofs (awaiting admin approval) as rows with payment_status pending.
+
+    If ``paid_within_days`` is set, the returned list is limited to **paid** rows whose
+    ``created_at`` / ``updated_at`` falls on or after (now − N days) in UTC.
+    Pending proofs are excluded in that mode (not yet done).
     """
     identity_emails = await _order_identity_emails(user)
     if not identity_emails:
@@ -4047,6 +4051,16 @@ async def list_student_orders_impl(user: dict):
             o,
             prog_titles_by_id,
         )
+
+    if paid_within_days is not None and paid_within_days > 0:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=int(paid_within_days))
+        cutoff_ts = cutoff.timestamp()
+        combined = [
+            o
+            for o in combined
+            if str(o.get("payment_status") or "").lower() in ("paid", "complete", "completed")
+            and _student_order_sort_ts(o) >= cutoff_ts
+        ]
 
     return {"orders": combined}
 

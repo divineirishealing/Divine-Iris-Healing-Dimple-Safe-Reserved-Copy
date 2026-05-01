@@ -1,4 +1,6 @@
-from fastapi import FastAPI, APIRouter, Request, Depends
+from typing import Optional
+
+from fastapi import FastAPI, APIRouter, Request, Depends, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from dotenv import load_dotenv
@@ -134,9 +136,17 @@ async def health():
 
 @api_router.get("/student/orders", tags=["Student Dashboard"])
 @api_router.get("/student/order-history", tags=["Student Dashboard"])
-async def student_orders_list(user: dict = Depends(get_current_student_user)):
+async def student_orders_list(
+    user: dict = Depends(get_current_student_user),
+    paid_within_days: Optional[int] = Query(
+        None,
+        ge=1,
+        le=365,
+        description="If set, only paid orders from the last N days (UTC). Pending proofs are omitted.",
+    ),
+):
     """Registered on api_router (same mount chain as /api/health) so order history is always reachable."""
-    return await list_student_orders_impl(user)
+    return await list_student_orders_impl(user, paid_within_days=paid_within_days)
 
 
 # Custom route to serve uploaded images with correct content type
