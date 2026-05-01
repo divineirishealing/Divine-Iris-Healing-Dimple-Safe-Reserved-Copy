@@ -507,6 +507,130 @@ async def update_payment_proof(proof_id: str, data: dict):
     return {"message": "Proof updated"}
 
 
+def _titles_blob_for_home_coming_check(proof: dict, enrollment: dict) -> str:
+    parts = [
+        proof.get("program_title"),
+        proof.get("selected_item"),
+        proof.get("program_type"),
+        (enrollment or {}).get("item_title"),
+    ]
+    return " ".join(str(p or "") for p in parts).lower()
+
+
+def _is_home_coming_context(proof: dict, enrollment: dict) -> bool:
+    blob = _titles_blob_for_home_coming_check(proof, enrollment)
+    compact = blob.replace(" ", "")
+    return "home coming" in blob or "homecoming" in compact
+
+
+def _mark_subscription_emi_paid_from_india_proof(emi: dict, proof: dict) -> bool:
+    """Update one EMI dict in-place to match an approved India manual proof. Returns True if changed."""
+    if not isinstance(emi, dict):
+        return False
+    if str(emi.get("status", "")).lower() == "paid":
+        return False
+    pay_raw = str(proof.get("payment_date") or "").strip()
+    pay_date = pay_raw[:10] if len(pay_raw) >= 10 else ""
+    if not pay_date:
+        pay_date = datetime.now(timezone.utc).date().isoformat()
+    pm = (proof.get("payment_method") or "").strip().lower() or "manual_proof"
+    emi["status"] = "paid"
+    emi["date"] = pay_date
+    emi["paid_date"] = pay_date
+    emi["payment_method"] = pm
+    emi["transaction_id"] = str(proof.get("transaction_id") or "").strip()
+    emi["paid_by"] = str(
+        proof.get("payer_name") or proof.get("booker_name") or ""
+    ).strip()
+    su = str(proof.get("screenshot_url") or "").strip()
+    if su:
+        emi["receipt_url"] = su
+    emi["remaining"] = 0.0
+    pid = proof.get("id")
+    if pid:
+        emi["india_payment_proof_id"] = pid
+    return True
+
+
+async def _sync_home_coming_emis_after_india_proof_approval(
+    *,
+    client_id: str,
+    proof: dict,
+    enrollment: dict,
+) -> None:
+    """
+    Student Home Coming schedule reads ``clients.subscription.emis`` from GET /student/home.
+    India proof approval previously only completed enrollment + payment_transactions, so EMI rows
+    stayed pending. Mirror payment-mgmt behaviour for Home Coming contexts.
+    """
+    cid = (client_id or "").strip()
+    if not cid or not _is_home_coming_context(proof, enrollment or {}):
+        return
+    cl = await db.clients.find_one({"id": cid})
+    if not cl:
+        return
+    sub = dict(cl.get("subscription") or {})
+    emis = sub.get("emis")
+    if not isinstance(emis, list) or len(emis) == 0:
+        return
+    emis = [dict(e) if isinstance(e, dict) else e for e in emis]
+
+    try:
+        amt = float(proof.get("amount") or 0)
+    except (TypeError, ValueError):
+        amt = 0.0
+
+    changed = False
+    if proof.get("is_emi"):
+        try:
+            n = int(proof.get("emi_months_covered") or 0)
+        except (TypeError, ValueError):
+            n = 0
+        if n >= 1:
+            for emi in emis:
+                if not isinstance(emi, dict):
+                    continue
+                try:
+                    en = int(emi.get("number") or emi.get("emi_number") or 0)
+                except (TypeError, ValueError):
+                    en = 0
+                if en == n:
+                    changed = _mark_subscription_emi_paid_from_india_proof(emi, proof) or changed
+                    break
+    else:
+        unpaid = [
+            e for e in emis if isinstance(e, dict) and str(e.get("status", "")).lower() != "paid"
+        ]
+        if unpaid:
+            total_unpaid = 0.0
+            for e in unpaid:
+                try:
+                    total_unpaid += float(e.get("amount") or 0)
+                except (TypeError, ValueError):
+                    pass
+            tol = max(2.0, total_unpaid * 0.02) if total_unpaid > 0 else 2.0
+            if total_unpaid > 0 and amt + 1e-6 >= total_unpaid - tol:
+                for emi in unpaid:
+                    changed = _mark_subscription_emi_paid_from_india_proof(emi, proof) or changed
+
+    if not changed:
+        return
+    sub["emis"] = emis
+    await db.clients.update_one(
+        {"id": cid},
+        {
+            "$set": {
+                "subscription": sub,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        },
+    )
+    logger.info(
+        "Home Coming EMIs synced after India proof approval client=%s proof=%s",
+        cid,
+        proof.get("id"),
+    )
+
 
 @router.post("/admin/{proof_id}/approve")
 async def approve_payment_proof(proof_id: str):
@@ -516,9 +640,10 @@ async def approve_payment_proof(proof_id: str):
         raise HTTPException(status_code=404, detail="Payment proof not found")
 
     # Mark proof as approved
+    now_approve = datetime.now(timezone.utc).isoformat()
     await db.india_payment_proofs.update_one(
         {"id": proof_id},
-        {"$set": {"status": "approved", "updated_at": datetime.now(timezone.utc).isoformat()}}
+        {"$set": {"status": "approved", "approved_at": now_approve, "updated_at": now_approve}},
     )
 
     enrollment_id = proof.get("enrollment_id")
@@ -670,6 +795,25 @@ async def approve_payment_proof(proof_id: str):
         count = await db.payment_transactions.count_documents({"invoice_number": {"$regex": f"^{month_prefix}"}})
         transaction["invoice_number"] = f"{month_prefix}-{str(count + 1).zfill(3)}"
         await db.payment_transactions.insert_one(transaction)
+
+        try:
+            pcid_sync = (transaction.get("portal_client_id") or "").strip()
+            if not pcid_sync and be_norm:
+                crow = await db.clients.find_one({"email": be_norm}, {"id": 1})
+                if crow:
+                    pcid_sync = str(crow.get("id") or "").strip()
+            if not pcid_sync and pe_norm and pe_norm != be_norm:
+                crow = await db.clients.find_one({"email": pe_norm}, {"id": 1})
+                if crow:
+                    pcid_sync = str(crow.get("id") or "").strip()
+            if pcid_sync:
+                await _sync_home_coming_emis_after_india_proof_approval(
+                    client_id=pcid_sync,
+                    proof=proof,
+                    enrollment=full_enrollment or {},
+                )
+        except Exception as ex:
+            logger.warning("Home Coming EMI sync after India proof: %s", ex)
 
         try:
             from routes.points_logic import run_post_payment_loyalty
