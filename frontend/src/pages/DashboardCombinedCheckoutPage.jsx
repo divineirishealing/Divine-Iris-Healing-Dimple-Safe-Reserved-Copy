@@ -58,6 +58,42 @@ function annualPortalQuoteMapKey(item) {
   return `${pid}:${ti}`;
 }
 
+/**
+ * Build GET /dashboard-quote query from live cart roster. `portalLineMeta.familyIds` / `bookerJoins`
+ * can drift after merging carts (e.g. Home Coming EMI line + Sacred Home AWRP); wrong params yield
+ * a failed quote or a booker-only quote — checkout then falls back to public tier prices (~₹38,999).
+ */
+function dashboardQuoteParamsFromCartItem(item) {
+  const meta = item?.portalLineMeta || {};
+  const parts = item?.participants || [];
+  const hasBookerRow = parts.some((p) => String(p.relationship || '').trim() === 'Myself');
+  const guestIdsFromRows = parts
+    .filter((p) => String(p.relationship || '').trim() !== 'Myself')
+    .map((p) => String(p.dashboard_family_member_id || '').trim())
+    .filter(Boolean);
+  const metaIds = (meta.familyIds || []).map(String).filter(Boolean);
+
+  if (guestIdsFromRows.length === 0 && metaIds.length > 0) {
+    return {
+      familyIdsCsv: metaIds.join(','),
+      bookerJoins: hasBookerRow || meta.bookerJoins !== false,
+      orderedGuestIds: metaIds,
+    };
+  }
+
+  const idSet = new Set(guestIdsFromRows);
+  const metaSameSet =
+    metaIds.length > 0 &&
+    metaIds.length === guestIdsFromRows.length &&
+    metaIds.every((id) => idSet.has(id));
+  const orderedGuestIds = metaSameSet ? metaIds : guestIdsFromRows;
+  return {
+    familyIdsCsv: orderedGuestIds.join(','),
+    bookerJoins: hasBookerRow,
+    orderedGuestIds,
+  };
+}
+
 function combinedAttendanceLabel(p) {
   if (p.attendance_mode === 'online') return 'Online (Zoom)';
   if (p.attendance_mode === 'in_person') return 'In person';
@@ -201,7 +237,9 @@ function reconcileGuestBuckets(base, quote, participants, familyIds) {
 
 function effectiveGuestBucketById(item, lineQuote) {
   const meta = item.portalLineMeta || {};
-  return reconcileGuestBuckets(meta.guestBucketById, lineQuote, item.participants || [], meta.familyIds);
+  const { orderedGuestIds } = dashboardQuoteParamsFromCartItem(item);
+  const familyIdsForReconcile = orderedGuestIds.length > 0 ? orderedGuestIds : meta.familyIds || [];
+  return reconcileGuestBuckets(meta.guestBucketById, lineQuote, item.participants || [], familyIdsForReconcile);
 }
 
 const PAYMENT_METHOD_BADGES = {
@@ -573,9 +611,9 @@ export default function DashboardCombinedCheckoutPage() {
       items
         .filter((i) => i.type === 'program')
         .map((i) => {
-          const m = i.portalLineMeta || {};
-          const ids = (m.familyIds || []).map(String).filter(Boolean).slice().sort().join(':');
-          const bj = m.bookerJoins !== false ? '1' : '0';
+          const { orderedGuestIds, bookerJoins } = dashboardQuoteParamsFromCartItem(i);
+          const ids = orderedGuestIds.slice().sort().join(':');
+          const bj = bookerJoins ? '1' : '0';
           const ti = typeof i.tierIndex === 'number' ? String(i.tierIndex) : 'x';
           return `${i.programId}|${ti}|${ids}|${bj}`;
         })
@@ -811,15 +849,12 @@ export default function DashboardCombinedCheckoutPage() {
     }
     Promise.all(
       programItems.map((i) => {
-        const meta = i.portalLineMeta || {};
-        const ids = (meta.familyIds || []).map(String).filter(Boolean).join(',');
-        const bj = meta.bookerJoins !== false;
-        const pid = String(i.programId);
+        const { familyIdsCsv, bookerJoins } = dashboardQuoteParamsFromCartItem(i);
         const quoteParams = {
           program_id: i.programId,
           currency,
-          ...(ids ? { family_ids: ids } : { family_count: 0 }),
-          booker_joins: bj,
+          ...(familyIdsCsv ? { family_ids: familyIdsCsv } : { family_count: 0 }),
+          booker_joins: bookerJoins,
         };
         if (i.isFlagship && (i.durationTiers || []).length > 0) {
           quoteParams.tier_index = normalizeCartProgramTier(i, i.tierIndex);
@@ -1512,12 +1547,15 @@ export default function DashboardCombinedCheckoutPage() {
           ...(programLines.length > 0
             ? {
                 portal_cart_currency: currency,
-                portal_cart_lines: programLines.map((i) => ({
-                  program_id: String(i.programId),
-                  tier_index: i.tierIndex ?? 0,
-                  family_member_ids: (i.portalLineMeta?.familyIds || []).map(String),
-                  booker_joins: i.portalLineMeta?.bookerJoins !== false,
-                })),
+                portal_cart_lines: programLines.map((i) => {
+                  const { orderedGuestIds, bookerJoins } = dashboardQuoteParamsFromCartItem(i);
+                  return {
+                    program_id: String(i.programId),
+                    tier_index: i.tierIndex ?? 0,
+                    family_member_ids: orderedGuestIds.map(String),
+                    booker_joins: bookerJoins,
+                  };
+                }),
               }
             : {}),
         },
