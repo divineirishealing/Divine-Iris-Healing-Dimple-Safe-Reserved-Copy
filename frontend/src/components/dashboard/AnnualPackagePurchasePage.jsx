@@ -1826,6 +1826,12 @@ export default function AnnualPackagePurchasePage() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <p
+                      className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.07em] text-[rgba(90,45,140,0.9)] leading-snug pt-0.5"
+                      data-testid="annual-offer-other-schedule-contact-healer"
+                    >
+                      TO CHOOSE OTHER PAYMENT SCHEDULE, CONTACT YOUR HEALER.
+                    </p>
                   </div>
                   <div className="space-y-2 min-w-0">
                     <Label className="text-[11px] uppercase tracking-[0.12em] text-[rgba(70,35,125,0.65)] font-semibold">
@@ -1854,7 +1860,7 @@ export default function AnnualPackagePurchasePage() {
                   </p>
                   <p className="text-[10px] text-[rgba(60,35,115,0.5)] flex items-start gap-1.5 leading-relaxed">
                     <Info size={12} className="shrink-0 mt-0.5 text-violet-500" aria-hidden />
-                    We save your choices for your host. Pay in full, EMIs, or Flexi — all walk side by side below.
+                    We save your payment choice for your host. EMI and Flexi options appear here only when your healer enables them for you.
                   </p>
                 </div>
 
