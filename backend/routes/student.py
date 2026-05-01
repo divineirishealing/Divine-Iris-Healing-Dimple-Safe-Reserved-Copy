@@ -216,9 +216,10 @@ def _apply_crm_portal_discount_to_pricing_total(
     currency: str,
     participant_count: int,
 ) -> dict:
-    """Apply Iris Annual Abundance CRM discount to portal pricing **only** for the Home Coming annual program.
+    """Apply Iris Annual Abundance CRM discount to a pricing total (caller must use Home Coming catalog basis only).
 
-    Call this solely when ``program_id`` matches ``dashboard_sacred_home_annual_program_id``.
+    Used from :func:`_sacred_home_catalog_pricing_and_crm_discount` after the payable is the active
+    ``annual_packages`` bundle ``offer_total`` — not flagship tier lines for the same program id.
     """
     tot = float(pricing.get("total") or 0)
     after, disc_amt, disc_pct = _apply_crm_discount_to_total(tot, currency, client, participant_count)
@@ -556,6 +557,48 @@ async def _active_home_coming_package_catalog_row() -> Optional[dict]:
         if r.get("is_active") is not False:
             return r
     return rows[0]
+
+
+async def _sacred_home_catalog_pricing_and_crm_discount(
+    pricing: dict,
+    *,
+    program_id: str,
+    settings_doc: dict,
+    client: dict,
+    currency: str,
+    included_in_annual_package: bool,
+    cohort_batch_id: Optional[Any],
+    participant_count: int,
+) -> dict:
+    """Set Sacred Home bundle total from catalog and apply Iris Annual Abundance CRM discount **only** on that path.
+
+    If the pin program is also sold as flagship tier lines (Divine Cart), those quotes must **not** pick up
+    the CRM % / bands — only the Home Coming package row (``offer_total`` for this currency) does.
+    """
+    pin = (settings_doc.get("dashboard_sacred_home_annual_program_id") or "").strip()
+    if not pin or str(program_id).strip() != pin:
+        return pricing
+    if included_in_annual_package:
+        return pricing
+    if cohort_batch_id is not None and str(cohort_batch_id).strip():
+        return pricing
+    pkg_cat = await _active_home_coming_package_catalog_row()
+    co = _offer_total_from_annual_package(pkg_cat, currency)
+    if co <= 0:
+        return pricing
+    out = {
+        **pricing,
+        "total": co,
+        "offer_subtotal": co,
+        "list_subtotal": co,
+        "portal_discount_total": 0.0,
+    }
+    return _apply_crm_portal_discount_to_pricing_total(
+        out,
+        client,
+        str(out.get("currency") or currency or "aed"),
+        participant_count,
+    )
 
 
 def _home_coming_branding_dict(client: dict, iris_journey: dict) -> dict:
@@ -2272,7 +2315,6 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
     fam_by_id = {str(m.get("id")) for m in fam_all if m.get("id")}
     fam_by_row = {str(m.get("id")): m for m in fam_all if m.get("id")}
     inc_cfg = settings_doc.get("annual_package_included_program_ids")
-    pin_program_id = (settings_doc.get("dashboard_sacred_home_annual_program_id") or "").strip()
     total = 0.0
     for line in lines:
         pid = str(line.program_id).strip()
@@ -2331,8 +2373,16 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             ),
         )
         qc = _dashboard_quote_participant_count(include_self, imm_plain, imm_peer, ext_fc)
-        if pin_program_id and pid == str(pin_program_id).strip():
-            pricing = _apply_crm_portal_discount_to_pricing_total(pricing, client, cur, qc)
+        pricing = await _sacred_home_catalog_pricing_and_crm_discount(
+            pricing,
+            program_id=pid,
+            settings_doc=settings_doc,
+            client=client,
+            currency=cur,
+            included_in_annual_package=included,
+            cohort_batch_id=_batch_for_line,
+            participant_count=qc,
+        )
         total += float(pricing.get("total") or 0)
     return round(total, 2), cur
 
@@ -2493,31 +2543,17 @@ async def dashboard_quote(
             client, annual_dashboard_access, cohort_batch_id=portal_cohort_batch
         ),
     )
-    # Sacred Home pinned program: use Home Coming catalog PACKAGE OFFER total from annual_packages
-    # (admin "Package offer (catalog total)") when tier-line math is empty or secondary.
-    pin_program_id = (settings_doc.get("dashboard_sacred_home_annual_program_id") or "").strip()
-    if (
-        pin_program_id
-        and str(program_id).strip() == str(pin_program_id).strip()
-        and not included
-        and not batch_id
-    ):
-        pkg_cat = await _active_home_coming_package_catalog_row()
-        co = _offer_total_from_annual_package(pkg_cat, currency)
-        if co > 0:
-            pricing["total"] = co
-            pricing["offer_subtotal"] = co
-            pricing["list_subtotal"] = co
-            pricing["portal_discount_total"] = 0.0
-
     qc = _dashboard_quote_participant_count(include_self, imm_plain, imm_peer, ext_fc)
-    if pin_program_id and str(program_id).strip() == str(pin_program_id).strip():
-        pricing = _apply_crm_portal_discount_to_pricing_total(
-            pricing,
-            client,
-            str(pricing.get("currency") or currency or "aed"),
-            qc,
-        )
+    pricing = await _sacred_home_catalog_pricing_and_crm_discount(
+        pricing,
+        program_id=program_id,
+        settings_doc=settings_doc,
+        client=client,
+        currency=currency,
+        included_in_annual_package=included,
+        cohort_batch_id=batch_id,
+        participant_count=qc,
+    )
 
     peer_pkg_inc = max(0, int(peer_sel) - int(imm_peer)) if id_list else 0
     cur = str(pricing.get("currency") or "aed").lower()
@@ -2599,7 +2635,6 @@ async def build_admin_dashboard_pricing_snapshot(
     quote_show_tax = True if qst is None else bool(qst)
 
     cur_in = (currency or "inr").lower()
-    pin_program_id = (settings_doc.get("dashboard_sacred_home_annual_program_id") or "").strip()
     program_rows: List[dict] = []
     for raw in upcoming[: max(1, min(limit, 40))]:
         pid = str(raw.get("id") or "")
@@ -2646,8 +2681,16 @@ async def build_admin_dashboard_pricing_snapshot(
             ),
         )
         qc = _dashboard_quote_participant_count(include_self, 0, 0, 0)
-        if pin_program_id and pid == str(pin_program_id).strip():
-            pricing = _apply_crm_portal_discount_to_pricing_total(pricing, client, cur_in, qc)
+        pricing = await _sacred_home_catalog_pricing_and_crm_discount(
+            pricing,
+            program_id=pid,
+            settings_doc=settings_doc,
+            client=client,
+            currency=cur_in,
+            included_in_annual_package=included,
+            cohort_batch_id=batch_id_snap,
+            participant_count=qc,
+        )
         cur = str(pricing.get("currency") or cur_in).lower()
         tot = float(pricing.get("total") or 0)
         tax_included_estimate = 0.0
@@ -2747,7 +2790,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
             detail="This program is already included in your annual package — select one or more family members to enroll.",
         )
 
-    ao, fo, eo, _bid = _merged_portal_offers_for_payer(
+    ao, fo, eo, pay_batch_id = _merged_portal_offers_for_payer(
         annual_dashboard_access,
         data.program_id,
         settings_doc,
@@ -2774,9 +2817,16 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         ),
     )
     qc = _dashboard_quote_participant_count(not included, imm_plain, imm_peer, ext_fc)
-    pin_pay = (settings_doc.get("dashboard_sacred_home_annual_program_id") or "").strip()
-    if pin_pay and str(data.program_id).strip() == str(pin_pay).strip():
-        quote = _apply_crm_portal_discount_to_pricing_total(quote, client, data.currency, qc)
+    quote = await _sacred_home_catalog_pricing_and_crm_discount(
+        quote,
+        program_id=data.program_id,
+        settings_doc=settings_doc,
+        client=client,
+        currency=data.currency,
+        included_in_annual_package=included,
+        cohort_batch_id=pay_batch_id,
+        participant_count=qc,
+    )
     if quote["total"] < 0:
         raise HTTPException(status_code=400, detail="Invalid quote")
     if quote["total"] == 0 and not included:
