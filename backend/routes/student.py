@@ -801,12 +801,13 @@ def _overlay_program_metadata(merged_programs: List[dict], old_detail: List[dict
 class ProfileUpdate(BaseModel):
     full_name: Optional[str] = None
     gender: Optional[str] = None
-    place_of_birth: Optional[str] = None
-    date_of_birth: Optional[str] = None
     city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
     qualification: Optional[str] = None
     profession: Optional[str] = None
     phone: Optional[str] = None
+    phone_code: Optional[str] = None
     # YYYY-MM-DD or ISO; shown as "date of joining Divine Iris", pending admin approval like other profile fields
     joined_divine_iris_at: Optional[str] = None
 

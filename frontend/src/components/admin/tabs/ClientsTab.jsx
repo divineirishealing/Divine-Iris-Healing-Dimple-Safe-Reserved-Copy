@@ -21,6 +21,7 @@ import {
   formatTaggedPaymentDetails,
 } from '../../../lib/adminClientAccessDisplay';
 import { formatDateDdMonYyyy, formatDateTimeDdMonYyyy } from '../../../lib/utils';
+import { PHONE_DIAL_OPTIONS, PHONE_DIAL_PREFIXES_SORTED } from '../../../lib/phoneDialCodes';
 
 const CLIENT_GARDEN_COLUMN_DEFS = [
   { id: 'sr', label: 'SR No', required: true },
@@ -446,6 +447,13 @@ function FilterableTh({ children, colId, title, className, optionClients, column
   );
 }
 
+function formatClientPhoneDisplay(cl) {
+  const code = (cl.phone_code || '').trim();
+  const num = (cl.phone || '').trim();
+  const parts = [code, num].filter(Boolean);
+  return parts.length ? parts.join(' ') : '';
+}
+
 const ClientsTab = () => {
   const { toast } = useToast();
   const { checkAuth } = useAuth();
@@ -584,6 +592,10 @@ const ClientsTab = () => {
       labelManual: (cl.label_manual || '').trim() ? (cl.label || cl.label_manual || '') : '',
       diidMiddle: splitDiid(cl.diid).middle,
       editPhone: cl.phone || '',
+      editPhoneCode: cl.phone_code || '',
+      editCity: cl.city || '',
+      editState: cl.state || '',
+      editCountry: cl.country || '',
       firstProgramManual: cl.first_program_manual ? String(cl.first_program_manual) : '',
       annualMemberDashboard: !!cl.annual_member_dashboard,
       discoverySource: cl.discovery_source || '',
@@ -642,6 +654,10 @@ const ClientsTab = () => {
         annual_member_dashboard: !!draft.annualMemberDashboard,
         label_manual: (draft.labelManual || '').trim() ? draft.labelManual : '',
         phone: (draft.editPhone || '').trim() || null,
+        phone_code: (draft.editPhoneCode || '').trim() || null,
+        city: (draft.editCity || '').trim() || null,
+        state: (draft.editState || '').trim() || null,
+        country: (draft.editCountry || '').trim() || null,
         first_program_manual: (draft.firstProgramManual || '').trim() || null,
         discovery_source: (draft.discoverySource || '').trim() || null,
         discovery_other_note:
@@ -975,6 +991,77 @@ const ClientsTab = () => {
           </div>
         </form>
       )}
+
+      {draft && editingId ? (
+        <div
+          className="mb-4 rounded-xl border border-violet-200 bg-violet-50/60 p-4 space-y-3"
+          data-testid="clients-edit-contact-panel"
+        >
+          <p className="text-xs font-semibold text-gray-800">Contact &amp; location → student Detailed Profile</p>
+          <p className="text-[10px] text-gray-600">
+            Dial code and local number are stored separately. These fields sync to the linked portal profile when members refresh.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div>
+              <Label className="text-[9px] text-gray-500">Dial code</Label>
+              <select
+                className="mt-1 w-full h-9 text-xs border rounded-md px-2 bg-white"
+                value={(() => {
+                  const r = String(draft.editPhoneCode || '').trim();
+                  if (!r) return '+91';
+                  return r.startsWith('+') ? r : `+${r.replace(/\D/g, '')}`;
+                })()}
+                onChange={(e) => updateDraft({ editPhoneCode: e.target.value })}
+              >
+                {!PHONE_DIAL_PREFIXES_SORTED.includes((draft.editPhoneCode || '').trim()) &&
+                (draft.editPhoneCode || '').trim() ? (
+                  <option value={(draft.editPhoneCode || '').trim()}>{(draft.editPhoneCode || '').trim()}</option>
+                ) : null}
+                {PHONE_DIAL_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label className="text-[9px] text-gray-500">Local phone (no code)</Label>
+              <Input
+                className="mt-1 h-9 text-xs"
+                value={draft.editPhone}
+                onChange={(e) => updateDraft({ editPhone: e.target.value })}
+                placeholder="9876543210"
+                inputMode="tel"
+              />
+            </div>
+            <div>
+              <Label className="text-[9px] text-gray-500">City</Label>
+              <Input
+                className="mt-1 h-9 text-xs"
+                value={draft.editCity}
+                onChange={(e) => updateDraft({ editCity: e.target.value })}
+                placeholder="City"
+              />
+            </div>
+            <div>
+              <Label className="text-[9px] text-gray-500">State / region</Label>
+              <Input
+                className="mt-1 h-9 text-xs"
+                value={draft.editState}
+                onChange={(e) => updateDraft({ editState: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="text-[9px] text-gray-500">Country</Label>
+              <Input
+                className="mt-1 h-9 text-xs"
+                value={draft.editCountry}
+                onChange={(e) => updateDraft({ editCountry: e.target.value })}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="bg-gray-900 text-white rounded-lg px-3 py-1.5 text-xs font-semibold">
@@ -1556,7 +1643,7 @@ const ClientsTab = () => {
                           autoComplete="tel"
                         />
                       ) : (
-                        <span className="px-1">{cl.phone || '—'}</span>
+                        <span className="px-1">{formatClientPhoneDisplay(cl) || '—'}</span>
                       )}
                     </td>
                     )}

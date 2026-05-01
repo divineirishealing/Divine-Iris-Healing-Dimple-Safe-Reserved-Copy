@@ -608,6 +608,24 @@ def _profile_field_overlay(user: dict, pending: dict, doc_key: str, pend_key: Op
     return user.get(doc_key)
 
 
+def _profile_overlay_with_client(
+    user: dict, pending: dict, client_doc: Optional[dict], doc_key: str
+) -> Any:
+    """pending → user document → Client Garden row (so CRM updates show on the portal before re-login)."""
+    if pending and doc_key in pending:
+        pv = pending.get(doc_key)
+        if pv is not None and str(pv).strip() != "":
+            return pv
+    uv = user.get(doc_key)
+    if uv is not None and str(uv).strip() != "":
+        return uv
+    if client_doc:
+        cv = client_doc.get(doc_key)
+        if cv is not None and str(cv).strip() != "":
+            return cv
+    return uv
+
+
 @router.get("/me")
 async def get_me(request: Request):
     session, user = await _get_valid_session_and_user(request)
@@ -623,14 +641,30 @@ async def get_me(request: Request):
         if uj is not None and str(uj).strip():
             joined_divine_iris_at = str(uj).strip()
     cid = user.get("client_id")
-    if not joined_divine_iris_at and cid:
-        client_doc = await db.clients.find_one({"id": cid}, {"_id": 0, "created_at": 1})
-        if client_doc and client_doc.get("created_at"):
-            joined_divine_iris_at = client_doc["created_at"]
+    client_doc = None
+    if cid:
+        client_doc = await db.clients.find_one(
+            {"id": cid},
+            {
+                "_id": 0,
+                "created_at": 1,
+                "name": 1,
+                "phone": 1,
+                "phone_code": 1,
+                "city": 1,
+                "state": 1,
+                "country": 1,
+                "gender": 1,
+            },
+        )
+    if not joined_divine_iris_at and client_doc and client_doc.get("created_at"):
+        joined_divine_iris_at = str(client_doc["created_at"]).strip()
 
     display_name = user.get("name") or user.get("full_name") or ""
     if "full_name" in pending:
         display_name = pending["full_name"] or display_name
+    if (not (display_name or "").strip()) and client_doc:
+        display_name = (client_doc.get("name") or "").strip() or display_name
 
     return {
         "id": user["id"],
@@ -642,13 +676,14 @@ async def get_me(request: Request):
         "client_id": user.get("client_id") or None,
         # First Client Garden record time (UTC ISO) — shown as "date of joining" on dashboard profile
         "joined_divine_iris_at": joined_divine_iris_at,
-        "gender": _profile_field_overlay(user, pending, "gender"),
-        "place_of_birth": _profile_field_overlay(user, pending, "place_of_birth"),
-        "date_of_birth": _profile_field_overlay(user, pending, "date_of_birth"),
-        "city": _profile_field_overlay(user, pending, "city"),
+        "gender": _profile_overlay_with_client(user, pending, client_doc, "gender"),
+        "city": _profile_overlay_with_client(user, pending, client_doc, "city"),
+        "state": _profile_overlay_with_client(user, pending, client_doc, "state"),
+        "country": _profile_overlay_with_client(user, pending, client_doc, "country"),
         "qualification": _profile_field_overlay(user, pending, "qualification"),
         "profession": _profile_field_overlay(user, pending, "profession"),
-        "phone": _profile_field_overlay(user, pending, "phone"),
+        "phone": _profile_overlay_with_client(user, pending, client_doc, "phone"),
+        "phone_code": _profile_overlay_with_client(user, pending, client_doc, "phone_code"),
         "pending_profile_update": user.get("pending_profile_update") or None,
         # India hub pricing (INR / Stripe) — same as geo-India when set or whitelisted
         "pricing_country_override": user.get("pricing_country_override") or None,

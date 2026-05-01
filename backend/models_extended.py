@@ -8,12 +8,13 @@ import uuid
 class UserProfileUpdate(BaseModel):
     full_name: Optional[str] = None
     gender: Optional[str] = None
-    place_of_birth: Optional[str] = None
-    date_of_birth: Optional[str] = None
     city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
     qualification: Optional[str] = None
     profession: Optional[str] = None
     phone: Optional[str] = None
+    phone_code: Optional[str] = None
 
 class EmiPlan(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

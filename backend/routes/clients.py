@@ -2685,6 +2685,10 @@ class ClientUpdate(BaseModel):
     notes: Optional[str] = None
     name: Optional[str] = None
     phone: Optional[str] = None
+    phone_code: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
     immediate_family_editing_approved: Optional[bool] = None
     # When False, Google / student portal sign-in is blocked until set to True.
     portal_login_allowed: Optional[bool] = None
@@ -2753,6 +2757,23 @@ async def update_client(client_id: str, data: ClientUpdate):
     if "phone" in incoming:
         pn = normalize_phone(str(data.phone) if data.phone is not None else "")
         update_fields["phone"] = pn or None
+    if "phone_code" in incoming:
+        raw_pc = str(data.phone_code or "").strip()
+        if not raw_pc:
+            update_fields["phone_code"] = None
+        else:
+            d = "".join(c for c in raw_pc if c.isdigit())
+            update_fields["phone_code"] = (f"+{d}" if d else None)
+    if "city" in incoming:
+        ct = str(data.city or "").strip() if data.city is not None else ""
+        update_fields["city"] = ct or None
+    if "state" in incoming:
+        st = str(data.state or "").strip() if data.state is not None else ""
+        update_fields["state"] = st or None
+    if "country" in incoming:
+        cn = str(data.country or "").strip() if data.country is not None else ""
+        update_fields["country"] = cn or None
+
     if "diid_middle" in incoming and str(data.diid_middle or "").strip():
         update_fields["diid"] = await _new_diid_with_middle(
             db, client_id, cl, str(data.diid_middle).strip()
