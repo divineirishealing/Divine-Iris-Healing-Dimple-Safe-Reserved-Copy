@@ -146,7 +146,7 @@ const PromotionsTab = ({ programs }) => {
       applicable_to: p.applicable_to || 'all',
       applicable_program_ids: p.applicable_program_ids || [],
       applicable_tier_indices_by_program: tpm && typeof tpm === 'object' ? { ...tpm } : {},
-      fixed_per_participant: !!p.fixed_per_participant,
+      fixed_per_participant: p.fixed_per_participant !== false,
       usage_limit: p.usage_limit || 0,
       start_date: p.start_date || '', expiry_date: p.expiry_date || '',
       active: p.active !== false,
@@ -330,9 +330,13 @@ const PromotionsTab = ({ programs }) => {
                   checked={!!form.fixed_per_participant}
                   onCheckedChange={(v) => setForm({ ...form, fixed_per_participant: v })}
                 />
-                <Label className="text-xs text-gray-600">Amount is per participant (multiplied by headcount in cart / enrollment)</Label>
+                <Label className="text-xs text-gray-600">
+                  Multiply fixed AED/INR/USD by each participant (e.g. ₹100 × 2 people = ₹200 off)
+                </Label>
               </div>
-              <p className="text-[10px] text-gray-400 mt-1">Turn off for a single flat discount on the whole order.</p>
+              <p className="text-[10px] text-gray-400 mt-1">
+                Turn off only if the amounts are one flat discount for the entire order, not per person.
+              </p>
             </div>
           )}
 
@@ -443,7 +447,7 @@ const PromotionsTab = ({ programs }) => {
                   {p.discount_type === 'percentage'
                     ? `${p.discount_percentage}% off`
                     : `AED ${p.discount_aed} / INR ${p.discount_inr} / USD ${p.discount_usd} off${
-                        p.fixed_per_participant ? ' (× participants)' : ''
+                        p.fixed_per_participant !== false ? ' (× participants)' : ' (flat order)'
                       }`
                   }
                   {' · '}{p.applicable_to === 'all' ? 'All programs' : `${(p.applicable_program_ids || []).length} programs`}

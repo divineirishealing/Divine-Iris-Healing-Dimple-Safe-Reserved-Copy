@@ -284,8 +284,7 @@ async def enrollment_checkout_prepare(
                     units_fp = eligible_participant_units_for_fixed_promo(
                         promo, pl, fallback_participants=participant_count
                     )
-                    mult = units_fp if promo.get("fixed_per_participant") else 1
-                    promo_discount = round(base * mult, 2)
+                    promo_discount = round(base * units_fp, 2)
         except Exception as e:
             logger.warning("Promo code error: %s", e)
 

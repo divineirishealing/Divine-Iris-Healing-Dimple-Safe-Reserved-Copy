@@ -14,7 +14,16 @@ __all__ = [
     "promo_applies_to_cart_lines",
     "promo_line_in_scope",
     "eligible_participant_units_for_fixed_promo",
+    "fixed_promo_scales_with_headcount",
 ]
+
+
+def fixed_promo_scales_with_headcount(promo: dict) -> bool:
+    """
+    Fixed-amount promos multiply by headcount unless admin explicitly chose a single flat order discount.
+    Missing or null `fixed_per_participant` in DB → scale (per person).
+    """
+    return promo.get("fixed_per_participant") is not False
 
 
 def _norm_pid(pid: Any) -> str:
@@ -172,11 +181,10 @@ def eligible_participant_units_for_fixed_promo(
     fallback_participants: int = 1,
 ) -> int:
     """
-    Billable participant count for scaling fixed-amount promos when fixed_per_participant is True.
-    Sums participants_count on in-scope cart lines; otherwise uses participant_count on the payload
-    (single-program flow).
+    Billable participant count for scaling fixed-amount promos (₹100 × 2 people → ₹200),
+    unless `fixed_per_participant` is explicitly False (one flat amount on the order).
     """
-    if not promo.get("fixed_per_participant"):
+    if not fixed_promo_scales_with_headcount(promo):
         return 1
 
     fb = max(1, int(fallback_participants or 1))

@@ -5,6 +5,7 @@ from typing import List
 from utils.promotion_scope import (
     build_cart_lines_from_payload,
     eligible_participant_units_for_fixed_promo,
+    fixed_promo_scales_with_headcount,
     promo_applies_to_cart_lines,
 )
 import os
@@ -161,19 +162,22 @@ async def validate_promotion(data: dict):
         }
     else:
         units = eligible_participant_units_for_fixed_promo(promo, data, fallback_participants=1)
-        mult = units if promo.get("fixed_per_participant") else 1
-        daed = round(float(promo.get("discount_aed", 0)) * mult, 2)
-        dinr = round(float(promo.get("discount_inr", 0)) * mult, 2)
-        dusd = round(float(promo.get("discount_usd", 0)) * mult, 2)
-        per = promo.get("fixed_per_participant")
-        msg = f"Discount applied for {units} people!" if per and units > 1 else "Discount applied!"
+        scales = fixed_promo_scales_with_headcount(promo)
+        daed = round(float(promo.get("discount_aed", 0)) * units, 2)
+        dinr = round(float(promo.get("discount_inr", 0)) * units, 2)
+        dusd = round(float(promo.get("discount_usd", 0)) * units, 2)
+        msg = (
+            f"Discount applied for {units} people!"
+            if scales and units > 1
+            else "Discount applied!"
+        )
         return {
             "valid": True,
             "code": code,
             "name": promo.get("name", ""),
             "type": promo.get("type", "coupon"),
             "discount_type": "fixed",
-            "fixed_per_participant": bool(per),
+            "fixed_per_participant": scales,
             "promo_billing_units": units,
             "discount_aed": daed,
             "discount_inr": dinr,
