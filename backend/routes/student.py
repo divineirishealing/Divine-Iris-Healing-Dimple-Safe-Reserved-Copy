@@ -1103,6 +1103,25 @@ def _portal_tier_key(tier_index: Optional[int]) -> Optional[str]:
     return str(ti)
 
 
+def _coalesce_tier_index_for_flagship_portal(program: Optional[dict], tier_index: Optional[int]) -> Optional[int]:
+    """Default missing tier to **0** for flagship programs so ``by_tier`` cohort/per-program patches apply.
+
+    Admin pricing often lives only under ``by_tier[\"0\"]`` (1 Month). If API calls omit ``tier_index``,
+    :func:`_portal_tier_key` skips tier merges and checkout uses tier list/offer (e.g. ₹13,999 vs cohort ₹13,734).
+    """
+    if tier_index is not None:
+        try:
+            ti = int(tier_index)
+        except (TypeError, ValueError):
+            return 0
+        return ti if ti >= 0 else 0
+    if not isinstance(program, dict):
+        return None
+    if program.get("is_flagship") and (program.get("duration_tiers") or []):
+        return 0
+    return None
+
+
 def _portal_offer_scalar_float(val) -> float:
     if val is None or str(val).strip() == "":
         return 0.0
@@ -2186,8 +2205,9 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             include_self = False
         else:
             include_self = bool(line.booker_joins)
+        merge_tier = _coalesce_tier_index_for_flagship_portal(program, line.tier_index)
         ao, fo, eo, _batch_for_line = _merged_portal_offers_for_payer(
-            annual_dashboard_access, pid, settings_doc, client, tier_index=line.tier_index
+            annual_dashboard_access, pid, settings_doc, client, tier_index=merge_tier
         )
         fo_plain = _family_offer_for_included_package_guests(included, imm_plain, fo)
         pricing = await compute_dashboard_annual_family_pricing(
@@ -2201,7 +2221,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             fo_plain,
             eo,
             include_self=include_self,
-            tier_index_override=line.tier_index,
+            tier_index_override=merge_tier,
             apply_tier_offer_prices=True,
             booker_annual_portal=_portal_member_column_for_self(client, annual_dashboard_access),
         )
@@ -2287,6 +2307,7 @@ async def dashboard_quote(
         raise HTTPException(status_code=404, detail="Program not found")
     if not program.get("enrollment_open", True):
         raise HTTPException(status_code=400, detail="Enrollment is not open for this program")
+    tier_index = _coalesce_tier_index_for_flagship_portal(program, tier_index)
     settings_doc = await db.site_settings.find_one(
         {"id": "site_settings"},
         {
@@ -2552,7 +2573,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         raise HTTPException(status_code=404, detail="Program not found")
     if not program.get("enrollment_open", True):
         raise HTTPException(status_code=400, detail="Enrollment is not open for this program")
-
+    pay_tier = _coalesce_tier_index_for_flagship_portal(program, data.tier_index)
     settings_doc = await db.site_settings.find_one(
         {"id": "site_settings"},
         {
@@ -2598,7 +2619,6 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
             detail="This program is already included in your annual package — select one or more family members to enroll.",
         )
 
-    pay_tier = data.tier_index
     ao, fo, eo, _bid = _merged_portal_offers_for_payer(
         annual_dashboard_access, data.program_id, settings_doc, client, tier_index=pay_tier
     )

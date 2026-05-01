@@ -633,6 +633,11 @@ export default function DashboardUpcomingProgramRowItem({
   const crossUnitAdj = crossSellDiscount?.amount > 0 ? crossSellDiscount.amount : 0;
   const afterPromoXs = Math.max(0, afterPromo - crossUnitAdj);
   const offerPriceXs = offerPrice > 0 ? Math.max(0, offerPrice - crossUnitAdj) : offerPrice;
+  /** Hero card: when portal quote differs from catalog tier offer, show quote so it matches Pricing & offer. */
+  const portalSelfHeroOffer =
+    !includedPkg && aq && typeof aq.self_after_promos === 'number' ? Number(aq.self_after_promos) : null;
+  const portalSelfHeroList =
+    !includedPkg && aq && typeof aq.self_unit === 'number' ? Number(aq.self_unit) : null;
 
   const portalQuoteAwaitingFamilyTier = aq?._awaitingFamilyPaidTier === true;
   const familyPaidTierQuoteBlocked =
@@ -1222,6 +1227,27 @@ export default function DashboardUpcomingProgramRowItem({
                       1&nbsp;Month / 3&nbsp;Months) in Divine Cart if those fit you.
                     </span>
                   </div>
+                ) : portalSelfHeroOffer != null ? (
+                  <>
+                    <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
+                      {symbol}{' '}
+                      {(crossUnitAdj > 0
+                        ? Math.max(0, portalSelfHeroOffer - crossUnitAdj)
+                        : portalSelfHeroOffer
+                      ).toLocaleString()}
+                    </span>
+                    {portalSelfHeroList != null && portalSelfHeroList > portalSelfHeroOffer ? (
+                      <span className="text-xs text-gray-400 line-through tabular-nums">
+                        {symbol} {portalSelfHeroList.toLocaleString()}
+                      </span>
+                    ) : null}
+                    {crossUnitAdj > 0 ? (
+                      <span className="text-[10px] text-amber-900 font-medium block w-full">
+                        {crossSellDiscount?.label || 'Bundle'}: −{symbol}
+                        {crossUnitAdj.toLocaleString()}
+                      </span>
+                    ) : null}
+                  </>
                 ) : showSpecialPromo ? (
                   <div className="flex flex-col gap-1 w-full">
                     <div className="flex flex-wrap items-baseline gap-2">

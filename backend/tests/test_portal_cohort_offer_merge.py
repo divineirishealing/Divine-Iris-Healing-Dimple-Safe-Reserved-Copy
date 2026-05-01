@@ -12,6 +12,7 @@ pytest.importorskip("fastapi")
 from routes.student import (  # noqa: E402
     _batch_portal_row_for_program,
     _client_awrp_batch_id,
+    _coalesce_tier_index_for_flagship_portal,
     _merge_program_dashboard_offers,
     _merge_program_dashboard_offers_with_batch,
     _merged_portal_offers_for_payer,
@@ -72,6 +73,28 @@ def test_batch_portal_row_resolves_program_id_case():
     assert (row.get("annual") or {}).get("fixed_price_inr") == 13734
 
 
+def test_cohort_by_tier_merge_requires_tier_key_zero():
+    """Cohort prices under by_tier[\"0\"] must merge when tier index is coalesced to 0."""
+    brow = {
+        "by_tier": {
+            "0": {
+                "annual": {"pricing_rule": "fixed_price", "fixed_price_inr": 13734},
+            }
+        }
+    }
+    ao, _fo, _eo = _merge_program_dashboard_offers_with_batch({}, {}, {}, "prog-a", {}, brow, tier_index=0)
+    assert ao.get("enabled") is True
+    assert ao.get("fixed_price_inr") == 13734
+    ao_none, _, _ = _merge_program_dashboard_offers_with_batch({}, {}, {}, "prog-a", {}, brow, tier_index=None)
+    assert not (ao_none.get("fixed_price_inr"))
+
+
+def test_coalesce_flagship_tier_defaults_to_zero():
+    program = {"is_flagship": True, "duration_tiers": [{"label": "1 Month"}]}
+    assert _coalesce_tier_index_for_flagship_portal(program, None) == 0
+    assert _coalesce_tier_index_for_flagship_portal(program, 1) == 1
+
+
 def test_merged_offers_cohort_only_without_annual_access():
     settings = {
         "awrp_batch_program_offers": {
@@ -86,6 +109,29 @@ def test_merged_offers_cohort_only_without_annual_access():
     ao, fo, eo, bid = _merged_portal_offers_for_payer(False, "prog-a", settings, client)
     assert bid == "c1"
     assert ao.get("enabled") is True
+    assert ao.get("fixed_price_inr") == 13734
+    assert fo == {} and eo == {}
+
+
+def test_merged_offers_cohort_by_tier_coalesced_like_dashboard_quote():
+    settings = {
+        "awrp_batch_program_offers": {
+            "c1": {
+                "prog-a": {
+                    "by_tier": {
+                        "0": {
+                            "annual": {"pricing_rule": "fixed_price", "fixed_price_inr": 13734},
+                        }
+                    }
+                }
+            }
+        }
+    }
+    program = {"is_flagship": True, "duration_tiers": [{"label": "1 Month"}]}
+    client = {"awrp_batch_id": "c1"}
+    ti = _coalesce_tier_index_for_flagship_portal(program, None)
+    ao, fo, eo, bid = _merged_portal_offers_for_payer(False, "prog-a", settings, client, tier_index=ti)
+    assert bid == "c1"
     assert ao.get("fixed_price_inr") == 13734
     assert fo == {} and eo == {}
 
