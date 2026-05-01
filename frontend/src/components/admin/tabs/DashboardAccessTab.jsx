@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { KeyRound, RefreshCw, Search, Loader2, Pencil, Bell, Trash2, Lock, SlidersHorizontal, Eye } from 'lucide-react';
-import { buildIndiaGpayOptions, buildIndiaBankOptions } from '../../../lib/indiaPaymentTags';
 import {
   PREFERRED_LABEL,
   TAG_LABEL,
   labelFrom,
   gstSummary,
-  discountSummary,
+  irisAnnualAbundanceDiscountSummary,
   formatTaggedPaymentDetails,
 } from '../../../lib/adminClientAccessDisplay';
 import { Input } from '../../ui/input';
@@ -24,10 +23,6 @@ import {
 import { useToast } from '../../../hooks/use-toast';
 import { useAuth } from '../../../context/AuthContext';
 import { getBackendUrl } from '../../../lib/config';
-import { serverBandsToRows, validateBandRows } from '../../../lib/indiaDiscountBandsUi';
-import { buildClientFinancePutPayload } from '../../../lib/clientFinanceAdmin';
-import ClientFinanceFields from '../ClientFinanceFields';
-
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 function formatApiError(err) {
@@ -107,20 +102,6 @@ export default function DashboardAccessTab() {
   const [annualPackageOfferYearlyEmiVisible, setAnnualPackageOfferYearlyEmiVisible] = useState(false);
   const [annualPackageOfferFlexiVisible, setAnnualPackageOfferFlexiVisible] = useState(false);
   const [portalLoginAllowed, setPortalLoginAllowed] = useState(true);
-  const [preferredPaymentMethod, setPreferredPaymentMethod] = useState('');
-  const [indiaPaymentMethod, setIndiaPaymentMethod] = useState('');
-  const [preferredIndiaGpayId, setPreferredIndiaGpayId] = useState('');
-  const [preferredIndiaBankId, setPreferredIndiaBankId] = useState('');
-  const [indiaDiscountPercent, setIndiaDiscountPercent] = useState('');
-  const [indiaDiscountBandRows, setIndiaDiscountBandRows] = useState([]);
-  const [indiaTaxEnabled, setIndiaTaxEnabled] = useState(false);
-  const [indiaTaxPercent, setIndiaTaxPercent] = useState(18);
-  const [indiaTaxLabel, setIndiaTaxLabel] = useState('GST');
-  /** CRM portal fee defaults: empty = follow site / subscription merge. */
-  const [crmLateFeePerDay, setCrmLateFeePerDay] = useState('');
-  const [crmChannelizationFee, setCrmChannelizationFee] = useState('');
-  /** '' | 'true' | 'false' — empty = use site default in merge. */
-  const [crmShowLateFees, setCrmShowLateFees] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkLoading, setBulkLoading] = useState(false);
 
@@ -128,22 +109,8 @@ export default function DashboardAccessTab() {
   const [bulkFieldsSaving, setBulkFieldsSaving] = useState(false);
   const [bulkApply, setBulkApply] = useState({
     access: false,
-    preferred: false,
-    tag: false,
-    gpay: false,
-    bank: false,
-    discount: false,
-    tax: false,
   });
   const [bulkAnnualMember, setBulkAnnualMember] = useState(false);
-  const [bulkPreferred, setBulkPreferred] = useState('');
-  const [bulkIndiaMethod, setBulkIndiaMethod] = useState('');
-  const [bulkGpayId, setBulkGpayId] = useState('');
-  const [bulkBankId, setBulkBankId] = useState('');
-  const [bulkDiscountStr, setBulkDiscountStr] = useState('');
-  const [bulkTaxEnabled, setBulkTaxEnabled] = useState(false);
-  const [bulkTaxPct, setBulkTaxPct] = useState('18');
-  const [bulkTaxLabel, setBulkTaxLabel] = useState('GST');
 
   const [pricingPreviewOpen, setPricingPreviewOpen] = useState(false);
   const [pricingPreviewClient, setPricingPreviewClient] = useState(null);
@@ -151,34 +118,6 @@ export default function DashboardAccessTab() {
   const [pricingPreviewLoading, setPricingPreviewLoading] = useState(false);
   const [previewAdminPassword, setPreviewAdminPassword] = useState('');
   const [openingDashboard, setOpeningDashboard] = useState(false);
-
-  const indiaGpayOpts = useMemo(() => buildIndiaGpayOptions(indiaSite || {}), [indiaSite]);
-  const indiaBankOpts = useMemo(() => buildIndiaBankOptions(indiaSite || {}), [indiaSite]);
-
-  const showBulkGpayPicker = useMemo(() => {
-    const pref = (bulkPreferred || '').trim().toLowerCase();
-    const tag = (bulkIndiaMethod || '').trim().toLowerCase();
-    return (
-      pref === 'gpay_upi' ||
-      tag === 'gpay_upi' ||
-      tag === 'gpay' ||
-      tag === 'upi' ||
-      tag === 'any'
-    );
-  }, [bulkPreferred, bulkIndiaMethod]);
-
-  const showBulkBankPicker = useMemo(() => {
-    const pref = (bulkPreferred || '').trim().toLowerCase();
-    const tag = (bulkIndiaMethod || '').trim().toLowerCase();
-    return (
-      pref === 'bank_transfer' ||
-      pref === 'cash_deposit' ||
-      tag === 'bank_transfer' ||
-      tag === 'cash_deposit' ||
-      tag === 'cash' ||
-      tag === 'any'
-    );
-  }, [bulkPreferred, bulkIndiaMethod]);
 
   useEffect(() => {
     axios
@@ -210,27 +149,6 @@ export default function DashboardAccessTab() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  const setIndiaMethodTagged = (v) => {
-    setIndiaPaymentMethod(v);
-    const gpayOk = v === 'gpay_upi' || v === 'any' || v === '';
-    const bankOk = v === 'bank_transfer' || v === 'cash_deposit' || v === 'any' || v === '';
-    if (!gpayOk) setPreferredIndiaGpayId('');
-    if (!bankOk) setPreferredIndiaBankId('');
-  };
-
-  const onPreferredPaymentChange = (v) => {
-    const low = (v || '').trim().toLowerCase();
-    setPreferredPaymentMethod(v);
-    if (low === 'stripe') {
-      setPreferredIndiaGpayId('');
-      setPreferredIndiaBankId('');
-    } else if (low === 'bank_transfer' || low === 'cash_deposit') {
-      setPreferredIndiaGpayId('');
-    } else if (low === 'gpay_upi') {
-      setPreferredIndiaBankId('');
-    }
-  };
 
   const loadPricingPreview = async (cl, pwd = '') => {
     if (!cl?.id) return;
@@ -316,27 +234,6 @@ export default function DashboardAccessTab() {
     setAnnualPackageOfferYearlyEmiVisible(cl.annual_package_offer_yearly_emi_visible === true);
     setAnnualPackageOfferFlexiVisible(cl.annual_package_offer_flexi_visible === true);
     setPortalLoginAllowed(cl.portal_login_allowed !== false);
-    setPreferredPaymentMethod(cl.preferred_payment_method || '');
-    setIndiaPaymentMethod(cl.india_payment_method || '');
-    setPreferredIndiaGpayId(cl.preferred_india_gpay_id || '');
-    setPreferredIndiaBankId(cl.preferred_india_bank_id || '');
-    setIndiaDiscountPercent(cl.india_discount_percent ?? '');
-    setIndiaDiscountBandRows(serverBandsToRows(cl.india_discount_member_bands || []));
-    setIndiaTaxEnabled(!!cl.india_tax_enabled);
-    setIndiaTaxPercent(cl.india_tax_percent ?? 18);
-    setIndiaTaxLabel(cl.india_tax_label || 'GST');
-    setCrmLateFeePerDay(
-      cl.crm_late_fee_per_day != null && cl.crm_late_fee_per_day !== '' ? String(cl.crm_late_fee_per_day) : '',
-    );
-    setCrmChannelizationFee(
-      cl.crm_channelization_fee != null && cl.crm_channelization_fee !== ''
-        ? String(cl.crm_channelization_fee)
-        : '',
-    );
-    {
-      const sh = cl.crm_show_late_fees;
-      setCrmShowLateFees(sh === true ? 'true' : sh === false ? 'false' : '');
-    }
     setDialogOpen(true);
   };
 
@@ -347,11 +244,6 @@ export default function DashboardAccessTab() {
 
   const handleSave = async () => {
     if (!editing?.id) return;
-    const bandErr = validateBandRows(indiaDiscountBandRows);
-    if (bandErr) {
-      toast({ title: 'Group discount rules', description: bandErr, variant: 'destructive' });
-      return;
-    }
     setSaving(true);
     try {
       const wasPending = isPendingIntakeReview(editing);
@@ -365,20 +257,6 @@ export default function DashboardAccessTab() {
         annual_package_offer_flexi_visible: annualPackageOfferFlexiVisible,
         portal_login_allowed: portalLoginAllowed,
         intake_pending: false,
-        ...buildClientFinancePutPayload({
-          preferredPaymentMethod,
-          indiaPaymentMethod,
-          preferredIndiaGpayId,
-          preferredIndiaBankId,
-          indiaDiscountPercent,
-          indiaDiscountBandRows,
-          indiaTaxEnabled,
-          indiaTaxPercent,
-          indiaTaxLabel,
-          crmLateFeePerDay,
-          crmChannelizationFee,
-          crmShowLateFees,
-        }),
       });
       toast({
         title: 'Saved',
@@ -476,72 +354,19 @@ export default function DashboardAccessTab() {
     if (!selectedIds.length) return;
     const first = rows.find((r) => selectedIds.includes(r.id));
     setBulkAnnualMember(!!first?.annual_member_dashboard);
-    setBulkPreferred(first?.preferred_payment_method || '');
-    setBulkIndiaMethod(first?.india_payment_method || '');
-    setBulkGpayId(first?.preferred_india_gpay_id || '');
-    setBulkBankId(first?.preferred_india_bank_id || '');
-    const d = first?.india_discount_percent;
-    setBulkDiscountStr(d !== null && d !== undefined && d !== '' ? String(d) : '');
-    setBulkTaxEnabled(!!first?.india_tax_enabled);
-    setBulkTaxPct(first?.india_tax_percent != null ? String(first.india_tax_percent) : '18');
-    setBulkTaxLabel(first?.india_tax_label || 'GST');
-    setBulkApply({
-      access: false,
-      preferred: false,
-      tag: false,
-      gpay: false,
-      bank: false,
-      discount: false,
-      tax: false,
-    });
+    setBulkApply({ access: false });
     setBulkFieldsOpen(true);
-  };
-
-  const onBulkPreferredChange = (v) => {
-    const low = (v || '').trim().toLowerCase();
-    setBulkPreferred(v);
-    if (low === 'stripe') {
-      setBulkGpayId('');
-      setBulkBankId('');
-    } else if (low === 'bank_transfer' || low === 'cash_deposit') {
-      setBulkGpayId('');
-    } else if (low === 'gpay_upi') {
-      setBulkBankId('');
-    }
-  };
-
-  const setBulkIndiaMethodTagged = (v) => {
-    setBulkIndiaMethod(v);
-    const gpayOk = v === 'gpay_upi' || v === 'any' || v === '';
-    const bankOk = v === 'bank_transfer' || v === 'cash_deposit' || v === 'any' || v === '';
-    if (!gpayOk) setBulkGpayId('');
-    if (!bankOk) setBulkBankId('');
   };
 
   const handleBulkFieldsSave = async () => {
     if (!selectedIds.length || bulkFieldsSaving) return;
     const patch = { client_ids: selectedIds };
     if (bulkApply.access) patch.annual_member_dashboard = bulkAnnualMember;
-    if (bulkApply.preferred) patch.preferred_payment_method = (bulkPreferred || '').trim().toLowerCase() || '';
-    if (bulkApply.tag) patch.india_payment_method = (bulkIndiaMethod || '').trim() || '';
-    if (bulkApply.gpay) patch.preferred_india_gpay_id = (bulkGpayId || '').trim() || '';
-    if (bulkApply.bank) patch.preferred_india_bank_id = (bulkBankId || '').trim() || '';
-    if (bulkApply.discount) {
-      patch.india_discount_percent =
-        bulkDiscountStr !== '' && bulkDiscountStr != null && bulkDiscountStr !== undefined
-          ? parseFloat(String(bulkDiscountStr).replace(/,/g, '')) || 0
-          : null;
-    }
-    if (bulkApply.tax) {
-      patch.india_tax_enabled = bulkTaxEnabled;
-      patch.india_tax_percent = bulkTaxEnabled ? parseFloat(String(bulkTaxPct)) || 0 : null;
-      patch.india_tax_label = (bulkTaxLabel || 'GST').trim() || 'GST';
-    }
     const extraKeys = Object.keys(patch).filter((k) => k !== 'client_ids');
     if (!extraKeys.length) {
       toast({
         title: 'Choose fields to apply',
-        description: 'Check at least one section below (access type, payment, GST, etc.).',
+        description: 'Check “Access type (Sacred Home)” below, or cancel.',
         variant: 'destructive',
       });
       return;
@@ -612,12 +437,12 @@ export default function DashboardAccessTab() {
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Dashboard access</h2>
             <p className="text-xs text-gray-500 mt-0.5 max-w-2xl">
-              Tagged payment shows rows from <strong>Site Settings → Indian Payment</strong> (e.g. pin “Priyanka” UPI). Set
-              access type, <strong>Google login</strong>, preferred payment, tags, GST, and discount — including allowing their
-              student portal (welcome email sends the first time you enable login after it was blocked).
-              Use the checkboxes + <strong>Allow Google login for selected</strong> or{' '}
-              <strong>Bulk edit access &amp; payments</strong> to update many clients at once.{' '}
-              <strong>View as</strong> opens a popup with their upcoming-program portal pricing (no new tab — uses your admin session).
+              Use this tab for <strong>email</strong>, <strong>Google login</strong>, <strong>annual vs non-annual access</strong>, and{' '}
+              <strong>Home Coming package-page</strong> EMI/Flexi visibility. Payment rails, tags, GST, CRM fees, and Home Coming
+              courtesy discount are edited only in <strong>Iris Annual Abundance</strong> (not here), so those fields no longer
+              mirror between tabs. The grid below still shows payment and discount for quick reference (from the same client record).
+              Use the checkboxes + <strong>Allow Google login for selected</strong> or <strong>Bulk edit access type</strong> for
+              many rows. <strong>View as</strong> opens portal pricing from your admin session.
             </p>
           </div>
         </div>
@@ -669,7 +494,7 @@ export default function DashboardAccessTab() {
                 data-testid="dashboard-access-bulk-fields"
               >
                 <SlidersHorizontal size={14} />
-                Bulk edit access & payments
+                Bulk edit access type
               </Button>
               <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setSelectedIds([])}>
                 Clear selection
@@ -687,7 +512,7 @@ export default function DashboardAccessTab() {
           <span className="flex items-center gap-2 font-medium">
             <Bell size={18} className="text-orange-500 shrink-0" />
             <span>
-              <strong>{pendingCount}</strong> new intake request{pendingCount === 1 ? '' : 's'} — highlight below; set payment tags, then save or mark reviewed.
+              <strong>{pendingCount}</strong> new intake request{pendingCount === 1 ? '' : 's'} — highlight below; enable Google login or mark reviewed. Payment and Home Coming discount are set in Iris Annual Abundance.
             </span>
           </span>
         </div>
@@ -736,9 +561,11 @@ export default function DashboardAccessTab() {
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Preferred payment
+                  <span className="block font-normal normal-case text-[9px] text-gray-400 font-medium mt-0.5">(edit in Iris Annual)</span>
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Tagged payment (site)
+                  <span className="block font-normal normal-case text-[9px] text-gray-400 font-medium mt-0.5">(edit in Iris Annual)</span>
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Annual member? (intake)
@@ -748,9 +575,11 @@ export default function DashboardAccessTab() {
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   GST
+                  <span className="block font-normal normal-case text-[9px] text-gray-400 font-medium mt-0.5">(edit in Iris Annual)</span>
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Discount
+                  HC discount
+                  <span className="block font-normal normal-case text-[9px] text-gray-400 font-medium mt-0.5">(Abundance)</span>
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Actions
@@ -849,7 +678,7 @@ export default function DashboardAccessTab() {
                         )}
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{gstSummary(cl)}</td>
-                      <td className="px-3 py-2 text-xs text-gray-700">{discountSummary(cl)}</td>
+                      <td className="px-3 py-2 text-xs text-gray-700">{irisAnnualAbundanceDiscountSummary(cl)}</td>
                       <td className="px-2 py-2 align-top">
                         <div className="flex flex-col items-end gap-1.5">
                           {isPendingIntakeReview(cl) && (
@@ -1041,35 +870,13 @@ export default function DashboardAccessTab() {
               </label>
             </div>
 
-            <ClientFinanceFields
-              indiaSite={indiaSite}
-              preferredPaymentMethod={preferredPaymentMethod}
-              onPreferredPaymentChange={onPreferredPaymentChange}
-              indiaPaymentMethod={indiaPaymentMethod}
-              onIndiaPaymentMethodChange={setIndiaMethodTagged}
-              preferredIndiaGpayId={preferredIndiaGpayId}
-              onPreferredIndiaGpayIdChange={setPreferredIndiaGpayId}
-              preferredIndiaBankId={preferredIndiaBankId}
-              onPreferredIndiaBankIdChange={setPreferredIndiaBankId}
-              indiaDiscountPercent={indiaDiscountPercent}
-              onIndiaDiscountPercentChange={setIndiaDiscountPercent}
-              indiaDiscountBandRows={indiaDiscountBandRows}
-              onIndiaDiscountBandRowsChange={setIndiaDiscountBandRows}
-              indiaTaxEnabled={indiaTaxEnabled}
-              onIndiaTaxEnabledChange={setIndiaTaxEnabled}
-              indiaTaxPercent={indiaTaxPercent}
-              onIndiaTaxPercentChange={setIndiaTaxPercent}
-              indiaTaxLabel={indiaTaxLabel}
-              onIndiaTaxLabelChange={setIndiaTaxLabel}
-              crmLateFeePerDay={crmLateFeePerDay}
-              onCrmLateFeePerDayChange={setCrmLateFeePerDay}
-              crmChannelizationFee={crmChannelizationFee}
-              onCrmChannelizationFeeChange={setCrmChannelizationFee}
-              crmShowLateFees={crmShowLateFees}
-              onCrmShowLateFeesChange={setCrmShowLateFees}
-              testIdPrefix="dashboard-access"
-              discountScope="dashboard_access"
-            />
+            <div className="rounded-lg border border-violet-200 bg-violet-50/60 px-3 py-3 space-y-2">
+              <p className="text-[11px] font-semibold text-gray-800">Payment, GST, CRM fees &amp; Home Coming discount</p>
+              <p className="text-[10px] text-gray-600 leading-snug">
+                Edit these only under <strong>Iris Annual Abundance</strong> (client finances / Home Coming). This dialog no
+                longer updates those fields, so Dashboard Access and Abundance won&apos;t overwrite each other.
+              </p>
+            </div>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
@@ -1086,10 +893,11 @@ export default function DashboardAccessTab() {
       <Dialog open={bulkFieldsOpen} onOpenChange={(o) => !o && setBulkFieldsOpen(false)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="dashboard-access-bulk-dialog">
           <DialogHeader>
-            <DialogTitle>Bulk edit access & payments</DialogTitle>
+            <DialogTitle>Bulk edit access type</DialogTitle>
             <DialogDescription>
-              Check each section you want to overwrite, then apply to{' '}
-              <strong>{selectedIds.length}</strong> selected client(s). Unchecked sections are left unchanged.
+              Set Sacred Home <strong>annual vs non-annual</strong> for{' '}
+              <strong>{selectedIds.length}</strong> selected client(s). Check the box below to apply; payment and discount are not
+              changed here — use Iris Annual Abundance.
             </DialogDescription>
           </DialogHeader>
 
@@ -1114,182 +922,6 @@ export default function DashboardAccessTab() {
                 <option value="non_annual">Non-annual</option>
                 <option value="annual">Annual</option>
               </select>
-            </div>
-
-            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="rounded border-gray-300"
-                  checked={bulkApply.preferred}
-                  onChange={(e) => setBulkApply((p) => ({ ...p, preferred: e.target.checked }))}
-                />
-                <span className="text-xs font-semibold text-gray-800">Preferred payment method</span>
-              </label>
-              <select
-                value={bulkPreferred}
-                onChange={(e) => onBulkPreferredChange(e.target.value)}
-                disabled={!bulkApply.preferred}
-                className="w-full text-sm border rounded-md px-2 py-2 bg-white disabled:opacity-50"
-              >
-                <option value="">— Not set —</option>
-                <option value="gpay_upi">GPay / UPI</option>
-                <option value="bank_transfer">Bank transfer</option>
-                <option value="cash_deposit">Cash deposit</option>
-                <option value="stripe">Stripe</option>
-              </select>
-            </div>
-
-            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="rounded border-gray-300"
-                  checked={bulkApply.tag}
-                  onChange={(e) => setBulkApply((p) => ({ ...p, tag: e.target.checked }))}
-                />
-                <span className="text-xs font-semibold text-gray-800">Payment method tag (checkout)</span>
-              </label>
-              <select
-                value={bulkIndiaMethod}
-                onChange={(e) => setBulkIndiaMethodTagged(e.target.value)}
-                disabled={!bulkApply.tag}
-                className="w-full text-sm border rounded-md px-2 py-2 bg-white disabled:opacity-50"
-              >
-                <option value="">— Not tagged —</option>
-                <option value="gpay_upi">GPay / UPI</option>
-                <option value="bank_transfer">Bank transfer</option>
-                <option value="cash_deposit">Cash deposit</option>
-                <option value="stripe">Stripe</option>
-                <option value="any">Any / multiple</option>
-              </select>
-            </div>
-
-            {showBulkGpayPicker && indiaGpayOpts.length >= 1 && (
-              <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="rounded border-gray-300"
-                    checked={bulkApply.gpay}
-                    onChange={(e) => setBulkApply((p) => ({ ...p, gpay: e.target.checked }))}
-                  />
-                  <span className="text-xs font-semibold text-gray-800">Tagged UPI (Indian Payment)</span>
-                </label>
-                <select
-                  value={bulkGpayId}
-                  onChange={(e) => setBulkGpayId(e.target.value)}
-                  disabled={!bulkApply.gpay}
-                  className="w-full text-sm border rounded-md px-2 py-2 bg-white disabled:opacity-50"
-                >
-                  <option value="">All UPIs (full list on payment)</option>
-                  {indiaGpayOpts.map((o) => (
-                    <option key={o.tag_id} value={o.tag_id}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {showBulkBankPicker && indiaBankOpts.length >= 1 && (
-              <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="rounded border-gray-300"
-                    checked={bulkApply.bank}
-                    onChange={(e) => setBulkApply((p) => ({ ...p, bank: e.target.checked }))}
-                  />
-                  <span className="text-xs font-semibold text-gray-800">Tagged bank account (Indian Payment)</span>
-                </label>
-                <select
-                  value={bulkBankId}
-                  onChange={(e) => setBulkBankId(e.target.value)}
-                  disabled={!bulkApply.bank}
-                  className="w-full text-sm border rounded-md px-2 py-2 bg-white disabled:opacity-50"
-                >
-                  <option value="">All accounts (student picks)</option>
-                  {indiaBankOpts.map((o) => (
-                    <option key={o.tag_id} value={o.tag_id}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="rounded border-gray-300"
-                  checked={bulkApply.discount}
-                  onChange={(e) => setBulkApply((p) => ({ ...p, discount: e.target.checked }))}
-                />
-                <span className="text-xs font-semibold text-gray-800">Discount % on base price</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.5"
-                  value={bulkDiscountStr}
-                  onChange={(e) => setBulkDiscountStr(e.target.value)}
-                  placeholder="Leave empty to clear"
-                  disabled={!bulkApply.discount}
-                  className="text-sm disabled:opacity-50"
-                />
-                <span className="text-xs text-gray-500">%</span>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-orange-200 bg-orange-50/40 p-3 space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="rounded border-gray-300"
-                  checked={bulkApply.tax}
-                  onChange={(e) => setBulkApply((p) => ({ ...p, tax: e.target.checked }))}
-                />
-                <span className="text-xs font-semibold text-gray-800">GST / tax on after-discount price</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer pl-1">
-                <input
-                  type="checkbox"
-                  checked={bulkTaxEnabled}
-                  onChange={(e) => setBulkTaxEnabled(e.target.checked)}
-                  disabled={!bulkApply.tax}
-                  className="rounded border-orange-300 disabled:opacity-50"
-                />
-                <span className="text-sm text-gray-800">Tax applicable</span>
-              </label>
-              {bulkTaxEnabled && bulkApply.tax && (
-                <div className="grid grid-cols-2 gap-2 pl-1">
-                  <div>
-                    <Label className="text-[10px] text-gray-500">Rate % (0 = no tax)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.5"
-                      value={bulkTaxPct}
-                      onChange={(e) => setBulkTaxPct(e.target.value)}
-                      className="h-9 text-sm mt-0.5"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-gray-500">Label</Label>
-                    <Input
-                      value={bulkTaxLabel}
-                      onChange={(e) => setBulkTaxLabel(e.target.value)}
-                      className="h-9 text-sm mt-0.5"
-                      placeholder="GST"
-                    />
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
