@@ -286,6 +286,13 @@ async def run_enrollment_razorpay_success_hooks(session_id: str) -> None:
     except Exception as e:
         logger.warning("Razorpay UID generation: %s", e)
 
+    try:
+        from routes.india_payments import sync_home_coming_emis_after_online_enrollment_payment
+
+        await sync_home_coming_emis_after_online_enrollment_payment(session_id)
+    except Exception as e:
+        logger.warning("Home Coming EMI sync (Razorpay): %s", e)
+
     txn_clean = {
         k: v
         for k, v in (
@@ -915,6 +922,12 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
     # If already marked as paid, return immediately (prevent double processing)
     if tx.get("payment_status") == "paid":
         await backfill_transaction_portal_ids(session_id, tx)
+        try:
+            from routes.india_payments import sync_home_coming_emis_after_online_enrollment_payment
+
+            await sync_home_coming_emis_after_online_enrollment_payment(session_id)
+        except Exception as ex:
+            logger.warning("Home Coming EMI sync (status check, already paid): %s", ex)
         return {
             "status": "complete",
             "payment_status": "paid",
@@ -1033,6 +1046,13 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
             # Generate UIDs for all participants
             await generate_participant_uids(session_id)
             background_tasks.add_task(send_enrollment_emails, session_id)
+
+            try:
+                from routes.india_payments import sync_home_coming_emis_after_online_enrollment_payment
+
+                await sync_home_coming_emis_after_online_enrollment_payment(session_id)
+            except Exception as ex:
+                logger.warning("Home Coming EMI sync (Stripe status poll): %s", ex)
 
         # Re-fetch participants after UID generation
         if enrollment_id:
