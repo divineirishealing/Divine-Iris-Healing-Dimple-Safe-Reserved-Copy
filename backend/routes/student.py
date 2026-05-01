@@ -107,15 +107,6 @@ def _merge_portal_late_channel_show(client: dict, sub: Optional[dict], site_doc:
     return {"late_fee_per_day": late, "channelization_fee": channel, "show_late_fees": show}
 
 
-def _portal_std_india_discount(site_doc: dict) -> float:
-    ss = site_doc or {}
-    v = _optional_float(ss.get("portal_standard_india_discount_percent"))
-    if v is not None:
-        return v
-    alt = _optional_float(ss.get("india_alt_discount_percent"))
-    return float(alt if alt is not None else 0.0)
-
-
 def _portal_std_india_tax(site_doc: dict) -> float:
     ss = site_doc or {}
     v = _optional_float(ss.get("portal_standard_india_tax_percent"))
@@ -195,20 +186,23 @@ def _apply_crm_portal_discount_to_pricing_total(
 
 
 def _merge_client_india_pricing_portal(client: dict, sub: Optional[dict], site_doc: dict) -> Dict[str, Any]:
-    """Merged India manual-checkout fields for Sacred Home (subscription individual % / tax, else CRM, else site portal standards)."""
+    """Merged India manual-checkout fields for Sacred Home.
+
+    Discount: authoritative subscription ``individual_discount_pct`` when set; else CRM
+    ``india_discount_percent`` when parsed; else **0** (unset/blank CRM is not filled from site defaults).
+    Tax still follows subscription overrides or CRM/site merge below. Member bands use the merged percent context.
+    """
     sub = sub or {}
     auth = _subscription_is_authoritative(sub)
-    std_disc = _portal_std_india_discount(site_doc)
     std_tax = _portal_std_india_tax(site_doc)
 
     sub_disc_f = _optional_float(sub.get("individual_discount_pct")) if auth else None
 
     if auth and sub_disc_f is not None:
         eff_disc = float(sub_disc_f)
-    elif client.get("india_discount_percent") is not None:
-        eff_disc = float(client["india_discount_percent"])
     else:
-        eff_disc = float(std_disc)
+        cp = _optional_float(client.get("india_discount_percent"))
+        eff_disc = float(cp if cp is not None else 0.0)
 
     sub_tax_f = _optional_float(sub.get("individual_tax_pct")) if auth else None
 

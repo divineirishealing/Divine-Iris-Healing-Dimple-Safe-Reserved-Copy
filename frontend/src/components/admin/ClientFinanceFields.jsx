@@ -161,8 +161,8 @@ export default function ClientFinanceFields({
       <div>
         <Label className="text-xs text-gray-600">Discount % on base price</Label>
         <p className="text-[10px] text-gray-400 mb-1">
-          Applied before GST. Leave empty for no client-specific flat discount (site default applies unless bands match
-          below).
+          Applied before GST. Leave empty for 0% from this field (site-wide default is not applied). Member bands below
+          still apply when matched.
         </p>
         <div className="flex items-center gap-2 mt-1">
           <Input
