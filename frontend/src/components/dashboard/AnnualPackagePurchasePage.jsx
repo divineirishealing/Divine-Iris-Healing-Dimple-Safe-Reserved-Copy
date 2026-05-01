@@ -909,6 +909,15 @@ export default function AnnualPackagePurchasePage() {
     return false;
   }, [crmSubscriptionFeeMatchesHub, fin.total_fee, fin.payment_mode, emis.length, isRenewalSeason]);
 
+  /** During renewal, Sacred Exchange (not catalog list) is the source of truth for the headline total. */
+  const showRenewalSacredExchangePrice = useMemo(
+    () =>
+      isRenewalSeason &&
+      crmSubscriptionFeeMatchesHub &&
+      Number(fin.total_fee || 0) > 0,
+    [isRenewalSeason, crmSubscriptionFeeMatchesHub, fin.total_fee],
+  );
+
   /** Divine Cart / checkout line title — pinned program title is AWRP; members expect Home Coming wording + Iris year. */
   const homeComingCartTitle = useMemo(() => {
     if (!homeData) return 'Home Coming Annual Program';
@@ -1593,7 +1602,67 @@ export default function AnnualPackagePurchasePage() {
                 </div>
                 <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:divide-[rgba(160,100,240,0.14)]">
                   <div className="min-w-0 space-y-3 lg:pr-8 lg:py-0.5">
-                    {preferOnFilePackagePricing ? (
+                    {showRenewalSacredExchangePrice ? (
+                      <div className="space-y-2 text-left">
+                        <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-[rgba(100,55,155,0.45)]">
+                          Your renewal energy exchange
+                        </p>
+                        {Number(fin.crm_discount_amount || 0) > 0.01 && Number(fin.base_package_fee || 0) > 0 ? (
+                          <>
+                            <p className="text-left">
+                              <span className="text-xl sm:text-2xl font-semibold text-[rgba(80,55,145,0.45)] tabular-nums line-through decoration-[rgba(120,80,160,0.35)]">
+                                {symbol}
+                                {Number(toDisplay(Number(fin.base_package_fee))).toLocaleString()}
+                              </span>{' '}
+                              <span className="text-sm font-medium text-[rgba(80,55,145,0.45)]">
+                                {(sacredMoneyCurrency || 'INR')}
+                              </span>
+                            </p>
+                            <div className="rounded-xl border border-[rgba(212,175,55,0.35)] bg-gradient-to-r from-[#fffbf0]/95 via-white/90 to-[#fdf6e3]/90 px-3.5 py-3 text-left shadow-sm shadow-amber-900/5">
+                              <p className="text-[12px] text-[#5c4a12] leading-snug">
+                                Courtesy savings:{' '}
+                                <strong className="text-[#6b5210] tabular-nums">
+                                  {symbol}
+                                  {Number(toDisplay(Number(fin.crm_discount_amount || 0))).toLocaleString()}
+                                </strong>
+                                {fin.crm_discount_percent != null && Number(fin.crm_discount_percent) > 0 ? (
+                                  <span className="text-[#6b5210]">
+                                    {' '}
+                                    ({Number(fin.crm_discount_percent).toFixed(1).replace(/\.0$/, '')}%)
+                                  </span>
+                                ) : null}
+                              </p>
+                            </div>
+                          </>
+                        ) : null}
+                        <p className="text-left">
+                          <span className="text-[2rem] sm:text-[2.35rem] font-bold text-[#1a0a3d] tabular-nums tracking-tight">
+                            {symbol}
+                            {Number(toDisplay(Number(fin.total_fee || 0))).toLocaleString()}
+                          </span>{' '}
+                          <span className="text-lg font-semibold text-[rgba(80,55,145,0.55)]">
+                            {(sacredMoneyCurrency || 'AED')}
+                          </span>
+                        </p>
+                        <p className="text-[11px] text-[rgba(60,35,115,0.65)] leading-snug">
+                          This total matches your chosen payment schedule below and your Sacred Exchange record.
+                        </p>
+                        {catalogAmountHub != null && catalogDisplayAmount != null ? (
+                          <p className="text-[10px] text-[rgba(90,55,135,0.5)] leading-snug pt-1 border-t border-violet-100/80 mt-2">
+                            <span className="font-semibold uppercase tracking-wide text-[9px] text-[rgba(100,55,155,0.4)]">
+                              Catalog reference (list pricing)
+                            </span>{' '}
+                            — {symbol}
+                            {Number(
+                              catalogCourtesyBreakdown
+                                ? catalogCourtesyBreakdown.finalDisplay
+                                : catalogDisplayAmount,
+                            ).toLocaleString()}{' '}
+                            {(baseCurrency || 'inr').toUpperCase()}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : preferOnFilePackagePricing ? (
                       <div className="space-y-2 text-left">
                         <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-[rgba(100,55,155,0.45)]">
                           Your package amount (on file)

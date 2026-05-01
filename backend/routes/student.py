@@ -163,6 +163,52 @@ def _apply_crm_discount_to_total(
     return after, disc_amt, pct_out
 
 
+def _portal_emis_align_unpaid_to_balance(emis: Any, effective_total_fee: float) -> Any:
+    """Scale unpaid EMI ``amount`` values so dues sum to ``effective_total_fee`` minus paid (display-only)."""
+    if not isinstance(emis, list) or not emis:
+        return emis
+    try:
+        tot = float(effective_total_fee)
+    except (TypeError, ValueError):
+        return emis
+    paid_sum = 0.0
+    due_idxs: List[int] = []
+    for i, e in enumerate(emis):
+        if not isinstance(e, dict):
+            continue
+        amt = float(e.get("amount") or 0)
+        if str(e.get("status") or "").lower() == "paid":
+            paid_sum += amt
+        else:
+            due_idxs.append(i)
+    target_due = round(max(0.0, tot - paid_sum), 2)
+    due_old = round(
+        sum(float(emis[i].get("amount") or 0) for i in due_idxs if isinstance(emis[i], dict)),
+        2,
+    )
+    if not due_idxs or due_old <= 0 or abs(target_due - due_old) < 0.015:
+        return emis
+    scale = target_due / due_old
+    scaled_amts: List[float] = []
+    for idx in due_idxs:
+        old = float(emis[idx].get("amount") or 0)
+        scaled_amts.append(round(old * scale, 2))
+    drift = round(target_due - sum(scaled_amts), 2)
+    if scaled_amts and abs(drift) >= 0.01:
+        scaled_amts[-1] = round(scaled_amts[-1] + drift, 2)
+    idx_to_scaled = {due_idxs[i]: scaled_amts[i] for i in range(len(due_idxs))}
+    out: List[Any] = []
+    for i, e in enumerate(emis):
+        if not isinstance(e, dict):
+            out.append(e)
+            continue
+        ee = dict(e)
+        if i in idx_to_scaled:
+            ee["amount"] = idx_to_scaled[i]
+        out.append(ee)
+    return out
+
+
 def _apply_crm_portal_discount_to_pricing_total(
     pricing: dict,
     client: dict,
@@ -2880,7 +2926,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     adj_base = raw_base_package_fee
     crm_disc_pct_display = None
     crm_disc_amt_display = None
-    if raw_base_package_fee > 0 and not is_emi_plan:
+    if raw_base_package_fee > 0:
         if rule_fin.get("mode") == "percent" and float(rule_fin.get("percent") or 0) > 0:
             crm_disc_pct_display = float(rule_fin["percent"])
             crm_disc_amt_display = round(raw_base_package_fee * crm_disc_pct_display / 100.0, 2)
@@ -2900,11 +2946,15 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         else adj_base
     )
 
+    emis_portal = emis
+    if is_emi_plan and isinstance(emis, list) and len(emis) > 0:
+        emis_portal = _portal_emis_align_unpaid_to_balance(emis, effective_total_fee)
+
     # 3. Financials - derived from subscription
     paid_emis = sum(1 for e in emis if e.get("status") == "paid")
     total_emis = len(emis)
     voluntary_credits = float(sub.get("voluntary_credits_total") or 0)
-    total_paid_emis = sum(float(e.get("amount", 0) or 0) for e in emis if e.get("status") == "paid")
+    total_paid_emis = sum(float(e.get("amount", 0) or 0) for e in emis_portal if e.get("status") == "paid")
     total_paid = total_paid_emis + voluntary_credits
     total_fee = effective_total_fee
     remaining = max(0, total_fee - total_paid)
@@ -2931,14 +2981,14 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "voluntary_credits_total": voluntary_credits,
         "payment_mode": sub.get("payment_mode", ""),
         "emi_plan": f"{paid_emis}/{total_emis} EMIs Paid" if total_emis > 0 else "",
-        "emis": emis,
+        "emis": emis_portal,
         "next_due": "No pending dues",
         "crm_discount_percent": crm_disc_pct_display,
         "crm_discount_amount": crm_disc_amt_display,
     }
 
     # Find next due EMI
-    for emi in emis:
+    for emi in emis_portal:
         if emi.get("status") in ("due", "pending") and emi.get("due_date"):
             financials["next_due"] = emi["due_date"]
             break
