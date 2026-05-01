@@ -38,6 +38,32 @@ function formatApiError(err) {
   return err.message || 'Request failed';
 }
 
+/** Matches ClientFinancesTab `effectiveFinanceCurrency` — same hub as Sacred Home / student quotes. */
+function pricingPreviewCurrencyForClient(cl) {
+  const hub = String(cl?.pricing_hub_override || '').trim().toLowerCase();
+  if (hub === 'inr' || hub === 'aed' || hub === 'usd') return hub;
+  const sub = cl?.subscription || {};
+  const cur = String(sub.currency || 'inr').trim().toLowerCase();
+  if (cur === 'aed' || cur === 'usd' || cur === 'inr') return cur;
+  return 'inr';
+}
+
+function formatPreviewMoney(amount, currencyLower) {
+  const c = (currencyLower || 'inr').toLowerCase();
+  const n = Number(amount ?? 0);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: c.toUpperCase(),
+      maximumFractionDigits: n % 1 === 0 ? 0 : 2,
+      minimumFractionDigits: n % 1 === 0 ? 0 : 2,
+    }).format(n);
+  } catch {
+    const sym = c === 'aed' ? 'AED ' : c === 'usd' ? '$' : '₹';
+    return `${sym}${n.toLocaleString()}`;
+  }
+}
+
 /**
  * Effective “annual” for display hint only (subscription may still qualify).
  * Editable field is `annual_member_dashboard`.
@@ -213,8 +239,9 @@ export default function DashboardAccessTab() {
       if (adminTok) headers['X-Admin-Session'] = adminTok;
       const body = {};
       if (String(pwd || '').trim()) body.admin_password = String(pwd).trim();
+      const cur = pricingPreviewCurrencyForClient(cl);
       const res = await axios.post(
-        `${API}/admin/clients/${cl.id}/dashboard-pricing-preview?currency=inr`,
+        `${API}/admin/clients/${cl.id}/dashboard-pricing-preview?currency=${encodeURIComponent(cur)}`,
         body,
         { headers }
       );
@@ -1304,6 +1331,10 @@ export default function DashboardAccessTab() {
                   <span className="font-semibold text-gray-800">Annual (subscription data):</span>{' '}
                   {pricingPreviewData.is_annual_subscriber ? 'Yes' : 'No'}
                 </p>
+                <p>
+                  <span className="font-semibold text-gray-800">Quote currency:</span>{' '}
+                  {(pricingPreviewData.currency || 'inr').toUpperCase()}
+                </p>
                 <p className="text-[10px] text-gray-500 leading-snug">
                   Self-seat amounts for each upcoming program — same calculation as their Sacred Home pricing block (no guests).
                 </p>
@@ -1326,10 +1357,10 @@ export default function DashboardAccessTab() {
                         <tr key={row.program_id}>
                           <td className="px-2 py-2 align-top text-gray-900 max-w-[200px]">{row.program_title}</td>
                           <td className="px-2 py-2 text-right tabular-nums text-gray-900">
-                            ₹{Number(row.self_after_promos ?? 0).toLocaleString()}
+                            {formatPreviewMoney(row.self_after_promos, row.currency || pricingPreviewData.currency)}
                             {row.quote_show_tax && row.tax_included_estimate != null && row.currency === 'inr' ? (
                               <span className="block text-[10px] text-gray-500 font-normal">
-                                ~GST incl. ₹{Number(row.tax_included_estimate).toLocaleString()}
+                                ~GST incl. {formatPreviewMoney(row.tax_included_estimate, 'inr')}
                               </span>
                             ) : null}
                           </td>
