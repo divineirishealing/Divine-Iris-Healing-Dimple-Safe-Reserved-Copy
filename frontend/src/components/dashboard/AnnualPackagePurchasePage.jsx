@@ -544,6 +544,30 @@ export default function AnnualPackagePurchasePage() {
     durationMonths,
     portalHomeComingPaidInfo,
   ]);
+
+  /** Home Coming bundle has no balance left to collect (portal receipt counts when CRM lags). */
+  const homeComingAnnualFullyPaid = useMemo(() => {
+    if (portalHomeComingPaidInfo) return true;
+    const fee = Number(fin.total_fee || 0);
+    const paid = Number(fin.total_paid || 0);
+    const remRaw = fin.remaining;
+    const rem = remRaw == null || remRaw === '' ? null : Number(remRaw);
+    const remOk = rem === null || (!Number.isNaN(rem) && rem <= 0.01);
+    if (fee > 0 && paid + 0.02 >= fee && remOk) return true;
+    const list = emis || [];
+    if (list.length > 0 && list.every((e) => e && String(e.status).toLowerCase() === 'paid')) return true;
+    return false;
+  }, [portalHomeComingPaidInfo, fin.total_fee, fin.total_paid, fin.remaining, emis]);
+
+  /**
+   * Paid-and-locked annual Home Coming: cart and “browse programs” are deferred until the next renewal season.
+   * EMI members keep CTAs until every installment is paid.
+   */
+  const suppressHomeComingCartAndBrowse = useMemo(
+    () => membershipCycleDatesLocked && homeComingAnnualFullyPaid,
+    [membershipCycleDatesLocked, homeComingAnnualFullyPaid],
+  );
+
   const autoRenewalYear = useMemo(
     () => Math.min(12, Math.max(1, parseInt(homeData?.renewal_entering_iris_year, 10) || 1)),
     [homeData?.renewal_entering_iris_year],
@@ -1340,6 +1364,7 @@ export default function AnnualPackagePurchasePage() {
                       </p>
                     </div>
                   </div>
+                  {!suppressHomeComingCartAndBrowse ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -1354,6 +1379,7 @@ export default function AnnualPackagePurchasePage() {
                       </span>
                     ) : null}
                   </Button>
+                  ) : null}
                 </div>
                 <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:divide-[rgba(160,100,240,0.14)]">
                   <div className="min-w-0 space-y-3 lg:pr-8 lg:py-0.5">
@@ -1897,6 +1923,7 @@ export default function AnnualPackagePurchasePage() {
                   />
                 </div>
 
+                {!suppressHomeComingCartAndBrowse ? (
                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
                   <Button
                     type="button"
@@ -1917,6 +1944,7 @@ export default function AnnualPackagePurchasePage() {
                     <Link to="/dashboard#sacred-home-programs">BROWSE ALL UPCOMING PROGRAMS</Link>
                   </Button>
                 </div>
+                ) : null}
               </div>
             )}
           </div>
