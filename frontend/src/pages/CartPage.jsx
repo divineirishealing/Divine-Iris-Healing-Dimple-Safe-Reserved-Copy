@@ -619,7 +619,17 @@ function CartPage() {
           if (!p.email || !p.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email)) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs a valid email`, variant: 'destructive' }); return false; }
         }
         if (p.notify) {
-          if (!p.phone || !p.phone.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs a phone number for notifications`, variant: 'destructive' }); return false; }
+          const em = (p.email || '').trim();
+          const hasValidEmail = em && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em);
+          const phoneOk = p.phone && p.phone.trim();
+          const onlineEmailSufficient = p.attendance_mode === 'online' && hasValidEmail;
+          if (!phoneOk && !onlineEmailSufficient) {
+            toast({
+              title: `${item.programTitle}: Participant ${i + 1} needs a phone number for notifications`,
+              variant: 'destructive',
+            });
+            return false;
+          }
         }
       }
     }

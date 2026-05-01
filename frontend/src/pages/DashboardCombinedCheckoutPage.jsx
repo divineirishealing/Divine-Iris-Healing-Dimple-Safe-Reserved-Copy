@@ -1449,7 +1449,12 @@ export default function DashboardCombinedCheckoutPage() {
           }
         }
         if (p.notify) {
-          if (!p.phone || !p.phone.trim()) {
+          const emailEff = effectiveParticipantEmail(p, bookerEmail);
+          const hasValidEmail =
+            emailEff && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailEff);
+          const phoneOk = p.phone && String(p.phone).trim();
+          const onlineEmailSufficient = p.attendance_mode === 'online' && hasValidEmail;
+          if (!phoneOk && !onlineEmailSufficient) {
             toast({
               title: `${item.programTitle}: Participant ${i + 1} needs a phone number for notifications`,
               variant: 'destructive',
