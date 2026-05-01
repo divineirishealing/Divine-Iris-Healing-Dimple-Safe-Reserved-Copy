@@ -1298,14 +1298,21 @@ def _merge_program_dashboard_offers_with_batch(
     return ao, fo, eo
 
 
-def _portal_member_column_for_self(client: dict, annual_dashboard_access: bool) -> bool:
+def _portal_member_column_for_self(
+    client: dict, annual_dashboard_access: bool, *, cohort_batch_id: Optional[str] = None
+) -> bool:
     """Use the **member / annual** portal column for the booker's own seat (not the extended column).
 
     Annual+Dashboard clients always do. Clients tagged with ``awrp_batch_id`` do as well so cohort member
     prices apply even when they are not on the Home Coming annual bundle.
+
+    ``cohort_batch_id``: when set (e.g. from :func:`_resolve_portal_cohort_batch_id`), used instead of only
+    this row's ``awrp_batch_id`` so non-primary household members inherit the primary's cohort.
     """
     if annual_dashboard_access:
         return True
+    if cohort_batch_id is not None:
+        return bool(str(cohort_batch_id).strip())
     return bool(_client_awrp_batch_id(client))
 
 
@@ -1315,6 +1322,8 @@ def _merged_portal_offers_for_payer(
     settings_doc: dict,
     client: dict,
     tier_index: Optional[int] = None,
+    *,
+    cohort_batch_id: Optional[str] = None,
 ) -> Tuple[dict, dict, dict, Optional[str]]:
     """Merged portal pricing columns for Sacred Home / Divine Cart.
 
@@ -1324,7 +1333,10 @@ def _merged_portal_offers_for_payer(
     three columns and no per-program portal table (still annual-gated). Untagged non-annual clients use
     catalog tier pricing only (empty merge).
     """
-    batch_id = _client_awrp_batch_id(client)
+    if cohort_batch_id is not None:
+        batch_id = str(cohort_batch_id).strip() or None
+    else:
+        batch_id = _client_awrp_batch_id(client)
     batch_root = settings_doc.get("awrp_batch_program_offers") or {}
     brow = _batch_portal_row_for_program(batch_root, batch_id, program_id)
 
@@ -1364,6 +1376,27 @@ def _client_awrp_batch_id(client: Optional[dict]) -> Optional[str]:
     if raw is not None and str(raw).strip():
         return str(raw).strip()
     return None
+
+
+async def _resolve_portal_cohort_batch_id(client: dict) -> Optional[str]:
+    """Cohort id for Sacred Home / portal quotes: this client's batch, or the primary household contact's on the same key."""
+    own = _client_awrp_batch_id(client)
+    if own:
+        return own
+    hk = (client.get("household_key") or "").strip()
+    if not hk:
+        return None
+    cid = str(client.get("id") or "").strip()
+    query: dict = {"household_key": hk, "is_primary_household_contact": True}
+    if cid:
+        query["id"] = {"$ne": cid}
+    primary = await db.clients.find_one(
+        query,
+        {"_id": 0, "awrp_batch_id": 1, "subscription": 1, "annual_subscription": 1},
+    )
+    if not primary:
+        return None
+    return _client_awrp_batch_id(primary)
 
 
 def _batch_portal_row_for_program(batch_offers_root: Optional[dict], batch_id: Optional[str], program_id: str) -> Optional[dict]:
@@ -2196,6 +2229,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
     client = await _student_client_row_with_expiry(client_id)
     sub = client.get("subscription") or {}
     annual_dashboard_access = _annual_dashboard_access(client)
+    portal_cohort_batch = await _resolve_portal_cohort_batch_id(client)
     hp_ids = await _household_peer_ids_for_pricing(client_id, client)
     cur = (profile.portal_cart_currency or "aed").strip().lower()
     settings_doc = await db.site_settings.find_one(
@@ -2248,7 +2282,12 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             include_self = bool(line.booker_joins)
         merge_tier = _coalesce_tier_index_for_flagship_portal(program, line.tier_index)
         ao, fo, eo, _batch_for_line = _merged_portal_offers_for_payer(
-            annual_dashboard_access, pid, settings_doc, client, tier_index=merge_tier
+            annual_dashboard_access,
+            pid,
+            settings_doc,
+            client,
+            tier_index=merge_tier,
+            cohort_batch_id=portal_cohort_batch,
         )
         fo_plain = _family_offer_for_included_package_guests(included, imm_plain, fo)
         pricing = await compute_dashboard_annual_family_pricing(
@@ -2264,7 +2303,9 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             include_self=include_self,
             tier_index_override=merge_tier,
             apply_tier_offer_prices=True,
-            booker_annual_portal=_portal_member_column_for_self(client, annual_dashboard_access),
+            booker_annual_portal=_portal_member_column_for_self(
+                client, annual_dashboard_access, cohort_batch_id=portal_cohort_batch
+            ),
         )
         qc = _dashboard_quote_participant_count(include_self, imm_plain, imm_peer, ext_fc)
         if pin_program_id and pid == str(pin_program_id).strip():
@@ -2329,6 +2370,7 @@ async def dashboard_quote(
     client = await _student_client_row_with_expiry(client_id)
     sub = client.get("subscription") or {}
     annual_dashboard_access = _annual_dashboard_access(client)
+    portal_cohort_batch = await _resolve_portal_cohort_batch_id(client)
     hp_ids = await _household_peer_ids_for_pricing(client_id, client)
     fam = await _all_dashboard_guest_rows_with_household(client_id, client, for_payment=True)
     id_list = [x.strip() for x in (family_ids or "").split(",") if x.strip()]
@@ -2374,7 +2416,12 @@ async def dashboard_quote(
         include_self = bool(booker_joins)
     per_map = settings_doc.get("dashboard_program_offers") or {}
     ao, fo, eo, batch_id = _merged_portal_offers_for_payer(
-        annual_dashboard_access, program_id, settings_doc, client, tier_index=tier_index
+        annual_dashboard_access,
+        program_id,
+        settings_doc,
+        client,
+        tier_index=tier_index,
+        cohort_batch_id=portal_cohort_batch,
     )
     brow = _batch_portal_row_for_program(
         settings_doc.get("awrp_batch_program_offers") or {},
@@ -2419,7 +2466,9 @@ async def dashboard_quote(
         include_self=include_self,
         tier_index_override=tier_index,
         apply_tier_offer_prices=True,
-        booker_annual_portal=_portal_member_column_for_self(client, annual_dashboard_access),
+        booker_annual_portal=_portal_member_column_for_self(
+            client, annual_dashboard_access, cohort_batch_id=portal_cohort_batch
+        ),
     )
     # Sacred Home pinned program: use Home Coming catalog PACKAGE OFFER total from annual_packages
     # (admin "Package offer (catalog total)") when tier-line math is empty or secondary.
@@ -2499,6 +2548,7 @@ async def build_admin_dashboard_pricing_snapshot(
         return None
     sub = client.get("subscription") or {}
     annual_dashboard_access = _annual_dashboard_access(client)
+    portal_cohort_batch = await _resolve_portal_cohort_batch_id(client)
     is_annual = _is_annual_subscriber(sub, client)
 
     upcoming_models = await fetch_programs_with_deadline_sync(db, True, True)
@@ -2541,7 +2591,12 @@ async def build_admin_dashboard_pricing_snapshot(
         included = _portal_included_in_annual_package(program, inc_cfg, sub, client)
         include_self = False if included else True
         ao, fo, eo, batch_id_snap = _merged_portal_offers_for_payer(
-            annual_dashboard_access, pid, settings_doc, client, tier_index=tier_idx
+            annual_dashboard_access,
+            pid,
+            settings_doc,
+            client,
+            tier_index=tier_idx,
+            cohort_batch_id=portal_cohort_batch,
         )
         brow = _batch_portal_row_for_program(
             settings_doc.get("awrp_batch_program_offers") or {},
@@ -2563,7 +2618,9 @@ async def build_admin_dashboard_pricing_snapshot(
             include_self=include_self,
             tier_index_override=tier_idx,
             apply_tier_offer_prices=True,
-            booker_annual_portal=_portal_member_column_for_self(client, annual_dashboard_access),
+            booker_annual_portal=_portal_member_column_for_self(
+                client, annual_dashboard_access, cohort_batch_id=portal_cohort_batch
+            ),
         )
         qc = _dashboard_quote_participant_count(include_self, 0, 0, 0)
         if pin_program_id and pid == str(pin_program_id).strip():
@@ -2613,6 +2670,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     client = await _student_client_row_with_expiry(client_id)
     sub = client.get("subscription") or {}
     annual_dashboard_access = _annual_dashboard_access(client)
+    portal_cohort_batch = await _resolve_portal_cohort_batch_id(client)
     hp_ids = await _household_peer_ids_for_pricing(client_id, client)
     program = await db.programs.find_one({"id": data.program_id}, {"_id": 0})
     if not program:
@@ -2667,7 +2725,12 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         )
 
     ao, fo, eo, _bid = _merged_portal_offers_for_payer(
-        annual_dashboard_access, data.program_id, settings_doc, client, tier_index=pay_tier
+        annual_dashboard_access,
+        data.program_id,
+        settings_doc,
+        client,
+        tier_index=pay_tier,
+        cohort_batch_id=portal_cohort_batch,
     )
     fo_plain = _family_offer_for_included_package_guests(included, imm_plain, fo)
     quote = await compute_dashboard_annual_family_pricing(
@@ -2683,7 +2746,9 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         include_self=not included,
         tier_index_override=pay_tier,
         apply_tier_offer_prices=True,
-        booker_annual_portal=_portal_member_column_for_self(client, annual_dashboard_access),
+        booker_annual_portal=_portal_member_column_for_self(
+            client, annual_dashboard_access, cohort_batch_id=portal_cohort_batch
+        ),
     )
     qc = _dashboard_quote_participant_count(not included, imm_plain, imm_peer, ext_fc)
     pin_pay = (settings_doc.get("dashboard_sacred_home_annual_program_id") or "").strip()
@@ -2878,17 +2943,19 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     dashboard_offer_extended = settings_doc.get("dashboard_offer_extended") or {}
     dashboard_program_offers = settings_doc.get("dashboard_program_offers") or {}
     awrp_batches_cfg = settings_doc.get("awrp_portal_batches") or []
-    batch_id_home = _client_awrp_batch_id(client)
+    batch_id_home = await _resolve_portal_cohort_batch_id(client)
     awrp_batch_payload = None
-    if batch_id_home and isinstance(awrp_batches_cfg, list):
-        meta = next(
-            (
-                b
-                for b in awrp_batches_cfg
-                if isinstance(b, dict) and str(b.get("id") or "").strip() == batch_id_home
-            ),
-            None,
-        )
+    if batch_id_home:
+        meta = None
+        if isinstance(awrp_batches_cfg, list):
+            meta = next(
+                (
+                    b
+                    for b in awrp_batches_cfg
+                    if isinstance(b, dict) and str(b.get("id") or "").strip() == batch_id_home
+                ),
+                None,
+            )
         if meta:
             awrp_batch_payload = {
                 "id": batch_id_home,
@@ -3159,7 +3226,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
             else {"annual": {}, "family": {}, "extended": {}}
         ),
         "dashboard_program_offers": dashboard_program_offers if annual_portal_access_effective else {},
-        "awrp_batch": awrp_batch_payload if annual_portal_access_effective else None,
+        "awrp_batch": awrp_batch_payload,
         "immediate_family": immediate_family,
         "annual_household_peers": annual_household_peers,
         "annual_household_club_ok": annual_household_club_ok,
