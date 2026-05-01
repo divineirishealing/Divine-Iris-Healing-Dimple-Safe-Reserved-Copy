@@ -329,7 +329,7 @@ const ProfilePage = () => {
               <Button
                 type="submit"
                 disabled={loading}
-                className="h-12 w-full rounded-2xl bg-gradient-to-r from-violet-700 to-violet-600 text-[15px] font-medium tracking-wide text-white shadow-md shadow-violet-900/20 transition hover:from-violet-800 hover:to-violet-700"
+                className="h-12 w-full rounded-2xl bg-gradient-to-r from-violet-700 to-violet-600 text-[15px] font-medium uppercase tracking-wider text-white shadow-md shadow-violet-900/20 transition hover:from-violet-800 hover:to-violet-700"
               >
                 {loading ? 'Saving…' : 'Save profile'}
               </Button>
