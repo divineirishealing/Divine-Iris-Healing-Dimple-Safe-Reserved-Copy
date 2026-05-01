@@ -1005,6 +1005,56 @@ export default function AnnualPackagePurchasePage() {
     return buildPaymentScheduleRows(paymentMode, scheduleSplitTotal, scheduleBasisYmd, durationMonths);
   }, [useCrmMonthlyEmiSchedule, emis, paymentMode, scheduleSplitTotal, scheduleBasisYmd, durationMonths]);
 
+  /**
+   * When ``subscription.emis`` lags paid Razorpay/Stripe/manual-receipt orders, match each unpaid CRM
+   * installment row to a paid Home Coming order by amount (same tolerance as the backend EMI sync).
+   */
+  const portalEmiInstallmentMatches = useMemo(() => {
+    const hub = String(baseCurrency || '').toLowerCase();
+    const list = Array.isArray(portalOrders) ? portalOrders : [];
+    const candidates = list.filter((o) => {
+      if (!o || o.is_free) return false;
+      if (String(o.payment_status || '').toLowerCase() !== 'paid') return false;
+      const title = String(o.item_title || '').toLowerCase();
+      if (!title.includes('home coming')) return false;
+      const amt = Number(o.amount);
+      if (!Number.isFinite(amt) || amt <= 0) return false;
+      const cur = String(o.currency || '').toLowerCase();
+      if (hub && cur && cur !== hub) return false;
+      return true;
+    });
+    candidates.sort((a, b) => {
+      const ta = new Date(a.created_at || a.updated_at || 0).getTime();
+      const tb = new Date(b.created_at || b.updated_at || 0).getTime();
+      return ta - tb;
+    });
+    const map = new Map();
+    const used = new Set();
+    for (const row of paymentScheduleRows) {
+      if (typeof row.n !== 'number' || Number.isNaN(row.n)) continue;
+      if (!String(row.key || '').startsWith('emi-')) continue;
+      const emiCrm = emiByNumber.get(row.n);
+      if (emiCrm && String(emiCrm.status || '').toLowerCase() === 'paid') continue;
+      const rowAmt = Number(row.amount);
+      if (!Number.isFinite(rowAmt)) continue;
+      const tol = Math.max(2, Math.abs(rowAmt) * 0.025);
+      for (const o of candidates) {
+        const oid = String(o.id || o.stripe_session_id || '').trim();
+        if (!oid || used.has(oid)) continue;
+        if (Math.abs(Number(o.amount) - rowAmt) > tol) continue;
+        used.add(oid);
+        const when = String(o.created_at || o.updated_at || '');
+        map.set(row.key, {
+          paidAtYmd: when.slice(0, 10),
+          stripeSessionId: String(o.stripe_session_id || '').trim(),
+          paymentMethod: String(o.india_payment_method || o.payment_method || 'razorpay').trim(),
+        });
+        break;
+      }
+    }
+    return map;
+  }, [portalOrders, baseCurrency, paymentScheduleRows, emiByNumber]);
+
   const paymentScheduleNumericTotal = useMemo(() => {
     let s = 0;
     for (const row of paymentScheduleRows) {
@@ -2088,15 +2138,23 @@ export default function AnnualPackagePurchasePage() {
                                 Number(portalHomeComingPaidInfo.amount) - Number(row.amount),
                               ) <= Math.max(2, Math.abs(Number(row.amount)) * 0.025);
                             const crmEmiPaid = emiRow && String(emiRow.status || '').toLowerCase() === 'paid';
-                            const syntheticPaidRow = Boolean(portalPayFullMatchesRow && !crmEmiPaid);
+                            const portalEmiMatch = portalEmiInstallmentMatches.get(row.key) || null;
+                            const syntheticPaidRow = Boolean(
+                              (portalPayFullMatchesRow && !crmEmiPaid) || (portalEmiMatch && !crmEmiPaid),
+                            );
                             const emiRowEffective =
                               crmEmiPaid
                                 ? emiRow
                                 : syntheticPaidRow
                                   ? {
                                       status: 'paid',
-                                      paid_date: portalHomeComingPaidInfo.paidAtYmd,
-                                      payment_method: 'stripe',
+                                      paid_date:
+                                        portalEmiMatch?.paidAtYmd ||
+                                        portalHomeComingPaidInfo?.paidAtYmd ||
+                                        '',
+                                      payment_method:
+                                        portalEmiMatch?.paymentMethod ||
+                                        (portalPayFullMatchesRow ? 'stripe' : 'razorpay'),
                                     }
                                   : emiRow;
                             let paidDateCell = '—';
@@ -2109,12 +2167,25 @@ export default function AnnualPackagePurchasePage() {
                             const payHereLabel = emiRowEffective?.payment_method
                               ? formatSchedulePayTag(emiRowEffective.payment_method)
                               : schedulePayTag;
+                            const rawRc = emiRow?.receipt_url && String(emiRow.receipt_url).trim();
+                            let receiptFromEmi = null;
+                            if (rawRc) {
+                              if (/^https?:\/\//i.test(rawRc)) {
+                                receiptFromEmi = rawRc;
+                              } else if (typeof window !== 'undefined' && rawRc.startsWith('/')) {
+                                receiptFromEmi = `${window.location.origin}${rawRc}`;
+                              } else {
+                                const base = getApiUrl().replace(/\/$/, '');
+                                receiptFromEmi = `${base}/${String(rawRc).replace(/^\//, '')}`;
+                              }
+                            }
+                            const syntheticSessionId =
+                              portalEmiMatch?.stripeSessionId || portalHomeComingPaidInfo?.stripeSessionId || '';
                             const receiptHref =
-                              emiRow?.receipt_url && String(emiRow.receipt_url).trim()
-                                ? `${getApiUrl()}${emiRow.receipt_url}`
-                                : syntheticPaidRow && portalHomeComingPaidInfo.stripeSessionId
-                                  ? `${window.location.origin}/payment/success?session_id=${encodeURIComponent(portalHomeComingPaidInfo.stripeSessionId)}`
-                                  : null;
+                              receiptFromEmi ||
+                              (syntheticPaidRow && syntheticSessionId
+                                ? `${window.location.origin}/payment/success?session_id=${encodeURIComponent(syntheticSessionId)}`
+                                : null);
                             const payHereOpensEmiModal =
                               typeof row.n === 'number' &&
                               !Number.isNaN(row.n) &&
