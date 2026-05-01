@@ -127,6 +127,29 @@ export function addMonthsSubscriptionEnd(dateStr, months) {
 }
 
 /**
+ * Add whole calendar months to a YYYY-MM-DD anchor (UTC), for Sacred Home renewal starts
+ * (e.g. 2025-05-03 + 12 → 2026-05-03). Invalid days in the target month roll the way `Date` does in JS.
+ */
+export function addCalendarMonthsYmd(dateStr, monthsToAdd) {
+  if (!dateStr || !String(dateStr).trim()) return "";
+  const mAdd = parseInt(monthsToAdd, 10);
+  const n = Number.isFinite(mAdd) ? mAdd : 0;
+  if (n === 0) return String(dateStr).trim().slice(0, 10);
+  const ds = String(dateStr).trim().slice(0, 10);
+  const parts = ds.split("-");
+  if (parts.length !== 3) return "";
+  const y = parseInt(parts[0], 10);
+  const mo = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(day)) return "";
+  const d = new Date(Date.UTC(y, mo - 1, day));
+  if (Number.isNaN(d.getTime())) return "";
+  d.setUTCMonth(d.getUTCMonth() + n);
+  const pad2 = (x) => String(x).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+}
+
+/**
  * Sacred Home annual bundle end (membership window): use day `min(30, daysInMonth)` in the calendar month
  * immediately before the anniversary month of `start + months` (same calendar roll as `addMonthsSubscriptionEnd`).
  * Example: start `2026-05-03`, 12 months → anniversary May 2027 → bundle end `2027-04-30`.

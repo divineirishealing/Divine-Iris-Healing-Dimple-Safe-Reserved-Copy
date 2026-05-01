@@ -30,6 +30,7 @@ import {
   formatDateDdMonYyyy,
   nextDateWithDayOfMonth,
   addMonthsAnnualBundleEnd,
+  addCalendarMonthsYmd,
 } from '../../lib/utils';
 import { useToast } from '../../hooks/use-toast';
 import { useCart } from '../../context/CartContext';
@@ -597,10 +598,56 @@ export default function AnnualPackagePurchasePage() {
       (portalHomeComingPaidInfo != null && /^\d{4}-\d{2}-\d{2}$/.test(desiredStart)));
   const cycleDisplayStart = useMemo(() => {
     if (!membershipCycleDatesLocked) return desiredStart;
-    if (portalHomeComingPaidInfo && /^\d{4}-\d{2}-\d{2}$/.test(desiredStart)) return desiredStart;
+    const paidYmd = portalHomeComingPaidInfo?.paidAtYmd;
+    const re = recordEndYmd;
+    const rs = recordStartYmd;
+    const stepM = Math.max(1, Math.min(120, parseInt(String(durationMonths), 10) || 12));
+    /**
+     * CRM ``pkg.start_date`` / ``last_annual_package`` can still show the *previous* Sacred Home window
+     * after a renewal checkout. If the latest paid Home Coming order is dated *after* that window ends,
+     * advance the displayed cycle start by whole bundle lengths until the payment falls inside the window.
+     */
+    if (
+      portalHomeComingPaidInfo &&
+      /^\d{4}-\d{2}-\d{2}$/.test(paidYmd || '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(re) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(rs) &&
+      paidYmd > re
+    ) {
+      let s = rs;
+      let guard = 0;
+      while (guard < 24) {
+        const winEnd = addMonthsAnnualBundleEnd(s, stepM);
+        if (!winEnd || !/^\d{4}-\d{2}-\d{2}$/.test(winEnd)) break;
+        if (paidYmd <= winEnd) break;
+        const nextS = addCalendarMonthsYmd(s, stepM);
+        if (!nextS || nextS === s) break;
+        s = nextS;
+        guard += 1;
+      }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(desiredStart) && desiredStart > re) {
+        return desiredStart;
+      }
+      return s;
+    }
+    if (
+      portalHomeComingPaidInfo &&
+      /^\d{4}-\d{2}-\d{2}$/.test(desiredStart) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(re) &&
+      desiredStart > re
+    ) {
+      return desiredStart;
+    }
     if (/^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd)) return recordStartYmd;
     return desiredStart;
-  }, [membershipCycleDatesLocked, portalHomeComingPaidInfo, recordStartYmd, desiredStart]);
+  }, [
+    membershipCycleDatesLocked,
+    portalHomeComingPaidInfo,
+    recordStartYmd,
+    recordEndYmd,
+    desiredStart,
+    durationMonths,
+  ]);
   const cycleDisplayEnd = useMemo(() => {
     if (
       membershipCycleDatesLocked &&
