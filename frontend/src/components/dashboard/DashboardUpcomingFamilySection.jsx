@@ -688,7 +688,14 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       : !!(homeData?.annual_member_dashboard || homeData?.subscription_annual_package_signals);
   /** AWRP / existing-batch cohort: portal quotes apply without Home Coming annual (matches backend). */
   const cohortPortalPricing = !!homeData?.awrp_batch?.id;
-  const portalQuoteEligible = annualPortalAccess || cohortPortalPricing;
+  /**
+   * Prefetch GET /dashboard-quote whenever the session is linked to Client Garden.
+   * Backend applies annual / family / extended + cohort overlays only when the booker qualifies; otherwise
+   * totals match published tiers, but bucket splits (immediate vs extended) still match checkout.
+   */
+  const sacredHomeDashboardQuotesEnabled = !!homeData?.client_id;
+  /** True when this login receives dashboard offer columns (annual portal and/or cohort batch). */
+  const hasPortalPricingOverlays = annualPortalAccess || cohortPortalPricing;
   const immediateFamilyLocked = !!homeData?.immediate_family_locked;
   const immediateFamilyEditApproved = homeData?.immediate_family_editing_approved !== false;
   const familyApproved = !!homeData?.family_approved;
@@ -1270,7 +1277,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       setAnnualQuotes({});
       return;
     }
-    if (!portalQuoteEligible) {
+    if (!sacredHomeDashboardQuotesEnabled) {
       setAnnualQuotes({});
       return;
     }
@@ -1405,7 +1412,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       cancelled = true;
     };
   }, [
-    portalQuoteEligible,
+    sacredHomeDashboardQuotesEnabled,
+    annualPortalAccess,
     cohortPortalPricing,
     currencyReady,
     portalQuoteCurrency,
@@ -2111,14 +2119,14 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           </div>
         </div>
 
-        {!portalQuoteEligible ? (
+        {sacredHomeDashboardQuotesEnabled && !hasPortalPricingOverlays ? (
           <p
             className="mb-4 text-center text-[11px] text-slate-600 leading-relaxed px-1"
             data-testid="dashboard-website-pricing-note"
           >
             Pricing matches the homepage Upcoming Programs cards: published list/offer for your tier and currency (no
-            member portal quote or auto-applied dashboard promo codes). Cart bundles and Divine Cart discounts still
-            apply at checkout like on the public site.
+            member portal offer columns or auto-applied dashboard promo codes). Cart bundles and Divine Cart discounts
+            still apply at checkout like on the public site.
           </p>
         ) : null}
 
@@ -2218,10 +2226,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   cohortPortalQuotePricing={cohortPortalPricing}
                   bookerEmail={bookerEmail}
                   detectedCountry={detectedCountry}
-                  symbol={portalQuoteEligible ? portalQuoteSymbol : symbol}
-                  currency={portalQuoteEligible ? portalQuoteCurrency : currency}
-                  getPrice={portalQuoteEligible ? displayGetPrice : getPrice}
-                  getOfferPrice={portalQuoteEligible ? displayGetOfferPrice : getOfferPrice}
+                  symbol={sacredHomeDashboardQuotesEnabled ? portalQuoteSymbol : symbol}
+                  currency={sacredHomeDashboardQuotesEnabled ? portalQuoteCurrency : currency}
+                  getPrice={sacredHomeDashboardQuotesEnabled ? displayGetPrice : getPrice}
+                  getOfferPrice={sacredHomeDashboardQuotesEnabled ? displayGetOfferPrice : getOfferPrice}
                   promoForProgramClicks={promoForProgramClicks}
                   promoByProgramId={promoByProgramId}
                   promoPricesLoading={promoPricesLoading}
