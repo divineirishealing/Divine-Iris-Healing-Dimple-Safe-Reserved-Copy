@@ -655,21 +655,6 @@ async def _apply_home_coming_emi_payment_sync(
     logger.info("%s client=%s ref=%s", log_prefix, cid, log_extra_id or proof.get("id"))
 
 
-async def _sync_home_coming_emis_after_india_proof_approval(
-    *,
-    client_id: str,
-    proof: dict,
-    enrollment: dict,
-) -> None:
-    await _apply_home_coming_emi_payment_sync(
-        client_id=client_id,
-        proof=proof,
-        enrollment=enrollment,
-        log_prefix="Home Coming EMIs synced after India proof approval",
-        log_extra_id=proof.get("id"),
-    )
-
-
 def _proof_like_from_enrollment_transaction(enrollment: dict, transaction: dict) -> dict:
     pay_raw = ""
     pa = transaction.get("paid_at")
@@ -693,13 +678,20 @@ def _proof_like_from_enrollment_transaction(enrollment: dict, transaction: dict)
         amt = float(transaction.get("amount") or 0)
     except (TypeError, ValueError):
         amt = 0.0
+    pm_from_tx = str(transaction.get("payment_method") or "").strip().lower()
     prov = str(transaction.get("payment_provider") or "").strip().lower()
     if prov == "razorpay":
         pm = "razorpay"
-    elif prov in ("stripe", ""):
-        pm = str(enrollment.get("payment_method") or "stripe").lower()
-    else:
+    elif pm_from_tx == "manual_proof":
+        pm = "manual_proof"
+    elif prov == "stripe":
+        pm = "stripe"
+    elif prov:
         pm = prov
+    elif pm_from_tx:
+        pm = pm_from_tx
+    else:
+        pm = str(enrollment.get("payment_method") or "stripe").lower()
     tid = str(transaction.get("razorpay_payment_id") or "").strip()
     if not tid:
         tid = str(transaction.get("stripe_session_id") or "").strip()
@@ -725,6 +717,41 @@ def _proof_like_from_enrollment_transaction(enrollment: dict, transaction: dict)
     }
 
 
+def _merge_india_proof_into_proof_like(proof_like: dict, proof_doc: dict, tx: dict) -> dict:
+    """Enrich synthetic proof_like with fields stored only on india_payment_proofs (EMI month, UPI proof, etc.)."""
+    out = dict(proof_like)
+    if (proof_doc.get("status") or "").strip().lower() != "approved":
+        return out
+    if proof_doc.get("is_emi") is not None:
+        out["is_emi"] = bool(proof_doc.get("is_emi"))
+    if proof_doc.get("emi_months_covered") is not None:
+        out["emi_months_covered"] = proof_doc.get("emi_months_covered")
+    for k in ("program_title", "selected_item", "program_type"):
+        v = proof_doc.get(k)
+        if isinstance(v, str) and v.strip():
+            out[k] = v.strip()
+    pd = proof_doc.get("payment_date")
+    if isinstance(pd, str) and len(pd.strip()) >= 8:
+        out["payment_date"] = pd.strip()
+    ptid = str(proof_doc.get("transaction_id") or "").strip()
+    if ptid:
+        out["transaction_id"] = ptid
+    su = str(proof_doc.get("screenshot_url") or "").strip()
+    if su:
+        out["screenshot_url"] = su
+    out["payer_name"] = proof_doc.get("payer_name") or out.get("payer_name")
+    out["booker_name"] = proof_doc.get("booker_name") or out.get("booker_name")
+    out["id"] = proof_doc.get("id")
+    try:
+        out["amount"] = float(tx.get("amount") if tx.get("amount") is not None else proof_doc.get("amount") or 0)
+    except (TypeError, ValueError):
+        pass
+    pm = (proof_doc.get("payment_method") or "").strip().lower()
+    if pm:
+        out["payment_method"] = pm
+    return out
+
+
 async def _resolve_portal_client_id_for_home_coming_emi(tx: dict, enrollment: dict) -> str:
     pcid = (tx.get("portal_client_id") or "").strip()
     if pcid:
@@ -737,16 +764,13 @@ async def _resolve_portal_client_id_for_home_coming_emi(tx: dict, enrollment: di
     return ""
 
 
-async def sync_home_coming_emis_after_online_enrollment_payment(session_id: str) -> None:
+async def sync_home_coming_emis_for_paid_enrollment_tx(tx: dict) -> None:
     """
-    After Razorpay verify or Stripe enrollment completion, update ``clients.subscription.emis`` when
-    the checkout was Home Coming so the portal schedule matches receipts (GET /student/home).
+    Update Home Coming ``clients.subscription.emis`` from a paid enrollment transaction.
+    Called from the receipt pipeline so manual India approvals stay in sync as soon as receipts go out,
+    and from Razorpay/Stripe hooks when no receipt is sent.
     """
-    sid = (session_id or "").strip()
-    if not sid:
-        return
-    tx = await db.payment_transactions.find_one({"stripe_session_id": sid}, {"_id": 0})
-    if not tx or tx.get("payment_status") != "paid":
+    if not tx or str(tx.get("payment_status") or "").lower() != "paid":
         return
     enrollment_id = (tx.get("enrollment_id") or "").strip()
     if not enrollment_id:
@@ -758,13 +782,33 @@ async def sync_home_coming_emis_after_online_enrollment_payment(session_id: str)
     if not pcid:
         return
     proof_like = _proof_like_from_enrollment_transaction(enrollment, tx)
+    iid = (tx.get("india_proof_id") or tx.get("india_payment_proof_id") or "").strip()
+    if iid:
+        proof_doc = await db.india_payment_proofs.find_one({"id": iid}, {"_id": 0})
+        if proof_doc and (proof_doc.get("status") or "").strip().lower() == "approved":
+            proof_like = _merge_india_proof_into_proof_like(proof_like, proof_doc, tx)
     await _apply_home_coming_emi_payment_sync(
         client_id=pcid,
         proof=proof_like,
         enrollment=enrollment,
-        log_prefix="Home Coming EMIs synced after online enrollment payment",
-        log_extra_id=sid,
+        log_prefix="Home Coming EMIs synced (paid enrollment / receipt flow)",
+        log_extra_id=tx.get("stripe_session_id") or tx.get("id"),
     )
+
+
+async def sync_home_coming_emis_after_online_enrollment_payment(session_id: str) -> None:
+    """
+    After Razorpay verify or Stripe enrollment completion, update ``clients.subscription.emis`` when
+    the checkout was Home Coming so the portal schedule matches receipts (GET /student/home).
+    """
+    sid = (session_id or "").strip()
+    if not sid:
+        return
+    tx = await db.payment_transactions.find_one({"stripe_session_id": sid}, {"_id": 0})
+    if not tx:
+        return
+    txn_clean = {k: v for k, v in tx.items() if k != "_id"}
+    await sync_home_coming_emis_for_paid_enrollment_tx(txn_clean)
 
 
 @router.post("/admin/{proof_id}/approve")
@@ -930,25 +974,6 @@ async def approve_payment_proof(proof_id: str):
         count = await db.payment_transactions.count_documents({"invoice_number": {"$regex": f"^{month_prefix}"}})
         transaction["invoice_number"] = f"{month_prefix}-{str(count + 1).zfill(3)}"
         await db.payment_transactions.insert_one(transaction)
-
-        try:
-            pcid_sync = (transaction.get("portal_client_id") or "").strip()
-            if not pcid_sync and be_norm:
-                crow = await db.clients.find_one({"email": be_norm}, {"id": 1})
-                if crow:
-                    pcid_sync = str(crow.get("id") or "").strip()
-            if not pcid_sync and pe_norm and pe_norm != be_norm:
-                crow = await db.clients.find_one({"email": pe_norm}, {"id": 1})
-                if crow:
-                    pcid_sync = str(crow.get("id") or "").strip()
-            if pcid_sync:
-                await _sync_home_coming_emis_after_india_proof_approval(
-                    client_id=pcid_sync,
-                    proof=proof,
-                    enrollment=full_enrollment or {},
-                )
-        except Exception as ex:
-            logger.warning("Home Coming EMI sync after India proof: %s", ex)
 
         try:
             from routes.points_logic import run_post_payment_loyalty

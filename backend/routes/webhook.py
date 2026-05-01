@@ -99,13 +99,6 @@ async def stripe_webhook(request: Request):
             except Exception as e:
                 logger.warning(f"UID generation error: {e}")
 
-            try:
-                from routes.india_payments import sync_home_coming_emis_after_online_enrollment_payment
-
-                await sync_home_coming_emis_after_online_enrollment_payment(session_id)
-            except Exception as ex:
-                logger.warning("Home Coming EMI sync (Stripe webhook): %s", ex)
-
             # Step 4: Send custom Divine Iris receipt (only if not already sent by status poll)
             if not txn.get("emails_sent"):
                 try:
@@ -122,6 +115,12 @@ async def stripe_webhook(request: Request):
                     traceback.print_exc()
             else:
                 logger.info(f"Skipping receipt for {enrollment_id} — already sent via status poll")
+                try:
+                    from routes.india_payments import sync_home_coming_emis_for_paid_enrollment_tx
+
+                    await sync_home_coming_emis_for_paid_enrollment_tx(txn_clean)
+                except Exception as ex:
+                    logger.warning("Home Coming EMI sync (Stripe webhook, receipt skipped): %s", ex)
 
         return {"status": "ok"}
     except Exception as e:

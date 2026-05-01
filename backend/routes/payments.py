@@ -286,13 +286,6 @@ async def run_enrollment_razorpay_success_hooks(session_id: str) -> None:
     except Exception as e:
         logger.warning("Razorpay UID generation: %s", e)
 
-    try:
-        from routes.india_payments import sync_home_coming_emis_after_online_enrollment_payment
-
-        await sync_home_coming_emis_after_online_enrollment_payment(session_id)
-    except Exception as e:
-        logger.warning("Home Coming EMI sync (Razorpay): %s", e)
-
     txn_clean = {
         k: v
         for k, v in (
@@ -314,6 +307,13 @@ async def run_enrollment_razorpay_success_hooks(session_id: str) -> None:
             )
         except Exception as e:
             logger.error("Razorpay receipt email: %s", e)
+    else:
+        try:
+            from routes.india_payments import sync_home_coming_emis_for_paid_enrollment_tx
+
+            await sync_home_coming_emis_for_paid_enrollment_tx(txn_clean)
+        except Exception as e:
+            logger.warning("Home Coming EMI sync (Razorpay, receipt already sent): %s", e)
 
 
 async def _get_stripe_key():
@@ -543,6 +543,15 @@ async def _send_receipt_and_notifications(tx):
     enrollment = await db.enrollments.find_one({"id": enrollment_id}, {"_id": 0})
     if not enrollment:
         return
+
+    try:
+        from routes.india_payments import sync_home_coming_emis_for_paid_enrollment_tx
+
+        txn_sync = {k: v for k, v in tx.items() if k != "_id"}
+        if str(txn_sync.get("payment_status") or "").lower() == "paid":
+            await sync_home_coming_emis_for_paid_enrollment_tx(txn_sync)
+    except Exception as ex:
+        logger.warning("Home Coming EMI sync (receipt flow): %s", ex)
 
     # Enrollment may lag the transaction (e.g. India manual proof); fall back to txn payer fields for receipt.
     booker_name = (enrollment.get("booker_name") or tx.get("booker_name") or "").strip()
