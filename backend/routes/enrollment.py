@@ -534,13 +534,20 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
     }
 
     # ─── REGIONAL CURRENCY MAPPING ───
-    from routes.currency import get_base_currency as _get_base_currency, resolve_booker_pricing_hub_email
+    from routes.currency import (
+        get_base_currency as _get_base_currency,
+        resolve_booker_pricing_hub_email,
+        resolve_client_pricing_hub_override,
+    )
 
     email_hub = await resolve_booker_pricing_hub_email(booker_email)
+    cid = (enrollment.get("client_id") or "").strip()
+    client_hub = await resolve_client_pricing_hub_override(cid)
+    booker_hub = client_hub or email_hub
 
-    if email_hub:
-        allowed_currency = email_hub
-        if email_hub == "inr":
+    if booker_hub:
+        allowed_currency = booker_hub
+        if booker_hub == "inr":
             inr_eligible = not is_blocklisted
         else:
             inr_eligible = False
@@ -559,9 +566,9 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
     # to the verified base currency. This overrides the stale stored enrollment IP
     # (which defaults to "AE" when IP detection fails at enrollment start).
     # Block only: blocklisted users cannot claim INR.
-    # Per-email hub overrides (above) win over client_currency.
+    # CRM / per-email hub (above) wins over client_currency from the request.
     if client_currency in ("inr", "aed", "usd"):
-        if not email_hub and not (is_blocklisted and client_currency == "inr"):
+        if not booker_hub and not (is_blocklisted and client_currency == "inr"):
             allowed_currency = client_currency
             if client_currency == "inr":
                 inr_eligible = True

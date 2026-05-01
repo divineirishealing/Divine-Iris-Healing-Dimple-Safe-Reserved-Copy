@@ -134,6 +134,7 @@ async def enrollment_checkout_prepare(
         get_base_currency,
         get_display_currency,
         resolve_booker_pricing_hub_email,
+        resolve_client_pricing_hub_override,
     )
 
     ip_country, vpn_detected = await detect_ip_info(request)
@@ -142,10 +143,14 @@ async def enrollment_checkout_prepare(
 
     inr_override = False
     booker_email = enrollment.get("booker_email", "").lower().strip()
+    booker_hub = None
 
     email_hub = await resolve_booker_pricing_hub_email(booker_email)
-    if email_hub:
-        server_currency = email_hub
+    client_id = (enrollment.get("client_id") or "").strip()
+    client_hub = await resolve_client_pricing_hub_override(client_id)
+    booker_hub = client_hub or email_hub
+    if booker_hub:
+        server_currency = booker_hub
 
     settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "inr_whitelist_emails": 1})
     whitelist = [e.lower().strip() for e in (settings or {}).get("inr_whitelist_emails", [])]
@@ -178,7 +183,7 @@ async def enrollment_checkout_prepare(
         if not data.display_currency or data.display_currency == "usd":
             data.display_currency = "aed"
 
-    server_display_currency = email_hub if email_hub else get_display_currency(ip_country, vpn_detected)
+    server_display_currency = booker_hub if booker_hub else get_display_currency(ip_country, vpn_detected)
     if server_display_currency:
         data.display_currency = server_display_currency
 
@@ -482,6 +487,10 @@ async def enrollment_checkout_prepare(
 
     stripe_currency = currency
     stripe_amount = float(final_total)
+    hub_lower = (booker_hub or "").lower() if booker_hub else None
+    cur_lower = str(currency or "").lower()
+    if hub_lower and hub_lower == cur_lower and data.display_currency and data.display_currency != hub_lower:
+        data.display_currency = hub_lower
     if currency != "inr" and data.display_currency and data.display_currency != currency:
         from routes.currency import fetch_live_rates, convert_amount
 
