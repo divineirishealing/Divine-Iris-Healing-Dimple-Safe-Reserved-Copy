@@ -143,11 +143,11 @@ export function ManualPaymentProofBody({
             if (e.phone) setPayerPhone(e.phone.replace(/^\+\d+/, ''));
 
             const programId = e.item_id || e.participants?.find((p) => p.program_id)?.program_id;
-            const ep = e.item_type === 'session' ? 'sessions' : 'programs';
+            const itemApiPath = e.item_type === 'session' ? 'sessions' : 'programs';
             const fetchId = e.item_id || programId;
             if (fetchId) {
               try {
-                const itemRes = await axios.get(`${API}/${ep}/${fetchId}`);
+                const itemRes = await axios.get(`${API}/${itemApiPath}/${fetchId}`);
                 setItemDetails(itemRes.data);
                 if (e.item_type === 'session') {
                   setProgramType('Personal Session');
