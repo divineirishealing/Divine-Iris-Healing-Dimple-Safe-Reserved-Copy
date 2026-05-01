@@ -52,8 +52,8 @@ const OrderHistoryPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reloadToken, setReloadToken] = useState(0);
-  /** Default: completed payments from the last 48 hours (API `paid_within_days=2`). */
-  const [recentPaidOnly, setRecentPaidOnly] = useState(true);
+  /** Optional filter: paid orders in last 48h. Default off so the page always shows full history unless user narrows it. */
+  const [recentPaidOnly, setRecentPaidOnly] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     if (!isBackendApiConfigured()) {

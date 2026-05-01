@@ -45,13 +45,17 @@ export function getApiUrl() {
 }
 
 /**
- * False only when there is no API host and same-origin /api rewrites are not enabled.
- * Vercel often uses REACT_APP_SAME_ORIGIN_API=1 without REACT_APP_BACKEND_URL; gating on
- * BACKEND_URL alone would skip all student API calls and break /dashboard/orders.
+ * True when student/auth API calls can be issued:
+ * - explicit backend origin, or
+ * - REACT_APP_SAME_ORIGIN_API=1 (Vercel rewrite pattern), or
+ * - build fell back to relative ``/api`` (BACKEND_URL empty → API_URL is "/api") so same-host rewrites work
+ *   even when env vars were not set (common cause of "order history not opening").
  */
 export function isBackendApiConfigured() {
   if (sameOriginApi) return true;
-  return Boolean(BACKEND_URL);
+  if (BACKEND_URL) return true;
+  if (API_URL && API_URL.startsWith('/')) return true;
+  return false;
 }
 
 /** True when the bundle can call the API from this browser (absolute URL, or same-origin path like /api). */
