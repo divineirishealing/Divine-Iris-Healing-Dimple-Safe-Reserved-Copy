@@ -673,7 +673,9 @@ function CartPage() {
         cart_items: items.map((i) => ({
           program_id: i.programId,
           tier_index: i.tierIndex ?? 0,
+          participants_count: Math.max(1, i.participants?.length || 1),
         })),
+        participant_count: totalParticipants,
       });
       setPromoResult(res.data); toast({ title: res.data.message });
     } catch { setPromoResult(null); toast({ title: 'Invalid Code', variant: 'destructive' }); }

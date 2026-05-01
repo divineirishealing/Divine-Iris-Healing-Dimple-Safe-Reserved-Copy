@@ -32,6 +32,7 @@ const PromotionsTab = ({ programs }) => {
     name: '', code: '', type: 'coupon', discount_type: 'percentage',
     discount_percentage: 0, discount_aed: 0, discount_inr: 0, discount_usd: 0,
     applicable_to: 'all', applicable_program_ids: [], applicable_tier_indices_by_program: {},
+    fixed_per_participant: true,
     usage_limit: 0, start_date: '', expiry_date: '', active: true,
   });
 
@@ -76,6 +77,7 @@ const PromotionsTab = ({ programs }) => {
       name: '', code: '', type: 'coupon', discount_type: 'percentage',
       discount_percentage: 0, discount_aed: 0, discount_inr: 0, discount_usd: 0,
       applicable_to: 'all', applicable_program_ids: [], applicable_tier_indices_by_program: {},
+      fixed_per_participant: true,
       usage_limit: 0, start_date: '', expiry_date: '', active: true,
     });
   };
@@ -130,6 +132,7 @@ const PromotionsTab = ({ programs }) => {
       applicable_to: p.applicable_to || 'all',
       applicable_program_ids: p.applicable_program_ids || [],
       applicable_tier_indices_by_program: tpm && typeof tpm === 'object' ? { ...tpm } : {},
+      fixed_per_participant: !!p.fixed_per_participant,
       usage_limit: p.usage_limit || 0,
       start_date: p.start_date || '', expiry_date: p.expiry_date || '',
       active: p.active !== false,
@@ -254,13 +257,13 @@ const PromotionsTab = ({ programs }) => {
           <div className="mb-4">
             <Label className="text-xs text-gray-500 mb-2 block">Discount Type</Label>
             <div className="flex gap-2">
-              <button onClick={() => setForm({ ...form, discount_type: 'percentage' })}
+              <button onClick={() => setForm({ ...form, discount_type: 'percentage', fixed_per_participant: false })}
                 className={`flex-1 py-3 rounded-lg border-2 text-center text-sm transition-all ${
                   form.discount_type === 'percentage' ? 'border-[#D4AF37] bg-[#D4AF37]/5 font-semibold text-[#D4AF37]' : 'border-gray-200 text-gray-500'
                 }`}>
                 <Percent size={16} className="inline mr-1" /> Percentage (%)
               </button>
-              <button onClick={() => setForm({ ...form, discount_type: 'fixed' })}
+              <button onClick={() => setForm({ ...form, discount_type: 'fixed', fixed_per_participant: true })}
                 className={`flex-1 py-3 rounded-lg border-2 text-center text-sm transition-all ${
                   form.discount_type === 'fixed' ? 'border-[#D4AF37] bg-[#D4AF37]/5 font-semibold text-[#D4AF37]' : 'border-gray-200 text-gray-500'
                 }`}>
@@ -294,6 +297,14 @@ const PromotionsTab = ({ programs }) => {
                   <Input type="number" value={form.discount_usd} onChange={e => setForm({ ...form, discount_usd: parseFloat(e.target.value) || 0 })} placeholder="USD" />
                 </div>
               </div>
+              <div className="flex items-center gap-2 mt-3">
+                <Switch
+                  checked={!!form.fixed_per_participant}
+                  onCheckedChange={(v) => setForm({ ...form, fixed_per_participant: v })}
+                />
+                <Label className="text-xs text-gray-600">Amount is per participant (multiplied by headcount in cart / enrollment)</Label>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">Turn off for a single flat discount on the whole order.</p>
             </div>
           )}
 
@@ -403,7 +414,9 @@ const PromotionsTab = ({ programs }) => {
                 <p className="text-xs text-gray-500 mt-0.5">
                   {p.discount_type === 'percentage'
                     ? `${p.discount_percentage}% off`
-                    : `AED ${p.discount_aed} / INR ${p.discount_inr} / USD ${p.discount_usd} off`
+                    : `AED ${p.discount_aed} / INR ${p.discount_inr} / USD ${p.discount_usd} off${
+                        p.fixed_per_participant ? ' (× participants)' : ''
+                      }`
                   }
                   {' · '}{p.applicable_to === 'all' ? 'All programs' : `${(p.applicable_program_ids || []).length} programs`}
                   {p.applicable_tier_indices_by_program && Object.keys(p.applicable_tier_indices_by_program).length > 0

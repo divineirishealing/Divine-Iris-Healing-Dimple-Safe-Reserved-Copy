@@ -1062,13 +1062,18 @@ async def _promo_doc_for_program(
     return promo
 
 
-def _promo_discount_on_line(promo: Optional[dict], line_subtotal: float, cur: str) -> float:
+def _promo_discount_on_line(
+    promo: Optional[dict], line_subtotal: float, cur: str, seat_count: int = 1
+) -> float:
     if not promo or line_subtotal <= 0:
         return 0.0
+    seats = max(1, int(seat_count or 1))
     dt = promo.get("discount_type", "percentage")
     if dt == "percentage":
         return round(line_subtotal * float(promo.get("discount_percentage", 0)) / 100, 2)
     fixed = float(promo.get(f"discount_{cur}", promo.get("discount_aed", 0)))
+    if promo.get("fixed_per_participant"):
+        fixed *= seats
     return min(line_subtotal, fixed)
 
 
@@ -1782,7 +1787,7 @@ async def _apply_portal_guest_line_offer(
         if rule in ("promo", ""):
             code = (fo.get("promo_code") or "").strip()
             fp_doc = await _promo_doc_for_program(code, program_id, line_tier_index) if code else None
-            d = _promo_discount_on_line(fp_doc, fam_line_gross, cur)
+            d = _promo_discount_on_line(fp_doc, fam_line_gross, cur, fc)
             fam_after = max(0.0, round(fam_line_gross - d, 2))
             family_promo_applied = bool(fp_doc) and d > 0
             family_rule = "promo"

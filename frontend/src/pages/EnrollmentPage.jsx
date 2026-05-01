@@ -569,12 +569,14 @@ function EnrollmentPage() {
         program_id: id,
         currency: priceCurrency,
         cart_items: [
-          { program_id: id, tier_index: selectedTier ?? 0 },
+          { program_id: id, tier_index: selectedTier ?? 0, participants_count: Math.max(1, participants.length) },
           ...programCartLines.map((i) => ({
             program_id: i.programId,
             tier_index: i.tierIndex ?? 0,
+            participants_count: Math.max(1, i.participants?.length || 1),
           })),
         ],
+        participant_count: Math.max(1, participants.length),
       })
       .then((res) => {
         setPromoResult(res.data);
@@ -585,7 +587,7 @@ function EnrollmentPage() {
         toast({ title: 'Promo could not be applied', description: 'Check the code or remove it and try again.', variant: 'destructive' });
       })
       .finally(() => setPromoLoading(false));
-  }, [type, item, id, priceCurrency, promoFromUrl, toast, selectedTier, programCartLines]);
+  }, [type, item, id, priceCurrency, promoFromUrl, toast, selectedTier, programCartLines, participants.length]);
 
   const getLocalPrice = (item, tierIndex = null) => {
     if (!item) return 0;
@@ -776,12 +778,14 @@ function EnrollmentPage() {
         program_id: id,
         currency: priceCurrency,
         cart_items: [
-          { program_id: id, tier_index: selectedTier ?? 0 },
+          { program_id: id, tier_index: selectedTier ?? 0, participants_count: Math.max(1, participants.length) },
           ...programCartLines.map((i) => ({
             program_id: i.programId,
             tier_index: i.tierIndex ?? 0,
+            participants_count: Math.max(1, i.participants?.length || 1),
           })),
         ],
+        participant_count: Math.max(1, participants.length),
       });
       setPromoResult(res.data); toast({ title: res.data.message });
     } catch (err) { setPromoResult(null); toast({ title: 'Invalid Code', variant: 'destructive' }); }

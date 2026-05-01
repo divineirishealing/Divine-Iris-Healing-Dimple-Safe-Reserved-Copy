@@ -1,6 +1,44 @@
 """Unit tests for promotion program + tier scope helpers."""
 
-from utils.promotion_scope import build_cart_lines_from_payload, promo_applies_to_cart_lines
+from utils.promotion_scope import (
+    build_cart_lines_from_payload,
+    eligible_participant_units_for_fixed_promo,
+    promo_applies_to_cart_lines,
+    promo_line_in_scope,
+)
+
+
+def test_promo_line_in_scope_specific_program():
+    promo = {"applicable_to": "specific", "applicable_program_ids": ["1"]}
+    assert promo_line_in_scope(promo, "1", 0)
+    assert not promo_line_in_scope(promo, "2", 0)
+
+
+def test_eligible_units_sums_cart_participants():
+    promo = {
+        "applicable_to": "all",
+        "fixed_per_participant": True,
+        "applicable_tier_indices_by_program": None,
+    }
+    data = {
+        "cart_items": [
+            {"program_id": "1", "tier_index": 0, "participants_count": 2},
+            {"program_id": "1", "tier_index": 0, "participants_count": 1},
+        ]
+    }
+    assert eligible_participant_units_for_fixed_promo(promo, data, fallback_participants=1) == 3
+
+
+def test_eligible_units_single_program_participant_count():
+    promo = {"applicable_to": "all", "fixed_per_participant": True}
+    data = {"program_id": "9", "tier_index": 0, "participant_count": 3}
+    assert eligible_participant_units_for_fixed_promo(promo, data, fallback_participants=1) == 3
+
+
+def test_eligible_units_off_when_not_fixed_per_person():
+    promo = {"applicable_to": "all", "fixed_per_participant": False}
+    data = {"participant_count": 99, "cart_items": [{"program_id": "1", "participants_count": 5}]}
+    assert eligible_participant_units_for_fixed_promo(promo, data, fallback_participants=1) == 1
 
 
 def test_build_lines_from_cart_items():

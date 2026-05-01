@@ -249,7 +249,11 @@ async def enrollment_checkout_prepare(
     promo_discount = 0
     if enrollment.get("dashboard_mixed_total") is None and data.promo_code:
         try:
-            from utils.promotion_scope import build_cart_lines_from_payload, promo_applies_to_cart_lines
+            from utils.promotion_scope import (
+                build_cart_lines_from_payload,
+                eligible_participant_units_for_fixed_promo,
+                promo_applies_to_cart_lines,
+            )
 
             promo = await db.promotions.find_one({"code": data.promo_code.strip().upper(), "active": True}, {"_id": 0})
             if promo:
@@ -270,7 +274,18 @@ async def enrollment_checkout_prepare(
                     pct = promo.get("discount_percentage", 0)
                     promo_discount = round(total * pct / 100, 2)
                 else:
-                    promo_discount = float(promo.get(f"discount_{currency}", promo.get("discount_aed", 0)))
+                    base = float(promo.get(f"discount_{currency}", promo.get("discount_aed", 0)))
+                    pl = {
+                        "cart_items": data.cart_items or [],
+                        "program_id": data.item_id,
+                        "tier_index": data.tier_index,
+                        "participant_count": participant_count,
+                    }
+                    units_fp = eligible_participant_units_for_fixed_promo(
+                        promo, pl, fallback_participants=participant_count
+                    )
+                    mult = units_fp if promo.get("fixed_per_participant") else 1
+                    promo_discount = round(base * mult, 2)
         except Exception as e:
             logger.warning("Promo code error: %s", e)
 

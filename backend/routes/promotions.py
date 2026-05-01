@@ -2,7 +2,11 @@ from fastapi import APIRouter, HTTPException
 from models import Promotion, PromotionCreate
 from typing import List
 
-from utils.promotion_scope import build_cart_lines_from_payload, promo_applies_to_cart_lines
+from utils.promotion_scope import (
+    build_cart_lines_from_payload,
+    eligible_participant_units_for_fixed_promo,
+    promo_applies_to_cart_lines,
+)
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -151,17 +155,28 @@ async def validate_promotion(data: dict):
             "type": promo.get("type", "coupon"),
             "discount_type": "percentage",
             "discount_percentage": pct,
+            "fixed_per_participant": False,
+            "promo_billing_units": 1,
             "message": f"{pct}% off applied!",
         }
     else:
+        units = eligible_participant_units_for_fixed_promo(promo, data, fallback_participants=1)
+        mult = units if promo.get("fixed_per_participant") else 1
+        daed = round(float(promo.get("discount_aed", 0)) * mult, 2)
+        dinr = round(float(promo.get("discount_inr", 0)) * mult, 2)
+        dusd = round(float(promo.get("discount_usd", 0)) * mult, 2)
+        per = promo.get("fixed_per_participant")
+        msg = f"Discount applied for {units} people!" if per and units > 1 else "Discount applied!"
         return {
             "valid": True,
             "code": code,
             "name": promo.get("name", ""),
             "type": promo.get("type", "coupon"),
             "discount_type": "fixed",
-            "discount_aed": promo.get("discount_aed", 0),
-            "discount_inr": promo.get("discount_inr", 0),
-            "discount_usd": promo.get("discount_usd", 0),
-            "message": f"Discount applied!",
+            "fixed_per_participant": bool(per),
+            "promo_billing_units": units,
+            "discount_aed": daed,
+            "discount_inr": dinr,
+            "discount_usd": dusd,
+            "message": msg,
         }

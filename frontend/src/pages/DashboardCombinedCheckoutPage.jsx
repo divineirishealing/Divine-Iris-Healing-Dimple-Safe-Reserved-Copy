@@ -1135,7 +1135,9 @@ export default function DashboardCombinedCheckoutPage() {
           .map((i) => ({
             program_id: i.programId,
             tier_index: i.tierIndex ?? 0,
+            participants_count: Math.max(1, i.participants?.length || 1),
           })),
+        participant_count: totalParticipants,
       });
       setPromoResult(res.data);
       toast({ title: res.data.message });
@@ -1384,14 +1386,16 @@ export default function DashboardCombinedCheckoutPage() {
           .map((i) => ({
             program_id: i.programId,
             tier_index: i.tierIndex ?? 0,
+            participants_count: Math.max(1, i.participants?.length || 1),
           })),
+        participant_count: totalParticipants,
       })
       .then((r) => {
         setPromoResult(r.data);
         setPromoCode(code.trim().toUpperCase());
       })
       .catch(() => {});
-  }, [checkoutPromoVisible, items.length, items, currency, searchParams]);
+  }, [checkoutPromoVisible, items.length, items, currency, searchParams, totalParticipants]);
 
   useEffect(() => {
     if (!enrollmentId || payableTotal <= 0) {
