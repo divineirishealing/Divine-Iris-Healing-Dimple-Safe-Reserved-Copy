@@ -107,6 +107,33 @@ def _scalar_field(d: dict, *keys: str) -> Any:
     return None
 
 
+def display_program_title_for_enrollment(
+    enrollment: dict,
+    participants: Optional[List[dict]] = None,
+    catalog_item: Optional[dict] = None,
+) -> str:
+    """Label for admin/reporting: Home Coming cart title on participants wins over catalog program name."""
+    et = _clean_str(enrollment.get("item_title"))
+    cat = _clean_str((catalog_item or {}).get("title"))
+    pool = participants if participants is not None else enrollment.get("participants")
+    titles: List[str] = []
+    if isinstance(pool, list):
+        for p in pool:
+            if not isinstance(p, dict):
+                continue
+            t = _clean_str(_scalar_field(p, "program_title", "programTitle"))
+            if t:
+                titles.append(t)
+    for t in titles:
+        if "home coming" in t.lower():
+            return t
+    if et:
+        return et
+    if titles:
+        return titles[0]
+    return cat
+
+
 def _format_age_for_report(val: Any) -> str:
     if val is None or val == "":
         return ""
@@ -209,7 +236,8 @@ def build_participant_report_rows(
 
         amt, cur = _payment_amount_currency(e, txn)
         inv = _clean_str((txn or {}).get("invoice_number")) or _clean_str(e.get("invoice_number"))
-        program = _clean_str(e.get("item_title"))
+        participants = _merge_participants_for_report(e, txn)
+        program = display_program_title_for_enrollment(e, participants, None)
         item_type = _clean_str(e.get("item_type"))
         booker_name = _clean_str(e.get("booker_name"))
         booker_email = _clean_str(e.get("booker_email"))
@@ -218,7 +246,6 @@ def build_participant_report_rows(
         created = _clean_str(e.get("created_at"))
         origin = _enrollment_origin(e)
 
-        participants = _merge_participants_for_report(e, txn)
         total_slots = len(participants) if participants else 1
 
         def push_row(p: Optional[dict], index: int, *, booker_only: bool) -> None:
@@ -720,6 +747,10 @@ async def list_enrollments():
         e["enrollment_origin"] = _enrollment_origin(e)
         if txn and txn.get("invoice_number"):
             e["invoice_number"] = txn["invoice_number"]
+        merged_pp = _merge_participants_for_report(e, txn)
+        resolved_title = display_program_title_for_enrollment(e, merged_pp, None)
+        if resolved_title:
+            e["item_title"] = resolved_title
     return enrollments
 
 

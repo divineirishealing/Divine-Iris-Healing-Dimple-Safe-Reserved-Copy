@@ -38,13 +38,21 @@ async def enrollment_run_free_checkout(
 
     fake_session_id = f"free_{uuid.uuid4().hex[:12]}"
 
+    from routes.india_payments import display_program_title_for_enrollment
+
+    free_item_title = display_program_title_for_enrollment(
+        enrollment,
+        enrollment.get("participants"),
+        item,
+    )
+
     transaction = {
         "id": str(uuid.uuid4()),
         "enrollment_id": enrollment_id,
         "stripe_session_id": fake_session_id,
         "item_type": data.item_type,
         "item_id": data.item_id,
-        "item_title": item.get("title", "") if item else "",
+        "item_title": free_item_title,
         "amount": 0,
         "currency": currency,
         "payment_status": "paid",

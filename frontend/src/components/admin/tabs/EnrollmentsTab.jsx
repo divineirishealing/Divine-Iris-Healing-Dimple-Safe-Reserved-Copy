@@ -836,7 +836,10 @@ const EnrollmentsTab = () => {
 
       {viewMode === 'program_analytics' && (
         <p className="text-[10px] text-gray-500 mb-2">
-          <strong>Program batch:</strong> roster + running Σ (INR); each payment counted once (seat 1). Filter by origin below; hide columns from the Columns button.
+          <strong>Program batch:</strong> roster + running Σ (INR); each payment counted once (seat 1). Filter by origin below; hide columns from the Columns button.{' '}
+          <span className="text-gray-600">
+            <strong>Program</strong> prefers the label the member saw at checkout (e.g. Home Coming Annual Program) when it was stored on the enrollment; the underlying catalog row may still be AWRP.
+          </span>
         </p>
       )}
 

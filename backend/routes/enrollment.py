@@ -331,8 +331,11 @@ async def insert_enrollment_from_profile(profile: ProfileData, request: Request,
     if profile.item_type and profile.item_id:
         enrollment["item_type"] = profile.item_type.strip()
         enrollment["item_id"] = profile.item_id.strip()
-        if profile.item_title:
-            enrollment["item_title"] = profile.item_title.strip()
+        p0_pt = ""
+        if profile.participants:
+            p0_pt = str(profile.participants[0].program_title or "").strip()
+        it = str(profile.item_title or "").strip()
+        enrollment["item_title"] = it or p0_pt
     else:
         p0 = profile.participants[0]
         if p0.program_id:
@@ -747,6 +750,14 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     participant_count = prep["participant_count"]
     item = prep["item"]
 
+    from routes.india_payments import display_program_title_for_enrollment
+
+    checkout_item_title = display_program_title_for_enrollment(
+        enrollment,
+        enrollment.get("participants"),
+        item,
+    )
+
     origin = resolve_checkout_public_origin(data, request)
     host_url = str(request.base_url).rstrip("/")
     success_url = f"{origin}/payment/success?session_id={{CHECKOUT_SESSION_ID}}"
@@ -766,7 +777,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
             "enrollment_id": enrollment_id,
             "item_type": data.item_type,
             "item_id": data.item_id,
-            "item_title": item.get("title", "") if item else "",
+            "item_title": checkout_item_title,
             "email": enrollment.get("booker_email", "") or "",
             "phone": enrollment.get("phone", "") or "",
             "name": enrollment.get("booker_name", "") or "",
@@ -790,7 +801,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         "payment_provider": "stripe",
         "item_type": data.item_type,
         "item_id": data.item_id,
-        "item_title": item.get("title", "") if item else "",
+        "item_title": checkout_item_title,
         "amount": float(final_total),
         "currency": currency,
         "stripe_currency": stripe_currency,
@@ -820,6 +831,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
                 "status": "checkout_started",
                 "stripe_session_id": session.session_id,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
+                **({"item_title": checkout_item_title} if checkout_item_title else {}),
             }
         },
     )
@@ -932,6 +944,14 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
     enrollment_id = prep["enrollment_id"]
     item = prep["item"]
 
+    from routes.india_payments import display_program_title_for_enrollment
+
+    checkout_item_title = display_program_title_for_enrollment(
+        enrollment,
+        enrollment.get("participants"),
+        item,
+    )
+
     async with httpx.AsyncClient(timeout=45) as client_http:
         ro = await client_http.post(
             "https://api.razorpay.com/v1/orders",
@@ -966,7 +986,7 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
         "payment_provider": "razorpay",
         "item_type": pdata.item_type,
         "item_id": pdata.item_id,
-        "item_title": item.get("title", "") if item else "",
+        "item_title": checkout_item_title,
         "amount": charged_inr,
         "currency": currency,
         "stripe_currency": "inr",
