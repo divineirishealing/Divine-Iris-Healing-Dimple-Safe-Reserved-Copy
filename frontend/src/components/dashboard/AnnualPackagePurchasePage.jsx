@@ -266,6 +266,7 @@ export default function AnnualPackagePurchasePage() {
   const { baseCurrency, symbol, toDisplay } = useCurrency();
   const [loading, setLoading] = useState(true);
   const [homeData, setHomeData] = useState(null);
+  const [portalOrders, setPortalOrders] = useState([]);
   const [quote, setQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
@@ -280,11 +281,20 @@ export default function AnnualPackagePurchasePage() {
 
   const refresh = useCallback(() => {
     setLoading(true);
-    axios
-      .get(`${getApiUrl()}/student/home`, { withCredentials: true })
-      .then((res) => setHomeData(res.data))
+    const headers = getAuthHeaders();
+    Promise.all([
+      axios.get(`${getApiUrl()}/student/home`, { withCredentials: true, headers }),
+      axios
+        .get(`${getApiUrl()}/student/orders`, { withCredentials: true, headers })
+        .catch(() => ({ data: { orders: [] } })),
+    ])
+      .then(([homeRes, ordRes]) => {
+        setHomeData(homeRes.data);
+        setPortalOrders(Array.isArray(ordRes.data?.orders) ? ordRes.data.orders : []);
+      })
       .catch(() => {
         setHomeData(null);
+        setPortalOrders([]);
         toast({
           title: 'Could not load dashboard',
           variant: 'destructive',
@@ -319,6 +329,38 @@ export default function AnnualPackagePurchasePage() {
     }
     return m;
   }, [emis]);
+
+  /** Latest paid portal checkout for Home Coming — CRM EMIs can lag after Stripe. */
+  const portalHomeComingPaidInfo = useMemo(() => {
+    const list = Array.isArray(portalOrders) ? portalOrders : [];
+    const hub = String(baseCurrency || '').toLowerCase();
+    const candidates = list.filter((o) => {
+      if (!o || o.is_free) return false;
+      if (String(o.payment_status || '').toLowerCase() !== 'paid') return false;
+      const title = String(o.item_title || '').toLowerCase();
+      if (!title.includes('home coming')) return false;
+      const amt = Number(o.amount);
+      if (!Number.isFinite(amt) || amt <= 0) return false;
+      const cur = String(o.currency || '').toLowerCase();
+      if (hub && cur && cur !== hub) return false;
+      return true;
+    });
+    candidates.sort((a, b) => {
+      const ta = new Date(a.created_at || a.updated_at || 0).getTime();
+      const tb = new Date(b.created_at || b.updated_at || 0).getTime();
+      return tb - ta;
+    });
+    const o = candidates[0];
+    if (!o) return null;
+    const when = String(o.created_at || o.updated_at || '');
+    return {
+      amount: Number(o.amount),
+      currency: String(o.currency || hub || 'aed').toLowerCase(),
+      stripeSessionId: String(o.stripe_session_id || '').trim(),
+      paidAtYmd: when.slice(0, 10),
+      itemTitle: o.item_title || '',
+    };
+  }, [portalOrders, baseCurrency]);
   const schedulePayTag = useMemo(() => {
     const pref = (homeData?.preferred_payment_method || '').trim();
     const indiaTag = (homeData?.client_india_pricing?.india_payment_method || '').trim();
@@ -436,6 +478,7 @@ export default function AnnualPackagePurchasePage() {
     !isRenewalSeason &&
     Number(fin.total_fee || 0) > 0;
   const needsAdminEmiBackfillHint =
+    !portalHomeComingPaidInfo &&
     lapOnRecordIsCurrent &&
     !isRenewalSeason &&
     Number(fin.total_fee || 0) > 0 &&
@@ -456,25 +499,51 @@ export default function AnnualPackagePurchasePage() {
   );
   const hasRecordedAnnualPayment =
     anyEmiPaid ||
-    (Number(fin.total_fee || 0) > 0 && Number(fin.total_paid || 0) > 0);
-  /** After a payment is on file, subscription dates are fixed (renewal season opens choosing the next cycle). */
+    (Number(fin.total_fee || 0) > 0 && Number(fin.total_paid || 0) > 0) ||
+    portalHomeComingPaidInfo != null;
+  /**
+   * After payment, cycle dates are fixed. During renewal, CRM package dates may lag behind a completed
+   * Stripe order — then we lock from portal + saved desired start until the garden record catches up.
+   */
   const membershipCycleDatesLocked =
-    !isRenewalSeason &&
     hasRecordedAnnualPayment &&
-    /^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd);
+    (/^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd) ||
+      (portalHomeComingPaidInfo != null && /^\d{4}-\d{2}-\d{2}$/.test(desiredStart)));
   const cycleDisplayStart = useMemo(() => {
-    if (membershipCycleDatesLocked) return recordStartYmd;
+    if (!membershipCycleDatesLocked) return desiredStart;
+    if (portalHomeComingPaidInfo && /^\d{4}-\d{2}-\d{2}$/.test(desiredStart)) return desiredStart;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd)) return recordStartYmd;
     return desiredStart;
-  }, [membershipCycleDatesLocked, recordStartYmd, desiredStart]);
+  }, [membershipCycleDatesLocked, portalHomeComingPaidInfo, recordStartYmd, desiredStart]);
   const cycleDisplayEnd = useMemo(() => {
-    if (membershipCycleDatesLocked && /^\d{4}-\d{2}-\d{2}$/.test(recordEndYmd)) {
+    if (
+      membershipCycleDatesLocked &&
+      /^\d{4}-\d{2}-\d{2}$/.test(recordEndYmd) &&
+      !portalHomeComingPaidInfo
+    ) {
+      return recordEndYmd;
+    }
+    if (
+      membershipCycleDatesLocked &&
+      /^\d{4}-\d{2}-\d{2}$/.test(recordEndYmd) &&
+      portalHomeComingPaidInfo &&
+      /^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd) &&
+      recordStartYmd === cycleDisplayStart
+    ) {
       return recordEndYmd;
     }
     if (cycleDisplayStart && /^\d{4}-\d{2}-\d{2}$/.test(cycleDisplayStart)) {
       return addMonthsAnnualBundleEnd(cycleDisplayStart, durationMonths) || '';
     }
     return '';
-  }, [membershipCycleDatesLocked, recordEndYmd, cycleDisplayStart, durationMonths]);
+  }, [
+    membershipCycleDatesLocked,
+    recordEndYmd,
+    recordStartYmd,
+    cycleDisplayStart,
+    durationMonths,
+    portalHomeComingPaidInfo,
+  ]);
   const autoRenewalYear = useMemo(
     () => Math.min(12, Math.max(1, parseInt(homeData?.renewal_entering_iris_year, 10) || 1)),
     [homeData?.renewal_entering_iris_year],
@@ -527,6 +596,16 @@ export default function AnnualPackagePurchasePage() {
     const renewLbl = irisYearLabelNoPeriod(autoRenewalYear);
 
     if (isRenewalSeason) {
+      if (membershipCycleDatesLocked) {
+        return (
+          <>
+            {namePrefix}
+            thank you for walking your Sacred Home path. Your renewal for{' '}
+            <span className="font-semibold text-[#4c1d95]">{renewLbl}</span> is recorded — your current cycle dates are set below
+            and your payment schedule reflects checkout, even while Sacred Exchange catches up.
+          </>
+        );
+      }
       return (
         <>
           {namePrefix}
@@ -556,7 +635,7 @@ export default function AnnualPackagePurchasePage() {
         thread through this lineage; we hold you softly as you deepen into sacred growth and higher becoming.
       </>
     );
-  }, [homeData?.iris_journey, memberFirstName, isRenewalSeason, autoRenewalYear]);
+  }, [homeData?.iris_journey, memberFirstName, isRenewalSeason, autoRenewalYear, membershipCycleDatesLocked]);
 
   useEffect(() => {
     if (!homeData || prefsInitDone.current) return;
@@ -600,10 +679,11 @@ export default function AnnualPackagePurchasePage() {
 
   useEffect(() => {
     if (!homeData || !prefsLoaded || !membershipCycleDatesLocked) return;
+    if (portalHomeComingPaidInfo) return;
     if (/^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd)) {
       setDesiredStart((prev) => (prev === recordStartYmd ? prev : recordStartYmd));
     }
-  }, [homeData, prefsLoaded, membershipCycleDatesLocked, recordStartYmd]);
+  }, [homeData, prefsLoaded, membershipCycleDatesLocked, recordStartYmd, portalHomeComingPaidInfo]);
 
   useEffect(() => {
     if (!pinnedProgram || !baseCurrency) {
@@ -706,9 +786,14 @@ export default function AnnualPackagePurchasePage() {
     catalogCourtesyBreakdown,
   ]);
 
+  const scheduleBasisYmd = useMemo(() => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cycleDisplayStart)) return cycleDisplayStart;
+    return desiredStart;
+  }, [cycleDisplayStart, desiredStart]);
+
   const paymentScheduleRows = useMemo(
-    () => buildPaymentScheduleRows(paymentMode, scheduleSplitTotal, desiredStart, durationMonths),
-    [paymentMode, scheduleSplitTotal, desiredStart, durationMonths],
+    () => buildPaymentScheduleRows(paymentMode, scheduleSplitTotal, scheduleBasisYmd, durationMonths),
+    [paymentMode, scheduleSplitTotal, scheduleBasisYmd, durationMonths],
   );
 
   const paymentScheduleNumericTotal = useMemo(() => {
@@ -1037,95 +1122,157 @@ export default function AnnualPackagePurchasePage() {
                   <div className="rounded-2xl border border-[rgba(124,58,237,0.35)] bg-gradient-to-br from-violet-50/90 to-white/70 px-4 py-3.5 shadow-sm shadow-violet-200/30 space-y-3">
                     {showNextSacredHomeEnrollment ? (
                       <>
-                        <p className="text-[10px] uppercase tracking-[0.16em] text-[rgba(100,55,155,0.48)] font-semibold">
-                          Next Sacred Home cycle
-                        </p>
-                        <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3">
-                          <div className="min-w-0 max-w-full flex flex-col items-center">
-                            <Label className="text-[10px] flex flex-col items-center gap-2 text-[rgba(70,35,125,0.65)] uppercase tracking-[0.12em] font-semibold leading-snug">
-                              <Calendar size={12} className="opacity-70 shrink-0" aria-hidden />
-                              <span className="text-center">
-                                <span className="block text-[10px] font-bold tracking-[0.14em] text-[rgba(100,55,155,0.45)] uppercase">
-                                  {nextSacredYearTitleLine}
-                                </span>
-                                <span className="block text-[10px] font-bold tracking-[0.14em] text-[rgba(100,55,155,0.45)] mt-1 uppercase">
-                                  Anchor your membership start
-                                </span>
-                                <span className="block normal-case tracking-normal text-[11px] font-medium text-[rgba(60,35,115,0.65)] mt-1 mx-auto max-w-none w-full">
-                                  Choose your bundle start date. Your Iris year follows your Iris Garden path automatically.
-                                </span>
-                              </span>
-                            </Label>
-                            <Input
-                              type="date"
-                              className={cn(
-                                'h-10 mt-1.5 w-[11.75rem] max-w-full border-[rgba(160,80,220,0.22)] bg-white/75 mx-auto',
-                                membershipCycleDatesLocked &&
-                                  'cursor-not-allowed opacity-95 bg-violet-50/80 border-violet-200/90',
-                              )}
-                              value={desiredStart}
-                              onChange={(e) => setDesiredStart(e.target.value)}
-                              disabled={membershipCycleDatesLocked}
-                              data-testid="annual-offer-start-date-hero"
-                            />
-                            {membershipCycleDatesLocked ? (
-                              <p className="text-[10px] text-[rgba(80,45,130,0.72)] mt-1.5 leading-snug max-w-md mx-auto">
-                                Start and bundle end are locked to your Sacred Exchange record after payment.
+                        {membershipCycleDatesLocked ? (
+                          <>
+                            <p className="text-[10px] uppercase tracking-[0.16em] text-[rgba(100,55,155,0.48)] font-semibold">
+                              Current Sacred Home cycle
+                            </p>
+                            <div className="flex flex-col items-center justify-center gap-3">
+                              <div className="min-w-0 max-w-full flex flex-col items-center">
+                                <Label className="text-[10px] flex flex-col items-center gap-2 text-[rgba(70,35,125,0.65)] uppercase tracking-[0.12em] font-semibold leading-snug">
+                                  <Calendar size={12} className="opacity-70 shrink-0" aria-hidden />
+                                  <span className="text-center">
+                                    <span className="block text-[10px] font-bold tracking-[0.14em] text-[rgba(100,55,155,0.45)] uppercase">
+                                      {nextSacredYearTitleLine}
+                                    </span>
+                                    <span className="block normal-case tracking-normal text-[11px] font-medium text-[rgba(60,35,115,0.65)] mt-2 mx-auto max-w-none w-full max-w-xl">
+                                      Your membership for this cycle is already paid. Dates below match your checkout and stay in
+                                      sync with Sacred Exchange when your host updates the garden record.
+                                    </span>
+                                  </span>
+                                </Label>
+                              </div>
+                            </div>
+                            {cycleDisplayEnd ? (
+                              <div className="rounded-xl border border-violet-200/60 bg-white/65 px-3 py-2.5 sm:px-4">
+                                <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-[0.14em] text-[#3b0764] leading-snug text-center">
+                                  {irisYearLabelNoPeriod(autoRenewalYear).replace(/\s+/g, ' ').trim().toUpperCase()}
+                                </p>
+                                <dl className="mt-3 flex flex-wrap justify-center gap-x-10 gap-y-3 sm:gap-x-12 tabular-nums">
+                                  <div className="min-w-[7.5rem]">
+                                    <dt className="text-[9px] uppercase tracking-[0.12em] text-[rgba(100,55,155,0.42)] mb-1 font-semibold">
+                                      Cycle start
+                                    </dt>
+                                    <dd className="text-center text-[13px] sm:text-sm font-bold uppercase tracking-[0.08em] text-[#3b0764]">
+                                      {formatDateDdMonYyyy(cycleDisplayStart).toUpperCase()}
+                                    </dd>
+                                  </div>
+                                  <div className="min-w-[7.5rem]">
+                                    <dt className="text-[9px] uppercase tracking-[0.12em] text-[rgba(100,55,155,0.42)] mb-1 font-semibold">
+                                      Bundle end ({durationMonths} mo)
+                                    </dt>
+                                    <dd className="text-center text-[13px] sm:text-sm font-bold uppercase tracking-[0.08em] text-[#3b0764]">
+                                      {formatDateDdMonYyyy(cycleDisplayEnd).toUpperCase()}
+                                    </dd>
+                                  </div>
+                                </dl>
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-[rgba(90,55,135,0.62)] italic max-w-none mx-auto">
+                                Complete member profile dates are still loading — refresh in a moment if this stays empty.
+                              </p>
+                            )}
+                            {!pinnedProgram ? (
+                              <p className="text-[11px] text-amber-900/85 bg-amber-50/90 border border-amber-200/80 rounded-lg px-2.5 py-2 text-left sm:text-center">
+                                Your host still needs to pin the Home Coming catalog program on Sacred Home — then checkout opens
+                                here with your dates.
                               </p>
                             ) : null}
-                          </div>
-                          {preferredDom >= 1 && preferredDom <= 28 && !membershipCycleDatesLocked ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-10 border-violet-200/90 text-violet-900 bg-white/70 hover:bg-violet-50 shrink-0"
-                              onClick={() => {
-                                const ymd = nextDateWithDayOfMonth(null, preferredDom);
-                                if (ymd) setDesiredStart(ymd);
-                              }}
-                            >
-                              Next {preferredDom}
-                              {preferredDom === 1 ? 'st' : preferredDom === 2 ? 'nd' : preferredDom === 3 ? 'rd' : 'th'} of month
-                            </Button>
-                          ) : null}
-                        </div>
-                        {cycleDisplayEnd ? (
-                          <div className="rounded-xl border border-violet-200/60 bg-white/65 px-3 py-2.5 sm:px-4">
-                            <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-[0.14em] text-[#3b0764] leading-snug text-center">
-                              {irisYearLabelNoPeriod(autoRenewalYear).replace(/\s+/g, ' ').trim().toUpperCase()}
-                            </p>
-                            <dl className="mt-3 flex flex-wrap justify-center gap-x-10 gap-y-3 sm:gap-x-12 tabular-nums">
-                              <div className="min-w-[7.5rem]">
-                                <dt className="text-[9px] uppercase tracking-[0.12em] text-[rgba(100,55,155,0.42)] mb-1 font-semibold">
-                                  New cycle start
-                                </dt>
-                                <dd className="text-center text-[13px] sm:text-sm font-bold uppercase tracking-[0.08em] text-[#3b0764]">
-                                  {formatDateDdMonYyyy(cycleDisplayStart).toUpperCase()}
-                                </dd>
-                              </div>
-                              <div className="min-w-[7.5rem]">
-                                <dt className="text-[9px] uppercase tracking-[0.12em] text-[rgba(100,55,155,0.42)] mb-1 font-semibold">
-                                  Bundle end ({durationMonths} mo)
-                                </dt>
-                                <dd className="text-center text-[13px] sm:text-sm font-bold uppercase tracking-[0.08em] text-[#3b0764]">
-                                  {formatDateDdMonYyyy(cycleDisplayEnd).toUpperCase()}
-                                </dd>
-                              </div>
-                            </dl>
-                          </div>
+                          </>
                         ) : (
-                          <p className="text-[11px] text-[rgba(90,55,135,0.62)] max-w-none mx-auto">
-                            Pick a start date to see bundle end (30th of the month before the anniversary) and the installment
-                            schedule (due on the 27th).
-                          </p>
+                          <>
+                            <p className="text-[10px] uppercase tracking-[0.16em] text-[rgba(100,55,155,0.48)] font-semibold">
+                              Next Sacred Home cycle
+                            </p>
+                            <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3">
+                              <div className="min-w-0 max-w-full flex flex-col items-center">
+                                <Label className="text-[10px] flex flex-col items-center gap-2 text-[rgba(70,35,125,0.65)] uppercase tracking-[0.12em] font-semibold leading-snug">
+                                  <Calendar size={12} className="opacity-70 shrink-0" aria-hidden />
+                                  <span className="text-center">
+                                    <span className="block text-[10px] font-bold tracking-[0.14em] text-[rgba(100,55,155,0.45)] uppercase">
+                                      {nextSacredYearTitleLine}
+                                    </span>
+                                    <span className="block text-[10px] font-bold tracking-[0.14em] text-[rgba(100,55,155,0.45)] mt-1 uppercase">
+                                      Anchor your membership start
+                                    </span>
+                                    <span className="block normal-case tracking-normal text-[11px] font-medium text-[rgba(60,35,115,0.65)] mt-1 mx-auto max-w-none w-full">
+                                      Choose your bundle start date. Your Iris year follows your Iris Garden path automatically.
+                                    </span>
+                                  </span>
+                                </Label>
+                                <Input
+                                  type="date"
+                                  className={cn(
+                                    'h-10 mt-1.5 w-[11.75rem] max-w-full border-[rgba(160,80,220,0.22)] bg-white/75 mx-auto',
+                                    membershipCycleDatesLocked &&
+                                      'cursor-not-allowed opacity-95 bg-violet-50/80 border-violet-200/90',
+                                  )}
+                                  value={desiredStart}
+                                  onChange={(e) => setDesiredStart(e.target.value)}
+                                  disabled={membershipCycleDatesLocked}
+                                  data-testid="annual-offer-start-date-hero"
+                                />
+                                {membershipCycleDatesLocked ? (
+                                  <p className="text-[10px] text-[rgba(80,45,130,0.72)] mt-1.5 leading-snug max-w-md mx-auto">
+                                    Start and bundle end are locked to your Sacred Exchange record after payment.
+                                  </p>
+                                ) : null}
+                              </div>
+                              {preferredDom >= 1 && preferredDom <= 28 && !membershipCycleDatesLocked ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-10 border-violet-200/90 text-violet-900 bg-white/70 hover:bg-violet-50 shrink-0"
+                                  onClick={() => {
+                                    const ymd = nextDateWithDayOfMonth(null, preferredDom);
+                                    if (ymd) setDesiredStart(ymd);
+                                  }}
+                                >
+                                  Next {preferredDom}
+                                  {preferredDom === 1 ? 'st' : preferredDom === 2 ? 'nd' : preferredDom === 3 ? 'rd' : 'th'} of
+                                  month
+                                </Button>
+                              ) : null}
+                            </div>
+                            {cycleDisplayEnd ? (
+                              <div className="rounded-xl border border-violet-200/60 bg-white/65 px-3 py-2.5 sm:px-4">
+                                <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-[0.14em] text-[#3b0764] leading-snug text-center">
+                                  {irisYearLabelNoPeriod(autoRenewalYear).replace(/\s+/g, ' ').trim().toUpperCase()}
+                                </p>
+                                <dl className="mt-3 flex flex-wrap justify-center gap-x-10 gap-y-3 sm:gap-x-12 tabular-nums">
+                                  <div className="min-w-[7.5rem]">
+                                    <dt className="text-[9px] uppercase tracking-[0.12em] text-[rgba(100,55,155,0.42)] mb-1 font-semibold">
+                                      New cycle start
+                                    </dt>
+                                    <dd className="text-center text-[13px] sm:text-sm font-bold uppercase tracking-[0.08em] text-[#3b0764]">
+                                      {formatDateDdMonYyyy(cycleDisplayStart).toUpperCase()}
+                                    </dd>
+                                  </div>
+                                  <div className="min-w-[7.5rem]">
+                                    <dt className="text-[9px] uppercase tracking-[0.12em] text-[rgba(100,55,155,0.42)] mb-1 font-semibold">
+                                      Bundle end ({durationMonths} mo)
+                                    </dt>
+                                    <dd className="text-center text-[13px] sm:text-sm font-bold uppercase tracking-[0.08em] text-[#3b0764]">
+                                      {formatDateDdMonYyyy(cycleDisplayEnd).toUpperCase()}
+                                    </dd>
+                                  </div>
+                                </dl>
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-[rgba(90,55,135,0.62)] max-w-none mx-auto">
+                                Pick a start date to see bundle end (30th of the month before the anniversary) and the
+                                installment schedule (due on the 27th).
+                              </p>
+                            )}
+                            {!pinnedProgram ? (
+                              <p className="text-[11px] text-amber-900/85 bg-amber-50/90 border border-amber-200/80 rounded-lg px-2.5 py-2 text-left sm:text-center">
+                                Your host still needs to pin the Home Coming catalog program on Sacred Home — then checkout opens
+                                here with your dates.
+                              </p>
+                            ) : null}
+                          </>
                         )}
-                        {!pinnedProgram ? (
-                          <p className="text-[11px] text-amber-900/85 bg-amber-50/90 border border-amber-200/80 rounded-lg px-2.5 py-2 text-left sm:text-center">
-                            Your host still needs to pin the Home Coming catalog program on Sacred Home — then checkout opens
-                            here with your dates.
-                          </p>
-                        ) : null}
                       </>
                     ) : (
                       <>
@@ -1587,20 +1734,42 @@ export default function AnnualPackagePurchasePage() {
                               typeof row.n === 'number' && !Number.isNaN(row.n)
                                 ? emiByNumber.get(row.n)
                                 : null;
+                            const portalPayFullMatchesRow =
+                              portalHomeComingPaidInfo &&
+                              paymentMode === 'full' &&
+                              String(row.key || '') === 'pay-full' &&
+                              hasNumericAmount &&
+                              Math.abs(
+                                Number(portalHomeComingPaidInfo.amount) - Number(row.amount),
+                              ) <= Math.max(2, Math.abs(Number(row.amount)) * 0.025);
+                            const crmEmiPaid = emiRow && String(emiRow.status || '').toLowerCase() === 'paid';
+                            const syntheticPaidRow = Boolean(portalPayFullMatchesRow && !crmEmiPaid);
+                            const emiRowEffective =
+                              crmEmiPaid
+                                ? emiRow
+                                : syntheticPaidRow
+                                  ? {
+                                      status: 'paid',
+                                      paid_date: portalHomeComingPaidInfo.paidAtYmd,
+                                      payment_method: 'stripe',
+                                    }
+                                  : emiRow;
                             let paidDateCell = '—';
-                            if (emiRow && emiRow.status === 'paid') {
-                              const rawPd = emiRow.paid_date || emiRow.date || '';
+                            if (emiRowEffective && emiRowEffective.status === 'paid') {
+                              const rawPd = emiRowEffective.paid_date || emiRowEffective.date || '';
                               paidDateCell = rawPd
                                 ? formatDateDdMonYyyy(String(rawPd).slice(0, 10)) || '—'
                                 : 'Paid';
                             }
-                            const payHereLabel = emiRow?.payment_method
-                              ? formatSchedulePayTag(emiRow.payment_method)
+                            const payHereLabel = emiRowEffective?.payment_method
+                              ? formatSchedulePayTag(emiRowEffective.payment_method)
                               : schedulePayTag;
                             const receiptHref =
                               emiRow?.receipt_url && String(emiRow.receipt_url).trim()
                                 ? `${getApiUrl()}${emiRow.receipt_url}`
-                                : null;
+                                : syntheticPaidRow && portalHomeComingPaidInfo.stripeSessionId
+                                  ? `${window.location.origin}/payment/success?session_id=${encodeURIComponent(portalHomeComingPaidInfo.stripeSessionId)}`
+                                  : null;
                             const payHereOpensEmiModal =
                               typeof row.n === 'number' &&
                               !Number.isNaN(row.n) &&
@@ -1632,14 +1801,14 @@ export default function AnnualPackagePurchasePage() {
                                   {totalAmountShown}
                                 </td>
                                 <td className="px-1.5 py-2.5 align-middle">
-                                  {emiRow?.status === 'paid' ? (
+                                  {emiRowEffective?.status === 'paid' ? (
                                     <span
                                       className="mx-auto inline-flex max-w-full min-w-0 items-center justify-center rounded-md bg-emerald-100/90 px-1.5 py-1 text-[8px] font-semibold uppercase leading-tight tracking-wide text-emerald-900"
                                       title="This installment is paid"
                                     >
                                       Paid · {payHereLabel}
                                     </span>
-                                  ) : emiRow?.status === 'submitted' ? (
+                                  ) : emiRowEffective?.status === 'submitted' ? (
                                     <button
                                       type="button"
                                       onClick={() => navigate('/dashboard/financials')}
@@ -1677,7 +1846,7 @@ export default function AnnualPackagePurchasePage() {
                                       <Paperclip size={12} className="shrink-0 opacity-80" aria-hidden />
                                       Receipt file
                                     </a>
-                                  ) : emiRow?.status === 'paid' ? (
+                                  ) : emiRowEffective?.status === 'paid' ? (
                                     <span className="text-[9px] text-[rgba(90,55,135,0.55)]">
                                       Receipt with host
                                     </span>
