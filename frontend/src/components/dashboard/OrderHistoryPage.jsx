@@ -265,6 +265,10 @@ const OrderHistoryPage = () => {
                       row.participant_names != null && String(row.participant_names).trim() !== ''
                         ? String(row.participant_names).trim()
                         : '—';
+                    const indiaBadge =
+                      row.payment_method === 'manual_proof' || row.is_india_proof_pending
+                        ? indiaProofMethodBadge(row)
+                        : null;
                     return (
                       <tr
                         key={row.id || sid || idx}
