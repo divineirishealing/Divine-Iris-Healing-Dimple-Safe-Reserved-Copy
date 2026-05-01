@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getAuthHeaders } from '../lib/authHeaders';
-import { BACKEND_URL, getBackendUrl } from '../lib/config';
+import { getBackendUrl, isBackendApiConfigured } from '../lib/config';
 
 const AuthContext = createContext();
 
@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
 
   // Check auth status
   const checkAuth = async () => {
-    if (!BACKEND_URL) {
+    if (!isBackendApiConfigured()) {
       setUser(null);
       setLoading(false);
       return;
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async (redirectTo = '/login') => {
-    if (!BACKEND_URL) {
+    if (!isBackendApiConfigured()) {
       localStorage.removeItem('session_token');
       try { localStorage.removeItem('currency_detect'); } catch (_) { /* ignore */ }
       setUser(null);

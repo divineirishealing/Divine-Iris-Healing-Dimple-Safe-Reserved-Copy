@@ -44,6 +44,16 @@ export function getApiUrl() {
   return API_URL;
 }
 
+/**
+ * False only when there is no API host and same-origin /api rewrites are not enabled.
+ * Vercel often uses REACT_APP_SAME_ORIGIN_API=1 without REACT_APP_BACKEND_URL; gating on
+ * BACKEND_URL alone would skip all student API calls and break /dashboard/orders.
+ */
+export function isBackendApiConfigured() {
+  if (sameOriginApi) return true;
+  return Boolean(BACKEND_URL);
+}
+
 /** True when the bundle can call the API from this browser (absolute URL, or same-origin path like /api). */
 export function isUploadApiReachable() {
   const api = getApiUrl();

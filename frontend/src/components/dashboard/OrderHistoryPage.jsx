@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { getAuthHeaders } from '../../lib/authHeaders';
 import { cn, formatDateDdMonYyyy } from '../../lib/utils';
-import { BACKEND_URL, getApiUrl } from '../../lib/config';
+import { getApiUrl, isBackendApiConfigured } from '../../lib/config';
 import { useAuth } from '../../context/AuthContext';
 
 function formatMoney(amount, currency) {
@@ -56,14 +56,21 @@ const OrderHistoryPage = () => {
   const [recentPaidOnly, setRecentPaidOnly] = useState(true);
 
   const fetchOrders = useCallback(async () => {
-    if (!BACKEND_URL) {
-      setError('Order history is not configured: set REACT_APP_BACKEND_URL on the frontend build.');
+    if (!isBackendApiConfigured()) {
+      setError(
+        'Order history API is not configured: set REACT_APP_BACKEND_URL on the build, or REACT_APP_SAME_ORIGIN_API=1 when /api is rewritten to your backend.',
+      );
       setOrders([]);
       return;
     }
     const apiBase = getApiUrl();
     const params = recentPaidOnly ? { paid_within_days: 2 } : {};
-    const opts = { withCredentials: true, headers: getAuthHeaders(), params };
+    const opts = {
+      withCredentials: true,
+      headers: getAuthHeaders(),
+      params,
+      timeout: 45000,
+    };
     let res;
     try {
       res = await axios.get(`${apiBase}/student/orders`, opts);
@@ -95,6 +102,8 @@ const OrderHistoryPage = () => {
             setError(
               `Order history returned 404 (nothing at ${getApiUrl()}/student/orders). Redeploy the backend web service on Render from the latest main. If the site is on Render static, sync the blueprint so REACT_APP_BACKEND_URL comes from the API service (render.yaml). On Vercel, set REACT_APP_BACKEND_URL to the API origin or add an /api rewrite and REACT_APP_SAME_ORIGIN_API=1.`,
             );
+          } else if (e.code === 'ECONNABORTED') {
+            setError('Order history request timed out. Check your connection and try Refresh.');
           } else {
             setError(
               typeof detail === 'string' && detail
@@ -152,7 +161,7 @@ const OrderHistoryPage = () => {
           type="button"
           variant="outline"
           className="shrink-0 gap-2 border-white/40 bg-white/10 text-white text-base h-11 px-5 hover:bg-white/20 hover:text-white backdrop-blur-sm"
-          disabled={loading || !BACKEND_URL}
+          disabled={loading || !isBackendApiConfigured()}
           onClick={() => setReloadToken((t) => t + 1)}
         >
           <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
