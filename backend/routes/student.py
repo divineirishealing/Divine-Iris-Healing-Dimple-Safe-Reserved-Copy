@@ -774,6 +774,55 @@ def _canonical_site_program_id_for_annual_pkg(raw) -> str:
     return s
 
 
+def _portal_nested_program_row(nested: Optional[dict], program_id: str) -> Optional[dict]:
+    """Read ``dashboard_program_offers[program_id]`` or inner ``awrp_batch_program_offers[batch][program_id]``.
+
+    Keys saved from admin may not match quote/cart ``program_id`` casing for Mongo / UUID strings.
+    """
+    if not isinstance(nested, dict):
+        return None
+    raw_pid = str(program_id or "").strip()
+    if not raw_pid:
+        return None
+    row = nested.get(raw_pid)
+    if isinstance(row, dict):
+        return row
+    canon = _canonical_site_program_id_for_annual_pkg(raw_pid)
+    if canon:
+        row = nested.get(canon)
+        if isinstance(row, dict):
+            return row
+        c_low = canon.lower()
+        for k, v in nested.items():
+            if not isinstance(v, dict):
+                continue
+            ks = str(k).strip()
+            if not ks:
+                continue
+            if ks.lower() == c_low:
+                return v
+            if _canonical_site_program_id_for_annual_pkg(ks).lower() == c_low:
+                return v
+    return None
+
+
+def _awrp_batch_inner_map(batch_offers_root: Optional[dict], batch_id: Optional[str]) -> Optional[dict]:
+    """Resolve ``awrp_batch_program_offers[batch_id]`` with relaxed key matching."""
+    if not batch_id or not isinstance(batch_offers_root, dict):
+        return None
+    bid = str(batch_id).strip()
+    if not bid:
+        return None
+    m = batch_offers_root.get(bid)
+    if isinstance(m, dict):
+        return m
+    b_low = bid.lower()
+    for k, v in batch_offers_root.items():
+        if isinstance(v, dict) and str(k).strip().lower() == b_low:
+            return v
+    return None
+
+
 def _portal_included_in_annual_package(program: dict, inc_cfg, _sub: dict, client: dict) -> bool:
     """Whether the booker’s **own member seat** is prepaid by the Home Coming / annual bundle (₹0 self line).
 
@@ -1126,7 +1175,7 @@ def _merge_program_dashboard_offers(
     annual/family/extended dicts are merged on top (for flagship 1-month vs 3-month, etc.).
     """
     pid = str(program_id)
-    row = (per_map or {}).get(pid) if isinstance(per_map, dict) else None
+    row = _portal_nested_program_row(per_map, pid) if isinstance(per_map, dict) else None
     if not isinstance(row, dict):
         row = {}
     ao = _merge_portal_offer_column(global_ao, row.get("annual"))
@@ -1237,13 +1286,10 @@ def _client_awrp_batch_id(client: Optional[dict]) -> Optional[str]:
 
 
 def _batch_portal_row_for_program(batch_offers_root: Optional[dict], batch_id: Optional[str], program_id: str) -> Optional[dict]:
-    if not batch_id or not isinstance(batch_offers_root, dict):
+    bmap = _awrp_batch_inner_map(batch_offers_root, batch_id)
+    if not bmap:
         return None
-    bmap = batch_offers_root.get(batch_id)
-    if not isinstance(bmap, dict):
-        return None
-    row = bmap.get(str(program_id))
-    return row if isinstance(row, dict) else None
+    return _portal_nested_program_row(bmap, str(program_id))
 
 
 def _program_has_portal_pricing_override(
@@ -1251,7 +1297,7 @@ def _program_has_portal_pricing_override(
     program_id: str,
     batch_program_row: Optional[dict] = None,
 ) -> bool:
-    row = (per_map or {}).get(str(program_id)) if isinstance(per_map, dict) else None
+    row = _portal_nested_program_row(per_map, str(program_id)) if isinstance(per_map, dict) else None
     if _portal_offer_row_has_overrides_deep(row):
         return True
     return _portal_offer_row_has_overrides_deep(batch_program_row)

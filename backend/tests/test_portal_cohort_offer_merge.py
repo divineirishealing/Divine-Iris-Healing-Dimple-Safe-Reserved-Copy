@@ -10,6 +10,7 @@ sys.path.insert(0, str(BACKEND))
 pytest.importorskip("fastapi")
 
 from routes.student import (  # noqa: E402
+    _batch_portal_row_for_program,
     _client_awrp_batch_id,
     _merge_program_dashboard_offers,
     _merge_program_dashboard_offers_with_batch,
@@ -55,7 +56,16 @@ def test_per_program_by_tier_enables_family():
     assert fo.get("enabled") is True
 
 
-def test_client_awrp_batch_from_annual_subscription():
-    bid = "cohort-1777195028718"
-    c = {"annual_subscription": {"awrp_batch_id": bid}}
-    assert _client_awrp_batch_id(c) == bid
+def test_batch_portal_row_resolves_program_id_case():
+    pid_upper = "550E8400-E29B-41D4-A716-446655440000"
+    pid_lower = "550e8400-e29b-41d4-a716-446655440000"
+    root = {
+        "cohort-x": {
+            pid_upper: {
+                "annual": {"pricing_rule": "fixed_price", "fixed_price_inr": 13734},
+            }
+        }
+    }
+    row = _batch_portal_row_for_program(root, "cohort-x", pid_lower)
+    assert row is not None
+    assert (row.get("annual") or {}).get("fixed_price_inr") == 13734

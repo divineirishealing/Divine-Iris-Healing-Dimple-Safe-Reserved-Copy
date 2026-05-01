@@ -313,6 +313,13 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
 
   const cohortId = cohortEditId || (awrpBatches[0] && String(awrpBatches[0].id)) || '';
   const cohortProgOffers = cohortId ? batchOffersRoot[cohortId] || {} : {};
+  /** Match backend / annual-package checklist: UUID program keys are normalized so cohort rows resolve in quotes. */
+  const cohortProgramRow = (progId) => {
+    const raw = String(progId || '').trim();
+    const canon = canonicalSiteProgramId(progId);
+    return cohortProgOffers[canon] || (raw && cohortProgOffers[raw]) || {};
+  };
+  const cohortProgramKey = (progId) => canonicalSiteProgramId(progId) || String(progId || '').trim();
 
   const addAwrpBatch = () => {
     const nid = `cohort-${Date.now()}`;
@@ -338,50 +345,56 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
 
   const setCohortProgramAnnual = (pid, patch) => {
     if (!cohortId) return;
-    const row = cohortProgOffers[pid] || {};
+    const pk = cohortProgramKey(pid);
+    const row = cohortProgramRow(pid);
     onChange({
       ...settings,
       awrp_batch_program_offers: {
         ...batchOffersRoot,
         [cohortId]: {
           ...cohortProgOffers,
-          [pid]: { ...row, annual: { ...(row.annual || {}), ...patch } },
+          [pk]: { ...row, annual: { ...(row.annual || {}), ...patch } },
         },
       },
     });
   };
   const setCohortProgramFamily = (pid, patch) => {
     if (!cohortId) return;
-    const row = cohortProgOffers[pid] || {};
+    const pk = cohortProgramKey(pid);
+    const row = cohortProgramRow(pid);
     onChange({
       ...settings,
       awrp_batch_program_offers: {
         ...batchOffersRoot,
         [cohortId]: {
           ...cohortProgOffers,
-          [pid]: { ...row, family: { ...(row.family || {}), ...patch } },
+          [pk]: { ...row, family: { ...(row.family || {}), ...patch } },
         },
       },
     });
   };
   const setCohortProgramExtended = (pid, patch) => {
     if (!cohortId) return;
-    const row = cohortProgOffers[pid] || {};
+    const pk = cohortProgramKey(pid);
+    const row = cohortProgramRow(pid);
     onChange({
       ...settings,
       awrp_batch_program_offers: {
         ...batchOffersRoot,
         [cohortId]: {
           ...cohortProgOffers,
-          [pid]: { ...row, extended: { ...(row.extended || {}), ...patch } },
+          [pk]: { ...row, extended: { ...(row.extended || {}), ...patch } },
         },
       },
     });
   };
   const clearCohortProgramOffers = (pid) => {
     if (!cohortId) return;
+    const pk = cohortProgramKey(pid);
+    const raw = String(pid || '').trim();
     const next = { ...cohortProgOffers };
-    delete next[pid];
+    delete next[pk];
+    if (raw && raw !== pk) delete next[raw];
     onChange({
       ...settings,
       awrp_batch_program_offers: { ...batchOffersRoot, [cohortId]: next },
@@ -390,7 +403,8 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
 
   const setCohortProgramTierAnnual = (pid, tierIdx, patch) => {
     if (!cohortId) return;
-    const row = cohortProgOffers[pid] || {};
+    const pk = cohortProgramKey(pid);
+    const row = cohortProgramRow(pid);
     const tkey = String(tierIdx);
     const byTier = { ...(row.by_tier || {}) };
     const tr = byTier[tkey] || {};
@@ -401,14 +415,15 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
         ...batchOffersRoot,
         [cohortId]: {
           ...cohortProgOffers,
-          [pid]: { ...row, by_tier: byTier },
+          [pk]: { ...row, by_tier: byTier },
         },
       },
     });
   };
   const setCohortProgramTierFamily = (pid, tierIdx, patch) => {
     if (!cohortId) return;
-    const row = cohortProgOffers[pid] || {};
+    const pk = cohortProgramKey(pid);
+    const row = cohortProgramRow(pid);
     const tkey = String(tierIdx);
     const byTier = { ...(row.by_tier || {}) };
     const tr = byTier[tkey] || {};
@@ -419,14 +434,15 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
         ...batchOffersRoot,
         [cohortId]: {
           ...cohortProgOffers,
-          [pid]: { ...row, by_tier: byTier },
+          [pk]: { ...row, by_tier: byTier },
         },
       },
     });
   };
   const setCohortProgramTierExtended = (pid, tierIdx, patch) => {
     if (!cohortId) return;
-    const row = cohortProgOffers[pid] || {};
+    const pk = cohortProgramKey(pid);
+    const row = cohortProgramRow(pid);
     const tkey = String(tierIdx);
     const byTier = { ...(row.by_tier || {}) };
     const tr = byTier[tkey] || {};
@@ -437,14 +453,15 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
         ...batchOffersRoot,
         [cohortId]: {
           ...cohortProgOffers,
-          [pid]: { ...row, by_tier: byTier },
+          [pk]: { ...row, by_tier: byTier },
         },
       },
     });
   };
   const clearCohortProgramTierOffers = (pid, tierIdx) => {
     if (!cohortId) return;
-    const row = cohortProgOffers[pid] || {};
+    const pk = cohortProgramKey(pid);
+    const row = cohortProgramRow(pid);
     const tkey = String(tierIdx);
     const byTier = { ...(row.by_tier || {}) };
     delete byTier[tkey];
@@ -455,7 +472,7 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
       ...settings,
       awrp_batch_program_offers: {
         ...batchOffersRoot,
-        [cohortId]: { ...cohortProgOffers, [pid]: nextRow },
+        [cohortId]: { ...cohortProgOffers, [pk]: nextRow },
       },
     });
   };
@@ -1590,7 +1607,7 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
               {cohortId && upcomingForPortalPricing.length > 0 ? (
                 <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1 border border-teal-100/80 rounded-lg bg-white/80 p-2">
                   {upcomingForPortalPricing.map((p) => {
-                    const row = cohortProgOffers[p.id] || {};
+                    const row = cohortProgramRow(p.id);
                     const hasBaseRow =
                       (row.annual && Object.keys(row.annual).length > 0) ||
                       (row.family && Object.keys(row.family).length > 0) ||
