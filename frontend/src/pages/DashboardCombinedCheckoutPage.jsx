@@ -409,7 +409,7 @@ export default function DashboardCombinedCheckoutPage() {
   /** null | 'manual' | 'exly' — keep India flows on this dashboard page (no public site routes). */
   const [portalPayMode, setPortalPayMode] = useState(null);
   const userClosedPortalPayRef = useRef(false);
-  const [checkoutPromoVisible, setCheckoutPromoVisible] = useState(null);
+  const [checkoutPromoVisible, setCheckoutPromoVisible] = useState(true);
   const [urgencyQuotes, setUrgencyQuotes] = useState([]);
   const [pointsSummary, setPointsSummary] = useState(null);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
@@ -965,6 +965,8 @@ export default function DashboardCombinedCheckoutPage() {
         ? annualPortalSubtotal
         : naiveSubtotal;
   const totalParticipants = items.reduce((sum, i) => sum + i.participants.length, 0);
+  /** Default true until /api/settings resolves; false only when admin explicitly hides the field. */
+  const showCheckoutPromo = checkoutPromoVisible !== false;
   const portalRosterSubtotalActive = cartSubtotalFromRoster != null;
 
   const { clientCrossSellTotal, clientCrossSellRows } = useMemo(() => {
@@ -1372,7 +1374,7 @@ export default function DashboardCombinedCheckoutPage() {
   ]);
 
   useEffect(() => {
-    if (promoFromUrlApplied.current || checkoutPromoVisible !== true || items.length === 0) return;
+    if (promoFromUrlApplied.current || items.length === 0) return;
     const code = searchParams.get('promo');
     if (!code?.trim()) return;
     promoFromUrlApplied.current = true;
@@ -1395,7 +1397,7 @@ export default function DashboardCombinedCheckoutPage() {
         setPromoCode(code.trim().toUpperCase());
       })
       .catch(() => {});
-  }, [checkoutPromoVisible, items.length, items, currency, searchParams, totalParticipants]);
+  }, [items.length, items, currency, searchParams, totalParticipants]);
 
   useEffect(() => {
     if (!enrollmentId || payableTotal <= 0) {
@@ -2256,44 +2258,52 @@ export default function DashboardCombinedCheckoutPage() {
       <div className="space-y-6">
         <div className="w-full">
           <div className="bg-white/95 backdrop-blur rounded-xl border border-white/40 shadow-lg p-6 sm:p-7">
-            {checkoutPromoVisible && (
+            {(showCheckoutPromo || promoResult) && (
               <div className="mb-4 pb-4 border-b border-gray-100">
-                <label className="text-sm font-medium text-gray-800 mb-1.5 block flex items-center gap-2">
-                  <Tag size={14} className="text-[#D4AF37]" /> Promo code
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    value={promoCode}
-                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                    placeholder="Enter code"
-                    className="text-sm flex-1"
-                    disabled={!!promoResult}
-                  />
-                  {promoResult ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setPromoResult(null);
-                        setPromoCode('');
-                      }}
-                      className="text-xs"
-                    >
-                      Remove
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={validatePromo}
-                      disabled={promoLoading || !promoCode.trim()}
-                      className="bg-[#D4AF37] hover:bg-[#b8962e] text-white text-xs"
-                    >
-                      {promoLoading ? <Loader2 className="animate-spin" size={14} /> : 'Apply'}
-                    </Button>
-                  )}
-                </div>
+                {showCheckoutPromo ? (
+                  <>
+                    <label className="text-sm font-medium text-gray-800 mb-1.5 block flex items-center gap-2">
+                      <Tag size={14} className="text-[#D4AF37]" /> Promo code
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                        placeholder="Enter code"
+                        className="text-sm flex-1"
+                        disabled={!!promoResult}
+                      />
+                      {promoResult ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setPromoResult(null);
+                            setPromoCode('');
+                          }}
+                          className="text-xs"
+                        >
+                          Remove
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={validatePromo}
+                          disabled={promoLoading || !promoCode.trim()}
+                          className="bg-[#D4AF37] hover:bg-[#b8962e] text-white text-xs"
+                        >
+                          {promoLoading ? <Loader2 className="animate-spin" size={14} /> : 'Apply'}
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                ) : null}
                 {promoResult && (
-                  <div className="mt-2 bg-green-50 border border-green-200 rounded p-2 flex items-center gap-1">
+                  <div
+                    className={`mt-2 bg-green-50 border border-green-200 rounded p-2 flex items-center gap-1 ${
+                      showCheckoutPromo ? '' : 'mt-0'
+                    }`}
+                  >
                     <Check size={12} className="text-green-600" />
                     <span className="text-xs text-green-700">{promoResult.message}</span>
                   </div>
