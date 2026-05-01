@@ -89,7 +89,7 @@ const ALL_PAY_MODES = [
   { value: 'emi_flexi', label: 'FLEXI — ANY AMOUNT, ANY TIME' },
 ];
 
-/** PAY IN FULL always; each EMI / Flexi row requires the matching admin flag on the client (Dashboard access). */
+/** PAY IN FULL always; EMI/Flexi on unless admin explicitly hid that option (Dashboard access → false). */
 function isAnnualOfferPayModeEnabled(homeData, mode) {
   if (mode === 'full') return true;
   if (!homeData || typeof homeData !== 'object') return false;
@@ -101,7 +101,7 @@ function isAnnualOfferPayModeEnabled(homeData, mode) {
   };
   const key = keyByMode[mode];
   if (!key) return false;
-  return homeData[key] === true;
+  return homeData[key] !== false;
 }
 
 /** Calendar YYYY-MM-DD + delta days (UTC noon) for renewal window copy. */
@@ -1896,7 +1896,7 @@ export default function AnnualPackagePurchasePage() {
                   </p>
                   <p className="text-[10px] text-[rgba(60,35,115,0.5)] flex items-start gap-1.5 leading-relaxed">
                     <Info size={12} className="shrink-0 mt-0.5 text-violet-500" aria-hidden />
-                    We save your payment choice for your host. EMI and Flexi options appear here only when your healer enables them for you.
+                    We save your payment choice for your host. Your healer can turn off individual EMI or Flexi options in Dashboard access if a simpler path is needed.
                   </p>
                 </div>
 

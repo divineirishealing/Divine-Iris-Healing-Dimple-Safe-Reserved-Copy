@@ -3164,12 +3164,19 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "annual_portal_lifecycle": annual_portal_lifecycle_payload(client),
         # Student-chosen prefs for Home Coming / annual package (shown on dedicated purchase page; admin-visible on client doc).
         "annual_package_offer_prefs": client.get("annual_package_offer_prefs") if isinstance(client.get("annual_package_offer_prefs"), dict) else None,
-        # Home Coming payment structure: each EMI / Flexi option only when admin set True on the client.
-        "annual_package_offer_monthly_emi_visible": client.get("annual_package_offer_monthly_emi_visible") is True,
-        "annual_package_offer_quarterly_emi_visible": client.get("annual_package_offer_quarterly_emi_visible")
-        is True,
-        "annual_package_offer_yearly_emi_visible": client.get("annual_package_offer_yearly_emi_visible") is True,
-        "annual_package_offer_flexi_visible": client.get("annual_package_offer_flexi_visible") is True,
+        # Home Coming payment structure: EMI/Flexi on by default; set field False in Dashboard access to hide.
+        "annual_package_offer_monthly_emi_visible": _annual_home_offer_payment_option_visible(
+            client, "annual_package_offer_monthly_emi_visible"
+        ),
+        "annual_package_offer_quarterly_emi_visible": _annual_home_offer_payment_option_visible(
+            client, "annual_package_offer_quarterly_emi_visible"
+        ),
+        "annual_package_offer_yearly_emi_visible": _annual_home_offer_payment_option_visible(
+            client, "annual_package_offer_yearly_emi_visible"
+        ),
+        "annual_package_offer_flexi_visible": _annual_home_offer_payment_option_visible(
+            client, "annual_package_offer_flexi_visible"
+        ),
         # Active Home Coming catalog row (admin annual_packages): multi-currency offer_total for display on Home Coming package page.
         "annual_catalog_bundle": annual_catalog_bundle,
         # Enrollment window + label from subscription / annual_subscription — Home Coming gratitude card.
@@ -3215,6 +3222,13 @@ class AnnualPackageOfferPrefsBody(BaseModel):
     emi_notes: Optional[str] = ""
     # Home Coming annual bundle: online vs offline participation (no in-person path for this catalog).
     participation_mode: Optional[str] = "online"
+
+
+def _annual_home_offer_payment_option_visible(client: Optional[dict], field_name: str) -> bool:
+    """Home Coming EMI / Flexi: shown unless admin explicitly set the flag to False on the client."""
+    if not isinstance(client, dict):
+        return True
+    return client.get(field_name) is not False
 
 
 def _normalize_annual_offer_payment_mode(raw: Optional[str]) -> str:
@@ -3269,13 +3283,19 @@ async def put_annual_package_offer_preferences(
         if m == "full":
             return True
         if m == "emi_monthly":
-            return cli_pm.get("annual_package_offer_monthly_emi_visible") is True
+            return _annual_home_offer_payment_option_visible(
+                cli_pm, "annual_package_offer_monthly_emi_visible"
+            )
         if m == "emi_quarterly":
-            return cli_pm.get("annual_package_offer_quarterly_emi_visible") is True
+            return _annual_home_offer_payment_option_visible(
+                cli_pm, "annual_package_offer_quarterly_emi_visible"
+            )
         if m == "emi_yearly":
-            return cli_pm.get("annual_package_offer_yearly_emi_visible") is True
+            return _annual_home_offer_payment_option_visible(
+                cli_pm, "annual_package_offer_yearly_emi_visible"
+            )
         if m == "emi_flexi":
-            return cli_pm.get("annual_package_offer_flexi_visible") is True
+            return _annual_home_offer_payment_option_visible(cli_pm, "annual_package_offer_flexi_visible")
         return False
 
     if not _offer_mode_allowed(mode):
