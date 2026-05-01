@@ -38,6 +38,7 @@ import { getAuthHeaders } from '../../lib/authHeaders';
 import { pickTierIndexForDashboard } from './dashboardUpcomingHelpers';
 import DashboardUpcomingProgramsIrisBloom from './DashboardUpcomingProgramsIrisBloom';
 import { getApiUrl } from '../../lib/config';
+import { splitPhoneForCart } from '../../lib/dashboardCartPrefill';
 import { irisYearLabelNoPeriod } from '../../lib/irisJourney';
 import { resolveIndiaDiscountRule, applyIndiaDiscountRuleToBase } from '../../lib/indiaClientPricing';
 
@@ -779,33 +780,61 @@ export default function AnnualPackagePurchasePage() {
   /** Minimal valid booker row so Divine Cart autoPay can pass validateAndProceed without empty placeholders. */
   const buildSacredHomeQuickPayParticipants = useCallback(
     (_program) => {
+      const ud = homeData?.user_details || {};
       const name =
-        (homeData?.user_details?.full_name || user?.full_name || user?.name || '').trim() ||
-        'Sacred Home member';
+        (ud.full_name || user?.full_name || user?.name || '').trim() || 'Sacred Home member';
       const hub = (baseCurrency || 'inr').toLowerCase();
       const country =
-        String(user?.country || '').trim() ||
+        String(ud.country || user?.country || '').trim() ||
         (hub === 'inr' ? 'IN' : hub === 'aed' ? 'AE' : hub === 'usd' ? 'US' : 'AE');
-      const city = String(homeData?.user_details?.city || '').trim() || '—';
+      const city = String(ud.city || user?.city || '').trim() || '—';
       const state =
-        String(homeData?.user_details?.state || homeData?.user_details?.city || '—').trim() || '—';
+        String(ud.state || ud.city || user?.state || '—').trim() || '—';
       const attendance_mode = annualParticipationMode === 'offline' ? 'offline' : 'online';
+      const email = String(user?.email || ud.email || homeData?.contact_email || '').trim();
+      const gender = String(user?.gender || ud.gender || 'Other').trim() || 'Other';
+
+      let phone = '';
+      let phone_code = '';
+      let whatsapp = '';
+      let wa_code = '';
+      const nationalDigits = String(ud.phone || user?.phone || '').replace(/\D/g, '');
+      let pc = String(ud.phone_code || user?.phone_code || '').trim();
+      if (pc && !pc.startsWith('+')) pc = `+${pc.replace(/\D/g, '')}`;
+      if (nationalDigits && pc) {
+        phone = nationalDigits;
+        phone_code = pc;
+        whatsapp = nationalDigits;
+        wa_code = pc;
+      } else {
+        const raw = String(ud.phone || user?.phone || '')
+          .trim()
+          .replace(/\s+/g, '');
+        if (raw) {
+          const sp = splitPhoneForCart(raw);
+          phone = sp.phone;
+          phone_code = sp.phone_code;
+          whatsapp = sp.whatsapp || sp.phone;
+          wa_code = sp.wa_code || sp.phone_code;
+        }
+      }
+
       return [
         {
           name,
           relationship: 'Myself',
           age: '',
-          gender: 'Other',
+          gender,
           country,
           city,
           state,
           attendance_mode,
           notify: attendance_mode === 'online',
-          email: '',
-          phone: '',
-          phone_code: '',
-          wa_code: '',
-          whatsapp: '',
+          email,
+          phone,
+          phone_code,
+          wa_code,
+          whatsapp,
           is_first_time: false,
           referral_source: '',
           referred_by_email: '',
@@ -814,7 +843,7 @@ export default function AnnualPackagePurchasePage() {
         },
       ];
     },
-    [homeData?.user_details, user, baseCurrency, annualParticipationMode],
+    [homeData?.user_details, homeData?.contact_email, user, baseCurrency, annualParticipationMode],
   );
 
   /** Amount sent to Divine Cart / Stripe for Home Coming — one installment for EMI, never the full bundle total. */

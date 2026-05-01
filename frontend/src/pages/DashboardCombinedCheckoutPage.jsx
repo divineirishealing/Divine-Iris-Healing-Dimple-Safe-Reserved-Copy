@@ -40,6 +40,7 @@ import {
   mergeGlobalSeatDraft,
   effectiveParticipantCountry,
   RECONCILE_CART_FROM_CHECKOUT_KEY,
+  effectiveParticipantEmail,
 } from '../lib/dashboardCartPrefill';
 import { programIncludedInAnnualPackage } from '../components/dashboard/dashboardUpcomingHelpers';
 import { formatDateDdMonYyyy } from '../lib/utils';
@@ -1438,7 +1439,8 @@ export default function DashboardCombinedCheckoutPage() {
           return false;
         }
         if (p.notify || p.attendance_mode === 'online') {
-          if (!p.email || !p.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email)) {
+          const emailEff = effectiveParticipantEmail(p, bookerEmail);
+          if (!emailEff || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailEff)) {
             toast({
               title: `${item.programTitle}: Participant ${i + 1} needs a valid email`,
               variant: 'destructive',
@@ -1458,7 +1460,7 @@ export default function DashboardCombinedCheckoutPage() {
       }
     }
     return true;
-  }, [items, toast, bookerCountry, detectedCountry]);
+  }, [items, toast, bookerCountry, detectedCountry, bookerEmail]);
 
   const startTrustedEnrollment = async () => {
     if (!validateAndProceed()) return;
@@ -1489,7 +1491,7 @@ export default function DashboardCombinedCheckoutPage() {
             state: p.state,
             attendance_mode: p.attendance_mode,
             notify: p.notify,
-            email: p.email || null,
+            email: effectiveParticipantEmail(p, bookerEmail) || null,
             phone: (p.phone || '').trim()
               ? `${p.phone_code || ''}${String(p.phone).trim()}`
               : null,

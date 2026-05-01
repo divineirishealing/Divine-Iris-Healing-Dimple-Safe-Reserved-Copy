@@ -1790,9 +1790,12 @@ def _profile_snapshot_for_prefill(user: dict, client: dict) -> dict:
     name_raw = (snap.get("full_name") or user.get("name") or "").strip()
     name = normalize_person_name(name_raw) if name_raw else ""
     country = (client or {}).get("country") or user.get("country") or ""
+    u_email = (user.get("email") or "").strip()
+    c_email = ((client or {}).get("email") or "").strip()
+    email = u_email or c_email
     return {
         "name": name,
-        "email": (user.get("email") or "").strip(),
+        "email": email,
         "phone": str(phone).strip(),
         "city": str(city).strip(),
         "gender": snap.get("gender") or "",
@@ -2960,8 +2963,14 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "points": loyalty_points,
         "user_details": {
             "full_name": user.get("full_name") or user.get("name"),
-            "city": user.get("city"),
-            "tier": user.get("tier")
+            "city": user.get("city") or client.get("city"),
+            "tier": user.get("tier"),
+            "email": (portal_email_raw or crm_email_raw).strip() or None,
+            "state": user.get("state") or client.get("state"),
+            "country": user.get("country") or client.get("country"),
+            "gender": user.get("gender") or client.get("gender"),
+            "phone": user.get("phone") or client.get("phone") or "",
+            "phone_code": user.get("phone_code") or client.get("phone_code") or "",
         },
         "india_payment_reference": {
             "india_gpay_accounts": settings_doc.get("india_gpay_accounts") or [],

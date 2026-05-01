@@ -198,13 +198,25 @@ function baseParticipant(program, overrides) {
   };
 }
 
+/** Email for a roster row: trimmed row email, else account email when relationship is Myself. */
+export function effectiveParticipantEmail(participant, bookerEmail) {
+  const pe = String(participant?.email ?? '').trim();
+  if (pe) return pe;
+  if (String(participant?.relationship ?? '').trim() === 'Myself') {
+    return String(bookerEmail ?? '').trim();
+  }
+  return '';
+}
+
 /**
  * Single-row cart from portal profile (non-annual or fallback).
  * @param {object|null} self — /student/enrollment-prefill → self
  */
 export function buildSelfOnlyCartParticipants(self, program, bookerEmail, detectedCountry, attendanceModeOverride) {
   const name = String(self?.name || '').trim();
-  const email = String(self?.email || bookerEmail || '').trim();
+  const selfMail = String(self?.email ?? '').trim();
+  const bookerMail = String(bookerEmail ?? '').trim();
+  const email = selfMail || bookerMail;
   if (!name && !email) return null;
 
   const split = splitPhoneForCart(self?.phone || '', COUNTRIES_WITH_PHONE);
@@ -343,7 +355,9 @@ export function buildAnnualDashboardCartParticipants({
 
   const pushBookerRow = () => {
     const name = String(self?.name || '').trim();
-    const email = String(self?.email || bookerEmail || '').trim();
+    const selfMail = String(self?.email ?? '').trim();
+    const bookerMail = String(bookerEmail ?? '').trim();
+    const email = selfMail || bookerMail;
     if (!name && !email) return;
     const split = splitPhoneForCart(self?.phone || '', COUNTRIES_WITH_PHONE);
     const country = resolveCountryCode(self?.country, detectedCountry);
