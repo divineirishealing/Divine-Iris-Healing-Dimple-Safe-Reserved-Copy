@@ -190,41 +190,43 @@ const ProfilePage = () => {
         </CardHeader>
         <CardContent className="pt-8">
           <form onSubmit={handleSubmit} className="grid gap-7 md:grid-cols-2">
-            <div className="space-y-2 border-b border-stone-100 pb-6 md:col-span-2">
-              <Label className="text-stone-700">Email</Label>
-              <div className="relative">
-                <Mail size={16} className="pointer-events-none absolute left-3 top-3 text-stone-400" aria-hidden />
-                <Input
-                  readOnly
-                  value={user?.email || ''}
-                  className="border-stone-200 bg-stone-50/80 pl-10 text-stone-700"
-                  aria-label="Account email"
-                />
+            <div className="grid grid-cols-1 gap-7 border-b border-stone-100 pb-6 sm:grid-cols-2 sm:gap-x-8 md:col-span-2">
+              <div className="min-w-0 space-y-2">
+                <Label className="text-stone-700">Email</Label>
+                <div className="relative">
+                  <Mail size={16} className="pointer-events-none absolute left-3 top-3 text-stone-400" aria-hidden />
+                  <Input
+                    readOnly
+                    value={user?.email || ''}
+                    className="border-stone-200 bg-stone-50/80 pl-10 text-stone-700"
+                    aria-label="Account email"
+                  />
+                </div>
+                <p className="text-[11px] text-stone-500">
+                  Your sign-in address and Iris Garden contact email. To change it, update your Google account or reach out to your host.
+                </p>
               </div>
-              <p className="text-[11px] text-stone-500">
-                Your sign-in address and Iris Garden contact email. To change it, update your Google account or reach out to your host.
-              </p>
-            </div>
 
-            <div className="space-y-2 border-b border-stone-100 pb-6 md:col-span-2">
-              <Label htmlFor="joined-divine-iris" className="text-stone-700">
-                Date of joining Divine Iris
-              </Label>
-              <div className="relative">
-                <Calendar size={16} className="pointer-events-none absolute left-3 top-3 text-stone-400" aria-hidden />
-                <Input
-                  id="joined-divine-iris"
-                  type="date"
-                  name="joined_divine_iris_at"
-                  value={formData.joined_divine_iris_at}
-                  onChange={handleChange}
-                  className="border-stone-200 bg-white/80 pl-10"
-                  aria-describedby="joined-divine-iris-hint"
-                />
+              <div className="min-w-0 space-y-2">
+                <Label htmlFor="joined-divine-iris" className="text-stone-700">
+                  Date of joining Divine Iris
+                </Label>
+                <div className="relative">
+                  <Calendar size={16} className="pointer-events-none absolute left-3 top-3 text-stone-400" aria-hidden />
+                  <Input
+                    id="joined-divine-iris"
+                    type="date"
+                    name="joined_divine_iris_at"
+                    value={formData.joined_divine_iris_at}
+                    onChange={handleChange}
+                    className="border-stone-200 bg-white/80 pl-10"
+                    aria-describedby="joined-divine-iris-hint"
+                  />
+                </div>
+                <p id="joined-divine-iris-hint" className="text-[11px] text-stone-500">
+                  This anchors your journey with us. You can refine it if our records were incomplete.
+                </p>
               </div>
-              <p id="joined-divine-iris-hint" className="text-[11px] text-stone-500">
-                This anchors your journey with us. You can refine it if our records were incomplete.
-              </p>
             </div>
 
             <div className="space-y-2">
