@@ -183,7 +183,8 @@ class Promotion(BaseModel):
     # Optional: flagship tier indices (0-based) per program id. Missing program key or empty list = any tier.
     # Example: {"awrp-id": [0]} = only first duration tier (e.g. 1 Month).
     applicable_tier_indices_by_program: Optional[Dict[str, List[int]]] = None
-    # When not False, fixed currency amounts multiply by headcount (DB omit → per person). False = one flat order discount.
+    # When True, fixed currency amounts apply per participant (headcount from cart / enrollment).
+    # When True (default), fixed currency amounts multiply by participant headcount. Set False for one flat order discount.
     fixed_per_participant: bool = True
     usage_limit: int = 0  # 0 = unlimited
     used_count: int = 0

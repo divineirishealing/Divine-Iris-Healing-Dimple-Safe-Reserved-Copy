@@ -331,12 +331,10 @@ const PromotionsTab = ({ programs }) => {
                   onCheckedChange={(v) => setForm({ ...form, fixed_per_participant: v })}
                 />
                 <Label className="text-xs text-gray-600">
-                  Multiply fixed AED/INR/USD by each participant (e.g. ₹100 × 2 people = ₹200 off)
+                  Amount is <strong>per participant</strong> (multiplied by headcount). Turn off only for a single flat discount on the whole order.
                 </Label>
               </div>
-              <p className="text-[10px] text-gray-400 mt-1">
-                Turn off only if the amounts are one flat discount for the entire order, not per person.
-              </p>
+              <p className="text-[10px] text-gray-400 mt-1">Off = one fixed discount for the entire cart/order (legacy). On (default) = each amount × number of people.</p>
             </div>
           )}
 
@@ -447,7 +445,7 @@ const PromotionsTab = ({ programs }) => {
                   {p.discount_type === 'percentage'
                     ? `${p.discount_percentage}% off`
                     : `AED ${p.discount_aed} / INR ${p.discount_inr} / USD ${p.discount_usd} off${
-                        p.fixed_per_participant !== false ? ' (× participants)' : ' (flat order)'
+                        p.fixed_per_participant !== false ? ' (× participants)' : ''
                       }`
                   }
                   {' · '}{p.applicable_to === 'all' ? 'All programs' : `${(p.applicable_program_ids || []).length} programs`}

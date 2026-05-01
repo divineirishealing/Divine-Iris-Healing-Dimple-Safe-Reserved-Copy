@@ -3,26 +3,31 @@
 from utils.promotion_scope import (
     build_cart_lines_from_payload,
     eligible_participant_units_for_fixed_promo,
+    fixed_promo_scales_with_participants,
     promo_applies_to_cart_lines,
     promo_line_in_scope,
 )
+
+
+def test_fixed_scale_defaults_true():
+    assert fixed_promo_scales_with_participants({"discount_type": "fixed"}) is True
+    assert fixed_promo_scales_with_participants({"discount_type": "fixed", "fixed_per_participant": None}) is True
+
+
+def test_fixed_scale_explicit_false():
+    assert fixed_promo_scales_with_participants({"fixed_per_participant": False}) is False
+
+
+def test_eligible_units_missing_key_scales():
+    promo = {"applicable_to": "all"}
+    data = {"program_id": "9", "tier_index": 0, "participant_count": 2}
+    assert eligible_participant_units_for_fixed_promo(promo, data, fallback_participants=1) == 2
 
 
 def test_promo_line_in_scope_specific_program():
     promo = {"applicable_to": "specific", "applicable_program_ids": ["1"]}
     assert promo_line_in_scope(promo, "1", 0)
     assert not promo_line_in_scope(promo, "2", 0)
-
-
-def test_eligible_units_scales_when_field_omitted():
-    """Legacy DB records without fixed_per_participant still multiply by headcount."""
-    promo = {"applicable_to": "all", "applicable_tier_indices_by_program": None}
-    data = {
-        "cart_items": [
-            {"program_id": "1", "tier_index": 0, "participants_count": 2},
-        ]
-    }
-    assert eligible_participant_units_for_fixed_promo(promo, data, fallback_participants=1) == 2
 
 
 def test_eligible_units_sums_cart_participants():

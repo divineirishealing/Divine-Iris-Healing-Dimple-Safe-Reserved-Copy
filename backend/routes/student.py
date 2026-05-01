@@ -36,7 +36,7 @@ from utils.garden_labels import (
     label_stripe_key,
 )
 from utils.india_checkout_math import _resolve_india_discount_rule
-from utils.promotion_scope import fixed_promo_scales_with_headcount
+from utils.promotion_scope import fixed_promo_scales_with_participants
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1073,7 +1073,7 @@ def _promo_discount_on_line(
     if dt == "percentage":
         return round(line_subtotal * float(promo.get("discount_percentage", 0)) / 100, 2)
     fixed = float(promo.get(f"discount_{cur}", promo.get("discount_aed", 0)))
-    if fixed_promo_scales_with_headcount(promo):
+    if fixed_promo_scales_with_participants(promo):
         fixed *= seats
     return min(line_subtotal, fixed)
 

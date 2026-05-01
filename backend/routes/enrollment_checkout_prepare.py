@@ -252,6 +252,7 @@ async def enrollment_checkout_prepare(
             from utils.promotion_scope import (
                 build_cart_lines_from_payload,
                 eligible_participant_units_for_fixed_promo,
+                fixed_promo_scales_with_participants,
                 promo_applies_to_cart_lines,
             )
 
@@ -284,7 +285,8 @@ async def enrollment_checkout_prepare(
                     units_fp = eligible_participant_units_for_fixed_promo(
                         promo, pl, fallback_participants=participant_count
                     )
-                    promo_discount = round(base * units_fp, 2)
+                    mult = units_fp if fixed_promo_scales_with_participants(promo) else 1
+                    promo_discount = round(base * mult, 2)
         except Exception as e:
             logger.warning("Promo code error: %s", e)
 
