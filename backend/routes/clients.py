@@ -1604,6 +1604,28 @@ async def patch_annual_subscription(client_id: str, data: AnnualSubscriptionUpda
     )
     if ledger is not None:
         set_doc["annual_period_ledger"] = ledger
+
+    # Keep ``subscription`` window in sync with Client Garden renewals so EMI due dates and
+    # ``GET /student/home`` package dates match what admin set on the annual subscription.
+    base_sub = cl.get("subscription")
+    if isinstance(base_sub, dict) and base_sub:
+        sub_sync = dict(base_sub)
+        sync_dirty = False
+        for key in ("start_date", "end_date"):
+            v = merged.get(key)
+            if not isinstance(v, str) or len(v) < 10 or v[4] != "-" or v[7] != "-":
+                continue
+            ymd = v[:10]
+            if sub_sync.get(key) != ymd:
+                sub_sync[key] = ymd
+                sync_dirty = True
+        if sync_dirty:
+            from routes.subscribers import _regenerate_emi_schedule_inplace
+
+            _regenerate_emi_schedule_inplace(sub_sync)
+            sub_sync["updated_at"] = now
+            set_doc["subscription"] = sub_sync
+
     await db.clients.update_one({"id": client_id}, {"$set": set_doc})
     out: Dict[str, Any] = {"annual_subscription": merged}
     if ledger is not None:

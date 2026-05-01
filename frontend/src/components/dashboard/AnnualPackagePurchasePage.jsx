@@ -212,6 +212,20 @@ function buildEmiPreview(mode, total, startYmd, durationMonths) {
   return out;
 }
 
+/** Live EMI rows from Sacred Exchange (`GET /student/home` financials.emis), sorted by installment #. */
+function buildPaymentScheduleRowsFromCrmEmis(emis) {
+  const list = Array.isArray(emis) ? emis : [];
+  const sorted = [...list].sort((a, b) => Number(a.number) - Number(b.number));
+  return sorted.map((e) => ({
+    key: `emi-${e.number}`,
+    n: Number(e.number),
+    due: (e.due_date || '').toString().slice(0, 10),
+    dueDisplay: null,
+    amount: Number(e.amount) || 0,
+    amountDisplay: null,
+  }));
+}
+
 /** Rows for the illustrative schedule table (all payment modes). */
 function buildPaymentScheduleRows(mode, total, startYmd, durationMonths) {
   const totalNum = Math.max(0, Number(total) || 0);
@@ -884,6 +898,17 @@ export default function AnnualPackagePurchasePage() {
     return Boolean(fc && hub && fc === hub);
   }, [fin.total_fee, fin.currency, baseCurrency]);
 
+  /** When admin set fee + mode on the subscriber row (renewal), member pricing should follow CRM — not the generic program quote. */
+  const preferCrmAnnualScheduleTotal = useMemo(() => {
+    const onFileFee = Number(fin.total_fee || 0);
+    if (!crmSubscriptionFeeMatchesHub || onFileFee <= 0) return false;
+    const pm = String(fin.payment_mode || '').trim();
+    if (pm === 'EMI' && emis.length > 0) return true;
+    if (pm === 'Full Paid') return true;
+    if (isRenewalSeason) return true;
+    return false;
+  }, [crmSubscriptionFeeMatchesHub, fin.total_fee, fin.payment_mode, emis.length, isRenewalSeason]);
+
   /** Divine Cart / checkout line title — pinned program title is AWRP; members expect Home Coming wording + Iris year. */
   const homeComingCartTitle = useMemo(() => {
     if (!homeData) return 'Home Coming Annual Program';
@@ -896,9 +921,10 @@ export default function AnnualPackagePurchasePage() {
     return `Home Coming Annual Program · Year ${y}`;
   }, [homeData, isRenewalSeason, showNextSacredHomeEnrollment]);
 
-  /** Basis for splitting the payment schedule: quote, then CRM fee in hub, then on-file guard, then hub-matched catalog only. */
+  /** Basis for splitting the payment schedule: admin CRM fee when set for renewal/EMI, else program quote, else catalog. */
   const scheduleSplitTotal = useMemo(() => {
     const onFileFee = Number(fin.total_fee || 0);
+    if (preferCrmAnnualScheduleTotal && onFileFee > 0) return onFileFee;
     if (totalRaw > 0) return totalRaw;
     if (crmSubscriptionFeeMatchesHub && onFileFee > 0) return onFileFee;
     if (preferOnFilePackagePricing && onFileFee > 0) return onFileFee;
@@ -911,6 +937,7 @@ export default function AnnualPackagePurchasePage() {
     if (catalogAmountHub != null && Number(catalogAmountHub) > 0) return Number(catalogAmountHub);
     return 0;
   }, [
+    preferCrmAnnualScheduleTotal,
     preferOnFilePackagePricing,
     crmSubscriptionFeeMatchesHub,
     fin.total_fee,
@@ -924,10 +951,19 @@ export default function AnnualPackagePurchasePage() {
     return desiredStart;
   }, [cycleDisplayStart, desiredStart]);
 
-  const paymentScheduleRows = useMemo(
-    () => buildPaymentScheduleRows(paymentMode, scheduleSplitTotal, scheduleBasisYmd, durationMonths),
-    [paymentMode, scheduleSplitTotal, scheduleBasisYmd, durationMonths],
-  );
+  const useCrmMonthlyEmiSchedule = useMemo(() => {
+    if (paymentMode !== 'emi_monthly') return false;
+    if (String(fin.payment_mode || '').trim() !== 'EMI') return false;
+    if (emis.length === 0) return false;
+    return preferCrmAnnualScheduleTotal;
+  }, [paymentMode, fin.payment_mode, emis.length, preferCrmAnnualScheduleTotal]);
+
+  const paymentScheduleRows = useMemo(() => {
+    if (useCrmMonthlyEmiSchedule) {
+      return buildPaymentScheduleRowsFromCrmEmis(emis);
+    }
+    return buildPaymentScheduleRows(paymentMode, scheduleSplitTotal, scheduleBasisYmd, durationMonths);
+  }, [useCrmMonthlyEmiSchedule, emis, paymentMode, scheduleSplitTotal, scheduleBasisYmd, durationMonths]);
 
   const paymentScheduleNumericTotal = useMemo(() => {
     let s = 0;

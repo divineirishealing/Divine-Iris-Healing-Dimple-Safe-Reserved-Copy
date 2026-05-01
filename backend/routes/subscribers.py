@@ -880,6 +880,14 @@ async def patch_annual_package_fields(client_id: str, data: AnnualPackageFieldsP
                 detail="No subscription package on this client — enable Annual dashboard access or set Home Coming dates, or add a row in Subscribers.",
             )
 
+    asy_dates = client_doc.get("annual_subscription") or {}
+    a_st = (asy_dates.get("start_date") or "").strip()[:10]
+    a_en = (asy_dates.get("end_date") or "").strip()[:10]
+    if len(a_st) == 10 and a_st[4] == "-" and a_st[7] == "-":
+        sub["start_date"] = a_st
+    if len(a_en) == 10 and a_en[4] == "-" and a_en[7] == "-":
+        sub["end_date"] = a_en
+
     raw = data.model_dump(exclude_unset=True)
     if "currency" in raw:
         c = str(raw["currency"] or "").strip().upper()
