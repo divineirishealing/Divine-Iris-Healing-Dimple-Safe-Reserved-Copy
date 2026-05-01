@@ -1448,20 +1448,6 @@ export default function DashboardCombinedCheckoutPage() {
             return false;
           }
         }
-        if (p.notify) {
-          const emailEff = effectiveParticipantEmail(p, bookerEmail);
-          const hasValidEmail =
-            emailEff && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailEff);
-          const phoneOk = p.phone && String(p.phone).trim();
-          const onlineEmailSufficient = p.attendance_mode === 'online' && hasValidEmail;
-          if (!phoneOk && !onlineEmailSufficient) {
-            toast({
-              title: `${item.programTitle}: Participant ${i + 1} needs a phone number for notifications`,
-              variant: 'destructive',
-            });
-            return false;
-          }
-        }
       }
     }
     return true;

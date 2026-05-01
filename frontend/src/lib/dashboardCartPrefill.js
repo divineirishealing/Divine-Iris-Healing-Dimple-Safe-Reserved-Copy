@@ -198,14 +198,13 @@ function baseParticipant(program, overrides) {
   };
 }
 
-/** Email for a roster row: trimmed row email, else account email when relationship is Myself. */
+/** Email for a roster row: for Myself, prefer signed-in / profile booker email; else row email. */
 export function effectiveParticipantEmail(participant, bookerEmail) {
+  const rel = String(participant?.relationship ?? '').trim();
   const pe = String(participant?.email ?? '').trim();
-  if (pe) return pe;
-  if (String(participant?.relationship ?? '').trim() === 'Myself') {
-    return String(bookerEmail ?? '').trim();
-  }
-  return '';
+  const be = String(bookerEmail ?? '').trim();
+  if (rel === 'Myself' && be) return be;
+  return pe;
 }
 
 /**

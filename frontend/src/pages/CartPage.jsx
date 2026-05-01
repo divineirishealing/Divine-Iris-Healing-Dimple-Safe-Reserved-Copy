@@ -5,6 +5,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../hooks/use-toast';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -22,6 +23,7 @@ import {
   normalizeCartItemTierIndex,
   sumCrossSellLineDiscount,
 } from '../lib/crossSellPricing';
+import { effectiveParticipantEmail } from '../lib/dashboardCartPrefill';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -456,6 +458,7 @@ function CartPage() {
   const { items, removeItem, updateItemParticipants, clearCart } = useCart();
   const { getPrice, getOfferPrice, symbol, baseCurrency, country: detectedCountry } = useCurrency();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [discountSettings, setDiscountSettings] = useState({ enable_referral: true, checkout_promo_code_visible: true });
   const [paymentDisclaimer, setPaymentDisclaimer] = useState('');
   const [disclaimerStyle, setDisclaimerStyle] = useState({});
@@ -549,6 +552,15 @@ function CartPage() {
   const totalParticipants = items.reduce((sum, i) => sum + i.participants.length, 0);
   const numPrograms = items.length;
 
+  const firstP = items[0]?.participants?.[0] || {};
+  const bookerName = firstP.name || '';
+  const bookerEmail = (firstP.email || user?.email || '').trim();
+  const bookerCountry = firstP.country || '';
+  const bookerCity = firstP.city || '';
+  const bookerState = firstP.state || '';
+  const phone = firstP.phone || '';
+  const countryCode = firstP.phone_code || '';
+
   const cartProgramIdsForUrgency = useMemo(
     () =>
       [...new Set(items.filter((i) => i.type !== 'session').map((i) => String(i.programId).trim()).filter(Boolean))],
@@ -574,18 +586,35 @@ function CartPage() {
 
   // Check VIP offers for each cart item
   useEffect(() => {
-    const firstP = items[0]?.participants?.[0];
-    if (!firstP?.email && !firstP?.phone) return;
-    const phone = firstP.phone_code ? `${firstP.phone_code}${firstP.phone}` : (firstP.phone || '');
-    items.forEach(item => {
-      axios.post(`${API}/enrollment/check-vip-offer`, {
-        email: firstP.email || '', phone, program_id: item.programId,
-      }).then(r => {
-        if (r.data?.matched) setVipOffers(prev => ({ ...prev, [item.programId]: r.data }));
-        else setVipOffers(prev => { const n = { ...prev }; delete n[item.programId]; return n; });
-      }).catch(() => {});
+    const fp = items[0]?.participants?.[0];
+    const be = (fp?.email || user?.email || '').trim();
+    const em = fp ? effectiveParticipantEmail(fp, be) : '';
+    if (!em && !fp?.phone) return;
+    const phoneVip = fp.phone_code ? `${fp.phone_code}${fp.phone}` : (fp.phone || '');
+    items.forEach((item) => {
+      axios
+        .post(`${API}/enrollment/check-vip-offer`, {
+          email: em || '',
+          phone: phoneVip,
+          program_id: item.programId,
+        })
+        .then((r) => {
+          if (r.data?.matched) setVipOffers((prev) => ({ ...prev, [item.programId]: r.data }));
+          else setVipOffers((prev) => {
+            const n = { ...prev };
+            delete n[item.programId];
+            return n;
+          });
+        })
+        .catch(() => {});
     });
-  }, [items.map(i => i.programId).join(','), items[0]?.participants?.[0]?.email, items[0]?.participants?.[0]?.phone]);
+  }, [
+    items.map((i) => i.programId).join(','),
+    items[0]?.participants?.[0]?.email,
+    items[0]?.participants?.[0]?.phone,
+    items[0]?.participants?.[0]?.relationship,
+    user?.email,
+  ]);
 
   useEffect(() => {
     if (totalAmount <= 0) return;
@@ -616,18 +645,9 @@ function CartPage() {
         if (!p.city || !p.city.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs city`, variant: 'destructive' }); return false; }
         if (!p.state || !p.state.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs state`, variant: 'destructive' }); return false; }
         if (p.notify || p.attendance_mode === 'online') {
-          if (!p.email || !p.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email)) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs a valid email`, variant: 'destructive' }); return false; }
-        }
-        if (p.notify) {
-          const em = (p.email || '').trim();
-          const hasValidEmail = em && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em);
-          const phoneOk = p.phone && p.phone.trim();
-          const onlineEmailSufficient = p.attendance_mode === 'online' && hasValidEmail;
-          if (!phoneOk && !onlineEmailSufficient) {
-            toast({
-              title: `${item.programTitle}: Participant ${i + 1} needs a phone number for notifications`,
-              variant: 'destructive',
-            });
+          const emailEff = effectiveParticipantEmail(p, bookerEmail);
+          if (!emailEff || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailEff)) {
+            toast({ title: `${item.programTitle}: Participant ${i + 1} needs a valid email`, variant: 'destructive' });
             return false;
           }
         }
@@ -635,16 +655,6 @@ function CartPage() {
     }
     return true;
   };
-
-  // Auto-derive booker from first participant
-  const firstP = items[0]?.participants?.[0] || {};
-  const bookerName = firstP.name || '';
-  const bookerEmail = firstP.email || '';
-  const bookerCountry = firstP.country || '';
-  const bookerCity = firstP.city || '';
-  const bookerState = firstP.state || '';
-  const phone = firstP.phone || '';
-  const countryCode = firstP.phone_code || '';
 
   const discount = (() => {
     if (!promoResult) return 0;
@@ -677,7 +687,7 @@ function CartPage() {
           return {
             name: p.name, relationship: p.relationship, age: parseInt(p.age),
             gender: p.gender, country: p.country, city: p.city, state: p.state, attendance_mode: p.attendance_mode,
-            notify: p.notify, email: p.email || null,
+            notify: p.notify, email: effectiveParticipantEmail(p, bookerEmail) || null,
             phone: (p.phone || '').trim()
               ? `${p.phone_code || ''}${String(p.phone).trim()}`
               : null,
