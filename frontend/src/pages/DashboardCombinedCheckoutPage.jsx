@@ -2416,6 +2416,9 @@ export default function DashboardCombinedCheckoutPage() {
                     <ManualPaymentProofBody
                       enrollmentId={enrollmentId}
                       variant="embed"
+                      embedCartPayableInr={
+                        String(currency).toLowerCase() === 'inr' ? displayCheckoutTotal : null
+                      }
                       onBack={() => {
                         userClosedPortalPayRef.current = true;
                         setPortalPayMode(null);

@@ -10,7 +10,10 @@ import {
 } from 'lucide-react';
 import { resolveImageUrl, isLikelyImageUrl } from '../../lib/imageUtils';
 import { buildIndiaGpayOptions, gpayRowMatchesPreference } from '../../lib/indiaPaymentTags';
-import { computeIndiaManualProofPayableFromTaxableNet } from '../../lib/indiaClientPricing';
+import {
+  computeIndiaManualProofPayableFromTaxableNet,
+  parseIndiaSitePercent,
+} from '../../lib/indiaClientPricing';
 import { formatDateDdMonYyyy } from '../../lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -31,16 +34,20 @@ function manualProofPayRail(prefs) {
 
 /**
  * Full manual India proof form — used on public ManualPaymentPage and embedded in Divine Cart (dashboard).
- * @param {{ enrollmentId?: string, variant?: 'page' | 'embed', onBack?: () => void, onSubmitted?: () => void }} props
+ * @param {{ enrollmentId?: string, variant?: 'page' | 'embed', onBack?: () => void, onSubmitted?: () => void, embedCartPayableInr?: number|null }} props
  */
 export function ManualPaymentProofBody({
   enrollmentId,
   variant = 'page',
   onBack,
   onSubmitted,
+  /** Divine Cart embed only: same final INR as cart Total (promo + India stack + points). */
+  embedCartPayableInr = null,
 }) {
   const { toast } = useToast();
   const isEmbed = variant === 'embed';
+  const embedCartPayableRef = useRef(embedCartPayableInr);
+  embedCartPayableRef.current = embedCartPayableInr;
 
   const [settings, setSettings] = useState({});
   const [enrollment, setEnrollment] = useState(null);
@@ -151,7 +158,16 @@ export function ManualPaymentProofBody({
                 }
               } catch {}
             }
-            if (e.dashboard_mixed_total != null && e.dashboard_mixed_total !== '') {
+            const ep = embedCartPayableRef.current;
+            const embedInr =
+              isEmbed &&
+              ep != null &&
+              Number.isFinite(Number(ep)) &&
+              Number(ep) > 0;
+            if (embedInr) {
+              const a = Math.max(0, Math.round(Number(ep) * 100) / 100);
+              setAmount(String(a));
+            } else if (e.dashboard_mixed_total != null && e.dashboard_mixed_total !== '') {
               const rawTot = Number(e.dashboard_mixed_total);
               const cur = (e.dashboard_mixed_currency || 'inr').toLowerCase();
               const cip = homeRes?.data?.client_india_pricing;
@@ -176,6 +192,13 @@ export function ManualPaymentProofBody({
     };
     load();
   }, [enrollmentId]);
+
+  useEffect(() => {
+    if (!isEmbed || embedCartPayableInr == null) return;
+    const n = Number(embedCartPayableInr);
+    if (!Number.isFinite(n) || n <= 0) return;
+    setAmount(String(Math.max(0, Math.round(n * 100) / 100)));
+  }, [isEmbed, embedCartPayableInr]);
 
   /** All India GPay / UPI rows from site settings (full list). */
   const gpayOptionsAll = useMemo(() => {
@@ -275,6 +298,23 @@ export function ManualPaymentProofBody({
   const quoteCurrency = (enrollment?.dashboard_mixed_currency || 'inr').toUpperCase();
   /** Enrollment stores taxable net for INR; cart Total adds GST/platform — match that for proof amount. */
   const enrollmentCartTotalDisplay = useMemo(() => {
+    const embed =
+      isEmbed &&
+      embedCartPayableInr != null &&
+      Number.isFinite(Number(embedCartPayableInr)) &&
+      Number(embedCartPayableInr) > 0 &&
+      quoteCurrency.toLowerCase() === 'inr';
+    if (embed) {
+      const amt = Math.max(0, Math.round(Number(embedCartPayableInr) * 100) / 100);
+      const gstPct = parseIndiaSitePercent(settings, 'india_gst_percent', 18);
+      return {
+        amount: amt,
+        subnote:
+          gstPct > 0
+            ? 'Includes GST and any platform fee — same as your cart total above.'
+            : 'Same as your cart total above.',
+      };
+    }
     if (enrollment?.dashboard_mixed_total == null || enrollment?.dashboard_mixed_total === '') return null;
     const raw = Number(enrollment.dashboard_mixed_total);
     if (!Number.isFinite(raw) || raw <= 0) return null;
@@ -291,7 +331,7 @@ export function ManualPaymentProofBody({
           ? `Includes ${adj.taxLabel} and any platform fee — same as your cart total above.`
           : 'Same as your cart total above.',
     };
-  }, [enrollment, clientIndiaPricing, settings]);
+  }, [isEmbed, embedCartPayableInr, quoteCurrency, enrollment, clientIndiaPricing, settings]);
   const isUpiMethod = paymentMethod === 'upi';
   const screenshotRequired =
     paymentMethod === 'cheque' || paymentMethod === 'cash_deposit';
