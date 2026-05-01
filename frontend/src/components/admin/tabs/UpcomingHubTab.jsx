@@ -17,6 +17,50 @@ const STATUS_OPTIONS = [
 const CLOSURE_OPTIONS = ['Registration Closed', 'Seats Full', 'Enrollment Closed', 'Sold Out'];
 const TZ_OPTIONS = ['', 'IST', 'GST Dubai', 'EST', 'PST', 'CST', 'MST', 'GMT', 'UTC', 'BST', 'CET', 'AEST', 'SGT', 'JST'];
 
+/** Fixed offsets for hub labels; used when storing deadline end time. Unknown / empty TZ → UTC. */
+const HUB_TZ_TO_OFFSET = {
+  IST: '+05:30',
+  'GST Dubai': '+04:00',
+  EST: '-05:00',
+  PST: '-08:00',
+  CST: '-06:00',
+  MST: '-07:00',
+  GMT: '+00:00',
+  UTC: '+00:00',
+  BST: '+01:00',
+  CET: '+01:00',
+  AEST: '+10:00',
+  SGT: '+08:00',
+  JST: '+09:00',
+};
+
+function deadlineCalendarKey(deadline) {
+  const s = (deadline || '').trim();
+  if (!s) return '';
+  return s.includes('T') ? s.slice(0, 10) : s.slice(0, 10);
+}
+
+function parseDeadlineParts(deadline) {
+  const s = (deadline || '').trim();
+  if (!s) return { date: '', time: '' };
+  const datePart = s.includes('T') ? s.split('T')[0].slice(0, 10) : s.slice(0, 10);
+  if (!s.includes('T')) return { date: datePart, time: '' };
+  const afterT = s.split('T')[1] || '';
+  const m = afterT.match(/^(\d{2}:\d{2})/);
+  return { date: datePart, time: m ? m[1] : '' };
+}
+
+/** Date-only if time empty (legacy end-of-day UTC on server). Otherwise ISO local wall time with offset from TZ column. */
+function mergeDeadlineDateTime(dateStr, timeStr, tzLabel) {
+  const d = (dateStr || '').slice(0, 10);
+  if (!d) return '';
+  const t = (timeStr || '').trim();
+  if (!t) return d;
+  const hm = t.length >= 5 ? t.slice(0, 5) : t;
+  const off = HUB_TZ_TO_OFFSET[tzLabel] || '+00:00';
+  return `${d}T${hm}:00${off}`;
+}
+
 /** Fields the Programs Hub edits — everything else (image, description, pricing, content_sections, …) must stay as on the server so Save All never wipes them. */
 const HUB_PROGRAM_FIELD_KEYS = [
   'is_upcoming', 'is_flagship', 'replicate_to_flagship', 'enrollment_status', 'enrollment_open', 'closure_text',
@@ -55,11 +99,12 @@ function buildProgramPutPayloadFromHub(local, server) {
   return base;
 }
 
-const ProgramRow = ({ p, update, updateTier }) => {
+const ProgramRow = ({ p, update, updateTier, updatePatch }) => {
   const [open, setOpen] = useState(false);
   const status = p.enrollment_status || (p.enrollment_open !== false ? 'open' : 'closed');
   const tiers = p.duration_tiers || [];
   const isUpcoming = p.is_upcoming || false;
+  const dlParts = parseDeadlineParts(p.deadline_date);
 
   return (
     <>
@@ -132,15 +177,28 @@ const ProgramRow = ({ p, update, updateTier }) => {
         {/* End */}
         <td className="px-1 py-2"><Input type="date" value={p.end_date || ''} onChange={e => update('end_date', e.target.value)} className="h-8 text-xs px-2" /></td>
 
-        {/* Deadline */}
-        <td className="px-1 py-2"><Input type="date" value={p.deadline_date || ''} onChange={e => update('deadline_date', e.target.value)} className="h-8 text-xs px-2" /></td>
+        {/* Deadline — date + end time (time uses TZ column for offset) */}
+        <td className="px-1 py-2">
+          <div className="flex flex-col gap-1 min-w-[108px]">
+            <Input type="date" value={dlParts.date} onChange={e => update('deadline_date', mergeDeadlineDateTime(e.target.value, dlParts.time, p.time_zone))} className="h-8 text-xs px-2" data-testid={`hub-deadline-date-${p.id}`} />
+            <Input type="time" value={dlParts.time} onChange={e => update('deadline_date', mergeDeadlineDateTime(dlParts.date, e.target.value, p.time_zone))} className="h-8 text-xs px-2" data-testid={`hub-deadline-time-${p.id}`} />
+          </div>
+        </td>
 
         {/* Timing */}
         <td className="px-1 py-2"><Input value={p.timing || ''} onChange={e => update('timing', e.target.value)} placeholder="7 PM - 8 PM" className="h-8 text-xs px-2" /></td>
 
         {/* TZ */}
         <td className="px-1 py-2">
-          <select value={p.time_zone || ''} onChange={e => update('time_zone', e.target.value)} className="w-full border rounded px-1 py-1.5 text-xs bg-white">
+          <select value={p.time_zone || ''} onChange={e => {
+            const newTz = e.target.value;
+            const parts = parseDeadlineParts(p.deadline_date);
+            if (parts.time && updatePatch) {
+              updatePatch({ time_zone: newTz, deadline_date: mergeDeadlineDateTime(parts.date, parts.time, newTz) });
+            } else {
+              update('time_zone', newTz);
+            }
+          }} className="w-full border rounded px-1 py-1.5 text-xs bg-white">
             {TZ_OPTIONS.map(tz => <option key={tz} value={tz}>{tz || '—'}</option>)}
           </select>
         </td>
@@ -250,7 +308,7 @@ const PlanningCalendar = ({ programs, onUpdateProgram }) => {
         if (t.start_date) events.push({ name: `${p.title} (${t.label})`, start: t.start_date, end: t.end_date || t.start_date, deadline: '', color, progIdx: pi, tierIdx: ti });
       });
     } else if (p.start_date) {
-      events.push({ name: p.title, start: p.start_date, end: p.end_date || p.start_date, deadline: p.deadline_date || '', color, progIdx: pi, tierIdx: null });
+      events.push({ name: p.title, start: p.start_date, end: p.end_date || p.start_date, deadline: deadlineCalendarKey(p.deadline_date) || '', color, progIdx: pi, tierIdx: null });
     }
     if (p.deadline_date && !tiers.length) {
       // deadline-only marker
@@ -286,7 +344,13 @@ const PlanningCalendar = ({ programs, onUpdateProgram }) => {
       tiers[tierIdx] = { ...tiers[tierIdx], [field]: dateStr };
       onUpdateProgram(programIdx, 'duration_tiers', tiers);
     } else {
-      onUpdateProgram(programIdx, field, dateStr);
+      let val = dateStr;
+      if (field === 'deadline_date') {
+        const pr = programs[programIdx];
+        const { time } = parseDeadlineParts(pr.deadline_date);
+        val = mergeDeadlineDateTime(dateStr, time, pr.time_zone);
+      }
+      onUpdateProgram(programIdx, field, val);
     }
     setEditMode(null);
   };
@@ -357,7 +421,7 @@ const PlanningCalendar = ({ programs, onUpdateProgram }) => {
                       </button>
                       <button onClick={() => setEditMode({ programIdx: p._idx, field: 'deadline_date', tierIdx: null })}
                         className={`text-[8px] px-1.5 py-0.5 rounded font-medium border ${editMode?.programIdx === p._idx && editMode?.field === 'deadline_date' ? 'bg-blue-500 text-white border-blue-500' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}>
-                        Deadline {p.deadline_date ? p.deadline_date.slice(5) : '?'}
+                        Deadline {p.deadline_date ? deadlineCalendarKey(p.deadline_date).slice(5) : '?'}
                       </button>
                     </>
                   )}
@@ -520,7 +584,7 @@ const UpcomingHubTab = () => {
               <th className="px-1 py-3 font-bold text-red-500 min-w-[110px]">Closure</th>
               <th className="px-1 py-3 font-bold text-gray-600 min-w-[120px]">Start</th>
               <th className="px-1 py-3 font-bold text-gray-600 min-w-[120px]">End</th>
-              <th className="px-1 py-3 font-bold text-gray-600 min-w-[120px]">Deadline</th>
+              <th className="px-1 py-3 font-bold text-gray-600 min-w-[128px]" title="Registration closes at end of deadline day (UTC) if time is empty; otherwise at the time shown, in the TZ column.">Deadline</th>
               <th className="px-1 py-3 font-bold text-gray-600 min-w-[100px]">Timing</th>
               <th className="px-1 py-3 font-bold text-gray-600 min-w-[70px]">TZ</th>
               <th className="px-2 py-3 font-bold text-red-600 w-14">Offer</th>
@@ -544,6 +608,7 @@ const UpcomingHubTab = () => {
                 <ProgramRow key={p.id} p={p}
                   update={(field, val) => updateField(origIdx, field, val)}
                   updateTier={(tierIdx, field, val) => updateTierField(origIdx, tierIdx, field, val)}
+                  updatePatch={(fields) => setPrograms(prev => { const c = [...prev]; c[origIdx] = { ...c[origIdx], ...fields }; return c; })}
                 />
               );
             })}

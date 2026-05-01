@@ -21,6 +21,27 @@ db = client[os.environ['DB_NAME']]
 _STATUS_ORDER_HOME = {"open": 0, "coming_soon": 1, "closed": 2}
 
 
+def _deadline_to_utc_aware(deadline) -> datetime | None:
+    """Parse program deadline for comparison with UTC now. Date-only → end of that day UTC."""
+    if not deadline:
+        return None
+    s = str(deadline).strip()
+    if "T" not in s:
+        try:
+            day = s[:10]
+            return datetime.fromisoformat(day + "T23:59:59+00:00")
+        except ValueError:
+            return None
+    s = s.replace("Z", "+00:00")
+    try:
+        dt = datetime.fromisoformat(s)
+    except (ValueError, TypeError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 def _program_status_rank(prog: Program) -> int:
     raw = (prog.enrollment_status or "").strip().lower()
     if raw in _STATUS_ORDER_HOME:
@@ -42,26 +63,19 @@ async def program_dict_with_deadline_sync(db_ref, program_id: str) -> Optional[d
     now = datetime.now(timezone.utc)
     deadline = raw.get("deadline_date") or raw.get("start_date") or ""
     if deadline and prog.enrollment_status == "open":
-        try:
-            dl = (
-                datetime.fromisoformat(deadline + "T23:59:59+00:00")
-                if "T" not in str(deadline)
-                else datetime.fromisoformat(str(deadline))
+        dl = _deadline_to_utc_aware(deadline)
+        if dl is not None and dl < now:
+            prog = prog.model_copy(
+                update={
+                    "enrollment_status": "closed",
+                    "enrollment_open": False,
+                    "closure_text": prog.closure_text or "Registration Closed",
+                }
             )
-            if dl < now:
-                prog = prog.model_copy(
-                    update={
-                        "enrollment_status": "closed",
-                        "enrollment_open": False,
-                        "closure_text": prog.closure_text or "Registration Closed",
-                    }
-                )
-                await db_ref.programs.update_one(
-                    {"id": prog.id},
-                    {"$set": {"enrollment_status": "closed", "enrollment_open": False}},
-                )
-        except (ValueError, TypeError):
-            pass
+            await db_ref.programs.update_one(
+                {"id": prog.id},
+                {"$set": {"enrollment_status": "closed", "enrollment_open": False}},
+            )
     return prog.model_dump()
 
 
@@ -83,20 +97,17 @@ async def fetch_programs_with_deadline_sync(
         prog = Program(**p)
         deadline = p.get("deadline_date") or p.get("start_date") or ""
         if deadline and prog.enrollment_status == "open":
-            try:
-                dl = datetime.fromisoformat(deadline + "T23:59:59+00:00") if "T" not in deadline else datetime.fromisoformat(deadline)
-                if dl < now:
-                    prog = prog.model_copy(update={
-                        "enrollment_status": "closed",
-                        "enrollment_open": False,
-                        "closure_text": prog.closure_text or "Registration Closed",
-                    })
-                    await db_ref.programs.update_one(
-                        {"id": prog.id},
-                        {"$set": {"enrollment_status": "closed", "enrollment_open": False}},
-                    )
-            except (ValueError, TypeError):
-                pass
+            dl = _deadline_to_utc_aware(deadline)
+            if dl is not None and dl < now:
+                prog = prog.model_copy(update={
+                    "enrollment_status": "closed",
+                    "enrollment_open": False,
+                    "closure_text": prog.closure_text or "Registration Closed",
+                })
+                await db_ref.programs.update_one(
+                    {"id": prog.id},
+                    {"$set": {"enrollment_status": "closed", "enrollment_open": False}},
+                )
         result.append(prog)
     return result
 
