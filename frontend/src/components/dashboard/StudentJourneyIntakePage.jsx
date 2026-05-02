@@ -109,8 +109,6 @@ function emptyReflectionForm() {
     past_actions: '',
     primary_purpose: '',
     reflection_outcomes_hoped: '',
-    reflection_support_preferences: '',
-    reflection_communication_notes: '',
     heard_how: '',
     referral_name: '',
     experiences_aha_text: '',
@@ -255,8 +253,6 @@ const StudentJourneyIntakePage = () => {
         past_actions: form.past_actions,
         primary_purpose: form.primary_purpose,
         reflection_outcomes_hoped: form.reflection_outcomes_hoped,
-        reflection_support_preferences: form.reflection_support_preferences,
-        reflection_communication_notes: form.reflection_communication_notes,
         heard_how: form.heard_how,
         referral_name: form.referral_name,
         experiences_aha_text: '',
@@ -512,26 +508,6 @@ const StudentJourneyIntakePage = () => {
                     className="mt-1 bg-white/90 border-violet-200"
                     rows={3}
                     placeholder="Optional but powerful for before-and-after rhythm — body, relationships, work, inner life…"
-                  />
-                </div>
-                <div>
-                  <Label className="text-violet-900">What helps you stay open in a healing container?</Label>
-                  <Textarea
-                    value={form.reflection_support_preferences}
-                    onChange={(e) => setForm((f) => ({ ...f, reflection_support_preferences: e.target.value }))}
-                    className="mt-1 bg-white/90 border-violet-200"
-                    rows={2}
-                    placeholder="e.g. gentler pace, clear structure, accountability, space between sessions, written summaries…"
-                  />
-                </div>
-                <div>
-                  <Label className="text-violet-900">Anything to honour in how we reach you?</Label>
-                  <Textarea
-                    value={form.reflection_communication_notes}
-                    onChange={(e) => setForm((f) => ({ ...f, reflection_communication_notes: e.target.value }))}
-                    className="mt-1 bg-white/90 border-violet-200"
-                    rows={2}
-                    placeholder="Best times to message, tone you prefer, sensitivities or words to avoid — optional."
                   />
                 </div>
               </div>
