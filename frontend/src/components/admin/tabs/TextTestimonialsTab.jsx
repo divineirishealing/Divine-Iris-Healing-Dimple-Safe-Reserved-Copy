@@ -30,7 +30,7 @@ const TextTestimonialsTab = () => {
   const [items, setItems] = useState([]);
   const [saving, setSaving] = useState(false);
   const [style, setStyle] = useState({
-    quote_font: 'Cormorant Garamond',
+    quote_font: 'Lato',
     quote_size: '20px',
     quote_color: '#374151',
     quote_italic: true,
@@ -207,7 +207,7 @@ const TextTestimonialsTab = () => {
                     placeholder="Enter the testimonial quote..."
                     rows={3}
                     className="w-full border rounded-lg px-3 py-2 text-sm text-gray-700 resize-none focus:ring-1 focus:ring-[#D4AF37] italic"
-                    style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '15px' }}
+                    style={{ fontFamily: "'Lato', sans-serif", fontSize: '15px' }}
                     data-testid={`quote-input-${idx}`}
                   />
                   <div className="flex gap-2">

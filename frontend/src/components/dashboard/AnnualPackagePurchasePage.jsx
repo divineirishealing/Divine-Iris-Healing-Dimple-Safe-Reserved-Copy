@@ -1377,7 +1377,7 @@ export default function AnnualPackagePurchasePage() {
             <DashboardUpcomingProgramsIrisBloom />
             <h1
               id="divine-iris-home-coming-title"
-              className="font-[family-name:'Cinzel',serif] mt-2 px-2 text-xl font-bold tracking-[0.16em] uppercase text-[#3b0764] drop-shadow-sm md:text-2xl lg:text-[1.85rem]"
+              className="font-sans mt-2 px-2 text-xl font-bold tracking-[0.16em] uppercase text-[#3b0764] drop-shadow-sm md:text-2xl lg:text-[1.85rem]"
               data-testid="divine-iris-home-coming-title"
             >
               Divine Iris Home Coming
@@ -1400,7 +1400,7 @@ export default function AnnualPackagePurchasePage() {
                 />
                 <div className="w-full min-w-0 space-y-4">
                   <p
-                    className="font-[family-name:'Playfair_Display',Georgia,serif] text-[17px] sm:text-lg leading-relaxed text-[#2e1067]/92"
+                    className="font-sans text-[17px] sm:text-lg leading-relaxed text-[#2e1067]/92"
                     data-testid="home-coming-welcome-lead"
                   >
                     {irisWelcomeLeadEl}
@@ -1674,7 +1674,7 @@ export default function AnnualPackagePurchasePage() {
               </div>
             </div>
             </div>
-            <p className="mt-4 max-w-[min(40rem,100%)] md:max-w-[min(50rem,100%)] mx-auto text-[13px] sm:text-sm italic leading-relaxed font-[family-name:'Playfair_Display',Georgia,serif] text-[rgba(90,40,135,0.55)]">
+            <p className="mt-4 max-w-[min(40rem,100%)] md:max-w-[min(50rem,100%)] mx-auto text-[13px] sm:text-sm italic leading-relaxed font-sans text-[rgba(90,40,135,0.55)]">
               {HEART_QUOTE}
               <Heart className="inline-block ml-1.5 w-3 h-3 text-rose-400/70 align-middle" aria-hidden />
             </p>
@@ -1691,7 +1691,7 @@ export default function AnnualPackagePurchasePage() {
                     <ShoppingCart size={18} className="text-[#5D3FD3] shrink-0 mt-1" aria-hidden />
                     <div className="min-w-0">
                       <h2
-                        className="text-base sm:text-lg md:text-xl font-[family-name:'Cinzel',serif] font-bold text-[#3b0764] tracking-[0.12em] uppercase leading-tight"
+                        className="text-base sm:text-lg md:text-xl font-sans font-bold text-[#3b0764] tracking-[0.12em] uppercase leading-tight"
                         data-testid="home-coming-annual-program-title"
                       >
                         Home Coming Annual Program
@@ -1985,7 +1985,7 @@ export default function AnnualPackagePurchasePage() {
                   </div>
                   <div className="min-w-0 lg:pl-8 lg:pr-8 lg:py-0.5 pt-6 lg:pt-0 border-t border-slate-200 lg:border-t-0 text-left">
                     <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:px-5 sm:py-5 shadow-sm">
-                    <p className="font-[family-name:'Playfair_Display',Georgia,serif] text-[12px] sm:text-[13px] leading-relaxed text-slate-700">
+                    <p className="font-sans text-[12px] sm:text-[13px] leading-relaxed text-slate-700">
                       One gentle annual home for your soul — what is held in this bundle:
                     </p>
                     <ul className="mt-3 space-y-2.5 text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.09em] text-slate-800 list-none pl-0 border-l-2 border-amber-200/80 pl-3">
@@ -2010,7 +2010,7 @@ export default function AnnualPackagePurchasePage() {
             {!pinnedProgram ? (
               <div className={cn(glassInset, 'text-center py-10')}>
                 <User className="mx-auto text-violet-300/90 mb-4" size={42} aria-hidden />
-                <p className="font-[family-name:'Cinzel',serif] text-[#3b0764] font-semibold text-base tracking-wide">
+                <p className="font-sans text-[#3b0764] font-semibold text-base tracking-wide">
                   The path is forming…
                 </p>
                 <p className="text-sm text-[rgba(60,35,115,0.55)] mt-2 max-w-md mx-auto leading-relaxed">
@@ -2025,7 +2025,7 @@ export default function AnnualPackagePurchasePage() {
               <div className="space-y-5">
                 {!catalogBundle ? (
                   <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 md:px-5 md:py-5 shadow-sm text-left">
-                    <p className="font-[family-name:'Playfair_Display',Georgia,serif] text-[12px] sm:text-[13px] leading-relaxed text-slate-700">
+                    <p className="font-sans text-[12px] sm:text-[13px] leading-relaxed text-slate-700">
                       One gentle annual home for your soul — what is held in this bundle:
                     </p>
                     <ul className="mt-3 space-y-2.5 text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.09em] text-slate-800 list-none pl-0 border-l-2 border-amber-200/80 pl-3">

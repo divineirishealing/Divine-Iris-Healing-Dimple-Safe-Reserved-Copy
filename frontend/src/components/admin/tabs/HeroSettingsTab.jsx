@@ -185,7 +185,7 @@ const HeroSettingsTab = ({ settings, onChange, onVideoUpload }) => {
         {/* Live preview */}
         <div className="mt-4 bg-gray-900 rounded-lg p-4 text-center overflow-hidden" data-testid="title-preview">
           <p className="whitespace-pre-line" style={{
-            fontFamily: `'${s.hero_title_font || 'Cinzel'}', serif`,
+            fontFamily: "'Lato', sans-serif",
             fontSize: 'clamp(16px, 3vw, 28px)',
             fontWeight: s.hero_title_bold ? 700 : 400,
             fontStyle: s.hero_title_italic ? 'italic' : 'normal',

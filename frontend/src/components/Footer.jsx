@@ -72,7 +72,7 @@ const ContactFormDialog = ({ open, onClose, programs, sessions }) => {
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg p-0 overflow-hidden bg-white" data-testid="footer-contact-dialog">
         <div className="p-8">
-          <DialogTitle className="text-center mb-1" style={{ fontFamily: "'Cinzel', serif", fontWeight: 700, fontSize: '1.3rem', color: '#1a1a1a', fontVariant: 'small-caps' }}>Send us a Message</DialogTitle>
+          <DialogTitle className="text-center mb-1" style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '1.3rem', color: '#1a1a1a', fontVariant: 'small-caps' }}>Send us a Message</DialogTitle>
           <div className="w-8 h-0.5 mx-auto mt-2 mb-6" style={{ background: GOLD }} />
 
           {submitted ? (

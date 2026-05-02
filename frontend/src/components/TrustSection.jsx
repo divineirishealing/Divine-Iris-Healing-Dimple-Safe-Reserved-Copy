@@ -181,7 +181,7 @@ const TrustSection = ({ sectionConfig }) => {
           {cards.map((card, i) => {
             const IconComp = ICON_MAP[card.icon] || TrustIcon;
             const valStyle = applySectionStyle(card.value_style, {
-              fontFamily: "'Cinzel', serif", fontSize: 'clamp(1.8rem, 3.5vw, 2.4rem)',
+              fontFamily: "'Lato', sans-serif", fontSize: 'clamp(1.8rem, 3.5vw, 2.4rem)',
               fontWeight: 700, color: GOLD, lineHeight: 1.1,
             });
             const lblStyle = applySectionStyle(card.label_style, {

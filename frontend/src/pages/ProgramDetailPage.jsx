@@ -101,7 +101,6 @@ const applyStyle = (styleObj, defaults = {}) => {
   if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
   return {
     ...defaults,
-    ...(styleObj.font_family && { fontFamily: styleObj.font_family }),
     ...(styleObj.font_size && { fontSize: styleObj.font_size }),
     ...(styleObj.font_color && { color: styleObj.font_color }),
     ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }),
@@ -476,7 +475,7 @@ function ProgramDetailPage() {
 
   // Global pricing style
   const globalPricingStyle = {
-    fontFamily: settings?.pricing_font || 'Cinzel, Georgia, serif',
+    fontFamily: "'Lato', sans-serif",
     color: settings?.pricing_color || heroAccent,
     fontWeight: parseInt(settings?.pricing_weight || '700'),
   };

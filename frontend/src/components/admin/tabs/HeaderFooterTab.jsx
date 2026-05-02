@@ -281,14 +281,14 @@ const HeaderFooterTab = ({ settings, onChange }) => {
                     <div className="relative flex flex-col items-center">
                       <span className="text-[11px] tracking-wider uppercase">Services</span>
                       <span className="mt-1 inline-flex items-center gap-0.5 text-[7px] font-bold tracking-wider px-1.5 py-px rounded-full animate-pulse text-gray-900"
-                        style={{ background: `linear-gradient(to right, ${pillFrom}, ${pillTo})`, fontFamily: `'${pillFont}', sans-serif`, animationDuration: '2s' }}>
+                        style={{ background: `linear-gradient(to right, ${pillFrom}, ${pillTo})`, fontFamily: "'Lato', sans-serif", animationDuration: '2s' }}>
                         &#10024; {offer.text?.length > 10 ? offer.text.slice(0, 10) : offer.text}
                       </span>
                     </div>
                     <div className="relative flex flex-col items-center">
                       <span className="text-[11px] tracking-wider uppercase">Upcoming</span>
                       <span className="mt-1 inline-flex items-center gap-0.5 text-[7px] font-bold tracking-wider px-1.5 py-px rounded-full animate-pulse text-gray-900"
-                        style={{ background: `linear-gradient(to right, ${pillFrom}, ${pillTo})`, fontFamily: `'${pillFont}', sans-serif`, animationDuration: '2s' }}>
+                        style={{ background: `linear-gradient(to right, ${pillFrom}, ${pillTo})`, fontFamily: "'Lato', sans-serif", animationDuration: '2s' }}>
                         &#10024; {offer.text?.length > 10 ? offer.text.slice(0, 10) : offer.text}
                       </span>
                     </div>

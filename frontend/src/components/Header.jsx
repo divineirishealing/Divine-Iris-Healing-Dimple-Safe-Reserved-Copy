@@ -111,7 +111,6 @@ const Header = () => {
   const offerMenuItems = offer.menu_items || ['upcoming sessions', 'services'];
   const pillFrom = offer.pill_color_from || '#D4AF37';
   const pillTo = offer.pill_color_to || '#f0d060';
-  const pillFont = offer.pill_font || 'Lato';
   const bannerColor = offer.banner_color || '#dc2626';
 
   /** Upcoming programs with a deadline/start for offer banner — earliest first; show up to 3 badges. */
@@ -161,7 +160,7 @@ const Header = () => {
           <span data-testid={`offer-badge-${displayLabel.toLowerCase().replace(/\s+/g, '-')}`}
             onClick={() => handleNav(href)}
             className="absolute -bottom-2 left-1/2 -translate-x-1/2 cursor-pointer inline-flex items-center gap-0.5 text-[7px] font-bold tracking-wider px-1.5 py-px rounded-full shadow-md animate-pulse whitespace-nowrap"
-            style={{ background: `linear-gradient(to right, ${pillFrom}, ${pillTo})`, color: '#1a1a1a', fontFamily: `'${pillFont}', sans-serif`, animationDuration: '2s', boxShadow: `0 4px 12px ${pillFrom}40` }}>
+            style={{ background: `linear-gradient(to right, ${pillFrom}, ${pillTo})`, color: '#1a1a1a', fontFamily: "'Lato', sans-serif", animationDuration: '2s', boxShadow: `0 4px 12px ${pillFrom}40` }}>
             <Sparkles size={7} />
             <span className="uppercase">{offer.text?.length > 10 ? offer.text.slice(0, 10) : offer.text}</span>
           </span>

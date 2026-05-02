@@ -16,7 +16,7 @@ const API = `${BACKEND_URL}/api`;
 
 const applyStyle = (styleObj, defaults = {}) => {
   if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
-  return { ...defaults, ...(styleObj.font_family && { fontFamily: styleObj.font_family }), ...(styleObj.font_size && { fontSize: styleObj.font_size }), ...(styleObj.font_color && { color: styleObj.font_color }), ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }), ...(styleObj.font_style && { fontStyle: styleObj.font_style }) };
+  return { ...defaults, ...(styleObj.font_size && { fontSize: styleObj.font_size }), ...(styleObj.font_color && { color: styleObj.font_color }), ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }), ...(styleObj.font_style && { fontStyle: styleObj.font_style }) };
 };
 
 function AllSessionsPage() {
@@ -92,7 +92,7 @@ function AllSessionsPage() {
                       <span className="text-[9px] text-gray-400 flex items-center gap-1"><Clock size={9} /> {session.duration}</span>
                     )}
                   </div>
-                  <h3 className="text-base font-semibold text-gray-900 mb-2 leading-tight group-hover:text-purple-700 transition-colors" style={{ fontFamily: "'Cinzel', serif" }}>
+                  <h3 className="text-base font-semibold text-gray-900 mb-2 leading-tight group-hover:text-purple-700 transition-colors" style={{ fontFamily: "'Lato', sans-serif" }}>
                     {session.title}
                   </h3>
                   <p className="text-gray-500 text-xs leading-relaxed mb-3 line-clamp-2">

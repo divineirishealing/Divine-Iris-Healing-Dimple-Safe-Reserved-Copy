@@ -792,7 +792,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
 
   const applyTitleStyle = (styleObj, defaults) => {
     if (!styleObj) return defaults;
-    return { ...defaults, ...(styleObj.font_family && { fontFamily: styleObj.font_family }), ...(styleObj.font_size && !inline && { fontSize: styleObj.font_size }), ...(styleObj.font_color && { color: styleObj.font_color }), ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }), ...(styleObj.font_style && { fontStyle: styleObj.font_style }) };
+    return { ...defaults, ...(styleObj.font_size && !inline && { fontSize: styleObj.font_size }), ...(styleObj.font_color && { color: styleObj.font_color }), ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }), ...(styleObj.font_style && { fontStyle: styleObj.font_style }) };
   };
 
   const content = (
@@ -832,7 +832,6 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                   const subtitleStyle = sectionConfig?.subtitle_style ? {
                     ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }),
                     ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }),
-                    ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }),
                     ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }),
                   } : {};
                   return fomoMessages ? (

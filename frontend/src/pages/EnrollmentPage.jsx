@@ -1037,7 +1037,7 @@ function EnrollmentPage() {
                     <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(139, 92, 246, 0.3), transparent 60%), radial-gradient(ellipse 60% 40% at 80% 80%, rgba(212, 175, 55, 0.08), transparent 50%)' }} />
                     <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 text-center">
                       <p className="text-[10px] text-[#D4AF37] tracking-[0.3em] uppercase font-medium mb-2">{item.category || 'Personal Session'}</p>
-                      <h2 data-testid="enrollment-title" className="text-lg font-semibold text-white mb-2" style={{ fontFamily: "'Cinzel', serif", fontVariant: 'small-caps', letterSpacing: '0.05em' }}>{item.title}</h2>
+                      <h2 data-testid="enrollment-title" className="text-lg font-semibold text-white mb-2" style={{ fontFamily: "'Lato', sans-serif", fontVariant: 'small-caps', letterSpacing: '0.05em' }}>{item.title}</h2>
                       <div className="w-12 h-0.5 bg-[#D4AF37]" />
                     </div>
                   </div>
@@ -1193,7 +1193,7 @@ function EnrollmentPage() {
                 {/* What Clients Say - Session testimonials */}
                 {type === 'session' && sessionTestimonials.length > 0 && (
                   <div className="p-5 border-t" data-testid="enrollment-testimonials">
-                    <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ fontFamily: "'Cinzel', serif", color: '#4c1d95' }}>
+                    <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ fontFamily: "'Lato', sans-serif", color: '#4c1d95' }}>
                       <Quote size={14} className="text-purple-300" /> What Clients Say
                     </h3>
                     <div className="space-y-3">

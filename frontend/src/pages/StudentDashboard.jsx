@@ -224,7 +224,7 @@ function DashboardContactEmailPrompt({ apiBase, visible, onSaved }) {
       data-testid="dashboard-add-contact-email"
     >
       <div className="rounded-[20px] border border-amber-200/90 bg-gradient-to-br from-amber-50/95 to-white/90 backdrop-blur-sm px-5 py-4 shadow-[0_4px_24px_rgba(180,120,0,0.08)]">
-        <h2 className="font-[family-name:'Cinzel',serif] text-[10px] uppercase tracking-[0.18em] text-amber-900/70 mb-1">
+        <h2 className="font-sans text-[10px] uppercase tracking-[0.18em] text-amber-900/70 mb-1">
           Contact email
         </h2>
         <p className="text-sm text-amber-950/85 leading-snug mb-3">
@@ -536,10 +536,10 @@ const StudentDashboard = () => {
           >
             <div className="pointer-events-none absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
             <div className="relative z-[1] flex-1 min-w-0 text-left">
-              <p className="mb-1.5 font-[family-name:'Cinzel',serif] text-[9px] uppercase tracking-[0.24em] text-slate-500">
+              <p className="mb-1.5 font-sans text-[9px] uppercase tracking-[0.24em] text-slate-500">
                 {SANCTUARY_REFERENCE.welcomeKicker}
               </p>
-              <h1 className="font-[family-name:'Playfair_Display',serif] font-normal text-[clamp(1.65rem,4vw,2.125rem)] text-[#1a0a3d] leading-tight tracking-wide mb-2">
+              <h1 className="font-sans font-normal text-[clamp(1.65rem,4vw,2.125rem)] text-[#1a0a3d] leading-tight tracking-wide mb-2">
                 {SANCTUARY_REFERENCE.welcomeLead}{' '}
                 <span
                   className="italic bg-clip-text text-transparent bg-[length:280%_auto] animate-[nameshift_8s_linear_infinite]"
@@ -565,7 +565,7 @@ const StudentDashboard = () => {
                     strokeWidth={2}
                     aria-hidden
                   />
-                  <h2 className="font-[family-name:'Playfair_Display',serif] font-normal text-left md:text-right leading-snug tracking-wide min-w-0">
+                  <h2 className="font-sans font-normal text-left md:text-right leading-snug tracking-wide min-w-0">
                     <span className="block text-[clamp(1.05rem,2.35vw,1.38rem)] text-[#1a0a3d]">
                       {heroIrisJourneyTitleParts.title}
                     </span>
@@ -594,8 +594,8 @@ const StudentDashboard = () => {
                     key={lbl + String(i)}
                     className="text-center rounded-[18px] border border-slate-200/90 bg-white/90 px-4 py-3 min-w-[4.5rem] shadow-sm"
                   >
-                    <div className="font-[family-name:'Playfair_Display',serif] text-[1.65rem] leading-none text-slate-800 tabular-nums">{num}</div>
-                    <div className="mt-1 font-[family-name:'Cinzel',serif] text-[9px] tracking-[0.1em] text-slate-500 uppercase">
+                    <div className="font-sans text-[1.65rem] leading-none text-slate-800 tabular-nums">{num}</div>
+                    <div className="mt-1 font-sans text-[9px] tracking-[0.1em] text-slate-500 uppercase">
                       {lbl}
                     </div>
                   </div>
@@ -668,7 +668,7 @@ const StudentDashboard = () => {
             data-testid="dashboard-overview-all-hidden"
           >
             <div className="rounded-[28px] border border-[rgba(160,100,240,0.22)] bg-white/45 backdrop-blur-xl px-5 py-8 text-center text-slate-700">
-              <p className="font-[family-name:'Cinzel',serif] text-[10px] uppercase tracking-[0.2em] text-[rgba(100,60,160,0.55)] mb-2">
+              <p className="font-sans text-[10px] uppercase tracking-[0.2em] text-[rgba(100,60,160,0.55)] mb-2">
                 Sacred Home
               </p>
               <p className="text-sm font-medium text-[#1a0a3d] mb-2">Nothing is enabled on this page right now.</p>
@@ -1074,7 +1074,7 @@ const StudentDashboard = () => {
         </div>
 
         {dv.footer_quote && (
-        <p className="w-full text-center mt-10 md:mt-14 px-4 text-base italic text-[rgba(80,30,140,0.35)] tracking-[0.04em] font-[family-name:'Cormorant_Garamond',serif]">
+        <p className="w-full text-center mt-10 md:mt-14 px-4 text-base italic text-[rgba(80,30,140,0.35)] tracking-[0.04em] font-sans">
           &ldquo;{SANCTUARY_REFERENCE.footerQuote}&rdquo; &nbsp;{SANCTUARY_REFERENCE.footerAttribution}
         </p>
         )}
