@@ -21,13 +21,13 @@ function AdminPage() {
   };
 
   return (
-    <>
+    <div className="admin-app-root min-h-screen">
       {isLoggedIn ? (
         <AdminPanel onLogout={handleLogout} />
       ) : (
         <AdminLogin onLogin={handleLogin} />
       )}
-    </>
+    </div>
   );
 }
 

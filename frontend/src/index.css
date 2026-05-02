@@ -13,6 +13,11 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* /admin only — Lato for the whole admin UI (login + panel). Icon fonts keep their own stacks on .fa etc. */
+.admin-app-root {
+    font-family: 'Lato', ui-sans-serif, system-ui, sans-serif;
+}
+
 h1, h2, h3, h4, h5, h6,
 .font-serif {
     color: var(--heading-color, #1a1a1a);
