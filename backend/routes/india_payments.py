@@ -46,8 +46,14 @@ def _txn_sort_key(t: dict) -> float:
     return 0.0
 
 
-def _pick_best_transaction(txns: List[dict]) -> Optional[dict]:
-    """Prefer paid/completed txns; else most recently updated."""
+def _norm_cmp_id(val: Any) -> str:
+    if val is None:
+        return ""
+    return str(val).strip()
+
+
+def _pick_best_transaction_for_enrollment(enrollment: dict, txns: List[dict]) -> Optional[dict]:
+    """Prefer paid txns that match this enrollment's catalog line, then highest amount (not merely latest touch)."""
     if not txns:
         return None
 
@@ -56,8 +62,27 @@ def _pick_best_transaction(txns: List[dict]) -> Optional[dict]:
         return s in ("paid", "complete", "completed")
 
     paid_pool = [t for t in txns if _is_paid(t)]
-    pool = paid_pool if paid_pool else txns
-    return max(pool, key=_txn_sort_key)
+    pool = paid_pool if paid_pool else list(txns)
+    e_it = _norm_cmp_id(enrollment.get("item_id"))
+    e_ty = _clean_str(enrollment.get("item_type")).lower()
+
+    candidates = list(pool)
+    if e_it:
+        matched = [t for t in pool if _norm_cmp_id(t.get("item_id")) == e_it]
+        if matched:
+            candidates = matched
+    if e_ty:
+        ty_m = [t for t in candidates if _clean_str(t.get("item_type")).lower() == e_ty]
+        if ty_m:
+            candidates = ty_m
+
+    def amt_key(t: dict) -> float:
+        try:
+            return float(t.get("amount") or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    return max(candidates, key=lambda t: (amt_key(t), _txn_sort_key(t)))
 
 
 async def _transactions_grouped_by_enrollment(enrollment_ids: List[str]) -> Dict[str, List[dict]]:
@@ -263,7 +288,7 @@ async def _programs_duration_tiers_by_item_id(
     ids = set()
     for e in enrollments:
         eid = e.get("id") or ""
-        txn = _pick_best_transaction(txns_by_eid.get(eid) or [])
+        txn = _pick_best_transaction_for_enrollment(e, txns_by_eid.get(eid) or [])
         it = (_clean_str((txn or {}).get("item_type")) or _clean_str(e.get("item_type"))).lower()
         if it != "program":
             continue
@@ -309,6 +334,20 @@ def _infer_tier_index_from_inr_list_prices(
     if not tiers:
         return None
     amt, cur = _payment_amount_currency(enrollment, txn)
+    if txn and amt <= 0:
+        try:
+            alt = float(txn.get("enrollment_list_inr") or 0)
+            if alt > 0:
+                amt, cur = alt, "inr"
+        except (TypeError, ValueError):
+            pass
+    if amt <= 0:
+        try:
+            dq = float(enrollment.get("dashboard_mixed_total") or 0)
+        except (TypeError, ValueError):
+            dq = 0.0
+        if dq > 0 and _clean_str(enrollment.get("dashboard_mixed_currency")).lower() == "inr":
+            amt, cur = dq, "inr"
     if amt <= 0 or (_clean_str(cur).lower() != "inr"):
         return None
     try:
@@ -431,7 +470,7 @@ def build_participant_report_rows(
     for e in enrollments:
         eid = e.get("id") or ""
         st = (e.get("status") or "").lower()
-        txn = _pick_best_transaction(txns_by_eid.get(eid) or [])
+        txn = _pick_best_transaction_for_enrollment(e, txns_by_eid.get(eid) or [])
         pay_st = _clean_str((txn or {}).get("payment_status")).lower()
         is_done = (
             pay_st in ("paid", "complete", "completed")
@@ -1270,7 +1309,7 @@ async def list_enrollments():
     by_e = await _transactions_grouped_by_enrollment(eids)
     for e in enrollments:
         eid = e.get("id")
-        txn = _pick_best_transaction(by_e.get(eid) or [])
+        txn = _pick_best_transaction_for_enrollment(e, by_e.get(eid) or [])
         e["payment"] = txn
         e["enrollment_origin"] = _enrollment_origin(e)
         if txn and txn.get("invoice_number"):
@@ -1521,7 +1560,7 @@ async def export_enrollments_excel():
 
     # Payment data (prefer paid txn when multiple exist)
     for e in enrollments:
-        txn = _pick_best_transaction(by_e.get(e.get("id")) or [])
+        txn = _pick_best_transaction_for_enrollment(e, by_e.get(e.get("id")) or [])
         if txn:
             e["invoice_number"] = txn.get("invoice_number", "")
             e["payment_amount"] = txn.get("amount", 0)
