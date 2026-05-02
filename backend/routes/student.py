@@ -2917,6 +2917,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     ip_info = await detect_ip_info(request)
     receipt_id = await _next_receipt_id()
     pref_gpay, pref_bank = _merged_preferred_india_ids(sub, client)
+    tier_for_checkout = quote.get("family_tier_index") if included else quote.get("self_tier_index")
     enrollment = {
         "id": receipt_id,
         "status": "contact_verified",
@@ -2937,6 +2938,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         "dashboard_mixed_total": quote["total"],
         "dashboard_mixed_currency": quote["currency"],
         "dashboard_checkout_ready": True,
+        "tier_index": tier_for_checkout,
         "preferred_india_gpay_id": pref_gpay,
         "preferred_india_bank_id": pref_bank,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -2947,7 +2949,6 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         await ensure_client_from_enrollment_lead(enrollment)
     except Exception as ex:
         logger.warning("ensure_client_from_enrollment_lead after dashboard enrollment: %s", ex)
-    tier_for_checkout = quote.get("family_tier_index") if included else quote.get("self_tier_index")
     return {
         "enrollment_id": receipt_id,
         "pricing": quote,

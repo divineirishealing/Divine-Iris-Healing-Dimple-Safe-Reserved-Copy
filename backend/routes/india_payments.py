@@ -292,6 +292,65 @@ def _tier_index_from_enrollment(enrollment: dict, txn: Optional[dict]) -> Option
         return None
 
 
+def _infer_tier_index_from_inr_list_prices(
+    enrollment: dict,
+    txn: Optional[dict],
+    program: dict,
+    seat_count: int,
+) -> Optional[int]:
+    """
+    Legacy dashboard enrollments often omitted ``tier_index`` on the enrollment document.
+    When checkout total is INR, pick the duration tier whose list ``price_inr`` is closest to the
+    per-seat total, within a loose tolerance (discounts / GST).
+    """
+    if not isinstance(program, dict):
+        return None
+    tiers = program.get("duration_tiers") or []
+    if not tiers:
+        return None
+    amt, cur = _payment_amount_currency(enrollment, txn)
+    if amt <= 0 or (_clean_str(cur).lower() != "inr"):
+        return None
+    try:
+        seats = max(1, int(seat_count or 1))
+    except (TypeError, ValueError):
+        seats = 1
+    tx_pc = (txn or {}).get("participant_count")
+    try:
+        if tx_pc is not None and int(tx_pc) > 0:
+            seats = max(seats, int(tx_pc))
+    except (TypeError, ValueError):
+        pass
+    per_seat = float(amt) / float(seats)
+    best_i: Optional[int] = None
+    best_diff: Optional[float] = None
+    for i, t in enumerate(tiers):
+        if not isinstance(t, dict):
+            continue
+        try:
+            list_inr = float(t.get("price_inr") or 0)
+        except (TypeError, ValueError):
+            continue
+        if list_inr <= 0:
+            continue
+        diff = abs(per_seat - list_inr)
+        if best_diff is None or diff < best_diff:
+            best_diff = diff
+            best_i = i
+    if best_i is None or best_diff is None:
+        return None
+    tier_at = tiers[best_i] if isinstance(tiers[best_i], dict) else {}
+    try:
+        ref = float(tier_at.get("price_inr") or 0)
+    except (TypeError, ValueError):
+        return None
+    if ref <= 0:
+        return None
+    if best_diff / ref <= 0.22 or best_diff <= 3500:
+        return int(best_i)
+    return None
+
+
 def _is_three_month_duration_tier(tier: Optional[dict]) -> bool:
     if not isinstance(tier, dict):
         return False
@@ -400,11 +459,18 @@ def build_participant_report_rows(
             (portal_cohort_by_email or {}).get(booker_email_key, "") if portal_cohort_by_email else ""
         )
         catalog_pid = _clean_str((txn or {}).get("item_id")) or _clean_str(e.get("item_id"))
+        total_slots = len(participants) if participants else 1
         tier_idx = _tier_index_from_enrollment(e, txn)
+        if tier_idx is None and item_type.lower() == "program" and catalog_pid and programs_by_id:
+            prog_doc = programs_by_id.get(catalog_pid)
+            if isinstance(prog_doc, dict):
+                inferred = _infer_tier_index_from_inr_list_prices(e, txn, prog_doc, total_slots)
+                if inferred is not None:
+                    tier_idx = inferred
+                elif origin == "dashboard" and prog_doc.get("is_flagship") and (prog_doc.get("duration_tiers") or []):
+                    tier_idx = 0
         tier_fields = _program_tier_fields_for_report(item_type, catalog_pid, tier_idx, programs_by_id)
         tier_fields["portal_cohort"] = portal_cohort
-
-        total_slots = len(participants) if participants else 1
 
         def push_row(p: Optional[dict], index: int, *, booker_only: bool) -> None:
             if booker_only or p is None:
