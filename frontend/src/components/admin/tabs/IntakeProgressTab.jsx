@@ -411,6 +411,29 @@ const IntakeProgressTab = () => {
             </div>
 
             <div className={`${shellCard()} p-5`}>
+              <h3 className="text-sm font-medium text-violet-900 mb-2">Movement since first baseline</h3>
+              <p className="text-xs text-violet-700/75 mb-3">
+                Where we could compare a first snapshot with the latest in this data window — deltas in petal scores (not a clinical read).
+              </p>
+              <ul className="space-y-2 max-h-40 overflow-y-auto text-sm">
+                {(overview?.transformation_hints || []).length === 0 ? (
+                  <li className="text-violet-600/70 italic">Need at least two snapshots per soul in this window.</li>
+                ) : (
+                  overview.transformation_hints.slice(0, 12).map((h) => (
+                    <li key={h.email} className="border-b border-violet-100/60 pb-2 text-violet-900">
+                      <span className="font-medium">{h.name || h.email}</span>
+                      <span className="text-violet-600 text-xs ml-2">
+                        {Object.entries(h.deltas || {})
+                          .map(([k, v]) => `${k.replace('score_', '')} ${v > 0 ? '+' : ''}${v}`)
+                          .join(' · ')}
+                      </span>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
+
+            <div className={`${shellCard()} p-5`}>
               <h3 className="text-sm font-medium text-violet-900 mb-2">Spaces asking for gentleness</h3>
               <p className="text-xs text-violet-700/75 mb-4">
                 A soft flag when any petal was at 1–2 — follow with your own discernment and care.
