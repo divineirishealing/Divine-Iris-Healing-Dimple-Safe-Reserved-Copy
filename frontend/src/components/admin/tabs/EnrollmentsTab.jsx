@@ -708,6 +708,7 @@ const EnrollmentsTab = () => {
       'City',
       'Country',
       'Batch (portal cohort)',
+      'Catalog program (Mongo)',
       'Tier',
       'Chosen start',
       'Chosen end',
@@ -741,6 +742,7 @@ const EnrollmentsTab = () => {
             esc(row.city),
             esc(row.country),
             esc(row.portal_cohort),
+            esc(row.catalog_program_title),
             esc(row.tier_label),
             esc(row.chosen_start_date),
             esc(row.chosen_end_date),
@@ -776,6 +778,7 @@ const EnrollmentsTab = () => {
       'Eligibility month',
       'Month label',
       'Batch (portal cohort)',
+      'Catalog program (Mongo)',
       'Tier',
       'Chosen start',
       'Chosen end',
@@ -800,6 +803,7 @@ const EnrollmentsTab = () => {
           esc(row.eligibility_month),
           esc(row.eligibility_month_label),
           esc(row.portal_cohort),
+          esc(row.catalog_program_title),
           esc(row.tier_label),
           esc(row.chosen_start_date),
           esc(row.chosen_end_date),
@@ -1652,21 +1656,33 @@ const EnrollmentsTab = () => {
                                   {row.portal_cohort || '—'}
                                 </td>
                               );
-                            case 'tier':
+                            case 'tier': {
+                              const tip = [row.catalog_program_title, row.tier_label, row.chosen_start_date, row.chosen_end_date]
+                                .filter(Boolean)
+                                .join(' · ');
                               return (
-                                <td key={def.id} className={`${bc} text-gray-800 leading-tight`} title={row.tier_label || ''}>
-                                  {row.tier_label || '—'}
+                                <td key={def.id} className={`${bc} text-gray-800 leading-tight`} title={tip}>
+                                  {row.tier_label || row.catalog_program_title || '—'}
                                 </td>
                               );
+                            }
                             case 'progStart':
                               return (
-                                <td key={def.id} className={`${bc} text-gray-700 text-[9px] font-mono`} title={row.chosen_start_date || ''}>
+                                <td
+                                  key={def.id}
+                                  className={`${bc} text-gray-700 text-[9px] font-mono`}
+                                  title={[row.catalog_program_title, row.chosen_start_date].filter(Boolean).join(' · ')}
+                                >
                                   {row.chosen_start_date || '—'}
                                 </td>
                               );
                             case 'progEnd':
                               return (
-                                <td key={def.id} className={`${bc} text-gray-700 text-[9px] font-mono`} title={row.chosen_end_date || ''}>
+                                <td
+                                  key={def.id}
+                                  className={`${bc} text-gray-700 text-[9px] font-mono`}
+                                  title={[row.catalog_program_title, row.chosen_end_date].filter(Boolean).join(' · ')}
+                                >
                                   {row.chosen_end_date || '—'}
                                 </td>
                               );
@@ -1785,21 +1801,33 @@ const EnrollmentsTab = () => {
                                   {row.portal_cohort || '—'}
                                 </td>
                               );
-                            case 'tier':
+                            case 'tier': {
+                              const tip = [row.catalog_program_title, row.tier_label, row.chosen_start_date, row.chosen_end_date]
+                                .filter(Boolean)
+                                .join(' · ');
                               return (
-                                <td key={def.id} className={`${bc} text-gray-800 leading-tight`} title={row.tier_label || ''}>
-                                  {row.tier_label || '—'}
+                                <td key={def.id} className={`${bc} text-gray-800 leading-tight`} title={tip}>
+                                  {row.tier_label || row.catalog_program_title || '—'}
                                 </td>
                               );
+                            }
                             case 'progStart':
                               return (
-                                <td key={def.id} className={`${bc} text-gray-700 text-[9px] font-mono`} title={row.chosen_start_date || ''}>
+                                <td
+                                  key={def.id}
+                                  className={`${bc} text-gray-700 text-[9px] font-mono`}
+                                  title={[row.catalog_program_title, row.chosen_start_date].filter(Boolean).join(' · ')}
+                                >
                                   {row.chosen_start_date || '—'}
                                 </td>
                               );
                             case 'progEnd':
                               return (
-                                <td key={def.id} className={`${bc} text-gray-700 text-[9px] font-mono`} title={row.chosen_end_date || ''}>
+                                <td
+                                  key={def.id}
+                                  className={`${bc} text-gray-700 text-[9px] font-mono`}
+                                  title={[row.catalog_program_title, row.chosen_end_date].filter(Boolean).join(' · ')}
+                                >
                                   {row.chosen_end_date || '—'}
                                 </td>
                               );

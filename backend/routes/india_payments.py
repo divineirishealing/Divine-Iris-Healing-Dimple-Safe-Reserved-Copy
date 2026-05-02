@@ -337,11 +337,11 @@ async def _programs_duration_tiers_by_item_id(
     for e in enrollments:
         eid = e.get("id") or ""
         txn = _pick_best_transaction_for_enrollment(e, txns_by_eid.get(eid) or [])
-        it = (_clean_str((txn or {}).get("item_type")) or _clean_str(e.get("item_type"))).lower()
+        it = (_clean_str(e.get("item_type")) or _clean_str((txn or {}).get("item_type"))).lower()
         if it != "program":
             continue
         e_pid = _clean_str(e.get("item_id"))
-        if _clean_str(e.get("item_type")).lower() == "program" and e_pid:
+        if it == "program" and e_pid:
             pid = e_pid
         else:
             pid = _clean_str((txn or {}).get("item_id")) or e_pid
@@ -360,7 +360,7 @@ async def _programs_duration_tiers_by_item_id(
                 pass
     rows = await db.programs.find(
         {"id": {"$in": id_query}},
-        {"_id": 0, "id": 1, "duration_tiers": 1},
+        {"_id": 0, "id": 1, "title": 1, "duration_tiers": 1},
     ).to_list(len(id_query) + 50)
     return {str(r.get("id")): r for r in rows if r.get("id") is not None}
 
@@ -429,10 +429,16 @@ def _infer_tier_index_from_inr_list_prices(
         try:
             list_inr = float(t.get("price_inr") or 0)
         except (TypeError, ValueError):
+            list_inr = 0.0
+        try:
+            offer_inr = float(t.get("offer_price_inr") or 0)
+        except (TypeError, ValueError):
+            offer_inr = 0.0
+        anchors = [x for x in (list_inr, offer_inr) if x > 0]
+        if not anchors:
             continue
-        if list_inr <= 0:
-            continue
-        diff = abs(per_seat - list_inr)
+        anchor = min(anchors, key=lambda x: abs(per_seat - x))
+        diff = abs(per_seat - anchor)
         if best_diff is None or diff < best_diff:
             best_diff = diff
             best_i = i
@@ -440,13 +446,25 @@ def _infer_tier_index_from_inr_list_prices(
         return None
     tier_at = tiers[best_i] if isinstance(tiers[best_i], dict) else {}
     try:
-        ref = float(tier_at.get("price_inr") or 0)
+        list_ref = float(tier_at.get("price_inr") or 0)
+        off_ref = float(tier_at.get("offer_price_inr") or 0)
+        ref = max([x for x in (list_ref, off_ref) if x > 0] or [0.0])
     except (TypeError, ValueError):
         return None
     if ref <= 0:
         return None
-    if best_diff / ref <= 0.22 or best_diff <= 3500:
+    # Loose match: India totals include GST/platform; cohort / CRM discounts widen the gap.
+    if best_diff / ref <= 0.55 or best_diff <= 12000:
         return int(best_i)
+    return None
+
+
+def _first_tier_index_with_dates(tiers: Any) -> Optional[int]:
+    if not isinstance(tiers, list):
+        return None
+    for i, t in enumerate(tiers):
+        if isinstance(t, dict) and _clean_str(t.get("start_date")) and _clean_str(t.get("end_date")):
+            return int(i)
     return None
 
 
@@ -479,6 +497,7 @@ def _program_tier_fields_for_report(
     """Chosen tier label + tier window from catalog ``duration_tiers`` (program checkouts only)."""
     base: Dict[str, Any] = {
         "program_catalog_id": _clean_str(catalog_program_id),
+        "catalog_program_title": "",
         "tier_index": None,
         "tier_label": "",
         "chosen_start_date": "",
@@ -486,9 +505,13 @@ def _program_tier_fields_for_report(
         "is_three_month_tier": False,
     }
     it = (item_type or "").lower()
-    if it != "program" or not catalog_program_id or tier_index is None or not programs_by_id:
+    if it != "program" or not catalog_program_id or not programs_by_id:
         return base
     prog = programs_by_id.get(catalog_program_id)
+    if isinstance(prog, dict):
+        base["catalog_program_title"] = _clean_str(prog.get("title"))
+    if tier_index is None:
+        return base
     if not prog:
         base["tier_index"] = tier_index
         return base
@@ -546,7 +569,7 @@ def build_participant_report_rows(
         inv = _clean_str((txn or {}).get("invoice_number")) or _clean_str(e.get("invoice_number"))
         participants = _merge_participants_for_report(e, txn)
         program = display_program_title_for_enrollment(e, participants, None)
-        item_type = _clean_str(e.get("item_type"))
+        item_type = _clean_str(e.get("item_type")) or _clean_str((txn or {}).get("item_type"))
         booker_name = _clean_str(e.get("booker_name"))
         booker_email = _clean_str(e.get("booker_email"))
         booker_phone = _clean_str(e.get("phone"))
@@ -574,11 +597,16 @@ def build_participant_report_rows(
         if tier_idx is None and item_type.lower() == "program" and catalog_pid and programs_by_id:
             prog_doc = programs_by_id.get(catalog_pid)
             if isinstance(prog_doc, dict):
+                tiers = prog_doc.get("duration_tiers") or []
                 inferred = _infer_tier_index_from_inr_list_prices(e, txn, prog_doc, total_slots)
                 if inferred is not None:
                     tier_idx = inferred
-                elif origin == "dashboard" and prog_doc.get("is_flagship") and (prog_doc.get("duration_tiers") or []):
-                    tier_idx = 0
+                else:
+                    snap = _first_tier_index_with_dates(tiers)
+                    if snap is not None:
+                        tier_idx = snap
+                    elif tiers:
+                        tier_idx = 0
         tier_fields = _program_tier_fields_for_report(item_type, catalog_pid, tier_idx, programs_by_id)
         tier_fields["portal_cohort"] = portal_cohort
 
@@ -1453,6 +1481,7 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
         "Type",
         "Portal cohort (client)",
         "Program catalog id",
+        "Catalog program title",
         "Tier index",
         "Tier label",
         "Chosen start",
@@ -1533,6 +1562,7 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
                 _clean_str(r.get("item_type")),
                 _clean_str(r.get("portal_cohort")),
                 _clean_str(r.get("program_catalog_id")),
+                _clean_str(r.get("catalog_program_title")),
                 r.get("tier_index") if r.get("tier_index") is not None else "",
                 _clean_str(r.get("tier_label")),
                 _clean_str(r.get("chosen_start_date")),
