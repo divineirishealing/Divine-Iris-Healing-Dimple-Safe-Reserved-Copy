@@ -164,7 +164,7 @@ const DashboardLayout = () => {
         data-testid="dashboard-maintenance-screen"
       >
         <Wrench className="h-12 w-12 text-[#D4AF37] mb-4 opacity-90" aria-hidden />
-        <h1 className="text-xl font-semibold text-center text-white mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+        <h1 className="text-xl font-semibold text-center text-white mb-3" style={{ fontFamily: "'Cinzel', Georgia, serif" }}>
           Sacred Home is paused
         </h1>
         <p className="text-sm text-center text-violet-100/90 max-w-md leading-relaxed mb-8">
@@ -308,7 +308,7 @@ const DashboardLayout = () => {
             <div className="min-w-0 pt-0.5 flex-1">
               <p
                 className="text-[0.85rem] font-semibold tracking-[0.06em] text-violet-950 uppercase leading-snug"
-                style={{ fontFamily: "'Lato', sans-serif" }}
+                style={{ fontFamily: "'Cormorant Garamond', 'Cinzel', Georgia, serif" }}
               >
                 Sacred Home
               </p>

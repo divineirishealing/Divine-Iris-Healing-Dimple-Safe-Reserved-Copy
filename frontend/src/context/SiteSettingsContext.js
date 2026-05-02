@@ -37,11 +37,16 @@ export const SiteSettingsProvider = ({ children }) => {
     );
     const root = document.documentElement;
 
-    // Typography: Lato only (admin heading/body/hero font picks do not change rendered family).
-    const headingFont = 'Lato';
-    const bodyFont = 'Lato';
+    const headingFont = s.heading_font || 'Playfair Display';
+    const bodyFont = s.body_font || 'Lato';
+    const heroTitleFont = (s.hero_title_font || '').trim();
+    const heroSubtitleFont = (s.hero_subtitle_font || '').trim();
 
-    const familyQs = `family=${encodeURIComponent('Lato')}:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700`;
+    // Load Google Fonts dynamically (include hero banner fonts — they may differ from global typography)
+    const fontNames = [...new Set([headingFont, bodyFont, heroTitleFont, heroSubtitleFont].filter(Boolean))];
+    const familyQs = fontNames
+      .map((name) => `family=${encodeURIComponent(name)}:wght@300;400;500;600;700`)
+      .join('&');
     const existingLink = document.getElementById('dynamic-google-fonts');
     if (existingLink) existingLink.remove();
     const link = document.createElement('link');
@@ -51,7 +56,7 @@ export const SiteSettingsProvider = ({ children }) => {
     document.head.appendChild(link);
 
     // Apply CSS variables
-    root.style.setProperty('--heading-font', `'${headingFont}', sans-serif`);
+    root.style.setProperty('--heading-font', `'${headingFont}', Georgia, serif`);
     root.style.setProperty('--body-font', `'${bodyFont}', sans-serif`);
     root.style.setProperty('--heading-color', s.heading_color || '#1a1a1a');
     root.style.setProperty('--body-color', s.body_color || '#4a4a4a');

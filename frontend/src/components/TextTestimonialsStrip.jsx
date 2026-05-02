@@ -217,7 +217,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
 
   const q = quotes[active];
 
-  const quoteFont = style?.quote_font || 'Lato';
+  const quoteFont = style?.quote_font || 'Cormorant Garamond';
   const quoteSize = style?.quote_size || '20px';
   const quoteColor = style?.quote_color || '#3d2e1e';
   const quoteItalic = style?.quote_italic !== false;
@@ -288,7 +288,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
               <h2
                 data-testid="trust-title"
                 style={applySectionStyle(trustConfig.title_style, {
-                  fontFamily: "'Lato', sans-serif",
+                  fontFamily: "'Cinzel', serif",
                   fontWeight: 700,
                   color: '#1a1a1a',
                   fontSize: 'clamp(1.5rem, 3vw, 2.2rem)',
@@ -306,7 +306,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-8 max-w-5xl mx-auto mb-10" data-testid="trust-strip">
             {trustCards.map((card, i) => {
               const valStyle = applySectionStyle(card.value_style, {
-                fontFamily: "'Lato', sans-serif",
+                fontFamily: "'Cinzel', serif",
                 fontSize: 'clamp(1.6rem, 3vw, 2.2rem)',
                 fontWeight: 700,
                 color: GOLD,
@@ -318,7 +318,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
               const lblStyle = applySectionStyle(card.label_style, globalTitle);
 
               // Cascade: defaults → global desc style → per-card desc style
-              const descDefaults = { fontFamily: "'Lato', sans-serif", fontSize: '0.78rem', color: '#888', lineHeight: 1.6, fontWeight: 400, fontStyle: 'italic' };
+              const descDefaults = { fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.78rem', color: '#888', lineHeight: 1.6, fontWeight: 400, fontStyle: 'italic' };
               const globalDesc = applySectionStyle(trustConfig.global_description_style, descDefaults);
               const descStyle = applySectionStyle(card.description_style, globalDesc);
 
@@ -357,7 +357,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
               const tStyle = applySectionStyle(card.title_style, globalTitle);
 
               // Cascade: defaults → global desc style → per-card desc style
-              const descDefaults = { fontFamily: "'Lato', sans-serif", fontSize: '0.78rem', color: '#888', lineHeight: 1.6, fontWeight: 400, fontStyle: 'italic' };
+              const descDefaults = { fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.78rem', color: '#888', lineHeight: 1.6, fontWeight: 400, fontStyle: 'italic' };
               const globalDesc = applySectionStyle(trustConfig.global_description_style, descDefaults);
               const dStyle = applySectionStyle(card.description_style, globalDesc);
               const desc = card.description || '';
@@ -407,7 +407,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
               <blockquote
                 data-testid="text-testimonial-quote"
                 style={{
-                  fontFamily: `'${quoteFont}', sans-serif`,
+                  fontFamily: `'${quoteFont}', Georgia, serif`,
                   fontSize: `clamp(1rem, 2.5vw, ${quoteSize})`,
                   color: quoteColor,
                   fontStyle: quoteItalic ? 'italic' : 'normal',

@@ -55,7 +55,7 @@ function PaymentSuccessPage() {
                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
                   <CheckCircle size={40} className="text-green-600" />
                 </div>
-                <h1 data-testid="payment-success-title" className="text-3xl text-gray-900 mb-2" style={{ fontFamily: "'Lato', sans-serif" }}>
+                <h1 data-testid="payment-success-title" className="text-3xl text-gray-900 mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
                   {paymentInfo?.amount === 0 ? 'Registration Complete' : 'Payment Successful'}
                 </h1>
                 <p className="text-gray-500 text-sm">Thank you for your enrollment{paymentInfo?.booker_name ? `, ${paymentInfo.booker_name}` : ''}!</p>

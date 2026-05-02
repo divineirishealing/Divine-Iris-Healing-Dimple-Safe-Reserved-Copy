@@ -1,6 +1,6 @@
 /** Defaults for written-story quote text on /transformations only (grid + modal). */
 export const WRITTEN_QUOTE_STYLE_DEFAULTS = {
-  fontFamily: "'Lato', sans-serif",
+  fontFamily: "'Lora', Georgia, 'Times New Roman', serif",
   fontSize: 'clamp(1.05rem, 2.15vw, 1.2rem)',
   lineHeight: 1.88,
   color: '#1e0a4e',

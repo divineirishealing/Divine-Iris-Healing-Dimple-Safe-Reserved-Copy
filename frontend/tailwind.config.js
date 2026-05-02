@@ -6,11 +6,6 @@ module.exports = {
     "./public/index.html"
   ],
   theme: {
-  	fontFamily: {
-  		sans: ['Lato', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-  		serif: ['Lato', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-  		mono: ['Lato', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
-  	},
   	extend: {
   		fontFamily: {
   			lato: ['Lato', 'ui-sans-serif', 'system-ui', 'sans-serif'],

@@ -66,6 +66,8 @@ const HeroSection = ({ sectionConfig }) => {
 
   const heroTitle = settings?.hero_title || '';
   const heroSubtitle = settings?.hero_subtitle || '';
+  const titleFont = settings?.hero_title_font || 'Cinzel';
+  const subtitleFont = settings?.hero_subtitle_font || 'Lato';
   const titleAlign = settings?.hero_title_align || 'left';
   const verticalAlign = settings?.hero_vertical_align || 'center';
   const titleGap = settings?.hero_title_gap || '24px';
@@ -78,8 +80,8 @@ const HeroSection = ({ sectionConfig }) => {
   const finalSubtitleStyle = homeHero.subtitle_style || {};
   // Use hero_banner fonts from admin — NOT var(--heading-font): that CSS variable is always set globally
   // and would override hero_title_font / hero_subtitle_font entirely.
-  const titleFontStack = `'Lato', sans-serif`;
-  const subtitleFontStack = `'Lato', sans-serif`;
+  const titleFontStack = finalTitleStyle.font_family || `'${titleFont}', Georgia, serif`;
+  const subtitleFontStack = finalSubtitleStyle.font_family || `'${subtitleFont}', sans-serif`;
   const alignClass = titleAlign === 'center' ? 'items-center text-center' : titleAlign === 'right' ? 'items-end text-right' : 'items-start text-left';
   const lineAlign = titleAlign === 'center' ? 'mx-auto' : titleAlign === 'right' ? 'ml-auto' : '';
   const vAlignClass = verticalAlign === 'top' ? 'items-start pt-32' : verticalAlign === 'bottom' ? 'items-end pb-32' : 'items-center';

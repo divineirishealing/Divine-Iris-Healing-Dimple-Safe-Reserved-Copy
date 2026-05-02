@@ -2096,7 +2096,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           <DashboardUpcomingProgramsIrisBloom />
           <h2
             id="dashboard-upcoming-programs-heading"
-            className="font-sans mt-2 px-2 text-lg font-bold tracking-tight text-[#3b0764] drop-shadow-sm md:text-2xl lg:text-3xl"
+            className="font-[family-name:'Cinzel',serif] mt-2 px-2 text-lg font-bold tracking-tight text-[#3b0764] drop-shadow-sm md:text-2xl lg:text-3xl"
           >
             Upcoming programs
           </h2>

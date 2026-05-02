@@ -47,7 +47,7 @@ function formatSessionDateLabel(raw) {
 
 const applyStyle = (styleObj, defaults = {}) => {
   if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
-  return { ...defaults, ...(styleObj.font_size && { fontSize: styleObj.font_size }), ...(styleObj.font_color && { color: styleObj.font_color }), ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }), ...(styleObj.font_style && { fontStyle: styleObj.font_style }) };
+  return { ...defaults, ...(styleObj.font_family && { fontFamily: styleObj.font_family }), ...(styleObj.font_size && { fontSize: styleObj.font_size }), ...(styleObj.font_color && { color: styleObj.font_color }), ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }), ...(styleObj.font_style && { fontStyle: styleObj.font_style }) };
 };
 
 /* ---- Calendar Component ---- */
@@ -400,14 +400,14 @@ function SessionDetailPage() {
   const bodyLeftElements = {
     about_section: (
       <div key="about">
-        <h2 className="text-lg font-semibold mb-4" style={applyStyle(sessionTpl.title_style, { fontFamily: "'Lato', sans-serif", color: '#4c1d95' })}>About This Session</h2>
+        <h2 className="text-lg font-semibold mb-4" style={applyStyle(sessionTpl.title_style, { fontFamily: "'Cinzel', serif", color: '#4c1d95' })}>About This Session</h2>
         <div className="text-sm leading-relaxed" style={applyStyle(sessionTpl.description_style, { color: '#4a4a5a', fontFamily: "'Lato', sans-serif" })}
           dangerouslySetInnerHTML={{ __html: renderMarkdown(session.description) }} />
       </div>
     ),
     testimonials: testimonials.length > 0 ? (
       <div key="test" data-testid="session-testimonials">
-        <h2 className="text-lg font-semibold mb-6" style={applyStyle(sessionTpl.testimonial_heading_style || sessionTpl.testimonial_style, { fontFamily: "'Lato', sans-serif", color: '#4c1d95', fontStyle: 'italic' })}>
+        <h2 className="text-lg font-semibold mb-6" style={applyStyle(sessionTpl.testimonial_heading_style || sessionTpl.testimonial_style, { fontFamily: "'Cinzel', serif", color: '#4c1d95', fontStyle: 'italic' })}>
           What Clients Say
         </h2>
         <div className="space-y-4">
@@ -431,7 +431,7 @@ function SessionDetailPage() {
       const card1Items = sessionTpl.card1_items?.length ? sessionTpl.card1_items : ['Personalized healing approach','Safe and supportive environment','Immediate energetic shifts','Practical guidance for integration'];
       const card2Title = sessionTpl.card2_title || 'Who Is This For';
       const card2Items = sessionTpl.card2_items?.length ? sessionTpl.card2_items : ['Anyone seeking deep healing','Those ready for transformation','Individuals committed to growth','Open to energetic work'];
-      const headingStyle = applyStyle(sessionTpl.info_card_heading_style, { color: '#4c1d95', fontFamily: "'Lato', sans-serif" });
+      const headingStyle = applyStyle(sessionTpl.info_card_heading_style, { color: '#4c1d95', fontFamily: "'Cinzel', serif" });
       const textStyle = applyStyle(sessionTpl.info_card_text_style, {});
       return (
         <div key="cards" className="grid md:grid-cols-2 gap-5">

@@ -36,7 +36,7 @@ export function DashboardSacredNav() {
       <div
         className="font-semibold text-sm tracking-[0.12em] shrink-0"
         style={{
-          fontFamily: "'Lato', sans-serif",
+          fontFamily: "'Cinzel', serif",
           background: 'linear-gradient(90deg, #d4aaff, #fff 50%, #f5c840)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
@@ -60,7 +60,7 @@ export function DashboardSacredNav() {
                   : 'text-[rgba(200,160,255,0.5)] border border-transparent hover:text-[rgba(220,190,255,0.85)] hover:bg-[rgba(160,80,255,0.08)]'
               )
             }
-            style={{ fontFamily: "'Lato', sans-serif" }}
+            style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
             {label}
           </NavLink>
@@ -71,7 +71,7 @@ export function DashboardSacredNav() {
         <div
           className="hidden sm:block text-[9px] tracking-[0.16em] px-3 py-1 rounded-full max-w-[min(280px,42vw)] truncate"
           style={{
-            fontFamily: "'Lato', sans-serif",
+            fontFamily: "'Cinzel', serif",
             background: 'rgba(200,150,20,0.14)',
             border: '1px solid rgba(220,170,40,0.32)',
             color: '#f5c840',

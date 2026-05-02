@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Lato:wght@300;400;700&display=swap');
 
 body {
     margin: 0;
@@ -13,27 +13,19 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5, h6 {
-    font-family: var(--heading-font, 'Lato', sans-serif);
-    color: var(--heading-color, #1a1a1a);
-}
-
+h1, h2, h3, h4, h5, h6,
 .font-serif {
-    font-family: var(--body-font, 'Lato', sans-serif);
     color: var(--heading-color, #1a1a1a);
 }
 
-code,
-kbd,
-pre,
-samp {
-    font-family: var(--body-font, 'Lato', ui-monospace, monospace);
+code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 
 @layer base {
   :root {
         /* Defaults until SiteSettings load (Global Styles admin) */
-        --heading-font: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        --heading-font: 'Cinzel', Georgia, serif;
         --body-font: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         --heading-color: #1a1a1a;
         --body-color: #4a4a4a;

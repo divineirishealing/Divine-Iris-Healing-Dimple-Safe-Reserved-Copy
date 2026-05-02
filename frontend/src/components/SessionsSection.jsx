@@ -350,7 +350,7 @@ const SessionsSection = ({ sectionConfig }) => {
                   <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(212,175,55,0.08))' }}>
                     <CalendarIcon size={32} className="text-purple-400" />
                   </div>
-                  <h3 className="text-purple-900/80 text-lg font-light mb-2" style={sessionTpl.placeholder_title_style ? applySectionStyle(sessionTpl.placeholder_title_style, { fontFamily: "'Lato', sans-serif" }) : { fontFamily: "'Lato', sans-serif" }}>
+                  <h3 className="text-purple-900/80 text-lg font-light mb-2" style={sessionTpl.placeholder_title_style ? applySectionStyle(sessionTpl.placeholder_title_style, { fontFamily: "'Playfair Display', serif" }) : { fontFamily: "'Playfair Display', serif" }}>
                     {sessionTpl.placeholder_title || 'Choose Your Healing Journey'}
                   </h3>
                   <p className="text-gray-400 text-sm max-w-xs mx-auto leading-relaxed" style={sessionTpl.placeholder_subtitle_style ? applySectionStyle(sessionTpl.placeholder_subtitle_style, {}) : {}}>
@@ -387,7 +387,7 @@ const SessionsSection = ({ sectionConfig }) => {
                     );
                   }
                   if (key === 'title') return (
-                    <h3 key="title" className="text-gray-900 text-xl" style={sessionTpl.title_style ? applySectionStyle(sessionTpl.title_style, { fontFamily: "'Lato', sans-serif", fontWeight: 400, letterSpacing: '0.02em' }) : { fontFamily: "'Lato', sans-serif", fontWeight: 400, letterSpacing: '0.02em' }}
+                    <h3 key="title" className="text-gray-900 text-xl" style={sessionTpl.title_style ? applySectionStyle(sessionTpl.title_style, { fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 400, letterSpacing: '0.02em' }) : { fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 400, letterSpacing: '0.02em' }}
                       data-testid="selected-session-title">
                       {selectedSession.title}
                     </h3>

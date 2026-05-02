@@ -127,6 +127,7 @@ const StatsSection = ({ sectionConfig }) => {
   const sec = settings?.sections?.stats || {};
   const sectionStyle = {
     background: sec.bg_color || '#000',
+    ...(sec.font_family && { fontFamily: sec.font_family }),
   };
 
   const hasHeading = !!(sectionConfig?.title || '').trim() || !!(sectionConfig?.subtitle || '').trim();
@@ -159,7 +160,7 @@ const StatsSection = ({ sectionConfig }) => {
               <h2
                 style={applySectionStyle(sectionConfig.title_style, applySectionStyle(sec, {
                   color: '#ffffff',
-                  fontFamily: 'var(--heading-font, "Lato", sans-serif)',
+                  fontFamily: 'var(--heading-font, "Cinzel", Georgia, serif)',
                   fontSize: '1.35rem',
                   fontWeight: 600,
                   margin: 0,
@@ -191,7 +192,7 @@ const StatsSection = ({ sectionConfig }) => {
             const iconClass = stat.icon || icons[index] || 'fa-star';
             const valueBase = applySectionStyle(sec, {
               color: '#d4a843',
-              fontFamily: 'var(--heading-font, "Lato", sans-serif)',
+              fontFamily: 'var(--heading-font, "Cinzel", Georgia, serif)',
               fontSize: '2.8rem',
               fontWeight: 400,
               fontStyle: 'normal',
@@ -205,7 +206,7 @@ const StatsSection = ({ sectionConfig }) => {
 
             const labelBase = applySectionStyle(sec, {
               color: '#ffffff',
-              fontFamily: 'var(--heading-font, "Lato", sans-serif)',
+              fontFamily: 'var(--heading-font, "Cinzel", Georgia, serif)',
               fontSize: '0.65rem',
               letterSpacing: '0.25em',
               textTransform: 'uppercase',
