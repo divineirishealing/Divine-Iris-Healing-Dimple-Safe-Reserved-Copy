@@ -97,13 +97,35 @@ const PROGRAM_BATCH_COLUMN_DEFS = [
   { id: 'age', label: 'Age', weight: 4, headClass: 'text-left' },
   { id: 'gender', label: 'Gen.', weight: 5, headClass: 'text-left' },
   { id: 'city', label: 'City', weight: 9, headClass: 'text-left' },
-  { id: 'country', label: 'Ctry', weight: 9, headClass: 'text-left' },
+  { id: 'country', label: 'Ctry', weight: 8, headClass: 'text-left' },
+  { id: 'cohort', label: 'Batch', weight: 8, headClass: 'text-left leading-tight' },
+  { id: 'tier', label: 'Tier', weight: 8, headClass: 'text-left leading-tight' },
+  { id: 'progStart', label: 'Start', weight: 7, headClass: 'text-left leading-tight' },
+  { id: 'progEnd', label: 'End', weight: 7, headClass: 'text-left leading-tight' },
   { id: 'mode', label: 'Mode', weight: 7, headClass: 'text-left' },
   { id: 'origin', label: 'Src', weight: 6, headClass: 'text-left' },
   { id: 'status', label: 'Status', weight: 9, headClass: 'text-left leading-tight' },
   { id: 'amt', label: 'Amt', weight: 7, headClass: 'text-right leading-tight' },
   { id: 'inr', label: 'INR', weight: 8, headClass: 'text-right leading-tight' },
   { id: 'runInr', label: 'Σ INR', weight: 9, headClass: 'text-right leading-tight' },
+];
+
+/** Admin-only: 3-month program tier exploded to one row per calendar month of eligibility. */
+const THREE_MO_MONTHLY_COLUMN_DEFS = [
+  { id: 'serial', label: '#', weight: 4, headClass: 'text-left' },
+  { id: 'eligMonth', label: 'Month', weight: 8, headClass: 'text-left font-mono' },
+  { id: 'eligMonthLabel', label: 'Month (label)', weight: 10, headClass: 'text-left leading-tight' },
+  { id: 'cohort', label: 'Batch', weight: 7, headClass: 'text-left leading-tight' },
+  { id: 'tier', label: 'Tier', weight: 8, headClass: 'text-left leading-tight' },
+  { id: 'progStart', label: 'Start', weight: 7, headClass: 'text-left leading-tight' },
+  { id: 'progEnd', label: 'End', weight: 7, headClass: 'text-left leading-tight' },
+  { id: 'name', label: 'Name', weight: 14, headClass: 'text-left leading-tight' },
+  { id: 'city', label: 'City', weight: 8, headClass: 'text-left' },
+  { id: 'country', label: 'Ctry', weight: 6, headClass: 'text-left' },
+  { id: 'mode', label: 'Mode', weight: 6, headClass: 'text-left' },
+  { id: 'origin', label: 'Src', weight: 5, headClass: 'text-left' },
+  { id: 'invoice', label: 'Inv', weight: 8, headClass: 'text-left' },
+  { id: 'enrollId', label: 'Enroll ID', weight: 10, headClass: 'text-left font-mono' },
 ];
 
 function defaultsFromColumnDefs(defs) {
@@ -120,6 +142,7 @@ const DEFAULT_COLUMN_VISIBILITY = {
   summary: defaultsFromColumnDefs(SUMMARY_COLUMN_DEFS),
   participants: defaultsFromColumnDefs(PARTICIPANT_COLUMN_DEFS),
   programBatch: defaultsFromColumnDefs(PROGRAM_BATCH_COLUMN_DEFS),
+  programThreeMo: defaultsFromColumnDefs(THREE_MO_MONTHLY_COLUMN_DEFS),
 };
 
 function loadColumnVisibility() {
@@ -130,6 +153,7 @@ function loadColumnVisibility() {
         summary: { ...DEFAULT_COLUMN_VISIBILITY.summary },
         participants: { ...DEFAULT_COLUMN_VISIBILITY.participants },
         programBatch: { ...DEFAULT_COLUMN_VISIBILITY.programBatch },
+        programThreeMo: { ...DEFAULT_COLUMN_VISIBILITY.programThreeMo },
       };
     }
     const parsed = JSON.parse(raw);
@@ -137,14 +161,25 @@ function loadColumnVisibility() {
       summary: ensureAtLeastOneVisible(parsed.summary || {}, SUMMARY_COLUMN_DEFS),
       participants: ensureAtLeastOneVisible(parsed.participants || {}, PARTICIPANT_COLUMN_DEFS),
       programBatch: ensureAtLeastOneVisible(parsed.programBatch || {}, PROGRAM_BATCH_COLUMN_DEFS),
+      programThreeMo: ensureAtLeastOneVisible(parsed.programThreeMo || {}, THREE_MO_MONTHLY_COLUMN_DEFS),
     };
   } catch {
     return {
       summary: { ...DEFAULT_COLUMN_VISIBILITY.summary },
       participants: { ...DEFAULT_COLUMN_VISIBILITY.participants },
       programBatch: { ...DEFAULT_COLUMN_VISIBILITY.programBatch },
+      programThreeMo: { ...DEFAULT_COLUMN_VISIBILITY.programThreeMo },
     };
   }
+}
+
+function columnPickerMeta(viewMode) {
+  if (viewMode === 'summary') return { defs: SUMMARY_COLUMN_DEFS, vk: 'summary', title: 'Checkout' };
+  if (viewMode === 'participants') return { defs: PARTICIPANT_COLUMN_DEFS, vk: 'participants', title: 'Participant' };
+  if (viewMode === 'program_three_month') {
+    return { defs: THREE_MO_MONTHLY_COLUMN_DEFS, vk: 'programThreeMo', title: '3-mo by month' };
+  }
+  return { defs: PROGRAM_BATCH_COLUMN_DEFS, vk: 'programBatch', title: 'Program batch' };
 }
 
 function enrollmentOriginKey(originish) {
@@ -166,6 +201,54 @@ function parseReportDateMs(iso) {
     return new Date(String(iso).replace('Z', '+00:00')).getTime();
   } catch {
     return 0;
+  }
+}
+
+/** Parse YYYY-MM-DD prefix for calendar-month eligibility (IST not required; date-only). */
+function parseCalendarYmd(iso) {
+  if (!iso) return null;
+  const s = String(iso).trim().slice(0, 10);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  if (!y || mo < 1 || mo > 12) return null;
+  return { y, m: mo };
+}
+
+/** Inclusive list of YYYY-MM keys from chosen tier start/end dates. */
+function calendarMonthsBetweenInclusive(startIso, endIso) {
+  const a = parseCalendarYmd(startIso);
+  const b = parseCalendarYmd(endIso);
+  if (!a || !b) return [];
+  if (a.y > b.y || (a.y === b.y && a.m > b.m)) return [];
+  const out = [];
+  let y = a.y;
+  let mo = a.m;
+  for (;;) {
+    out.push(`${y}-${String(mo).padStart(2, '0')}`);
+    if (y === b.y && mo === b.m) break;
+    if (mo === 12) {
+      y += 1;
+      mo = 1;
+    } else {
+      mo += 1;
+    }
+  }
+  return out;
+}
+
+function formatEligibilityMonthLabel(ymKey) {
+  if (!ymKey || typeof ymKey !== 'string') return '—';
+  const parts = ymKey.split('-');
+  if (parts.length !== 2) return ymKey;
+  const y = Number(parts[0]);
+  const mo = Number(parts[1]);
+  if (!y || mo < 1 || mo > 12) return ymKey;
+  try {
+    return new Date(y, mo - 1, 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+  } catch {
+    return ymKey;
   }
 }
 
@@ -253,7 +336,7 @@ const EnrollmentsTab = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
-  /** summary = one row per checkout; participants = one row per person; program_analytics = batch tally per program. */
+  /** summary = checkout; participants = per person; program_analytics = roster+Σ; program_three_month = 3-mo tier by calendar month. */
   const [viewMode, setViewMode] = useState('summary');
   const [participantRows, setParticipantRows] = useState([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
@@ -279,6 +362,7 @@ const EnrollmentsTab = () => {
       summary: ensureAtLeastOneVisible(prev.summary, SUMMARY_COLUMN_DEFS),
       participants: ensureAtLeastOneVisible(prev.participants, PARTICIPANT_COLUMN_DEFS),
       programBatch: ensureAtLeastOneVisible(prev.programBatch, PROGRAM_BATCH_COLUMN_DEFS),
+      programThreeMo: ensureAtLeastOneVisible(prev.programThreeMo || {}, THREE_MO_MONTHLY_COLUMN_DEFS),
     }));
   }, []);
 
@@ -332,7 +416,9 @@ const EnrollmentsTab = () => {
   };
 
   useEffect(() => {
-    if (viewMode === 'participants' || viewMode === 'program_analytics') loadParticipantReport();
+    if (viewMode === 'participants' || viewMode === 'program_analytics' || viewMode === 'program_three_month') {
+      loadParticipantReport();
+    }
   }, [viewMode, paidOnlyReport]);
 
   const loadEnrollments = async () => {
@@ -487,12 +573,18 @@ const EnrollmentsTab = () => {
   }, [participantRows]);
 
   useEffect(() => {
-    if (viewMode !== 'program_analytics' || programBatchTitles.length === 0) return;
+    if (
+      (viewMode !== 'program_analytics' && viewMode !== 'program_three_month') ||
+      programBatchTitles.length === 0
+    ) {
+      return;
+    }
     setSelectedProgramBatch((prev) => (prev && programBatchTitles.includes(prev) ? prev : programBatchTitles[0]));
   }, [viewMode, programBatchTitles]);
 
   const programBatchBaseRows = useMemo(() => {
     if (!selectedProgramBatch) return [];
+    if (viewMode !== 'program_analytics' && viewMode !== 'program_three_month') return [];
     return participantRows.filter((row) => {
       const title = (row.program || '').trim() || '(Untitled program)';
       if (title !== selectedProgramBatch) return false;
@@ -506,9 +598,49 @@ const EnrollmentsTab = () => {
         row.participant_email,
         row.invoice_number,
         row.enrollment_id,
+        row.portal_cohort,
+        row.tier_label,
       ].filter(Boolean).some((f) => String(f).toLowerCase().includes(q));
     });
-  }, [participantRows, selectedProgramBatch, participantSearch, originFilter]);
+  }, [participantRows, selectedProgramBatch, participantSearch, originFilter, viewMode]);
+
+  const threeMonthMonthlyRows = useMemo(() => {
+    if (viewMode !== 'program_three_month') return [];
+    const base = programBatchBaseRows.filter((row) => {
+      const it = String(row.item_type || '').toLowerCase();
+      if (it !== 'program') return false;
+      if (!row.is_three_month_tier) return false;
+      return !!(row.chosen_start_date && row.chosen_end_date);
+    });
+    const exploded = [];
+    base.forEach((row) => {
+      const months = calendarMonthsBetweenInclusive(row.chosen_start_date, row.chosen_end_date);
+      months.forEach((mk) => {
+        exploded.push({
+          ...row,
+          eligibility_month: mk,
+          eligibility_month_label: formatEligibilityMonthLabel(mk),
+          _explodeKey: `${row.enrollment_id}-${row.participant_index}-${mk}`,
+        });
+      });
+    });
+    exploded.sort((a, b) => {
+      const c = String(a.eligibility_month || '').localeCompare(String(b.eligibility_month || ''));
+      if (c !== 0) return c;
+      return String(a.participant_name || '').localeCompare(String(b.participant_name || ''));
+    });
+    return exploded;
+  }, [programBatchBaseRows, viewMode]);
+
+  const threeMonthMonthCounts = useMemo(() => {
+    const m = new Map();
+    threeMonthMonthlyRows.forEach((r) => {
+      const k = r.eligibility_month || '';
+      if (!k) return;
+      m.set(k, (m.get(k) || 0) + 1);
+    });
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [threeMonthMonthlyRows]);
 
   const programBatchAnalyticsRows = useMemo(() => {
     const sorted = [...programBatchBaseRows].sort(
@@ -557,6 +689,15 @@ const EnrollmentsTab = () => {
     [visProgramBatchCols],
   );
 
+  const visProgramThreeMoCols = useMemo(() => {
+    const vis = columnVisibility.programThreeMo || defaultsFromColumnDefs(THREE_MO_MONTHLY_COLUMN_DEFS);
+    return THREE_MO_MONTHLY_COLUMN_DEFS.filter((d) => vis[d.id] !== false);
+  }, [columnVisibility.programThreeMo]);
+  const programThreeMoWeightSum = useMemo(
+    () => Math.max(1, visProgramThreeMoCols.reduce((s, d) => s + d.weight, 0)),
+    [visProgramThreeMoCols],
+  );
+
   const downloadProgramBatchCsv = () => {
     if (programBatchAnalyticsRows.length === 0) return;
     const headers = [
@@ -566,6 +707,10 @@ const EnrollmentsTab = () => {
       'Gender',
       'City',
       'Country',
+      'Batch (portal cohort)',
+      'Tier',
+      'Chosen start',
+      'Chosen end',
       'Mode',
       'Origin',
       'Status',
@@ -595,6 +740,10 @@ const EnrollmentsTab = () => {
             esc(row.gender),
             esc(row.city),
             esc(row.country),
+            esc(row.portal_cohort),
+            esc(row.tier_label),
+            esc(row.chosen_start_date),
+            esc(row.chosen_end_date),
             esc(participantAttendanceLabel(row.attendance_mode)),
             esc(originLabel(row.enrollment_origin)),
             esc(row.enrollment_status || row.payment_status),
@@ -615,6 +764,61 @@ const EnrollmentsTab = () => {
     a.href = url;
     const safe = selectedProgramBatch.replace(/[^\w\-]+/g, '_').slice(0, 60);
     a.download = `program_batch_${safe}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    toast({ title: 'CSV downloaded' });
+  };
+
+  const downloadThreeMonthCsv = () => {
+    if (threeMonthMonthlyRows.length === 0) return;
+    const headers = [
+      '#',
+      'Eligibility month',
+      'Month label',
+      'Batch (portal cohort)',
+      'Tier',
+      'Chosen start',
+      'Chosen end',
+      'Participant',
+      'City',
+      'Country',
+      'Mode',
+      'Origin',
+      'Invoice',
+      'Enrollment ID',
+    ];
+    const lines = [headers.join(',')];
+    const esc = (v) => {
+      const s = v == null ? '' : String(v);
+      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+    threeMonthMonthlyRows.forEach((row, i) => {
+      lines.push(
+        [
+          i + 1,
+          esc(row.eligibility_month),
+          esc(row.eligibility_month_label),
+          esc(row.portal_cohort),
+          esc(row.tier_label),
+          esc(row.chosen_start_date),
+          esc(row.chosen_end_date),
+          esc(row.participant_name),
+          esc(row.city),
+          esc(row.country),
+          esc(participantAttendanceLabel(row.attendance_mode)),
+          esc(originLabel(row.enrollment_origin)),
+          esc(row.invoice_number),
+          esc(row.enrollment_id),
+        ].join(','),
+      );
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safe = selectedProgramBatch.replace(/[^\w\-]+/g, '_').slice(0, 60);
+    a.download = `program_3mo_monthly_${safe}_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
     toast({ title: 'CSV downloaded' });
@@ -654,6 +858,14 @@ const EnrollmentsTab = () => {
             >
               <ClipboardList size={12} /> Program batch
             </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('program_three_month')}
+              data-testid="enrollments-view-program-3mo-monthly"
+              className={`flex items-center gap-1 text-[10px] px-3 py-1.5 rounded-full font-medium ${viewMode === 'program_three_month' ? 'bg-white shadow text-purple-800' : 'text-gray-600'}`}
+            >
+              <ClipboardList size={12} /> 3-mo by month
+            </button>
           </div>
           {viewMode === 'summary' ? (
             <button onClick={handleExport} data-testid="export-enrollments"
@@ -664,6 +876,16 @@ const EnrollmentsTab = () => {
             <button onClick={handleCleanExport} data-testid="export-enrollments-clean"
               className="flex items-center gap-1.5 text-[10px] px-4 py-2 rounded-full bg-green-600 text-white hover:bg-green-700 font-medium">
               <Download size={12} /> Participant Excel
+            </button>
+          ) : viewMode === 'program_three_month' ? (
+            <button
+              type="button"
+              onClick={downloadThreeMonthCsv}
+              disabled={threeMonthMonthlyRows.length === 0}
+              data-testid="export-program-3mo-csv"
+              className="flex items-center gap-1.5 text-[10px] px-4 py-2 rounded-full bg-green-600 text-white hover:bg-green-700 font-medium disabled:opacity-50"
+            >
+              <Download size={12} /> 3-mo CSV
             </button>
           ) : (
             <button
@@ -687,29 +909,19 @@ const EnrollmentsTab = () => {
               </button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-80 max-h-[min(24rem,70vh)] flex flex-col">
-              <p className="text-[11px] font-semibold text-gray-800 mb-2 shrink-0">Visible columns ({viewMode === 'program_analytics' ? 'Program batch' : viewMode === 'participants' ? 'Participant' : 'Checkout'})</p>
+              <p className="text-[11px] font-semibold text-gray-800 mb-2 shrink-0">
+                Visible columns ({columnPickerMeta(viewMode).title})
+              </p>
               <div className="space-y-2 overflow-y-auto pr-1 flex-1 min-h-0">
-                {(viewMode === 'summary'
-                  ? SUMMARY_COLUMN_DEFS
-                  : viewMode === 'participants'
-                    ? PARTICIPANT_COLUMN_DEFS
-                    : PROGRAM_BATCH_COLUMN_DEFS
-                ).map((def) => {
-                  const vk =
-                    viewMode === 'summary' ? 'summary' : viewMode === 'participants' ? 'participants' : 'programBatch';
+                {columnPickerMeta(viewMode).defs.map((def) => {
+                  const { vk, defs } = columnPickerMeta(viewMode);
                   return (
                     <label key={def.id} className="flex items-center gap-2 text-[11px] text-gray-700 cursor-pointer">
                       <Checkbox
-                        checked={columnVisibility[vk][def.id] !== false}
+                        checked={(columnVisibility[vk] || {})[def.id] !== false}
                         onCheckedChange={(v) =>
                           setColumnVisibility((prev) => {
-                            const defs =
-                              vk === 'summary'
-                                ? SUMMARY_COLUMN_DEFS
-                                : vk === 'participants'
-                                  ? PARTICIPANT_COLUMN_DEFS
-                                  : PROGRAM_BATCH_COLUMN_DEFS;
-                            const nextVis = { ...prev[vk], [def.id]: v === true };
+                            const nextVis = { ...(prev[vk] || {}), [def.id]: v === true };
                             const remaining = defs.filter((d) => nextVis[d.id] !== false).length;
                             if (remaining < 1) return prev;
                             return { ...prev, [vk]: nextVis };
@@ -725,14 +937,7 @@ const EnrollmentsTab = () => {
                 type="button"
                 className="mt-3 text-[10px] text-violet-700 font-medium hover:underline shrink-0 text-left"
                 onClick={() => {
-                  const vk =
-                    viewMode === 'summary' ? 'summary' : viewMode === 'participants' ? 'participants' : 'programBatch';
-                  const defs =
-                    viewMode === 'summary'
-                      ? SUMMARY_COLUMN_DEFS
-                      : viewMode === 'participants'
-                        ? PARTICIPANT_COLUMN_DEFS
-                        : PROGRAM_BATCH_COLUMN_DEFS;
+                  const { vk, defs } = columnPickerMeta(viewMode);
                   setColumnVisibility((prev) => ({
                     ...prev,
                     [vk]: defaultsFromColumnDefs(defs),
@@ -834,13 +1039,23 @@ const EnrollmentsTab = () => {
         </p>
       )}
 
-      {viewMode === 'program_analytics' && (
-        <p className="text-[10px] text-gray-500 mb-2">
-          <strong>Program batch:</strong> roster + running Σ (INR); each payment counted once (seat 1). Filter by origin below; hide columns from the Columns button.{' '}
-          <span className="text-gray-600">
-            <strong>Program</strong> prefers the label the member saw at checkout (e.g. Home Coming Annual Program) when it was stored on the enrollment; the underlying catalog row may still be AWRP.
-          </span>
-        </p>
+      {(viewMode === 'program_analytics' || viewMode === 'program_three_month') && (
+        <>
+          {viewMode === 'program_analytics' && (
+            <p className="text-[10px] text-gray-500 mb-2">
+              <strong>Program batch:</strong> roster + running Σ (INR); each payment counted once (seat 1). Filter by origin below; hide columns from the Columns button.{' '}
+              <span className="text-gray-600">
+                <strong>Program</strong> prefers the label the member saw at checkout (e.g. Home Coming Annual Program) when it was stored on the enrollment; the underlying catalog row may still be AWRP.
+              </span>
+            </p>
+          )}
+          {viewMode === 'program_three_month' && (
+            <p className="text-[10px] text-gray-500 mb-2">
+              <strong>3-month by month:</strong> program checkouts on the catalog <strong>3-month</strong> tier only. Each row is one participant for one calendar month overlapping the tier&apos;s{' '}
+              <strong>start</strong> and <strong>end</strong> dates. <strong>Batch</strong> is the portal cohort id when the booker email matches a client record.
+            </p>
+          )}
+        </>
       )}
 
       {viewMode === 'participants' && (
@@ -885,7 +1100,7 @@ const EnrollmentsTab = () => {
         </div>
       )}
 
-      {viewMode === 'program_analytics' && (
+      {(viewMode === 'program_analytics' || viewMode === 'program_three_month') && (
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <label className="flex items-center gap-2 text-[11px] text-gray-700 cursor-pointer">
             <input
@@ -946,7 +1161,7 @@ const EnrollmentsTab = () => {
               className="pl-9 text-xs h-9"
             />
           </div>
-          {programBatchAnalyticsRows.length > 0 && (
+          {viewMode === 'program_analytics' && programBatchAnalyticsRows.length > 0 && (
             <span className="text-[11px] text-gray-500">
               {programBatchAnalyticsRows.length} row{programBatchAnalyticsRows.length !== 1 ? 's' : ''} · Last Σ{' '}
               <span className="font-semibold text-violet-900 tabular-nums">
@@ -955,6 +1170,19 @@ const EnrollmentsTab = () => {
                   'en-IN',
                 )}
               </span>
+            </span>
+          )}
+          {viewMode === 'program_three_month' && threeMonthMonthlyRows.length > 0 && (
+            <span className="text-[10px] text-gray-600 max-w-xl leading-snug">
+              <span className="font-medium text-gray-800">{threeMonthMonthlyRows.length}</span> eligibility row
+              {threeMonthMonthlyRows.length !== 1 ? 's' : ''}
+              {threeMonthMonthCounts.length > 0 ? (
+                <>
+                  {' '}
+                  ·{' '}
+                  <span className="font-mono">{threeMonthMonthCounts.map(([k, n]) => `${k}: ${n}`).join(' · ')}</span>
+                </>
+              ) : null}
             </span>
           )}
         </div>
@@ -1418,6 +1646,30 @@ const EnrollmentsTab = () => {
                               return <td key={def.id} className={`${bc} text-gray-700`} title={row.city}>{row.city || '—'}</td>;
                             case 'country':
                               return <td key={def.id} className={`${bc} text-gray-700`} title={row.country}>{row.country || '—'}</td>;
+                            case 'cohort':
+                              return (
+                                <td key={def.id} className={`${bc} text-teal-900 font-mono text-[9px]`} title={row.portal_cohort || ''}>
+                                  {row.portal_cohort || '—'}
+                                </td>
+                              );
+                            case 'tier':
+                              return (
+                                <td key={def.id} className={`${bc} text-gray-800 leading-tight`} title={row.tier_label || ''}>
+                                  {row.tier_label || '—'}
+                                </td>
+                              );
+                            case 'progStart':
+                              return (
+                                <td key={def.id} className={`${bc} text-gray-700 text-[9px] font-mono`} title={row.chosen_start_date || ''}>
+                                  {row.chosen_start_date || '—'}
+                                </td>
+                              );
+                            case 'progEnd':
+                              return (
+                                <td key={def.id} className={`${bc} text-gray-700 text-[9px] font-mono`} title={row.chosen_end_date || ''}>
+                                  {row.chosen_end_date || '—'}
+                                </td>
+                              );
                             case 'mode':
                               return (
                                 <td key={def.id} className={`${bc} text-gray-700 text-[9px] sm:text-[10px]`} title={participantAttendanceLabel(row.attendance_mode)}>
@@ -1454,6 +1706,135 @@ const EnrollmentsTab = () => {
                               return <td key={def.id} className={`${bc} text-right tabular-nums text-gray-800`}>₹{amountInr.toLocaleString('en-IN')}</td>;
                             case 'runInr':
                               return <td key={def.id} className={`${bc} text-right font-semibold text-violet-900 tabular-nums`}>₹{cumulativeInr.toLocaleString('en-IN')}</td>;
+                            default:
+                              return null;
+                          }
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      )}
+
+      {viewMode === 'program_three_month' && (
+        loadingParticipants ? (
+          <div className="text-center py-12 text-gray-400 text-sm">Loading program data…</div>
+        ) : programBatchTitles.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 text-sm">
+            No participant rows loaded. Adjust filters or confirm enrollments exist.
+          </div>
+        ) : threeMonthMonthlyRows.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 text-sm max-w-lg mx-auto leading-relaxed">
+            No 3-month tier rows for this program and filters. Requires <strong>item type program</strong>, checkout{' '}
+            <strong>tier_index</strong> pointing at a catalog tier labeled like &quot;3 Months&quot;, and that tier must have{' '}
+            <strong>start_date</strong> / <strong>end_date</strong> in the program catalog.
+          </div>
+        ) : (
+          <div className={ENROLL_TABLE_CARD_CLASS} data-testid="enrollments-program-3mo-monthly-table">
+            <p className="text-[10px] text-gray-600 px-3 py-2.5 bg-gray-50/80 border-b border-gray-100 leading-relaxed">
+              Sorted by <strong>eligibility month</strong> (YYYY-MM), then participant name. One row per person per month overlapping the chosen tier window.
+            </p>
+            <div className={ENROLL_TABLE_INNER_CLASS}>
+              <table className="w-full table-fixed border-collapse text-[10px] sm:text-[11px]">
+                <colgroup>
+                  {visProgramThreeMoCols.map((d) => (
+                    <col key={d.id} style={{ width: `${(d.weight / programThreeMoWeightSum) * 100}%` }} />
+                  ))}
+                </colgroup>
+                <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-100">
+                  <tr>
+                    {visProgramThreeMoCols.map((d) => (
+                      <th key={d.id} className={cn('px-1 sm:px-2 py-2 font-semibold text-gray-700', d.headClass)}>
+                        {d.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {threeMonthMonthlyRows.map((row, idx) => {
+                    const serial = idx + 1;
+                    const bc = 'px-1 sm:px-2 py-1.5 align-top min-w-0';
+                    return (
+                      <tr
+                        key={row._explodeKey || `${row.enrollment_id}-${row.participant_index}-${row.eligibility_month}`}
+                        className="odd:bg-white even:bg-violet-50/25 hover:bg-amber-50/35 transition-colors"
+                      >
+                        {visProgramThreeMoCols.map((def) => {
+                          switch (def.id) {
+                            case 'serial':
+                              return <td key={def.id} className={`${bc} text-gray-500 tabular-nums`}>{serial}</td>;
+                            case 'eligMonth':
+                              return (
+                                <td key={def.id} className={`${bc} font-mono text-gray-900`} title={row.eligibility_month || ''}>
+                                  {row.eligibility_month || '—'}
+                                </td>
+                              );
+                            case 'eligMonthLabel':
+                              return (
+                                <td key={def.id} className={`${bc} text-gray-800`} title={row.eligibility_month_label || ''}>
+                                  {row.eligibility_month_label || '—'}
+                                </td>
+                              );
+                            case 'cohort':
+                              return (
+                                <td key={def.id} className={`${bc} text-teal-900 font-mono text-[9px]`} title={row.portal_cohort || ''}>
+                                  {row.portal_cohort || '—'}
+                                </td>
+                              );
+                            case 'tier':
+                              return (
+                                <td key={def.id} className={`${bc} text-gray-800 leading-tight`} title={row.tier_label || ''}>
+                                  {row.tier_label || '—'}
+                                </td>
+                              );
+                            case 'progStart':
+                              return (
+                                <td key={def.id} className={`${bc} text-gray-700 text-[9px] font-mono`} title={row.chosen_start_date || ''}>
+                                  {row.chosen_start_date || '—'}
+                                </td>
+                              );
+                            case 'progEnd':
+                              return (
+                                <td key={def.id} className={`${bc} text-gray-700 text-[9px] font-mono`} title={row.chosen_end_date || ''}>
+                                  {row.chosen_end_date || '—'}
+                                </td>
+                              );
+                            case 'name':
+                              return <td key={def.id} className={`${bc} font-medium text-gray-900`} title={row.participant_name || ''}>{row.participant_name || '—'}</td>;
+                            case 'city':
+                              return <td key={def.id} className={`${bc} text-gray-700`} title={row.city}>{row.city || '—'}</td>;
+                            case 'country':
+                              return <td key={def.id} className={`${bc} text-gray-700`} title={row.country}>{row.country || '—'}</td>;
+                            case 'mode':
+                              return (
+                                <td key={def.id} className={`${bc} text-gray-700 text-[9px] sm:text-[10px]`} title={participantAttendanceLabel(row.attendance_mode)}>
+                                  {participantAttendanceLabel(row.attendance_mode)}
+                                </td>
+                              );
+                            case 'origin':
+                              return (
+                                <td key={def.id} className={bc}>
+                                  <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium ${row.enrollment_origin === 'dashboard' ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
+                                    {row.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
+                                  </span>
+                                </td>
+                              );
+                            case 'invoice':
+                              return (
+                                <td key={def.id} className={`${bc} font-mono text-purple-800 break-all`} title={row.invoice_number || ''}>
+                                  {row.invoice_number || '—'}
+                                </td>
+                              );
+                            case 'enrollId':
+                              return (
+                                <td key={def.id} className={`${bc} font-mono text-gray-600 break-all text-[9px]`} title={row.enrollment_id || ''}>
+                                  {row.enrollment_id || '—'}
+                                </td>
+                              );
                             default:
                               return null;
                           }

@@ -1,10 +1,13 @@
+import asyncio
+
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
-from typing import Optional, Any, Dict, List
+from typing import Any, Dict, List, Optional
 import os, uuid, logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
 from datetime import datetime, timezone
+import re
 import mimetypes
 
 import s3_storage
@@ -200,11 +203,157 @@ def _payment_amount_currency(e: dict, txn: Optional[dict]) -> tuple:
     return 0, cur
 
 
+def _client_portal_cohort_from_client_doc(client: Optional[dict]) -> str:
+    """Same precedence as subscriber/client editing: top-level awrp_batch_id, then subscription, then annual."""
+    if not isinstance(client, dict):
+        return ""
+    for key in ("awrp_batch_id",):
+        raw = client.get(key)
+        if raw is not None and str(raw).strip():
+            return str(raw).strip()
+    sub = client.get("subscription") or {}
+    raw = sub.get("awrp_batch_id")
+    if raw is not None and str(raw).strip():
+        return str(raw).strip()
+    annual_sub = client.get("annual_subscription") or {}
+    raw = annual_sub.get("awrp_batch_id")
+    if raw is not None and str(raw).strip():
+        return str(raw).strip()
+    return ""
+
+
+async def _portal_cohort_by_booker_emails(enrollments: List[dict]) -> Dict[str, str]:
+    """Map normalized booker email → portal cohort id (awrp_batch_id) when a client row exists."""
+    uniq: List[str] = []
+    seen = set()
+    for e in enrollments:
+        em = (_clean_str(e.get("booker_email")) or "").strip().lower()
+        if em and em not in seen:
+            seen.add(em)
+            uniq.append(em)
+    if not uniq:
+        return {}
+    try:
+        from pymongo.collation import Collation
+
+        coll = Collation(locale="en", strength=2)
+    except Exception:
+        coll = None
+    q = db.clients.find(
+        {"email": {"$in": uniq}},
+        {"_id": 0, "email": 1, "awrp_batch_id": 1, "subscription": 1, "annual_subscription": 1},
+    )
+    if coll is not None:
+        q = q.collation(coll)
+    rows = await q.to_list(20000)
+    out: Dict[str, str] = {}
+    for c in rows:
+        ce = (_clean_str(c.get("email")) or "").strip().lower()
+        bid = _client_portal_cohort_from_client_doc(c)
+        if ce and bid and ce not in out:
+            out[ce] = bid
+    return out
+
+
+async def _programs_duration_tiers_by_item_id(
+    enrollments: List[dict],
+    txns_by_eid: Dict[str, List[dict]],
+) -> Dict[str, dict]:
+    """Catalog program id → program doc subset (duration_tiers) for checkout tier/dates."""
+    ids = set()
+    for e in enrollments:
+        eid = e.get("id") or ""
+        txn = _pick_best_transaction(txns_by_eid.get(eid) or [])
+        it = (_clean_str((txn or {}).get("item_type")) or _clean_str(e.get("item_type"))).lower()
+        if it != "program":
+            continue
+        pid = _clean_str((txn or {}).get("item_id")) or _clean_str(e.get("item_id"))
+        if pid:
+            ids.add(pid)
+    if not ids:
+        return {}
+    id_list = list(ids)
+    rows = await db.programs.find(
+        {"id": {"$in": id_list}},
+        {"_id": 0, "id": 1, "duration_tiers": 1},
+    ).to_list(len(id_list) + 50)
+    return {str(r.get("id")): r for r in rows if r.get("id") is not None}
+
+
+def _tier_index_from_enrollment(enrollment: dict, txn: Optional[dict]) -> Optional[int]:
+    raw = enrollment.get("tier_index")
+    if raw is None and txn:
+        raw = txn.get("tier_index")
+    if raw is None or str(raw).strip() == "":
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_three_month_duration_tier(tier: Optional[dict]) -> bool:
+    if not isinstance(tier, dict):
+        return False
+    label = (tier.get("label") or "").lower()
+    if re.search(r"\b3\s*[- ]?\s*months?\b", label):
+        return True
+    if re.search(r"\bthree\s+months?\b", label):
+        return True
+    dm = tier.get("duration_months")
+    try:
+        if int(dm) == 3:
+            return True
+    except (TypeError, ValueError):
+        pass
+    dur = (tier.get("duration") or "").lower()
+    if "3 month" in dur or "90 day" in dur or "90 days" in dur:
+        return True
+    return False
+
+
+def _program_tier_fields_for_report(
+    item_type: str,
+    catalog_program_id: str,
+    tier_index: Optional[int],
+    programs_by_id: Optional[Dict[str, dict]],
+) -> Dict[str, Any]:
+    """Chosen tier label + tier window from catalog ``duration_tiers`` (program checkouts only)."""
+    base: Dict[str, Any] = {
+        "program_catalog_id": _clean_str(catalog_program_id),
+        "tier_index": None,
+        "tier_label": "",
+        "chosen_start_date": "",
+        "chosen_end_date": "",
+        "is_three_month_tier": False,
+    }
+    it = (item_type or "").lower()
+    if it != "program" or not catalog_program_id or tier_index is None or not programs_by_id:
+        return base
+    prog = programs_by_id.get(catalog_program_id)
+    if not prog:
+        base["tier_index"] = tier_index
+        return base
+    tiers = prog.get("duration_tiers") or []
+    if tier_index < 0 or tier_index >= len(tiers):
+        base["tier_index"] = tier_index
+        return base
+    tier = tiers[tier_index] if isinstance(tiers[tier_index], dict) else {}
+    base["tier_index"] = tier_index
+    base["tier_label"] = _clean_str(tier.get("label")) or f"Tier {tier_index + 1}"
+    base["chosen_start_date"] = _clean_str(tier.get("start_date"))
+    base["chosen_end_date"] = _clean_str(tier.get("end_date"))
+    base["is_three_month_tier"] = bool(_is_three_month_duration_tier(tier))
+    return base
+
+
 def build_participant_report_rows(
     enrollments: List[dict],
     txns_by_eid: Dict[str, List[dict]],
     *,
     paid_completed_only: bool = False,
+    programs_by_id: Optional[Dict[str, dict]] = None,
+    portal_cohort_by_email: Optional[Dict[str, str]] = None,
 ) -> List[dict]:
     """
     One row per participant (or one booker row if participants missing).
@@ -246,62 +395,22 @@ def build_participant_report_rows(
         created = _clean_str(e.get("created_at"))
         origin = _enrollment_origin(e)
 
+        booker_email_key = (_clean_str(e.get("booker_email")) or "").strip().lower()
+        portal_cohort = (
+            (portal_cohort_by_email or {}).get(booker_email_key, "") if portal_cohort_by_email else ""
+        )
+        catalog_pid = _clean_str((txn or {}).get("item_id")) or _clean_str(e.get("item_id"))
+        tier_idx = _tier_index_from_enrollment(e, txn)
+        tier_fields = _program_tier_fields_for_report(item_type, catalog_pid, tier_idx, programs_by_id)
+        tier_fields["portal_cohort"] = portal_cohort
+
         total_slots = len(participants) if participants else 1
 
         def push_row(p: Optional[dict], index: int, *, booker_only: bool) -> None:
             if booker_only or p is None:
                 ph = booker_phone
                 wa = booker_phone
-                rows.append(
-                    {
-                        "invoice_number": inv,
-                        "enrollment_id": eid,
-                        "program": program,
-                        "item_type": item_type,
-                        "enrollment_status": _clean_str(e.get("status")),
-                        "enrollment_origin": origin,
-                        "booker_name": booker_name,
-                        "booker_email": booker_email,
-                        "booker_phone": booker_phone,
-                        "booker_country": booker_country,
-                        "participant_index": 1,
-                        "participant_total": 1,
-                        "participant_name": booker_name,
-                        "relationship": "",
-                        "age": "",
-                        "gender": "",
-                        "country": booker_country,
-                        "city": "",
-                        "state": "",
-                        "attendance_mode": "",
-                        "notify_enrollment": "",
-                        "participant_email": booker_email,
-                        "phone": ph,
-                        "whatsapp": wa,
-                        "is_first_time": "",
-                        "referral_source": "",
-                        "referred_by_name": "",
-                        "referred_by_email": "",
-                        "participant_program_id": "",
-                        "participant_program_title": "",
-                        "participant_uid": "",
-                        "payment_amount": amt,
-                        "payment_currency": cur,
-                        "payment_status": pay_st or _clean_str(e.get("status")),
-                        "created_at": created,
-                    }
-                )
-                return
-
-            p_phone = _clean_str(_scalar_field(p, "phone", "Phone"))
-            p_wa = _clean_str(_scalar_field(p, "whatsapp", "WhatsApp"))
-            ph = p_phone or booker_phone
-            wa = (p_wa or p_phone) or ph
-            notify_yes = _notify_yes_from_participant(p)
-            first_time_v = _scalar_field(p, "is_first_time", "isFirstTime")
-            is_first = bool(first_time_v) if isinstance(first_time_v, bool) else str(first_time_v).strip().lower() in ("1", "true", "yes")
-            rows.append(
-                {
+                row = {
                     "invoice_number": inv,
                     "enrollment_id": eid,
                     "program": program,
@@ -312,33 +421,82 @@ def build_participant_report_rows(
                     "booker_email": booker_email,
                     "booker_phone": booker_phone,
                     "booker_country": booker_country,
-                    "participant_index": index,
-                    "participant_total": total_slots,
-                    "participant_name": _clean_str(_scalar_field(p, "name", "Name")) or booker_name,
-                    "relationship": _clean_str(_scalar_field(p, "relationship", "Relationship")),
-                    "age": _format_age_for_report(_scalar_field(p, "age", "Age")),
-                    "gender": _clean_str(_scalar_field(p, "gender", "Gender")),
-                    "country": _clean_str(_scalar_field(p, "country", "Country")) or booker_country,
-                    "city": _clean_str(_scalar_field(p, "city", "City")),
-                    "state": _clean_str(_scalar_field(p, "state", "State")),
-                    "attendance_mode": _attendance_mode_from_participant(p),
-                    "notify_enrollment": "Yes" if notify_yes else "No",
-                    "participant_email": _clean_str(_scalar_field(p, "email", "Email")),
+                    "participant_index": 1,
+                    "participant_total": 1,
+                    "participant_name": booker_name,
+                    "relationship": "",
+                    "age": "",
+                    "gender": "",
+                    "country": booker_country,
+                    "city": "",
+                    "state": "",
+                    "attendance_mode": "",
+                    "notify_enrollment": "",
+                    "participant_email": booker_email,
                     "phone": ph,
                     "whatsapp": wa,
-                    "is_first_time": "Yes" if is_first else "No",
-                    "referral_source": _clean_str(_scalar_field(p, "referral_source", "referralSource")),
-                    "referred_by_name": _clean_str(_scalar_field(p, "referred_by_name", "referredByName")),
-                    "referred_by_email": _clean_str(_scalar_field(p, "referred_by_email", "referredByEmail")),
-                    "participant_program_id": _clean_str(_scalar_field(p, "program_id", "programId")),
-                    "participant_program_title": _clean_str(_scalar_field(p, "program_title", "programTitle")),
-                    "participant_uid": _clean_str(_scalar_field(p, "uid", "UID")),
+                    "is_first_time": "",
+                    "referral_source": "",
+                    "referred_by_name": "",
+                    "referred_by_email": "",
+                    "participant_program_id": "",
+                    "participant_program_title": "",
+                    "participant_uid": "",
                     "payment_amount": amt,
                     "payment_currency": cur,
                     "payment_status": pay_st or _clean_str(e.get("status")),
                     "created_at": created,
                 }
-            )
+                row.update(tier_fields)
+                rows.append(row)
+                return
+
+            p_phone = _clean_str(_scalar_field(p, "phone", "Phone"))
+            p_wa = _clean_str(_scalar_field(p, "whatsapp", "WhatsApp"))
+            ph = p_phone or booker_phone
+            wa = (p_wa or p_phone) or ph
+            notify_yes = _notify_yes_from_participant(p)
+            first_time_v = _scalar_field(p, "is_first_time", "isFirstTime")
+            is_first = bool(first_time_v) if isinstance(first_time_v, bool) else str(first_time_v).strip().lower() in ("1", "true", "yes")
+            row = {
+                "invoice_number": inv,
+                "enrollment_id": eid,
+                "program": program,
+                "item_type": item_type,
+                "enrollment_status": _clean_str(e.get("status")),
+                "enrollment_origin": origin,
+                "booker_name": booker_name,
+                "booker_email": booker_email,
+                "booker_phone": booker_phone,
+                "booker_country": booker_country,
+                "participant_index": index,
+                "participant_total": total_slots,
+                "participant_name": _clean_str(_scalar_field(p, "name", "Name")) or booker_name,
+                "relationship": _clean_str(_scalar_field(p, "relationship", "Relationship")),
+                "age": _format_age_for_report(_scalar_field(p, "age", "Age")),
+                "gender": _clean_str(_scalar_field(p, "gender", "Gender")),
+                "country": _clean_str(_scalar_field(p, "country", "Country")) or booker_country,
+                "city": _clean_str(_scalar_field(p, "city", "City")),
+                "state": _clean_str(_scalar_field(p, "state", "State")),
+                "attendance_mode": _attendance_mode_from_participant(p),
+                "notify_enrollment": "Yes" if notify_yes else "No",
+                "participant_email": _clean_str(_scalar_field(p, "email", "Email")),
+                "phone": ph,
+                "whatsapp": wa,
+                "is_first_time": "Yes" if is_first else "No",
+                "referral_source": _clean_str(_scalar_field(p, "referral_source", "referralSource")),
+                "referred_by_name": _clean_str(_scalar_field(p, "referred_by_name", "referredByName")),
+                "referred_by_email": _clean_str(_scalar_field(p, "referred_by_email", "referredByEmail")),
+                "participant_program_id": _clean_str(_scalar_field(p, "program_id", "programId")),
+                "participant_program_title": _clean_str(_scalar_field(p, "program_title", "programTitle")),
+                "participant_uid": _clean_str(_scalar_field(p, "uid", "UID")),
+                "payment_amount": amt,
+                "payment_currency": cur,
+                "payment_status": pay_st or _clean_str(e.get("status")),
+                "created_at": created,
+            }
+            row.update(tier_fields)
+            rows.append(row)
 
         if not participants:
             push_row(None, 1, booker_only=True)
@@ -1068,10 +1226,16 @@ async def participant_enrollment_rows(paid_completed_only: bool = False):
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)
+    prog_map, cohort_map = await asyncio.gather(
+        _programs_duration_tiers_by_item_id(enrollments, by_e),
+        _portal_cohort_by_booker_emails(enrollments),
+    )
     return build_participant_report_rows(
         enrollments,
         by_e,
         paid_completed_only=paid_completed_only,
+        programs_by_id=prog_map,
+        portal_cohort_by_email=cohort_map,
     )
 
 
@@ -1088,10 +1252,16 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)
+    prog_map, cohort_map = await asyncio.gather(
+        _programs_duration_tiers_by_item_id(enrollments, by_e),
+        _portal_cohort_by_booker_emails(enrollments),
+    )
     rows = build_participant_report_rows(
         enrollments,
         by_e,
         paid_completed_only=paid_completed_only,
+        programs_by_id=prog_map,
+        portal_cohort_by_email=cohort_map,
     )
 
     headers = [
@@ -1099,6 +1269,13 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
         "Enrollment ID",
         "Program",
         "Type",
+        "Portal cohort (client)",
+        "Program catalog id",
+        "Tier index",
+        "Tier label",
+        "Chosen start",
+        "Chosen end",
+        "3-month tier",
         "Enrollment status",
         "Origin",
         "Booker name",
@@ -1172,6 +1349,13 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
                 _clean_str(r.get("enrollment_id")),
                 _clean_str(r.get("program")),
                 _clean_str(r.get("item_type")),
+                _clean_str(r.get("portal_cohort")),
+                _clean_str(r.get("program_catalog_id")),
+                r.get("tier_index") if r.get("tier_index") is not None else "",
+                _clean_str(r.get("tier_label")),
+                _clean_str(r.get("chosen_start_date")),
+                _clean_str(r.get("chosen_end_date")),
+                "yes" if r.get("is_three_month_tier") else "no",
                 _clean_str(r.get("enrollment_status")),
                 _clean_str(r.get("enrollment_origin")),
                 _clean_str(r.get("booker_name")),
