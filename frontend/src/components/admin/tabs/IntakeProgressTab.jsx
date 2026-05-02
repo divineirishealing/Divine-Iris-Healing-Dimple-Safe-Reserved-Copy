@@ -102,6 +102,9 @@ const initialForm = {
   cravings_habits: '',
   past_actions: '',
   primary_purpose: '',
+  reflection_outcomes_hoped: '',
+  reflection_support_preferences: '',
+  reflection_communication_notes: '',
   heard_how: '',
   referral_name: '',
   notes_internal: '',
@@ -274,6 +277,9 @@ const IntakeProgressTab = () => {
       'experience_event_date',
       'experience_category',
       'primary_purpose',
+      'reflection_outcomes_hoped',
+      'reflection_support_preferences',
+      'reflection_communication_notes',
       'heard_how',
     ];
     const esc = (v) => {
@@ -798,16 +804,47 @@ const IntakeProgressTab = () => {
                 />
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className={`${shellCard()} p-4 space-y-3 border-amber-100/80`}>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-amber-800/90">Heart of the journey</p>
                 <div>
-                  <Label className="text-violet-900">Primary purpose of AWRP</Label>
+                  <Label className="text-violet-900">Primary reason for joining AWRP</Label>
                   <Textarea
                     value={form.primary_purpose}
                     onChange={(e) => setForm((f) => ({ ...f, primary_purpose: e.target.value }))}
                     className="mt-1 bg-white/90 border-violet-200"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label className="text-violet-900">Hoped shifts (6–12 months)</Label>
+                  <Textarea
+                    value={form.reflection_outcomes_hoped}
+                    onChange={(e) => setForm((f) => ({ ...f, reflection_outcomes_hoped: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
                     rows={2}
                   />
                 </div>
+                <div>
+                  <Label className="text-violet-900">Support / rhythm preferences</Label>
+                  <Textarea
+                    value={form.reflection_support_preferences}
+                    onChange={(e) => setForm((f) => ({ ...f, reflection_support_preferences: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <Label className="text-violet-900">Communication notes</Label>
+                  <Textarea
+                    value={form.reflection_communication_notes}
+                    onChange={(e) => setForm((f) => ({ ...f, reflection_communication_notes: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
+                    rows={2}
+                  />
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-violet-900">How they heard about us</Label>
                   <Input
@@ -816,7 +853,9 @@ const IntakeProgressTab = () => {
                     className="mt-1 bg-white/90 border-violet-200"
                     placeholder="Instagram, referral…"
                   />
-                  <Label className="text-violet-900 mt-3 block">Referral name</Label>
+                </div>
+                <div>
+                  <Label className="text-violet-900">Referral name</Label>
                   <Input
                     value={form.referral_name}
                     onChange={(e) => setForm((f) => ({ ...f, referral_name: e.target.value }))}
@@ -943,6 +982,30 @@ const IntakeProgressTab = () => {
                       {r.record_type === 'aha_moment' && (r.experiences_aha_text || '').trim() ? (
                         <p className="text-xs text-violet-900 mt-2 leading-relaxed whitespace-pre-wrap">
                           {(r.experiences_aha_text || '').trim()}
+                        </p>
+                      ) : null}
+                      {r.record_type !== 'aha_moment' && (r.primary_purpose || '').trim() ? (
+                        <p className="text-xs text-violet-900 mt-2 leading-relaxed whitespace-pre-wrap">
+                          <span className="font-medium text-violet-800">Primary reason: </span>
+                          {(r.primary_purpose || '').trim()}
+                        </p>
+                      ) : null}
+                      {r.record_type !== 'aha_moment' && (r.reflection_outcomes_hoped || '').trim() ? (
+                        <p className="text-xs text-violet-800/95 mt-2 leading-relaxed whitespace-pre-wrap">
+                          <span className="font-medium text-violet-800">Hoped shifts: </span>
+                          {(r.reflection_outcomes_hoped || '').trim()}
+                        </p>
+                      ) : null}
+                      {r.record_type !== 'aha_moment' && (r.reflection_support_preferences || '').trim() ? (
+                        <p className="text-xs text-violet-800/95 mt-2 leading-relaxed whitespace-pre-wrap">
+                          <span className="font-medium text-violet-800">Support preferences: </span>
+                          {(r.reflection_support_preferences || '').trim()}
+                        </p>
+                      ) : null}
+                      {r.record_type !== 'aha_moment' && (r.reflection_communication_notes || '').trim() ? (
+                        <p className="text-xs text-violet-800/95 mt-2 leading-relaxed whitespace-pre-wrap">
+                          <span className="font-medium text-violet-800">Comms: </span>
+                          {(r.reflection_communication_notes || '').trim()}
                         </p>
                       ) : null}
                       <p className="text-xs text-violet-700 mt-2">

@@ -108,6 +108,9 @@ function emptyReflectionForm() {
     cravings_habits: '',
     past_actions: '',
     primary_purpose: '',
+    reflection_outcomes_hoped: '',
+    reflection_support_preferences: '',
+    reflection_communication_notes: '',
     heard_how: '',
     referral_name: '',
     experiences_aha_text: '',
@@ -203,6 +206,15 @@ const StudentJourneyIntakePage = () => {
       });
       return;
     }
+    const primary = (form.primary_purpose || '').trim();
+    if (primary.length < 25) {
+      toast({
+        title: 'Primary reason for AWRP',
+        description: 'Please write a few sentences about why you are choosing this path (at least about 25 characters).',
+        variant: 'destructive',
+      });
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -242,6 +254,9 @@ const StudentJourneyIntakePage = () => {
         cravings_habits: form.cravings_habits,
         past_actions: form.past_actions,
         primary_purpose: form.primary_purpose,
+        reflection_outcomes_hoped: form.reflection_outcomes_hoped,
+        reflection_support_preferences: form.reflection_support_preferences,
+        reflection_communication_notes: form.reflection_communication_notes,
         heard_how: form.heard_how,
         referral_name: form.referral_name,
         experiences_aha_text: '',
@@ -472,6 +487,55 @@ const StudentJourneyIntakePage = () => {
                 </div>
               </div>
 
+              <div className={`${shellCard()} p-5 sm:p-6 space-y-4 border-amber-100/80`}>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-amber-800/90">Heart of your journey</p>
+                <p className="text-xs text-violet-800/90 leading-relaxed">
+                  A few anchors help your guides witness you clearly. Everything here is saved with your reflection in
+                  the same secure archive admins open under <strong className="text-violet-950">Journey insights</strong>.
+                </p>
+                <div>
+                  <Label className="text-violet-900">What is your primary reason for joining AWRP? *</Label>
+                  <Textarea
+                    value={form.primary_purpose}
+                    onChange={(e) => setForm((f) => ({ ...f, primary_purpose: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
+                    rows={4}
+                    placeholder="What longing, question, or chapter of life brings you here?"
+                  />
+                  <p className="text-[11px] text-violet-600/80 mt-1">A few sentences minimum — this is the centre of your intake.</p>
+                </div>
+                <div>
+                  <Label className="text-violet-900">What would you love to see shift in the next 6–12 months?</Label>
+                  <Textarea
+                    value={form.reflection_outcomes_hoped}
+                    onChange={(e) => setForm((f) => ({ ...f, reflection_outcomes_hoped: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
+                    rows={3}
+                    placeholder="Optional but powerful for before-and-after rhythm — body, relationships, work, inner life…"
+                  />
+                </div>
+                <div>
+                  <Label className="text-violet-900">What helps you stay open in a healing container?</Label>
+                  <Textarea
+                    value={form.reflection_support_preferences}
+                    onChange={(e) => setForm((f) => ({ ...f, reflection_support_preferences: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
+                    rows={2}
+                    placeholder="e.g. gentler pace, clear structure, accountability, space between sessions, written summaries…"
+                  />
+                </div>
+                <div>
+                  <Label className="text-violet-900">Anything to honour in how we reach you?</Label>
+                  <Textarea
+                    value={form.reflection_communication_notes}
+                    onChange={(e) => setForm((f) => ({ ...f, reflection_communication_notes: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
+                    rows={2}
+                    placeholder="Best times to message, tone you prefer, sensitivities or words to avoid — optional."
+                  />
+                </div>
+              </div>
+
               {status?.has_baseline ? (
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
@@ -653,15 +717,6 @@ const StudentJourneyIntakePage = () => {
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-violet-900">Primary purpose of this path for you</Label>
-                  <Textarea
-                    value={form.primary_purpose}
-                    onChange={(e) => setForm((f) => ({ ...f, primary_purpose: e.target.value }))}
-                    className="mt-1 bg-white/90 border-violet-200"
-                    rows={2}
-                  />
-                </div>
-                <div>
                   <Label className="text-violet-900">How you found us</Label>
                   <Input
                     value={form.heard_how}
@@ -669,11 +724,14 @@ const StudentJourneyIntakePage = () => {
                     className="mt-1 bg-white/90 border-violet-200"
                     placeholder="Instagram, referral…"
                   />
-                  <Label className="text-violet-900 mt-3 block">Referral name</Label>
+                </div>
+                <div>
+                  <Label className="text-violet-900">Referral name</Label>
                   <Input
                     value={form.referral_name}
                     onChange={(e) => setForm((f) => ({ ...f, referral_name: e.target.value }))}
                     className="mt-1 bg-white/90 border-violet-200"
+                    placeholder="If someone sent you"
                   />
                 </div>
               </div>

@@ -119,6 +119,17 @@ def _validate_period_bucket(cadence: str, bucket: str) -> None:
         raise HTTPException(status_code=400, detail="Yearly rhythm uses YYYY.")
 
 
+def _validate_reflection_core_questions(body: "IntakeProgressFieldsCore") -> None:
+    """Opening reflection should name why AWRP matters now (stored in primary_purpose)."""
+    pp = (body.primary_purpose or "").strip()
+    if len(pp) < 25:
+        raise HTTPException(
+            status_code=400,
+            detail="Please answer: What is your primary reason for joining AWRP? "
+            "A few heartfelt sentences help us walk with you (at least about 25 characters).",
+        )
+
+
 def _validate_narratives_for_checked_areas(body: "IntakeProgressFieldsCore") -> None:
     for flag_name, narr_name, label in NARRATIVE_PAIRS:
         if bool(getattr(body, flag_name, False)):
@@ -180,6 +191,10 @@ class IntakeProgressFieldsCore(BaseModel):
     primary_purpose: str = Field("", max_length=2000)
     heard_how: str = Field("", max_length=120)
     referral_name: str = Field("", max_length=200)
+    # Deeper intake prompts (same snapshot as primary_purpose / heard_how family)
+    reflection_outcomes_hoped: str = Field("", max_length=4000)
+    reflection_support_preferences: str = Field("", max_length=2000)
+    reflection_communication_notes: str = Field("", max_length=2000)
     experiences_aha_text: str = Field("", max_length=8000)
     # Calendar day when the experience happened (esp. aha_moment); distinct from created_at server timestamp
     experience_event_date: Optional[str] = Field(None, max_length=32)
@@ -271,6 +286,9 @@ def _build_intake_doc(
         "primary_purpose": body.primary_purpose.strip(),
         "heard_how": body.heard_how.strip(),
         "referral_name": body.referral_name.strip(),
+        "reflection_outcomes_hoped": body.reflection_outcomes_hoped.strip(),
+        "reflection_support_preferences": body.reflection_support_preferences.strip(),
+        "reflection_communication_notes": body.reflection_communication_notes.strip(),
         "experiences_aha_text": body.experiences_aha_text.strip(),
         "experience_event_date": (body.experience_event_date or "").strip() or None,
         "experience_category": body.experience_category,
@@ -307,6 +325,9 @@ class IntakeProgressPatch(BaseModel):
     notes_internal: Optional[str] = None
     experience_event_date: Optional[str] = None
     experience_category: Optional[str] = None
+    reflection_outcomes_hoped: Optional[str] = None
+    reflection_support_preferences: Optional[str] = None
+    reflection_communication_notes: Optional[str] = None
 
 
 async def _client_row_for_intake(client_id: Optional[str]) -> dict:
@@ -627,6 +648,7 @@ async def student_journey_intake_submit(
             }
         )
     else:
+        _validate_reflection_core_questions(body)
         _validate_narratives_for_checked_areas(body)
         has_base = await db[COLLECTION].find_one({"email": em, "record_type": "baseline"}, {"_id": 0, "id": 1})
 
