@@ -26,15 +26,12 @@ import {
   Heart,
   RefreshCw,
   Download,
-  ExternalLink,
   Flower2,
   TrendingUp,
   Moon,
 } from 'lucide-react';
 
 const API = getApiUrl();
-const GOOGLE_FORM_URL =
-  'https://docs.google.com/forms/d/18-QcOrQi59renYmi3SPNenGK_7GgBcv9RMFzNIR5NIE/viewform';
 
 function adminHeaders() {
   const t = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_token') : '';
@@ -280,13 +277,10 @@ const IntakeProgressTab = () => {
             </div>
             <div className="flex flex-col gap-2 shrink-0">
               <a
-                href={GOOGLE_FORM_URL}
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/dashboard/journey-intake"
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-white/90 border border-violet-200/80 px-4 py-2 text-xs font-medium text-violet-900 hover:bg-violet-50/90 transition-colors"
               >
-                <ExternalLink className="w-3.5 h-3.5" />
-                Open shared intake form
+                Open in-dashboard reflection (Sacred Home)
               </a>
               <Button
                 type="button"

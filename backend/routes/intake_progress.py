@@ -1,5 +1,5 @@
 """
-Admin-only AWRP / client journey progress records.
+AWRP / client journey progress records (admin tools + student Sacred Home submit).
 
 Stores structured snapshots (baseline, monthly, checkpoint) for holistic
 tracking — not clinical; supports research-style aggregates and exports.
@@ -9,14 +9,16 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from pathlib import Path
 import os
+import re
 
 from routes.auth import assert_admin_session_or_password
+from routes.student import get_current_student_user
 from utils.canonical_id import new_entity_id
 
 ROOT_DIR = Path(__file__).parent.parent
@@ -27,6 +29,7 @@ _client = AsyncIOMotorClient(mongo_url)
 db = _client[os.environ["DB_NAME"]]
 
 router = APIRouter(prefix="/api/admin/intake-progress", tags=["Intake Progress"])
+student_router = APIRouter(prefix="/api/student/journey-intake", tags=["Student Journey Intake"])
 
 COLLECTION = "awrp_intake_progress"
 
@@ -35,12 +38,10 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-class IntakeProgressCreate(BaseModel):
-    """Mirrors the public AWRP-style intake; all optional except identity + scores."""
+class IntakeProgressFieldsShared(BaseModel):
+    """Shared AWRP-style fields (admin create + student submit)."""
 
     client_id: Optional[str] = Field(None, max_length=64)
-    email: str = Field(..., max_length=320)
-    full_name: str = Field(..., max_length=200)
     phone: Optional[str] = Field(None, max_length=80)
     whatsapp: Optional[str] = Field(None, max_length=80)
     secondary_email: Optional[str] = Field(None, max_length=320)
@@ -72,7 +73,77 @@ class IntakeProgressCreate(BaseModel):
     primary_purpose: str = Field("", max_length=2000)
     heard_how: str = Field("", max_length=120)
     referral_name: str = Field("", max_length=200)
+
+
+class IntakeProgressCreate(IntakeProgressFieldsShared):
+    """Mirrors the public AWRP-style intake; all optional except identity + scores."""
+
+    email: str = Field(..., max_length=320)
+    full_name: str = Field(..., max_length=200)
     notes_internal: str = Field("", max_length=8000)
+
+
+class StudentJourneySubmit(IntakeProgressFieldsShared):
+    """Student Sacred Home submission; email comes from session, not the body."""
+
+    full_name: Optional[str] = Field(None, max_length=200)
+
+
+def _build_intake_doc(
+    body: IntakeProgressFieldsShared,
+    *,
+    rid: str,
+    now: str,
+    email: str,
+    full_name: str,
+    client_id: Optional[str],
+    notes_internal: str,
+    submission_source: Optional[str] = None,
+) -> Dict[str, Any]:
+    em = email.strip().lower()
+    doc: Dict[str, Any] = {
+        "id": rid,
+        "client_id": (client_id or "").strip() or None,
+        "email": em,
+        "full_name": full_name.strip(),
+        "phone": (body.phone or "").strip() or None,
+        "whatsapp": (body.whatsapp or "").strip() or None,
+        "secondary_email": (body.secondary_email or "").strip().lower() or None,
+        "dob": (body.dob or "").strip() or None,
+        "city": (body.city or "").strip() or None,
+        "profession": (body.profession or "").strip() or None,
+        "record_type": body.record_type,
+        "period_month": (body.period_month or "").strip() or None,
+        "issues_physical": bool(body.issues_physical),
+        "issues_mental": bool(body.issues_mental),
+        "issues_emotional": bool(body.issues_emotional),
+        "issues_other_note": body.issues_other_note.strip(),
+        "issues_detail": body.issues_detail.strip(),
+        "score_physical": body.score_physical,
+        "score_mental": body.score_mental,
+        "score_emotional": body.score_emotional,
+        "score_relational": body.score_relational,
+        "score_spiritual": body.score_spiritual,
+        "score_life_growth": body.score_life_growth,
+        "weight_kg": body.weight_kg,
+        "waist_in": body.waist_in,
+        "clothing_size": body.clothing_size.strip(),
+        "health_issues_text": body.health_issues_text.strip(),
+        "cravings_habits": body.cravings_habits.strip(),
+        "past_actions": body.past_actions.strip(),
+        "primary_purpose": body.primary_purpose.strip(),
+        "heard_how": body.heard_how.strip(),
+        "referral_name": body.referral_name.strip(),
+        "notes_internal": (notes_internal or "").strip(),
+        "created_at": now,
+        "updated_at": now,
+    }
+    if submission_source:
+        doc["submission_source"] = submission_source
+    return doc
+
+
+_PERIOD_MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
 
 
 class IntakeProgressPatch(BaseModel):
@@ -128,45 +199,16 @@ async def list_records(
 async def create_record(request: Request, body: IntakeProgressCreate):
     await assert_admin_session_or_password(request, None)
     rid = new_entity_id()
-    em = body.email.strip().lower()
     now = _now_iso()
-    doc = {
-        "id": rid,
-        "client_id": (body.client_id or "").strip() or None,
-        "email": em,
-        "full_name": body.full_name.strip(),
-        "phone": (body.phone or "").strip() or None,
-        "whatsapp": (body.whatsapp or "").strip() or None,
-        "secondary_email": (body.secondary_email or "").strip().lower() or None,
-        "dob": (body.dob or "").strip() or None,
-        "city": (body.city or "").strip() or None,
-        "profession": (body.profession or "").strip() or None,
-        "record_type": body.record_type,
-        "period_month": (body.period_month or "").strip() or None,
-        "issues_physical": bool(body.issues_physical),
-        "issues_mental": bool(body.issues_mental),
-        "issues_emotional": bool(body.issues_emotional),
-        "issues_other_note": body.issues_other_note.strip(),
-        "issues_detail": body.issues_detail.strip(),
-        "score_physical": body.score_physical,
-        "score_mental": body.score_mental,
-        "score_emotional": body.score_emotional,
-        "score_relational": body.score_relational,
-        "score_spiritual": body.score_spiritual,
-        "score_life_growth": body.score_life_growth,
-        "weight_kg": body.weight_kg,
-        "waist_in": body.waist_in,
-        "clothing_size": body.clothing_size.strip(),
-        "health_issues_text": body.health_issues_text.strip(),
-        "cravings_habits": body.cravings_habits.strip(),
-        "past_actions": body.past_actions.strip(),
-        "primary_purpose": body.primary_purpose.strip(),
-        "heard_how": body.heard_how.strip(),
-        "referral_name": body.referral_name.strip(),
-        "notes_internal": body.notes_internal.strip(),
-        "created_at": now,
-        "updated_at": now,
-    }
+    doc = _build_intake_doc(
+        body,
+        rid=rid,
+        now=now,
+        email=body.email,
+        full_name=body.full_name,
+        client_id=body.client_id,
+        notes_internal=body.notes_internal,
+    )
     await db[COLLECTION].insert_one(doc)
     return {"id": rid, "record": {k: v for k, v in doc.items() if k != "_id"}}
 
@@ -310,3 +352,85 @@ async def analytics_client(request: Request, email: str = Query(..., min_length=
         .to_list(500)
     )
     return {"email": em, "timeline": rows}
+
+
+@student_router.get("/status")
+async def student_journey_intake_status(user: dict = Depends(get_current_student_user)):
+    em = (user.get("email") or "").strip().lower()
+    if not em:
+        raise HTTPException(status_code=400, detail="Account email is missing for this session.")
+    baseline = await db[COLLECTION].find_one(
+        {"email": em, "record_type": "baseline"},
+        {"_id": 0, "id": 1, "created_at": 1},
+    )
+    latest = await db[COLLECTION].find_one({"email": em}, {"_id": 0}, sort=[("created_at", -1)])
+    return {
+        "has_baseline": baseline is not None,
+        "baseline_submitted_at": baseline.get("created_at") if baseline else None,
+        "baseline_id": baseline.get("id") if baseline else None,
+        "latest_record_id": latest.get("id") if latest else None,
+        "latest_created_at": latest.get("created_at") if latest else None,
+        "latest_record_type": latest.get("record_type") if latest else None,
+    }
+
+
+@student_router.post("/submit")
+async def student_journey_intake_submit(
+    body: StudentJourneySubmit,
+    user: dict = Depends(get_current_student_user),
+):
+    em = (user.get("email") or "").strip().lower()
+    if not em:
+        raise HTTPException(status_code=400, detail="Account email is missing for this session.")
+
+    display = (body.full_name or "").strip() or (user.get("name") or "").strip()
+    if not display:
+        raise HTTPException(
+            status_code=400,
+            detail="Please enter the name you wish us to use, or set your name on Profile first.",
+        )
+
+    has_base = await db[COLLECTION].find_one({"email": em, "record_type": "baseline"}, {"_id": 0, "id": 1})
+
+    if not has_base:
+        payload = body.model_copy(update={"record_type": "baseline", "period_month": None})
+    else:
+        rt = body.record_type
+        if rt == "baseline":
+            raise HTTPException(
+                status_code=409,
+                detail="Your opening reflection is already held here. Choose monthly tending or a checkpoint, or contact the team if you need a correction.",
+            )
+        if rt == "monthly":
+            pm = (body.period_month or "").strip()
+            if not _PERIOD_MONTH_RE.match(pm):
+                raise HTTPException(
+                    status_code=400,
+                    detail="For monthly tending, enter the rhythm month as YYYY-MM (for example 2026-04).",
+                )
+            dup = await db[COLLECTION].find_one(
+                {"email": em, "record_type": "monthly", "period_month": pm},
+                {"_id": 0, "id": 1},
+            )
+            if dup:
+                raise HTTPException(
+                    status_code=409,
+                    detail="You already submitted a monthly check-in for that month.",
+                )
+        payload = body.model_copy(update={"record_type": rt})
+
+    rid = new_entity_id()
+    now = _now_iso()
+    cid = (str(user.get("client_id") or "").strip() or str(body.client_id or "").strip() or None)
+    doc = _build_intake_doc(
+        payload,
+        rid=rid,
+        now=now,
+        email=em,
+        full_name=display,
+        client_id=cid,
+        notes_internal="",
+        submission_source="dashboard_student",
+    )
+    await db[COLLECTION].insert_one(doc)
+    return {"id": rid, "ok": True, "record_type": doc["record_type"]}

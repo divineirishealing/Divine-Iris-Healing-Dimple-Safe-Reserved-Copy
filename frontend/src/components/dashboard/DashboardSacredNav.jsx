@@ -6,6 +6,7 @@ import { SANCTUARY_REFERENCE } from '../../lib/dashboardSanctuaryCopy';
 
 const LINKS = [
   { to: '/dashboard', label: 'Home', end: true },
+  { to: '/dashboard/journey-intake', label: 'Reflection' },
   { to: '/dashboard/progress', label: 'My Journey' },
   { to: '/dashboard/bhaad', label: 'Bhaad' },
   { to: '/dashboard/tribe', label: 'Soul Tribe' },

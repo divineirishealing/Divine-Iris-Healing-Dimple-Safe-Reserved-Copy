@@ -43,6 +43,7 @@ import MandalaPage from './components/dashboard/MandalaPage';
 import HeadspacePage from './components/dashboard/HeadspacePage';
 import BhaadPortalPage from './components/dashboard/BhaadPortalPage';
 import SoulTribePage from './components/dashboard/SoulTribePage';
+import StudentJourneyIntakePage from './components/dashboard/StudentJourneyIntakePage';
 import PointsPage from './components/dashboard/PointsPage';
 import DashboardCombinedCheckoutPage from './pages/DashboardCombinedCheckoutPage';
 import { Toaster } from './components/ui/toaster';
@@ -140,6 +141,7 @@ const AppContent = () => {
         <Route path="combined-checkout" element={<DashboardCombinedCheckoutPage />} />
         <Route path="sessions" element={<CalendarPage />} />
         <Route path="progress" element={<ProgressPage />} />
+        <Route path="journey-intake" element={<StudentJourneyIntakePage />} />
         <Route path="garden" element={<SoulGardenPage />} />
         <Route path="garden/tree" element={<TreeOfLifePage />} />
         <Route path="garden/ocean" element={<OceanPage />} />
