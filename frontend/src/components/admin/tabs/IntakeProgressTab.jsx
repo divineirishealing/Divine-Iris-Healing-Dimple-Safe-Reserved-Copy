@@ -105,6 +105,8 @@ const initialForm = {
   reflection_outcomes_hoped: '',
   reflection_support_preferences: '',
   reflection_communication_notes: '',
+  happiness_true_1_10: 5,
+  unhappiness_reasons: '',
   heard_how: '',
   referral_name: '',
   notes_internal: '',
@@ -280,6 +282,8 @@ const IntakeProgressTab = () => {
       'reflection_outcomes_hoped',
       'reflection_support_preferences',
       'reflection_communication_notes',
+      'happiness_true_1_10',
+      'unhappiness_reasons',
       'heard_how',
     ];
     const esc = (v) => {
@@ -844,6 +848,31 @@ const IntakeProgressTab = () => {
                 </div>
               </div>
 
+              <div className={`${shellCard()} p-4 space-y-3 border-violet-100/90`}>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-violet-700/90">Happiness &amp; truth</p>
+                <div>
+                  <Label className="text-violet-900">True happiness (1–10)</Label>
+                  <input
+                    type="range"
+                    min={1}
+                    max={10}
+                    value={form.happiness_true_1_10}
+                    onChange={(e) => setForm((f) => ({ ...f, happiness_true_1_10: Number(e.target.value) }))}
+                    className="w-full accent-violet-600 mt-2"
+                  />
+                  <p className="text-center text-sm text-violet-900">{form.happiness_true_1_10}</p>
+                </div>
+                <div>
+                  <Label className="text-violet-900">Reasons for unhappiness / strain (holistic)</Label>
+                  <Textarea
+                    value={form.unhappiness_reasons}
+                    onChange={(e) => setForm((f) => ({ ...f, unhappiness_reasons: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
+                    rows={4}
+                  />
+                </div>
+              </div>
+
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-violet-900">How they heard about us</Label>
@@ -1006,6 +1035,20 @@ const IntakeProgressTab = () => {
                         <p className="text-xs text-violet-800/95 mt-2 leading-relaxed whitespace-pre-wrap">
                           <span className="font-medium text-violet-800">Comms: </span>
                           {(r.reflection_communication_notes || '').trim()}
+                        </p>
+                      ) : null}
+                      {r.record_type !== 'aha_moment' &&
+                      r.happiness_true_1_10 != null &&
+                      r.happiness_true_1_10 !== '' ? (
+                        <p className="text-[11px] text-violet-700 mt-2">
+                          Happiness (1–10):{' '}
+                          <span className="font-semibold text-violet-900">{r.happiness_true_1_10}</span>
+                        </p>
+                      ) : null}
+                      {r.record_type !== 'aha_moment' && (r.unhappiness_reasons || '').trim() ? (
+                        <p className="text-xs text-violet-800/95 mt-2 leading-relaxed whitespace-pre-wrap">
+                          <span className="font-medium text-violet-800">Unhappiness / strain: </span>
+                          {(r.unhappiness_reasons || '').trim()}
                         </p>
                       ) : null}
                       <p className="text-xs text-violet-700 mt-2">

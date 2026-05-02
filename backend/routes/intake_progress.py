@@ -128,6 +128,20 @@ def _validate_reflection_core_questions(body: "IntakeProgressFieldsCore") -> Non
             detail="Please answer: What is your primary reason for joining AWRP? "
             "A few heartfelt sentences help us walk with you (at least about 25 characters).",
         )
+    h = body.happiness_true_1_10
+    if h is None or h < 1 or h > 10:
+        raise HTTPException(
+            status_code=400,
+            detail="Please mark how happy you feel, truly, on the scale from 1 (very low) to 10 (deeply aligned).",
+        )
+    ur = (body.unhappiness_reasons or "").strip()
+    if len(ur) < 40:
+        raise HTTPException(
+            status_code=400,
+            detail="Please share what lies beneath any unhappiness, strain, or heaviness you carry — "
+            "across relationships, body, work, money, spirit, pace of life — so we can sense how deep the path may go "
+            "(at least a few sentences).",
+        )
 
 
 def _validate_narratives_for_checked_areas(body: "IntakeProgressFieldsCore") -> None:
@@ -195,6 +209,9 @@ class IntakeProgressFieldsCore(BaseModel):
     reflection_outcomes_hoped: str = Field("", max_length=4000)
     reflection_support_preferences: str = Field("", max_length=2000)
     reflection_communication_notes: str = Field("", max_length=2000)
+    # Subjective wellbeing (1–10); distinct from domain 0–10 sliders
+    happiness_true_1_10: Optional[int] = Field(None, ge=1, le=10)
+    unhappiness_reasons: str = Field("", max_length=5000)
     experiences_aha_text: str = Field("", max_length=8000)
     # Calendar day when the experience happened (esp. aha_moment); distinct from created_at server timestamp
     experience_event_date: Optional[str] = Field(None, max_length=32)
@@ -289,6 +306,8 @@ def _build_intake_doc(
         "reflection_outcomes_hoped": body.reflection_outcomes_hoped.strip(),
         "reflection_support_preferences": body.reflection_support_preferences.strip(),
         "reflection_communication_notes": body.reflection_communication_notes.strip(),
+        "happiness_true_1_10": body.happiness_true_1_10,
+        "unhappiness_reasons": body.unhappiness_reasons.strip(),
         "experiences_aha_text": body.experiences_aha_text.strip(),
         "experience_event_date": (body.experience_event_date or "").strip() or None,
         "experience_category": body.experience_category,
@@ -328,6 +347,8 @@ class IntakeProgressPatch(BaseModel):
     reflection_outcomes_hoped: Optional[str] = None
     reflection_support_preferences: Optional[str] = None
     reflection_communication_notes: Optional[str] = None
+    happiness_true_1_10: Optional[int] = Field(None, ge=1, le=10)
+    unhappiness_reasons: Optional[str] = None
 
 
 async def _client_row_for_intake(client_id: Optional[str]) -> dict:

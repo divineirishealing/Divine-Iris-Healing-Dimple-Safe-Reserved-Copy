@@ -109,6 +109,8 @@ function emptyReflectionForm() {
     past_actions: '',
     primary_purpose: '',
     reflection_outcomes_hoped: '',
+    happiness_true_1_10: 5,
+    unhappiness_reasons: '',
     heard_how: '',
     referral_name: '',
     experiences_aha_text: '',
@@ -213,6 +215,25 @@ const StudentJourneyIntakePage = () => {
       });
       return;
     }
+    const ht = Number(form.happiness_true_1_10);
+    if (!Number.isFinite(ht) || ht < 1 || ht > 10) {
+      toast({
+        title: 'Happiness',
+        description: 'Slide to a number from 1 to 10 for how happy you feel, truly, in this season.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const unhappy = (form.unhappiness_reasons || '').trim();
+    if (unhappy.length < 40) {
+      toast({
+        title: 'What is beneath the strain',
+        description:
+          'Write a fuller picture of what feeds any unhappiness or heaviness — body, love, work, money, pace, grief — at least a few sentences so we can meet you honestly.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -253,6 +274,8 @@ const StudentJourneyIntakePage = () => {
         past_actions: form.past_actions,
         primary_purpose: form.primary_purpose,
         reflection_outcomes_hoped: form.reflection_outcomes_hoped,
+        happiness_true_1_10: ht,
+        unhappiness_reasons: form.unhappiness_reasons,
         heard_how: form.heard_how,
         referral_name: form.referral_name,
         experiences_aha_text: '',
@@ -508,6 +531,42 @@ const StudentJourneyIntakePage = () => {
                     className="mt-1 bg-white/90 border-violet-200"
                     rows={3}
                     placeholder="Optional but powerful for before-and-after rhythm — body, relationships, work, inner life…"
+                  />
+                </div>
+              </div>
+
+              <div className={`${shellCard()} p-5 sm:p-6 space-y-4 border-violet-100`}>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-violet-700/90">Happiness &amp; truth</p>
+                <p className="text-xs text-violet-800/90 leading-relaxed">
+                  This pair helps your guides sense how light or heavy life feels for you now, and how much depth the
+                  work may ask for — not as a label, but as a living snapshot.
+                </p>
+                <div>
+                  <Label className="text-violet-900">How happy do you feel, truly, in this season of your life? *</Label>
+                  <p className="text-[11px] text-violet-600/85 mt-0.5 mb-2">
+                    1 — very low, disconnected, or in pain · 10 — deeply aligned, grateful, at home in yourself
+                  </p>
+                  <input
+                    type="range"
+                    min={1}
+                    max={10}
+                    value={form.happiness_true_1_10}
+                    onChange={(e) => setForm((f) => ({ ...f, happiness_true_1_10: Number(e.target.value) }))}
+                    className="w-full accent-violet-600"
+                  />
+                  <p className="text-center text-sm font-medium text-violet-900 mt-1">{form.happiness_true_1_10}</p>
+                </div>
+                <div>
+                  <Label className="text-violet-900">What is the reason for your unhappiness — as fully as you can name it? *</Label>
+                  <p className="text-[11px] text-violet-600/85 mt-0.5 mb-1">
+                    Include every thread that matters: relationships, health, money, work, loneliness, pace, old hurts,
+                    numbness, fear, longing — weave the picture you need someone to see.
+                  </p>
+                  <Textarea
+                    value={form.unhappiness_reasons}
+                    onChange={(e) => setForm((f) => ({ ...f, unhappiness_reasons: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
+                    rows={5}
                   />
                 </div>
               </div>
