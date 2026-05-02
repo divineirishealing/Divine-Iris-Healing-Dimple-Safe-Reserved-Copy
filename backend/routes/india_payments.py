@@ -459,15 +459,6 @@ def _infer_tier_index_from_inr_list_prices(
     return None
 
 
-def _first_tier_index_with_dates(tiers: Any) -> Optional[int]:
-    if not isinstance(tiers, list):
-        return None
-    for i, t in enumerate(tiers):
-        if isinstance(t, dict) and _clean_str(t.get("start_date")) and _clean_str(t.get("end_date")):
-            return int(i)
-    return None
-
-
 def _is_three_month_duration_tier(tier: Optional[dict]) -> bool:
     if not isinstance(tier, dict):
         return False
@@ -597,17 +588,19 @@ def build_participant_report_rows(
         if tier_idx is None and item_type.lower() == "program" and catalog_pid and programs_by_id:
             prog_doc = programs_by_id.get(catalog_pid)
             if isinstance(prog_doc, dict):
-                tiers = prog_doc.get("duration_tiers") or []
                 inferred = _infer_tier_index_from_inr_list_prices(e, txn, prog_doc, total_slots)
                 if inferred is not None:
                     tier_idx = inferred
-                else:
-                    snap = _first_tier_index_with_dates(tiers)
-                    if snap is not None:
-                        tier_idx = snap
-                    elif tiers:
-                        tier_idx = 0
         tier_fields = _program_tier_fields_for_report(item_type, catalog_pid, tier_idx, programs_by_id)
+        p_cs = _clean_str(e.get("chosen_start_date"))
+        p_ce = _clean_str(e.get("chosen_end_date"))
+        p_cl = _clean_str(e.get("chosen_tier_label"))
+        if p_cs:
+            tier_fields["chosen_start_date"] = p_cs
+        if p_ce:
+            tier_fields["chosen_end_date"] = p_ce
+        if p_cl:
+            tier_fields["tier_label"] = p_cl
         tier_fields["portal_cohort"] = portal_cohort
 
         def push_row(p: Optional[dict], index: int, *, booker_only: bool) -> None:
@@ -1356,6 +1349,21 @@ async def approve_payment_proof(proof_id: str):
             "paid_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
+        from routes.enrollment_checkout_prepare import snapshot_chosen_tier_from_program
+
+        prog_for_snap = None
+        if resolved_item_type == "program" and (resolved_item_id or "").strip():
+            pid = (resolved_item_id or "").strip()
+            prog_for_snap = await db.programs.find_one({"id": pid}, {"_id": 0, "duration_tiers": 1})
+            if not prog_for_snap and pid.isdigit():
+                prog_for_snap = await db.programs.find_one({"id": int(pid)}, {"_id": 0, "duration_tiers": 1})
+        tix_snap = full_enrollment.get("tier_index")
+        if tix_snap is None and proof.get("tier_index") is not None:
+            try:
+                tix_snap = int(proof["tier_index"])
+            except (TypeError, ValueError):
+                tix_snap = None
+        enrollment_complete.update(snapshot_chosen_tier_from_program(prog_for_snap, tix_snap))
         if (booker_email_resolved or "").strip():
             enrollment_complete["booker_email"] = be_norm or (booker_email_resolved or "").strip().lower()
         if (booker_name_resolved or "").strip():

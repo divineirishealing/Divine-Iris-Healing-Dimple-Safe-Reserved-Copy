@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Awaitable, TYPE_CHECKING
+from typing import Any, Callable, Awaitable, Dict, Optional, TYPE_CHECKING
 
 from fastapi import HTTPException, Request
 
@@ -15,6 +15,36 @@ if TYPE_CHECKING:
     from motor.motor_asyncio import AsyncIOMotorDatabase
 
 logger = logging.getLogger(__name__)
+
+
+def snapshot_chosen_tier_from_program(program: Optional[dict], tier_index: Any) -> Dict[str, str]:
+    """
+    Fields to persist on the enrollment: the catalog tier row the booker selected
+    (label + start/end). Admin reports prefer these over re-deriving from live catalog.
+    """
+    if not isinstance(program, dict):
+        return {}
+    tiers = program.get("duration_tiers") or []
+    try:
+        ti = int(tier_index) if tier_index is not None and str(tier_index).strip() != "" else None
+    except (TypeError, ValueError):
+        ti = None
+    if ti is None or ti < 0 or ti >= len(tiers):
+        return {}
+    row = tiers[ti]
+    if not isinstance(row, dict):
+        return {}
+    sd = str(row.get("start_date") or "").strip()
+    ed = str(row.get("end_date") or "").strip()
+    lab = str(row.get("label") or "").strip()
+    out: Dict[str, str] = {}
+    if sd:
+        out["chosen_start_date"] = sd
+    if ed:
+        out["chosen_end_date"] = ed
+    if lab:
+        out["chosen_tier_label"] = lab
+    return out
 
 
 async def enrollment_run_free_checkout(
@@ -512,15 +542,16 @@ async def enrollment_checkout_prepare(
 
     collection = "programs" if data.item_type == "program" else "sessions"
     item = await db[collection].find_one({"id": data.item_id}, {"_id": 0})
+    item_set: Dict[str, Any] = {
+        "item_type": data.item_type,
+        "item_id": data.item_id,
+        "item_title": item.get("title", "") if item else "",
+    }
+    if data.item_type == "program":
+        item_set.update(snapshot_chosen_tier_from_program(item, getattr(data, "tier_index", None)))
     await db.enrollments.update_one(
         {"id": enrollment_id},
-        {
-            "$set": {
-                "item_type": data.item_type,
-                "item_id": data.item_id,
-                "item_title": item.get("title", "") if item else "",
-            }
-        },
+        {"$set": item_set},
     )
 
     if final_total <= 0:

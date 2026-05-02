@@ -20,6 +20,7 @@ from routes.programs import (
     sort_programs_like_homepage,
 )
 from routes.enrollment import ProfileData, insert_enrollment_from_profile
+from routes.enrollment_checkout_prepare import snapshot_chosen_tier_from_program
 from routes.clients import (
     HOME_COMING_SKU,
     annual_portal_lifecycle_payload,
@@ -2918,6 +2919,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     receipt_id = await _next_receipt_id()
     pref_gpay, pref_bank = _merged_preferred_india_ids(sub, client)
     tier_for_checkout = quote.get("family_tier_index") if included else quote.get("self_tier_index")
+    chosen_snap = snapshot_chosen_tier_from_program(program, tier_for_checkout)
     enrollment = {
         "id": receipt_id,
         "status": "contact_verified",
@@ -2939,6 +2941,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         "dashboard_mixed_currency": quote["currency"],
         "dashboard_checkout_ready": True,
         "tier_index": tier_for_checkout,
+        **chosen_snap,
         "preferred_india_gpay_id": pref_gpay,
         "preferred_india_bank_id": pref_bank,
         "created_at": datetime.now(timezone.utc).isoformat(),
