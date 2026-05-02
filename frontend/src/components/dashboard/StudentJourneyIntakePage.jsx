@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { Flower2, Loader2 } from 'lucide-react';
+import { Flower2, Loader2, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/use-toast';
 import { getApiUrl } from '../../lib/config';
@@ -10,54 +10,97 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 const API = getApiUrl();
 
-const SCORE_KEYS = [
+const AREA_CHECKBOXES = [
+  ['issues_physical', 'Physical'],
+  ['issues_mental', 'Mental'],
+  ['issues_emotional', 'Emotional'],
+  ['issues_relational', 'Relational / community'],
+  ['issues_spiritual', 'Spiritual'],
+  ['issues_financial', 'Financial'],
+  ['issues_other_areas', 'Other life areas'],
+];
+
+const NARRATIVE_BY_ISSUE = {
+  issues_physical: 'narrative_physical',
+  issues_mental: 'narrative_mental',
+  issues_emotional: 'narrative_emotional',
+  issues_relational: 'narrative_relational',
+  issues_spiritual: 'narrative_spiritual',
+  issues_financial: 'narrative_financial',
+  issues_other_areas: 'narrative_other_areas',
+};
+
+const SCORE_SLIDERS = [
   ['score_physical', 'Physical'],
   ['score_mental', 'Mental'],
   ['score_emotional', 'Emotional'],
   ['score_relational', 'Relational'],
   ['score_spiritual', 'Spiritual'],
+  ['score_financial', 'Financial'],
+  ['score_other_areas', 'Other areas'],
 ];
 
-function defaultPeriodMonth() {
+function defaultPeriodBucket(cadence) {
   const t = new Date();
-  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`;
+  const y = t.getFullYear();
+  const m = t.getMonth() + 1;
+  if (cadence === 'monthly') return `${y}-${String(m).padStart(2, '0')}`;
+  if (cadence === 'quarterly') {
+    const q = Math.floor((m - 1) / 3) + 1;
+    return `${y}-Q${q}`;
+  }
+  if (cadence === 'six_month') return `${y}-H${m <= 6 ? 1 : 2}`;
+  if (cadence === 'yearly') return String(y);
+  return '';
 }
 
-const initialForm = () => ({
-  full_name: '',
-  client_id: '',
-  phone: '',
-  whatsapp: '',
-  secondary_email: '',
-  dob: '',
-  city: '',
-  profession: '',
-  record_type: 'baseline',
-  period_month: '',
-  issues_physical: false,
-  issues_mental: false,
-  issues_emotional: false,
-  issues_other_note: '',
-  issues_detail: '',
-  score_physical: 3,
-  score_mental: 3,
-  score_emotional: 3,
-  score_relational: 3,
-  score_spiritual: 3,
-  score_life_growth: '',
-  weight_kg: '',
-  waist_in: '',
-  clothing_size: '',
-  health_issues_text: '',
-  cravings_habits: '',
-  past_actions: '',
-  primary_purpose: '',
-  heard_how: '',
-  referral_name: '',
-});
+function emptyReflectionForm() {
+  const o = {
+    entry_kind: 'reflection',
+    full_name: '',
+    record_type: 'baseline',
+    analysis_period_bucket: '',
+    issues_physical: false,
+    issues_mental: false,
+    issues_emotional: false,
+    issues_relational: false,
+    issues_spiritual: false,
+    issues_financial: false,
+    issues_other_areas: false,
+    issues_other_note: '',
+    issues_detail: '',
+    narrative_physical: '',
+    narrative_mental: '',
+    narrative_emotional: '',
+    narrative_relational: '',
+    narrative_spiritual: '',
+    narrative_financial: '',
+    narrative_other_areas: '',
+    score_physical: 5,
+    score_mental: 5,
+    score_emotional: 5,
+    score_relational: 5,
+    score_spiritual: 5,
+    score_financial: 5,
+    score_other_areas: 5,
+    score_life_growth: '',
+    weight_kg: '',
+    waist_in: '',
+    clothing_size: '',
+    health_issues_text: '',
+    cravings_habits: '',
+    past_actions: '',
+    primary_purpose: '',
+    heard_how: '',
+    referral_name: '',
+    experiences_aha_text: '',
+  };
+  return o;
+}
 
 function shellCard(className = '') {
   return `rounded-2xl border border-violet-100/90 bg-white/80 backdrop-blur-md shadow-[0_8px_40px_-12px_rgba(109,40,217,0.12)] ${className}`;
@@ -66,10 +109,11 @@ function shellCard(className = '') {
 const StudentJourneyIntakePage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [mainTab, setMainTab] = useState('reflection');
   const [status, setStatus] = useState(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(emptyReflectionForm);
 
   const loadStatus = useCallback(async () => {
     setStatusLoading(true);
@@ -95,30 +139,36 @@ const StudentJourneyIntakePage = () => {
     loadStatus();
   }, [loadStatus]);
 
+  const pre = status?.profile_prefill || {};
+
   useEffect(() => {
-    if (!user) return;
+    if (!pre.full_name && !user?.name) return;
     setForm((f) => ({
       ...f,
-      full_name: (user.name || '').trim() || f.full_name,
+      full_name: (pre.full_name || user?.name || '').trim() || f.full_name,
     }));
-  }, [user?.name]);
+  }, [pre.full_name, user?.name]);
 
   useEffect(() => {
     if (statusLoading || !status) return;
     if (!status.has_baseline) {
-      setForm((f) => ({ ...f, record_type: 'baseline', period_month: '' }));
+      setForm((f) => ({
+        ...f,
+        record_type: 'baseline',
+        analysis_period_bucket: '',
+      }));
     } else {
       setForm((f) => ({
         ...f,
         record_type: 'monthly',
-        period_month: f.period_month || defaultPeriodMonth(),
+        analysis_period_bucket: f.analysis_period_bucket || defaultPeriodBucket('monthly'),
       }));
     }
   }, [status, statusLoading]);
 
-  const emailDisplay = useMemo(() => (user?.email || '').trim(), [user?.email]);
+  const emailDisplay = useMemo(() => (user?.email || pre.email || '').trim(), [user?.email, pre.email]);
 
-  const onSubmit = async (e) => {
+  const submitReflection = async (e) => {
     e.preventDefault();
     if (!emailDisplay) {
       toast({ title: 'Sign in required', variant: 'destructive' });
@@ -128,7 +178,7 @@ const StudentJourneyIntakePage = () => {
     if (!fn) {
       toast({
         title: 'Name',
-        description: 'Please enter how you wish to be named on this reflection.',
+        description: 'Add how you wish to be named, or update your name on Profile.',
         variant: 'destructive',
       });
       return;
@@ -136,12 +186,45 @@ const StudentJourneyIntakePage = () => {
     setSaving(true);
     try {
       const payload = {
-        ...form,
+        entry_kind: 'reflection',
         full_name: fn,
-        period_month: form.period_month?.trim() || null,
+        record_type: form.record_type,
+        analysis_period_bucket: (form.analysis_period_bucket || '').trim() || null,
+        period_month: null,
+        issues_physical: form.issues_physical,
+        issues_mental: form.issues_mental,
+        issues_emotional: form.issues_emotional,
+        issues_relational: form.issues_relational,
+        issues_spiritual: form.issues_spiritual,
+        issues_financial: form.issues_financial,
+        issues_other_areas: form.issues_other_areas,
+        issues_other_note: form.issues_other_note,
+        issues_detail: form.issues_detail,
+        narrative_physical: form.narrative_physical,
+        narrative_mental: form.narrative_mental,
+        narrative_emotional: form.narrative_emotional,
+        narrative_relational: form.narrative_relational,
+        narrative_spiritual: form.narrative_spiritual,
+        narrative_financial: form.narrative_financial,
+        narrative_other_areas: form.narrative_other_areas,
+        score_physical: Number(form.score_physical),
+        score_mental: Number(form.score_mental),
+        score_emotional: Number(form.score_emotional),
+        score_relational: Number(form.score_relational),
+        score_spiritual: Number(form.score_spiritual),
+        score_financial: Number(form.score_financial),
+        score_other_areas: Number(form.score_other_areas),
         score_life_growth: form.score_life_growth === '' ? null : Number(form.score_life_growth),
         weight_kg: form.weight_kg === '' ? null : Number(form.weight_kg),
         waist_in: form.waist_in === '' ? null : Number(form.waist_in),
+        clothing_size: form.clothing_size,
+        health_issues_text: form.health_issues_text,
+        cravings_habits: form.cravings_habits,
+        past_actions: form.past_actions,
+        primary_purpose: form.primary_purpose,
+        heard_how: form.heard_how,
+        referral_name: form.referral_name,
+        experiences_aha_text: '',
       };
       await axios.post(`${API}/student/journey-intake/submit`, payload, {
         withCredentials: true,
@@ -152,8 +235,10 @@ const StudentJourneyIntakePage = () => {
         description: 'Your reflection is held with care in your journey archive.',
       });
       setForm(() => ({
-        ...initialForm(),
-        full_name: (user?.name || '').trim(),
+        ...emptyReflectionForm(),
+        full_name: (pre.full_name || user?.name || '').trim(),
+        record_type: status?.has_baseline ? 'monthly' : 'baseline',
+        analysis_period_bucket: status?.has_baseline ? defaultPeriodBucket('monthly') : '',
       }));
       await loadStatus();
     } catch (err) {
@@ -167,11 +252,74 @@ const StudentJourneyIntakePage = () => {
     }
   };
 
+  const submitAha = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const fn = (form.full_name || '').trim() || (user?.name || '').trim();
+      if (!fn) {
+        toast({ title: 'Name', description: 'Add how you wish to be named.', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+      const payload = {
+        entry_kind: 'aha',
+        full_name: fn,
+        record_type: 'baseline',
+        experiences_aha_text: form.experiences_aha_text,
+        narrative_physical: '',
+        narrative_mental: '',
+        narrative_emotional: '',
+        narrative_relational: '',
+        narrative_spiritual: '',
+        narrative_financial: '',
+        narrative_other_areas: '',
+        issues_physical: false,
+        issues_mental: false,
+        issues_emotional: false,
+        issues_relational: false,
+        issues_spiritual: false,
+        issues_financial: false,
+        issues_other_areas: false,
+      };
+      await axios.post(`${API}/student/journey-intake/submit`, payload, {
+        withCredentials: true,
+        headers: getAuthHeaders(),
+      });
+      toast({ title: 'Saved', description: 'Your aha moment is recorded.' });
+      setForm((f) => ({ ...f, experiences_aha_text: '' }));
+      await loadStatus();
+    } catch (err) {
+      toast({
+        title: 'Could not save',
+        description: String(err.response?.data?.detail || err.message),
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onCadenceChange = (cadence) => {
+    setForm((f) => ({
+      ...f,
+      record_type: cadence,
+      analysis_period_bucket: defaultPeriodBucket(cadence),
+    }));
+  };
+
+  const periodHint = useMemo(() => {
+    const rt = form.record_type;
+    if (rt === 'monthly') return 'Format: YYYY-MM (example: 2026-04)';
+    if (rt === 'quarterly') return 'Format: YYYY-Q1 … YYYY-Q4';
+    if (rt === 'six_month') return 'Format: YYYY-H1 (Jan–Jun) or YYYY-H2 (Jul–Dec)';
+    if (rt === 'yearly') return 'Format: YYYY';
+    if (rt === 'checkpoint') return 'Optional tag: YYYY-MM if you want to anchor this checkpoint to a month.';
+    return '';
+  }, [form.record_type]);
+
   return (
-    <div
-      className="max-w-3xl mx-auto pb-16"
-      data-testid="student-journey-intake-page"
-    >
+    <div className="max-w-3xl mx-auto pb-16" data-testid="student-journey-intake-page">
       <div className={`${shellCard()} p-6 sm:p-8 mb-6 relative overflow-hidden`}>
         <div className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-gradient-to-br from-violet-200/35 to-amber-200/25 blur-2xl" />
         <div className="relative">
@@ -179,317 +327,362 @@ const StudentJourneyIntakePage = () => {
             <Flower2 className="w-4 h-4 text-amber-600/90" aria-hidden />
             Sacred Home
           </p>
-          <h1 className="text-2xl sm:text-3xl font-light text-violet-950 tracking-tight" style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}>
+          <h1
+            className="text-2xl sm:text-3xl font-light text-violet-950 tracking-tight"
+            style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
+          >
             Journey reflection
           </h1>
           <p className="mt-3 text-sm text-violet-800/85 leading-relaxed">
-            The same gentle snapshot we use for holistic rhythm — physical, mental, emotional, relational,
-            and spiritual. Nothing here is clinical; it simply helps us walk beside you with care.
+            Rhythms are tagged (month, quarter, half-year, year) so you can revisit before-and-after movement over
+            time. Scores use 0–10 (0 = most strained, 10 = most resourced). Contact details come from your Profile —
+            update them there if anything shifts.
           </p>
           <p className="mt-3 text-xs text-violet-700/80">
-            <Link to="/dashboard" className="text-amber-900/90 font-medium underline underline-offset-2 hover:opacity-90">
-              ← Back to Sacred Home
+            <Link to="/dashboard/profile" className="text-amber-900/90 font-medium underline underline-offset-2 hover:opacity-90">
+              Open Profile to edit phone, city, profession, or date of birth
+            </Link>
+            {' · '}
+            <Link to="/dashboard" className="text-violet-800 underline underline-offset-2 hover:opacity-90">
+              Back to Sacred Home
             </Link>
           </p>
         </div>
       </div>
 
-      {statusLoading ? (
-        <div className={`${shellCard()} p-12 flex justify-center`}>
-          <Loader2 className="w-8 h-8 animate-spin text-violet-600" aria-label="Loading" />
-        </div>
-      ) : (
-        <form onSubmit={onSubmit} className={`${shellCard()} p-6 sm:p-8 space-y-6`}>
-          {status?.has_baseline ? (
-            <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-950">
-              Your opening reflection is already with us. Below you can share a{' '}
-              <strong className="font-medium">monthly tending</strong> or a{' '}
-              <strong className="font-medium">checkpoint</strong> when you feel moved to.
+      <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
+        <TabsList className="bg-white/70 border border-violet-100/80 p-1 rounded-full flex flex-wrap h-auto gap-1">
+          <TabsTrigger
+            value="reflection"
+            className="rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-200/90 data-[state=active]:to-amber-100/90 data-[state=active]:text-violet-950"
+          >
+            <Flower2 className="w-3.5 h-3.5 mr-1.5 inline" />
+            Rhythm reflection
+          </TabsTrigger>
+          <TabsTrigger
+            value="aha"
+            className="rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-200/90 data-[state=active]:to-amber-100/90 data-[state=active]:text-violet-950"
+          >
+            <Sparkles className="w-3.5 h-3.5 mr-1.5 inline" />
+            Aha &amp; experiences
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="reflection">
+          {statusLoading ? (
+            <div className={`${shellCard()} p-12 flex justify-center`}>
+              <Loader2 className="w-8 h-8 animate-spin text-violet-600" aria-label="Loading" />
             </div>
           ) : (
-            <div className="rounded-xl border border-violet-200/80 bg-violet-50/60 px-4 py-3 text-sm text-violet-950">
-              This first sharing is received as your <strong className="font-medium">opening reflection</strong>
-              {' '}(baseline). Take your time; you can return after you submit for monthly rhythms.
-            </div>
-          )}
+            <form onSubmit={submitReflection} className={`${shellCard()} p-6 sm:p-8 space-y-6`}>
+              {status?.has_baseline ? (
+                <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-950">
+                  Your opening reflection is on file. Choose a <strong>rhythm</strong> (monthly, quarterly, six months,
+                  or yearly), a <strong>checkpoint</strong>, or visit the <strong>Aha</strong> tab for lighter notes.
+                </div>
+              ) : (
+                <div className="rounded-xl border border-violet-200/80 bg-violet-50/60 px-4 py-3 text-sm text-violet-950">
+                  This first sharing is your <strong>opening reflection</strong>. Areas you check below ask for a
+                  short narrative so we can witness you with care.
+                </div>
+              )}
 
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
-              <Label className="text-violet-900">Account email</Label>
-              <Input readOnly value={emailDisplay} className="mt-1 bg-violet-50/80 border-violet-200 text-violet-800" />
-            </div>
+              <div className={`${shellCard('p-4 space-y-2')}`}>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-violet-500/90">From your profile</p>
+                <div className="grid sm:grid-cols-2 gap-2 text-sm text-violet-900">
+                  <div>
+                    <span className="text-violet-600/80 text-xs block">Email</span>
+                    {emailDisplay || '—'}
+                  </div>
+                  <div>
+                    <span className="text-violet-600/80 text-xs block">Phone</span>
+                    {pre.phone_display || '—'}
+                  </div>
+                  <div>
+                    <span className="text-violet-600/80 text-xs block">WhatsApp (or phone)</span>
+                    {pre.whatsapp || '—'}
+                  </div>
+                  <div>
+                    <span className="text-violet-600/80 text-xs block">City</span>
+                    {pre.city || '—'}
+                  </div>
+                  <div>
+                    <span className="text-violet-600/80 text-xs block">Profession</span>
+                    {pre.profession || '—'}
+                  </div>
+                  <div>
+                    <span className="text-violet-600/80 text-xs block">Date of birth</span>
+                    {pre.dob || '—'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <Label className="text-violet-900">Name for this reflection *</Label>
+                  <Input
+                    value={form.full_name}
+                    onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
+                    placeholder={pre.full_name || user?.name || ''}
+                  />
+                </div>
+              </div>
+
+              {status?.has_baseline ? (
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-violet-900">Rhythm or checkpoint</Label>
+                    <select
+                      className="mt-1 w-full rounded-md border border-violet-200 bg-white/90 px-3 py-2 text-sm"
+                      value={form.record_type}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (['monthly', 'quarterly', 'six_month', 'yearly'].includes(v)) onCadenceChange(v);
+                        else setForm((f) => ({ ...f, record_type: v, analysis_period_bucket: '' }));
+                      }}
+                    >
+                      <option value="monthly">Monthly</option>
+                      <option value="quarterly">Quarterly</option>
+                      <option value="six_month">Six-month</option>
+                      <option value="yearly">Yearly</option>
+                      <option value="checkpoint">Checkpoint (anytime)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-violet-900">Period tag *</Label>
+                    <Input
+                      value={form.analysis_period_bucket}
+                      onChange={(e) => setForm((f) => ({ ...f, analysis_period_bucket: e.target.value }))}
+                      className="mt-1 bg-white/90 border-violet-200"
+                      placeholder={defaultPeriodBucket(form.record_type === 'checkpoint' ? 'monthly' : form.record_type)}
+                    />
+                    <p className="text-[11px] text-violet-600/80 mt-1">{periodHint}</p>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="space-y-4">
+                <Label className="text-violet-900">Areas you are tending — check each that applies</Label>
+                <p className="text-xs text-violet-700/80 -mt-2">
+                  For each area you check, add a few heartfelt words in the matching box below (required).
+                </p>
+                <div className="flex flex-wrap gap-3 text-sm text-violet-900">
+                  {AREA_CHECKBOXES.map(([key, label]) => (
+                    <label key={key} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={form[key]}
+                        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.checked }))}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <Textarea
+                  placeholder="Cross-cutting themes (relationships, family, growth edges…)"
+                  value={form.issues_other_note}
+                  onChange={(e) => setForm((f) => ({ ...f, issues_other_note: e.target.value }))}
+                  className="bg-white/90 border-violet-200"
+                  rows={2}
+                />
+              </div>
+
+              <div className="space-y-4">
+                <Label className="text-violet-900">Narrative for each tending area</Label>
+                {AREA_CHECKBOXES.map(([issueKey, label]) => {
+                  const narrKey = NARRATIVE_BY_ISSUE[issueKey];
+                  return (
+                    <div key={narrKey} className={form[issueKey] ? '' : 'opacity-80'}>
+                      <Label className="text-xs text-violet-800">{label}</Label>
+                      <Textarea
+                        value={form[narrKey]}
+                        onChange={(e) => setForm((f) => ({ ...f, [narrKey]: e.target.value }))}
+                        className="mt-1 bg-white/90 border-violet-200"
+                        rows={form[issueKey] ? 3 : 2}
+                        placeholder={
+                          form[issueKey]
+                            ? 'What feels true here right now?'
+                            : 'Optional — fill if you want to name this area even without checking above.'
+                        }
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div>
+                <Label className="text-violet-900">Weaving note (optional)</Label>
+                <Textarea
+                  value={form.issues_detail}
+                  onChange={(e) => setForm((f) => ({ ...f, issues_detail: e.target.value }))}
+                  className="mt-1 bg-white/90 border-violet-200"
+                  rows={2}
+                  placeholder="Anything that connects the threads across areas"
+                />
+              </div>
+
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {SCORE_SLIDERS.map(([key, label]) => (
+                  <div key={key}>
+                    <Label className="text-violet-900 text-xs">
+                      {label} (0–10)
+                    </Label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={10}
+                      value={form[key]}
+                      onChange={(e) => setForm((f) => ({ ...f, [key]: Number(e.target.value) }))}
+                      className="w-full accent-amber-600"
+                    />
+                    <p className="text-center text-sm text-violet-800">{form[key]}</p>
+                  </div>
+                ))}
+                <div>
+                  <Label className="text-violet-900 text-xs">Life growth (optional 0–10)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={10}
+                    value={form.score_life_growth}
+                    onChange={(e) => setForm((f) => ({ ...f, score_life_growth: e.target.value }))}
+                    placeholder="Optional"
+                    className="mt-1 bg-white/90 border-violet-200"
+                  />
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-violet-900">Weight (kg)</Label>
+                  <Input
+                    value={form.weight_kg}
+                    onChange={(e) => setForm((f) => ({ ...f, weight_kg: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
+                  />
+                </div>
+                <div>
+                  <Label className="text-violet-900">Waist (in)</Label>
+                  <Input
+                    value={form.waist_in}
+                    onChange={(e) => setForm((f) => ({ ...f, waist_in: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
+                  />
+                </div>
+                <div>
+                  <Label className="text-violet-900">Clothing size</Label>
+                  <Input
+                    value={form.clothing_size}
+                    onChange={(e) => setForm((f) => ({ ...f, clothing_size: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-violet-900">Health &amp; habits (optional)</Label>
+                <Textarea
+                  value={form.health_issues_text}
+                  onChange={(e) => setForm((f) => ({ ...f, health_issues_text: e.target.value }))}
+                  className="mt-1 bg-white/90 border-violet-200"
+                  rows={3}
+                />
+              </div>
+              <div>
+                <Label className="text-violet-900">Cravings / habits</Label>
+                <Textarea
+                  value={form.cravings_habits}
+                  onChange={(e) => setForm((f) => ({ ...f, cravings_habits: e.target.value }))}
+                  className="mt-1 bg-white/90 border-violet-200"
+                  rows={2}
+                />
+              </div>
+              <div>
+                <Label className="text-violet-900">Past actions &amp; results</Label>
+                <Textarea
+                  value={form.past_actions}
+                  onChange={(e) => setForm((f) => ({ ...f, past_actions: e.target.value }))}
+                  className="mt-1 bg-white/90 border-violet-200"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-violet-900">Primary purpose of this path for you</Label>
+                  <Textarea
+                    value={form.primary_purpose}
+                    onChange={(e) => setForm((f) => ({ ...f, primary_purpose: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <Label className="text-violet-900">How you found us</Label>
+                  <Input
+                    value={form.heard_how}
+                    onChange={(e) => setForm((f) => ({ ...f, heard_how: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
+                    placeholder="Instagram, referral…"
+                  />
+                  <Label className="text-violet-900 mt-3 block">Referral name</Label>
+                  <Input
+                    value={form.referral_name}
+                    onChange={(e) => setForm((f) => ({ ...f, referral_name: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded-full bg-gradient-to-r from-violet-600 to-violet-500 hover:from-violet-700 hover:to-violet-600 text-white px-8"
+                >
+                  {saving ? 'Saving…' : 'Share reflection'}
+                </Button>
+              </div>
+            </form>
+          )}
+        </TabsContent>
+
+        <TabsContent value="aha">
+          <form onSubmit={submitAha} className={`${shellCard()} p-6 sm:p-8 space-y-4`}>
+            <p className="text-sm text-violet-800/90 leading-relaxed">
+              A lighter log for synchronicities, somatic shifts, dreams, or insights — no full rhythm scores required.
+            </p>
             <div>
-              <Label className="text-violet-900">Name for this reflection *</Label>
+              <Label className="text-violet-900">Name *</Label>
               <Input
                 value={form.full_name}
                 onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
                 className="mt-1 bg-white/90 border-violet-200"
-                placeholder={user?.name || 'As you wish to be addressed'}
               />
             </div>
             <div>
-              <Label className="text-violet-900">Client ID (optional)</Label>
-              <Input
-                value={form.client_id}
-                onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}
-                className="mt-1 bg-white/90 border-violet-200"
-                placeholder="If you were given an Iris id"
-              />
-            </div>
-          </div>
-
-          {status?.has_baseline ? (
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-violet-900">Snapshot type</Label>
-                <select
-                  className="mt-1 w-full rounded-md border border-violet-200 bg-white/90 px-3 py-2 text-sm"
-                  value={form.record_type}
-                  onChange={(e) => setForm((f) => ({ ...f, record_type: e.target.value }))}
-                >
-                  <option value="monthly">Monthly tending</option>
-                  <option value="checkpoint">Checkpoint</option>
-                </select>
-              </div>
-              <div>
-                <Label className="text-violet-900">
-                  Rhythm month (YYYY-MM){form.record_type === 'monthly' ? ' *' : ''}
-                </Label>
-                <Input
-                  value={form.period_month}
-                  onChange={(e) => setForm((f) => ({ ...f, period_month: e.target.value }))}
-                  className="mt-1 bg-white/90 border-violet-200"
-                  placeholder="2026-04"
-                  disabled={form.record_type === 'checkpoint'}
-                />
-                {form.record_type === 'checkpoint' ? (
-                  <p className="text-[11px] text-violet-600/80 mt-1">Optional for checkpoints; leave blank if not tagging a month.</p>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-violet-900">Phone</Label>
-              <Input
-                value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                className="mt-1 bg-white/90 border-violet-200"
-              />
-            </div>
-            <div>
-              <Label className="text-violet-900">WhatsApp</Label>
-              <Input
-                value={form.whatsapp}
-                onChange={(e) => setForm((f) => ({ ...f, whatsapp: e.target.value }))}
-                className="mt-1 bg-white/90 border-violet-200"
-              />
-            </div>
-            <div>
-              <Label className="text-violet-900">Secondary email</Label>
-              <Input
-                value={form.secondary_email}
-                onChange={(e) => setForm((f) => ({ ...f, secondary_email: e.target.value }))}
-                className="mt-1 bg-white/90 border-violet-200"
-              />
-            </div>
-            <div>
-              <Label className="text-violet-900">Date of birth (optional)</Label>
-              <Input
-                value={form.dob}
-                onChange={(e) => setForm((f) => ({ ...f, dob: e.target.value }))}
-                className="mt-1 bg-white/90 border-violet-200"
-                placeholder="As you are comfortable"
-              />
-            </div>
-            <div>
-              <Label className="text-violet-900">City</Label>
-              <Input
-                value={form.city}
-                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                className="mt-1 bg-white/90 border-violet-200"
-              />
-            </div>
-            <div>
-              <Label className="text-violet-900">Profession</Label>
-              <Input
-                value={form.profession}
-                onChange={(e) => setForm((f) => ({ ...f, profession: e.target.value }))}
-                className="mt-1 bg-white/90 border-violet-200"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <Label className="text-violet-900">Areas you are tending at this moment</Label>
-            <div className="flex flex-wrap gap-4 text-sm text-violet-900">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={form.issues_physical}
-                  onChange={(e) => setForm((f) => ({ ...f, issues_physical: e.target.checked }))}
-                />
-                Physical
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={form.issues_mental}
-                  onChange={(e) => setForm((f) => ({ ...f, issues_mental: e.target.checked }))}
-                />
-                Mental
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={form.issues_emotional}
-                  onChange={(e) => setForm((f) => ({ ...f, issues_emotional: e.target.checked }))}
-                />
-                Emotional
-              </label>
-            </div>
-            <Textarea
-              placeholder="Other themes (relationships, finance, growth…)"
-              value={form.issues_other_note}
-              onChange={(e) => setForm((f) => ({ ...f, issues_other_note: e.target.value }))}
-              className="bg-white/90 border-violet-200"
-              rows={2}
-            />
-          </div>
-
-          <div>
-            <Label className="text-violet-900">Narrative — for each area you named, share what feels true</Label>
-            <Textarea
-              value={form.issues_detail}
-              onChange={(e) => setForm((f) => ({ ...f, issues_detail: e.target.value }))}
-              className="mt-1 bg-white/90 border-violet-200"
-              rows={4}
-            />
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {SCORE_KEYS.map(([key, label]) => (
-              <div key={key}>
-                <Label className="text-violet-900 text-xs">{label} (1–5)</Label>
-                <input
-                  type="range"
-                  min={1}
-                  max={5}
-                  value={form[key]}
-                  onChange={(e) => setForm((f) => ({ ...f, [key]: Number(e.target.value) }))}
-                  className="w-full accent-amber-600"
-                />
-                <p className="text-center text-sm text-violet-800">{form[key]}</p>
-              </div>
-            ))}
-            <div>
-              <Label className="text-violet-900 text-xs">Life growth (optional 1–5)</Label>
-              <Input
-                type="number"
-                min={1}
-                max={5}
-                value={form.score_life_growth}
-                onChange={(e) => setForm((f) => ({ ...f, score_life_growth: e.target.value }))}
-                placeholder="Optional"
-                className="mt-1 bg-white/90 border-violet-200"
-              />
-            </div>
-          </div>
-
-          <div className="grid sm:grid-cols-3 gap-4">
-            <div>
-              <Label className="text-violet-900">Weight (kg)</Label>
-              <Input
-                value={form.weight_kg}
-                onChange={(e) => setForm((f) => ({ ...f, weight_kg: e.target.value }))}
-                className="mt-1 bg-white/90 border-violet-200"
-              />
-            </div>
-            <div>
-              <Label className="text-violet-900">Waist (in)</Label>
-              <Input
-                value={form.waist_in}
-                onChange={(e) => setForm((f) => ({ ...f, waist_in: e.target.value }))}
-                className="mt-1 bg-white/90 border-violet-200"
-              />
-            </div>
-            <div>
-              <Label className="text-violet-900">Clothing size</Label>
-              <Input
-                value={form.clothing_size}
-                onChange={(e) => setForm((f) => ({ ...f, clothing_size: e.target.value }))}
-                className="mt-1 bg-white/90 border-violet-200"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-violet-900">Health &amp; habits (long form, optional)</Label>
-            <Textarea
-              value={form.health_issues_text}
-              onChange={(e) => setForm((f) => ({ ...f, health_issues_text: e.target.value }))}
-              className="mt-1 bg-white/90 border-violet-200"
-              rows={3}
-            />
-          </div>
-          <div>
-            <Label className="text-violet-900">Cravings / habits</Label>
-            <Textarea
-              value={form.cravings_habits}
-              onChange={(e) => setForm((f) => ({ ...f, cravings_habits: e.target.value }))}
-              className="mt-1 bg-white/90 border-violet-200"
-              rows={2}
-            />
-          </div>
-          <div>
-            <Label className="text-violet-900">Past actions &amp; results</Label>
-            <Textarea
-              value={form.past_actions}
-              onChange={(e) => setForm((f) => ({ ...f, past_actions: e.target.value }))}
-              className="mt-1 bg-white/90 border-violet-200"
-              rows={3}
-            />
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-violet-900">Primary purpose of this path for you</Label>
+              <Label className="text-violet-900">Experience or aha moment *</Label>
               <Textarea
-                value={form.primary_purpose}
-                onChange={(e) => setForm((f) => ({ ...f, primary_purpose: e.target.value }))}
+                value={form.experiences_aha_text}
+                onChange={(e) => setForm((f) => ({ ...f, experiences_aha_text: e.target.value }))}
                 className="mt-1 bg-white/90 border-violet-200"
-                rows={2}
+                rows={6}
+                placeholder="What happened? What did you notice? What shifted?"
               />
             </div>
-            <div>
-              <Label className="text-violet-900">How you found us</Label>
-              <Input
-                value={form.heard_how}
-                onChange={(e) => setForm((f) => ({ ...f, heard_how: e.target.value }))}
-                className="mt-1 bg-white/90 border-violet-200"
-                placeholder="Instagram, referral…"
-              />
-              <Label className="text-violet-900 mt-3 block">Referral name</Label>
-              <Input
-                value={form.referral_name}
-                onChange={(e) => setForm((f) => ({ ...f, referral_name: e.target.value }))}
-                className="mt-1 bg-white/90 border-violet-200"
-              />
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                disabled={saving}
+                className="rounded-full bg-gradient-to-r from-amber-600 to-amber-500 text-white px-8"
+              >
+                {saving ? 'Saving…' : 'Save aha moment'}
+              </Button>
             </div>
-          </div>
-
-          <div className="flex justify-end pt-2">
-            <Button
-              type="submit"
-              disabled={saving}
-              className="rounded-full bg-gradient-to-r from-violet-600 to-violet-500 hover:from-violet-700 hover:to-violet-600 text-white px-8"
-            >
-              {saving ? 'Saving…' : 'Share reflection'}
-            </Button>
-          </div>
-        </form>
-      )}
+          </form>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

@@ -44,6 +44,8 @@ const SCORE_KEYS = [
   ['score_emotional', 'Emotional'],
   ['score_relational', 'Relational'],
   ['score_spiritual', 'Spiritual'],
+  ['score_financial', 'Financial'],
+  ['score_other_areas', 'Other areas'],
 ];
 
 const initialForm = {
@@ -58,16 +60,32 @@ const initialForm = {
   profession: '',
   record_type: 'baseline',
   period_month: '',
+  analysis_period_bucket: '',
+  rhythm_cadence: '',
   issues_physical: false,
   issues_mental: false,
   issues_emotional: false,
+  issues_relational: false,
+  issues_spiritual: false,
+  issues_financial: false,
+  issues_other_areas: false,
   issues_other_note: '',
   issues_detail: '',
-  score_physical: 3,
-  score_mental: 3,
-  score_emotional: 3,
-  score_relational: 3,
-  score_spiritual: 3,
+  narrative_physical: '',
+  narrative_mental: '',
+  narrative_emotional: '',
+  narrative_relational: '',
+  narrative_spiritual: '',
+  narrative_financial: '',
+  narrative_other_areas: '',
+  experiences_aha_text: '',
+  score_physical: 5,
+  score_mental: 5,
+  score_emotional: 5,
+  score_relational: 5,
+  score_spiritual: 5,
+  score_financial: 5,
+  score_other_areas: 5,
   score_life_growth: '',
   weight_kg: '',
   waist_in: '',
@@ -168,7 +186,7 @@ const IntakeProgressTab = () => {
     return SCORE_KEYS.map(([k, label]) => ({
       area: label,
       value: Number(m[k] || 0),
-      fullMark: 5,
+      fullMark: 10,
     }));
   }, [overview]);
 
@@ -181,6 +199,8 @@ const IntakeProgressTab = () => {
       Emotional: r.score_emotional,
       Relational: r.score_relational,
       Spiritual: r.score_spiritual,
+      Financial: r.score_financial,
+      Other: r.score_other_areas,
     }));
   }, [overview]);
 
@@ -192,18 +212,27 @@ const IntakeProgressTab = () => {
     }
     setSaving(true);
     try {
+      const bucket = (form.analysis_period_bucket || form.period_month || '').trim() || null;
+      const pm =
+        form.record_type === 'monthly' && /^\d{4}-\d{2}$/.test(bucket || '')
+          ? bucket
+          : (form.period_month || '').trim() || null;
       const payload = {
         ...form,
         email: form.email.trim(),
         full_name: form.full_name.trim(),
-        period_month: form.period_month?.trim() || null,
+        period_month: pm,
+        analysis_period_bucket: bucket,
+        rhythm_cadence: ['monthly', 'quarterly', 'six_month', 'yearly'].includes(form.record_type)
+          ? form.record_type
+          : null,
         score_life_growth: form.score_life_growth === '' ? null : Number(form.score_life_growth),
         weight_kg: form.weight_kg === '' ? null : Number(form.weight_kg),
         waist_in: form.waist_in === '' ? null : Number(form.waist_in),
       };
       await axios.post(`${API}/admin/intake-progress/records`, payload, { headers: adminHeaders() });
       toast({ title: 'Reflection saved', description: 'Held with care in your journey archive.' });
-      setForm(initialForm);
+      setForm({ ...initialForm });
       await refreshAll();
     } catch (err) {
       toast({
@@ -228,6 +257,7 @@ const IntakeProgressTab = () => {
       'full_name',
       'record_type',
       'period_month',
+      'analysis_period_bucket',
       'created_at',
       ...SCORE_KEYS.map(([k]) => k),
       'score_life_growth',
@@ -346,13 +376,13 @@ const IntakeProgressTab = () => {
                   <TrendingUp className="w-4 h-4 text-amber-600" />
                   Cohort rhythm (latest snapshot per soul)
                 </h3>
-                <p className="text-xs text-violet-700/75 mb-4">Averages across the five petals — not a diagnosis.</p>
+                <p className="text-xs text-violet-700/75 mb-4">Averages across life dimensions (0–10 scale) — not a diagnosis.</p>
                 <div className="h-[280px] w-full">
                   <ResponsiveContainer>
                     <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="78%">
                       <PolarGrid stroke="#e9d5ff" />
                       <PolarAngleAxis dataKey="area" tick={{ fill: '#5b21b6', fontSize: 11 }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 5]} tick={{ fill: '#a78bfa', fontSize: 10 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 10]} tick={{ fill: '#a78bfa', fontSize: 10 }} />
                       <Radar
                         name="Average"
                         dataKey="value"
@@ -380,7 +410,7 @@ const IntakeProgressTab = () => {
                     <LineChart data={lineData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f5f3ff" />
                       <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#6d28d9' }} />
-                      <YAxis domain={[1, 5]} tick={{ fontSize: 10, fill: '#6d28d9' }} />
+                      <YAxis domain={[0, 10]} tick={{ fontSize: 10, fill: '#6d28d9' }} />
                       <Tooltip
                         contentStyle={{
                           borderRadius: 12,
@@ -388,12 +418,12 @@ const IntakeProgressTab = () => {
                           background: 'rgba(255,255,255,0.96)',
                         }}
                       />
-                      {['Physical', 'Mental', 'Emotional', 'Relational', 'Spiritual'].map((name, i) => (
+                      {['Physical', 'Mental', 'Emotional', 'Relational', 'Spiritual', 'Financial', 'Other'].map((name, i) => (
                         <Line
                           key={name}
                           type="monotone"
                           dataKey={name}
-                          stroke={['#7c3aed', '#a78bfa', '#c4b5fd', '#d4af37', '#c084fc'][i]}
+                          stroke={['#7c3aed', '#a78bfa', '#c4b5fd', '#d4af37', '#c084fc', '#059669', '#f97316'][i]}
                           strokeWidth={2}
                           dot={false}
                         />
@@ -430,7 +460,7 @@ const IntakeProgressTab = () => {
             <div className={`${shellCard()} p-5`}>
               <h3 className="text-sm font-medium text-violet-900 mb-2">Spaces asking for gentleness</h3>
               <p className="text-xs text-violet-700/75 mb-4">
-                A soft flag when any petal was at 1–2 — follow with your own discernment and care.
+                A soft flag when scores sit at the low end of the scale (legacy 1–5 vs new 0–10) — follow with your own discernment and care.
               </p>
               <ul className="space-y-2 max-h-48 overflow-y-auto text-sm">
                 {(overview?.gentle_attention || []).length === 0 ? (
@@ -509,18 +539,32 @@ const IntakeProgressTab = () => {
                     onChange={(e) => setForm((f) => ({ ...f, record_type: e.target.value }))}
                   >
                     <option value="baseline">Baseline — first arrival</option>
-                    <option value="monthly">Monthly tending</option>
+                    <option value="monthly">Monthly rhythm</option>
+                    <option value="quarterly">Quarterly rhythm</option>
+                    <option value="six_month">Six-month rhythm</option>
+                    <option value="yearly">Yearly rhythm</option>
                     <option value="checkpoint">Checkpoint</option>
+                    <option value="aha_moment">Aha / experience log</option>
                   </select>
                 </div>
                 <div>
-                  <Label className="text-violet-900">Month tag (YYYY-MM, optional)</Label>
+                  <Label className="text-violet-900">Analysis period tag</Label>
                   <Input
-                    value={form.period_month}
-                    onChange={(e) => setForm((f) => ({ ...f, period_month: e.target.value }))}
+                    value={form.analysis_period_bucket || form.period_month}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        analysis_period_bucket: e.target.value,
+                        period_month: e.target.value,
+                      }))
+                    }
                     className="mt-1 bg-white/90 border-violet-200"
-                    placeholder="2026-05"
+                    placeholder="2026-04 · 2026-Q2 · 2026-H1 · 2026"
                   />
+                  <p className="text-[11px] text-violet-600/80 mt-1">
+                    Use YYYY-MM for monthly, YYYY-Qn for quarterly, YYYY-H1/H2 for six-month, YYYY for yearly. Optional
+                    for baseline; recommended for rhythms.
+                  </p>
                 </div>
               </div>
 
@@ -560,35 +604,29 @@ const IntakeProgressTab = () => {
               </div>
 
               <div className="space-y-3">
-                <Label className="text-violet-900">Issue petals at joining</Label>
+                <Label className="text-violet-900">Tending areas (check all that apply)</Label>
                 <div className="flex flex-wrap gap-4 text-sm text-violet-900">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={form.issues_physical}
-                      onChange={(e) => setForm((f) => ({ ...f, issues_physical: e.target.checked }))}
-                    />
-                    Physical
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={form.issues_mental}
-                      onChange={(e) => setForm((f) => ({ ...f, issues_mental: e.target.checked }))}
-                    />
-                    Mental
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={form.issues_emotional}
-                      onChange={(e) => setForm((f) => ({ ...f, issues_emotional: e.target.checked }))}
-                    />
-                    Emotional
-                  </label>
+                  {[
+                    ['issues_physical', 'Physical'],
+                    ['issues_mental', 'Mental'],
+                    ['issues_emotional', 'Emotional'],
+                    ['issues_relational', 'Relational'],
+                    ['issues_spiritual', 'Spiritual'],
+                    ['issues_financial', 'Financial'],
+                    ['issues_other_areas', 'Other areas'],
+                  ].map(([k, lab]) => (
+                    <label key={k} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={form[k]}
+                        onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.checked }))}
+                      />
+                      {lab}
+                    </label>
+                  ))}
                 </div>
                 <Textarea
-                  placeholder="Other themes (relationships, finance, growth…)"
+                  placeholder="Cross-cutting themes (relationships, family, growth…)"
                   value={form.issues_other_note}
                   onChange={(e) => setForm((f) => ({ ...f, issues_other_note: e.target.value }))}
                   className="bg-white/90 border-violet-200"
@@ -596,24 +634,58 @@ const IntakeProgressTab = () => {
                 />
               </div>
 
+              <div className="space-y-3">
+                <Label className="text-violet-900">Narratives per area</Label>
+                {[
+                  ['narrative_physical', 'Physical'],
+                  ['narrative_mental', 'Mental'],
+                  ['narrative_emotional', 'Emotional'],
+                  ['narrative_relational', 'Relational'],
+                  ['narrative_spiritual', 'Spiritual'],
+                  ['narrative_financial', 'Financial'],
+                  ['narrative_other_areas', 'Other areas'],
+                ].map(([nk, lab]) => (
+                  <div key={nk}>
+                    <Label className="text-xs text-violet-800">{lab}</Label>
+                    <Textarea
+                      value={form[nk]}
+                      onChange={(e) => setForm((f) => ({ ...f, [nk]: e.target.value }))}
+                      className="mt-1 bg-white/90 border-violet-200"
+                      rows={2}
+                    />
+                  </div>
+                ))}
+              </div>
+
               <div>
-                <Label className="text-violet-900">Narrative — answer for each petal you named</Label>
+                <Label className="text-violet-900">Weaving / cross-area note (optional)</Label>
                 <Textarea
                   value={form.issues_detail}
                   onChange={(e) => setForm((f) => ({ ...f, issues_detail: e.target.value }))}
                   className="mt-1 bg-white/90 border-violet-200"
-                  rows={4}
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label className="text-violet-900">Aha / experience text (for aha_moment type)</Label>
+                <Textarea
+                  value={form.experiences_aha_text}
+                  onChange={(e) => setForm((f) => ({ ...f, experiences_aha_text: e.target.value }))}
+                  className="mt-1 bg-white/90 border-violet-200"
+                  rows={2}
+                  placeholder="Optional unless snapshot type is Aha / experience log"
                 />
               </div>
 
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {SCORE_KEYS.map(([key, label]) => (
                   <div key={key}>
-                    <Label className="text-violet-900 text-xs">{label} (1–5)</Label>
+                    <Label className="text-violet-900 text-xs">{label} (0–10)</Label>
                     <input
                       type="range"
-                      min={1}
-                      max={5}
+                      min={0}
+                      max={10}
                       value={form[key]}
                       onChange={(e) => setForm((f) => ({ ...f, [key]: Number(e.target.value) }))}
                       className="w-full accent-amber-600"
@@ -622,11 +694,11 @@ const IntakeProgressTab = () => {
                   </div>
                 ))}
                 <div>
-                  <Label className="text-violet-900 text-xs">Life growth (optional 1–5)</Label>
+                  <Label className="text-violet-900 text-xs">Life growth (optional 0–10)</Label>
                   <Input
                     type="number"
-                    min={1}
-                    max={5}
+                    min={0}
+                    max={10}
                     value={form.score_life_growth}
                     onChange={(e) => setForm((f) => ({ ...f, score_life_growth: e.target.value }))}
                     placeholder="Optional"

@@ -684,6 +684,8 @@ async def get_me(request: Request):
         "country": _profile_overlay_with_client(user, pending, client_doc, "country"),
         "qualification": _profile_field_overlay(user, pending, "qualification"),
         "profession": _profile_field_overlay(user, pending, "profession"),
+        "date_of_birth": _profile_field_overlay(user, pending, "date_of_birth"),
+        "whatsapp": _profile_field_overlay(user, pending, "whatsapp"),
         "phone": _profile_overlay_with_client(user, pending, client_doc, "phone"),
         "phone_code": _profile_overlay_with_client(user, pending, client_doc, "phone_code"),
         "pending_profile_update": user.get("pending_profile_update") or None,
