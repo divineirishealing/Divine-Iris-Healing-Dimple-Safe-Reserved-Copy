@@ -12,7 +12,7 @@ import { resolveImageUrl, rememberPublicApiBase, rememberS3VirtualHostRewrite } 
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail, Inbox,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
-  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert,   CreditCard, Search, Wallet, Sparkles, Link2, KeyRound, LineChart, IndianRupee
+  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert,   CreditCard, Search, Wallet, Sparkles, Link2, KeyRound, LineChart, IndianRupee, Flower2
 } from 'lucide-react';
 
 import { getApiUrl } from '../../lib/config';
@@ -58,6 +58,7 @@ import SchedulerTab from './tabs/SchedulerTab';
 import ContactUpdateLinkTab from './tabs/ContactUpdateLinkTab';
 import AnnualSubscribersTab from './tabs/AnnualSubscribersTab';
 import AnnualPackageOfferTab from './tabs/AnnualPackageOfferTab';
+import IntakeProgressTab from './tabs/IntakeProgressTab';
 import AnnualPortalClientsTab from './tabs/AnnualPortalClientsTab';
 import ClientFinancesTab from './tabs/ClientFinancesTab';
 import DashboardAccessTab from './tabs/DashboardAccessTab';
@@ -412,6 +413,7 @@ const AdminPanel = () => {
     { label: 'Clients', icon: Users, tabs: [
       { key: 'clients', label: 'Iris Garden', icon: Users },
       { key: 'dashboard_access', label: 'Dashboard access', icon: KeyRound },
+      { key: 'journey_insights', label: 'Journey insights', icon: Flower2 },
       { key: 'client_finances', label: 'Iris Annual Abundance', icon: IndianRupee },
       { key: 'annual_portal_clients', label: 'Annual + dashboard', icon: Sparkles },
       { key: 'add_annual_subscriber', label: 'Annual template', icon: Package },
@@ -550,7 +552,8 @@ const AdminPanel = () => {
             activeTab === 'client_finances' ||
             activeTab === 'enrollments' ||
             activeTab === 'annual_portal_clients' ||
-            activeTab === 'clients'
+            activeTab === 'clients' ||
+            activeTab === 'journey_insights'
               ? 'max-w-none w-full p-4 sm:p-6'
               : 'max-w-5xl p-6'
           }`}
@@ -646,6 +649,7 @@ const AdminPanel = () => {
             </div>
           )}
           {activeTab === 'dashboard_access' && <DashboardAccessTab />}
+          {activeTab === 'journey_insights' && <IntakeProgressTab />}
           {activeTab === 'client_finances' && <ClientFinancesTab />}
           {activeTab === 'annual_portal_clients' && (
             <AnnualPortalClientsTab

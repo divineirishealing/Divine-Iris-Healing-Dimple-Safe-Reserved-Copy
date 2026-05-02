@@ -25,6 +25,7 @@ from routes import subscribers
 from routes import emi_payments
 from routes import annual_subscribers as annual_subscribers_module
 from routes import client_intake as client_intake_module
+from routes import intake_progress as intake_progress_module
 from routes import bank_transactions as bank_transactions_module
 from routes import reminders as reminders_module
 from routes import enrollment_auto_report as enrollment_auto_report_module
@@ -283,6 +284,7 @@ app.include_router(subscribers.router)
 app.include_router(emi_payments.router)
 app.include_router(annual_subscribers_module.router)
 app.include_router(client_intake_module.router)
+app.include_router(intake_progress_module.router)
 app.include_router(bank_transactions_module.router)
 app.include_router(enrollment_auto_report_module.router)
 app.include_router(site_analytics.collect_router)
