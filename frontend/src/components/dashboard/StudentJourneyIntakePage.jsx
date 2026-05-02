@@ -44,6 +44,11 @@ const SCORE_SLIDERS = [
   ['score_other_areas', 'Other areas'],
 ];
 
+function localYmd() {
+  const t = new Date();
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+}
+
 function defaultPeriodBucket(cadence) {
   const t = new Date();
   const y = t.getFullYear();
@@ -98,6 +103,7 @@ function emptyReflectionForm() {
     heard_how: '',
     referral_name: '',
     experiences_aha_text: '',
+    experience_event_date: '',
   };
   return o;
 }
@@ -138,6 +144,11 @@ const StudentJourneyIntakePage = () => {
   useEffect(() => {
     loadStatus();
   }, [loadStatus]);
+
+  useEffect(() => {
+    if (mainTab !== 'aha') return;
+    setForm((f) => (f.experience_event_date ? f : { ...f, experience_event_date: localYmd() }));
+  }, [mainTab]);
 
   const pre = status?.profile_prefill || {};
 
@@ -262,10 +273,17 @@ const StudentJourneyIntakePage = () => {
         setSaving(false);
         return;
       }
+      const evd = (form.experience_event_date || '').trim();
+      if (!evd) {
+        toast({ title: 'Date', description: 'Choose the date this experience belongs to.', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
       const payload = {
         entry_kind: 'aha',
         full_name: fn,
         record_type: 'baseline',
+        experience_event_date: evd,
         experiences_aha_text: form.experiences_aha_text,
         narrative_physical: '',
         narrative_mental: '',
@@ -287,7 +305,7 @@ const StudentJourneyIntakePage = () => {
         headers: getAuthHeaders(),
       });
       toast({ title: 'Saved', description: 'Your aha moment is recorded.' });
-      setForm((f) => ({ ...f, experiences_aha_text: '' }));
+      setForm((f) => ({ ...f, experiences_aha_text: '', experience_event_date: localYmd() }));
       await loadStatus();
     } catch (err) {
       toast({
@@ -653,6 +671,13 @@ const StudentJourneyIntakePage = () => {
             <p className="text-sm text-violet-800/90 leading-relaxed">
               A lighter log for synchronicities, somatic shifts, dreams, or insights — no full rhythm scores required.
             </p>
+            <p className="text-xs text-violet-700/85 leading-relaxed rounded-lg border border-violet-100/90 bg-violet-50/50 px-3 py-2">
+              <strong className="text-violet-900">Where this is saved:</strong> each entry is stored in the same
+              journey archive as your reflections — MongoDB collection <code className="text-[11px]">awrp_intake_progress</code>{' '}
+              with fields <code className="text-[11px]">experience_event_date</code> (the day you pick below) and{' '}
+              <code className="text-[11px]">created_at</code> (when you pressed save). Admins review it under{' '}
+              <strong className="text-violet-900">Admin → Journey insights</strong> (directory table and client timeline).
+            </p>
             <div>
               <Label className="text-violet-900">Name *</Label>
               <Input
@@ -660,6 +685,18 @@ const StudentJourneyIntakePage = () => {
                 onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
                 className="mt-1 bg-white/90 border-violet-200"
               />
+            </div>
+            <div>
+              <Label className="text-violet-900">Date this experience happened *</Label>
+              <Input
+                type="date"
+                value={form.experience_event_date}
+                onChange={(e) => setForm((f) => ({ ...f, experience_event_date: e.target.value }))}
+                className="mt-1 bg-white/90 border-violet-200 max-w-[220px]"
+              />
+              <p className="text-[11px] text-violet-600/80 mt-1">
+                This is the story date (not necessarily today). It appears to the team as the “event date” for sorting and before/after views.
+              </p>
             </div>
             <div>
               <Label className="text-violet-900">Experience or aha moment *</Label>

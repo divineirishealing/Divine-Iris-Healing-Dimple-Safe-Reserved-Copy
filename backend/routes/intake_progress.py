@@ -103,6 +103,7 @@ _PERIOD_MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
 _PERIOD_QUARTER_RE = re.compile(r"^\d{4}-Q[1-4]$")
 _PERIOD_HALF_RE = re.compile(r"^\d{4}-H[1-2]$")
 _PERIOD_YEAR_RE = re.compile(r"^\d{4}$")
+_EXPERIENCE_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def _validate_period_bucket(cadence: str, bucket: str) -> None:
@@ -179,6 +180,8 @@ class IntakeProgressFieldsCore(BaseModel):
     heard_how: str = Field("", max_length=120)
     referral_name: str = Field("", max_length=200)
     experiences_aha_text: str = Field("", max_length=8000)
+    # Calendar day when the experience happened (esp. aha_moment); distinct from created_at server timestamp
+    experience_event_date: Optional[str] = Field(None, max_length=32)
 
 
 class IntakeProgressFieldsShared(IntakeProgressFieldsCore):
@@ -266,6 +269,7 @@ def _build_intake_doc(
         "heard_how": body.heard_how.strip(),
         "referral_name": body.referral_name.strip(),
         "experiences_aha_text": body.experiences_aha_text.strip(),
+        "experience_event_date": (body.experience_event_date or "").strip() or None,
         "notes_internal": (notes_internal or "").strip(),
         "score_scale": score_scale,
         "created_at": now,
@@ -297,6 +301,7 @@ class IntakeProgressPatch(BaseModel):
     score_life_growth: Optional[int] = Field(None, ge=0, le=10)
     health_issues_text: Optional[str] = None
     notes_internal: Optional[str] = None
+    experience_event_date: Optional[str] = None
 
 
 async def _client_row_for_intake(client_id: Optional[str]) -> dict:
@@ -589,12 +594,19 @@ async def student_journey_intake_submit(
                 status_code=400,
                 detail="Please share your experience or aha moment in a few sentences (at least 12 characters).",
             )
+        evd = (body.experience_event_date or "").strip()
+        if not evd or not _EXPERIENCE_DATE_RE.match(evd):
+            raise HTTPException(
+                status_code=400,
+                detail="Please choose the calendar date this experience refers to (YYYY-MM-DD).",
+            )
         payload = body.model_copy(
             update={
                 "record_type": "aha_moment",
                 "rhythm_cadence": None,
                 "analysis_period_bucket": None,
                 "period_month": None,
+                "experience_event_date": evd,
                 "phone": overlay.get("phone") or body.phone,
                 "whatsapp": overlay.get("whatsapp") or body.whatsapp,
                 "city": overlay.get("city") or body.city,

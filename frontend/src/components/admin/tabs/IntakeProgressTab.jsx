@@ -97,6 +97,7 @@ const initialForm = {
   heard_how: '',
   referral_name: '',
   notes_internal: '',
+  experience_event_date: '',
 };
 
 function shellCard(className = '') {
@@ -261,6 +262,7 @@ const IntakeProgressTab = () => {
       'created_at',
       ...SCORE_KEYS.map(([k]) => k),
       'score_life_growth',
+      'experience_event_date',
       'primary_purpose',
       'heard_how',
     ];
@@ -668,6 +670,15 @@ const IntakeProgressTab = () => {
               </div>
 
               <div>
+                <Label className="text-violet-900">Experience date (YYYY-MM-DD, for aha / logs)</Label>
+                <Input
+                  type="date"
+                  value={form.experience_event_date}
+                  onChange={(e) => setForm((f) => ({ ...f, experience_event_date: e.target.value }))}
+                  className="mt-1 bg-white/90 border-violet-200 max-w-[220px]"
+                />
+              </div>
+              <div>
                 <Label className="text-violet-900">Aha / experience text (for aha_moment type)</Label>
                 <Textarea
                   value={form.experiences_aha_text}
@@ -835,7 +846,8 @@ const IntakeProgressTab = () => {
                 <table className="w-full text-sm">
                   <thead className="bg-white/80 text-left text-violet-700 text-xs uppercase tracking-wide">
                     <tr>
-                      <th className="p-3">When</th>
+                      <th className="p-3">Saved</th>
+                      <th className="p-3">Event date</th>
                       <th className="p-3">Name</th>
                       <th className="p-3">Email</th>
                       <th className="p-3">Type</th>
@@ -849,6 +861,9 @@ const IntakeProgressTab = () => {
                       return (
                         <tr key={r.id} className="border-t border-violet-50 hover:bg-violet-50/40">
                           <td className="p-3 text-violet-800 whitespace-nowrap">{String(r.created_at || '').slice(0, 10)}</td>
+                          <td className="p-3 text-violet-700 whitespace-nowrap">
+                            {r.experience_event_date ? String(r.experience_event_date).slice(0, 10) : '—'}
+                          </td>
                           <td className="p-3 text-violet-950">{r.full_name}</td>
                           <td className="p-3">
                             <button
@@ -882,6 +897,17 @@ const IntakeProgressTab = () => {
                         <span className="font-medium">{r.record_type}</span>
                         <span className="text-violet-600 text-xs">{r.created_at}</span>
                       </div>
+                      {r.experience_event_date ? (
+                        <p className="text-[11px] text-violet-600 mt-1">
+                          Event date: <span className="font-medium text-violet-800">{String(r.experience_event_date).slice(0, 10)}</span>
+                          <span className="text-violet-500"> (story day)</span>
+                        </p>
+                      ) : null}
+                      {r.record_type === 'aha_moment' && (r.experiences_aha_text || '').trim() ? (
+                        <p className="text-xs text-violet-900 mt-2 leading-relaxed whitespace-pre-wrap">
+                          {(r.experiences_aha_text || '').trim()}
+                        </p>
+                      ) : null}
                       <p className="text-xs text-violet-700 mt-2">
                         {SCORE_KEYS.map(([k, lab]) => (
                           <span key={k} className="mr-3">
