@@ -57,6 +57,35 @@ export function formatDateDdMonYyyy(val) {
 }
 
 /**
+ * Admin program batch / enrollments: `3-MAY-2026` (no leading zero on day, month uppercase).
+ * Accepts YYYY-MM-DD or ISO date strings; uses local calendar date.
+ */
+export function formatDateDMonYyyyUpper(val) {
+  const t = parseDashboardDateInput(val);
+  if (!t) return "";
+  const day = String(t.getDate());
+  const mon = DASH_MONS[t.getMonth()].toUpperCase();
+  return `${day}-${mon}-${t.getFullYear()}`;
+}
+
+/**
+ * Timestamp with same date style as {@link formatDateDMonYyyyUpper}: `3-MAY-2026, 14:05` (local).
+ */
+export function formatDateTimeDMonYyyyUpper(val) {
+  if (val == null || val === "") return "—";
+  const t = val instanceof Date ? val : new Date(val);
+  if (Number.isNaN(t.getTime())) return "—";
+  const y = t.getFullYear();
+  const mo = t.getMonth();
+  const d = t.getDate();
+  const day = String(d);
+  const mon = DASH_MONS[mo].toUpperCase();
+  const hh = String(t.getHours()).padStart(2, "0");
+  const mm = String(t.getMinutes()).padStart(2, "0");
+  return `${day}-${mon}-${y}, ${hh}:${mm}`;
+}
+
+/**
  * Timestamp for admin / activity rows: `26-Apr-2026, 14:05` (local date + 24h time).
  */
 export function formatDateTimeDdMonYyyy(val) {

@@ -7,7 +7,7 @@ import { Label } from '../../ui/label';
 import { Switch } from '../../ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
 import { Checkbox } from '../../ui/checkbox';
-import { cn, formatDateTimeDdMonYyyy } from '@/lib/utils';
+import { cn, formatDateDMonYyyyUpper, formatDateTimeDMonYyyyUpper } from '@/lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
 
@@ -252,15 +252,22 @@ function formatEligibilityMonthLabel(ymKey) {
   }
 }
 
-/** Admin enrollment table: DD-Mon-YYYY, HH:MM (local). */
+/** Admin enrollment table: D-MON-YYYY, HH:MM (local), month uppercase (e.g. 3-MAY-2026, 14:05). */
 function formatEnrollReportDateTime(iso) {
   if (!iso) return '-';
   try {
-    const s = formatDateTimeDdMonYyyy(String(iso).replace('Z', '+00:00'));
+    const s = formatDateTimeDMonYyyyUpper(String(iso).replace('Z', '+00:00'));
     return s === '—' ? '-' : s;
   } catch {
     return '-';
   }
+}
+
+/** Program tier / batch date cells: D-MON-YYYY from YYYY-MM-DD or ISO. */
+function formatProgramYmd(iso) {
+  if (!iso) return '—';
+  const s = formatDateDMonYyyyUpper(iso);
+  return s || '—';
 }
 
 /** Single-participant row: human-readable attendance from stored mode. */
@@ -599,6 +606,10 @@ const EnrollmentsTab = () => {
         row.invoice_number,
         row.enrollment_id,
         row.portal_cohort,
+        row.chosen_start_date,
+        row.chosen_end_date,
+        formatProgramYmd(row.chosen_start_date),
+        formatProgramYmd(row.chosen_end_date),
         row.tier_label,
       ].filter(Boolean).some((f) => String(f).toLowerCase().includes(q));
     });
@@ -707,11 +718,11 @@ const EnrollmentsTab = () => {
       'Gender',
       'City',
       'Country',
-      'Batch (portal cohort)',
+      'Batch (program start, DD-MON-YYYY)',
       'Catalog program (Mongo)',
       'Tier',
-      'Chosen start',
-      'Chosen end',
+      'Start (DD-MON-YYYY)',
+      'End (DD-MON-YYYY)',
       'Mode',
       'Origin',
       'Status',
@@ -741,11 +752,11 @@ const EnrollmentsTab = () => {
             esc(row.gender),
             esc(row.city),
             esc(row.country),
-            esc(row.portal_cohort),
+            esc(formatProgramYmd(row.chosen_start_date)),
             esc(row.catalog_program_title),
             esc(row.tier_label),
-            esc(row.chosen_start_date),
-            esc(row.chosen_end_date),
+            esc(formatProgramYmd(row.chosen_start_date)),
+            esc(formatProgramYmd(row.chosen_end_date)),
             esc(participantAttendanceLabel(row.attendance_mode)),
             esc(originLabel(row.enrollment_origin)),
             esc(row.enrollment_status || row.payment_status),
@@ -777,11 +788,11 @@ const EnrollmentsTab = () => {
       '#',
       'Eligibility month',
       'Month label',
-      'Batch (portal cohort)',
+      'Batch (program start, DD-MON-YYYY)',
       'Catalog program (Mongo)',
       'Tier',
-      'Chosen start',
-      'Chosen end',
+      'Start (DD-MON-YYYY)',
+      'End (DD-MON-YYYY)',
       'Participant',
       'City',
       'Country',
@@ -802,11 +813,11 @@ const EnrollmentsTab = () => {
           i + 1,
           esc(row.eligibility_month),
           esc(row.eligibility_month_label),
-          esc(row.portal_cohort),
+          esc(formatProgramYmd(row.chosen_start_date)),
           esc(row.catalog_program_title),
           esc(row.tier_label),
-          esc(row.chosen_start_date),
-          esc(row.chosen_end_date),
+          esc(formatProgramYmd(row.chosen_start_date)),
+          esc(formatProgramYmd(row.chosen_end_date)),
           esc(row.participant_name),
           esc(row.city),
           esc(row.country),
@@ -1011,7 +1022,7 @@ const EnrollmentsTab = () => {
           </div>
           <div className="text-[10px] text-gray-500 flex items-end">
             {autoReport.enrollment_auto_report_last_sent_at
-              ? `Last sent: ${formatDateTimeDdMonYyyy(autoReport.enrollment_auto_report_last_sent_at)}`
+              ? `Last sent: ${formatDateTimeDMonYyyyUpper(autoReport.enrollment_auto_report_last_sent_at)}`
               : 'Last sent: —'}
           </div>
         </div>
@@ -1056,7 +1067,7 @@ const EnrollmentsTab = () => {
           {viewMode === 'program_three_month' && (
             <p className="text-[10px] text-gray-500 mb-2">
               <strong>3-month by month:</strong> program checkouts on the catalog <strong>3-month</strong> tier only. Each row is one participant for one calendar month overlapping the tier&apos;s{' '}
-              <strong>start</strong> and <strong>end</strong> dates. <strong>Batch</strong> is the portal cohort id when the booker email matches a client record.
+              <strong>start</strong> and <strong>end</strong> use <strong>DD-MON-YYYY</strong> (e.g. 3-MAY-2026). <strong>Batch</strong> is the program start date (same as Start).
             </p>
           )}
         </>
@@ -1415,7 +1426,7 @@ const EnrollmentsTab = () => {
                             <div><span className="text-gray-400 block">Bank/Account</span>{e.bank_name || e.payment?.bank_name || '-'}</div>
                             <div><span className="text-gray-400 block">VPN Detected</span>{e.vpn_detected ? 'Yes' : 'No'}</div>
                             <div><span className="text-gray-400 block">Stripe Session</span><span className="font-mono truncate block max-w-[150px]">{e.stripe_session_id || '-'}</span></div>
-                            <div><span className="text-gray-400 block">Updated</span>{e.updated_at ? formatDateTimeDdMonYyyy(e.updated_at) : '-'}</div>
+                            <div><span className="text-gray-400 block">Updated</span>{e.updated_at ? formatDateTimeDMonYyyyUpper(e.updated_at) : '-'}</div>
                           </div>
                           {/* Participants */}
                           {e.participants?.length > 0 && (
@@ -1650,15 +1661,24 @@ const EnrollmentsTab = () => {
                               return <td key={def.id} className={`${bc} text-gray-700`} title={row.city}>{row.city || '—'}</td>;
                             case 'country':
                               return <td key={def.id} className={`${bc} text-gray-700`} title={row.country}>{row.country || '—'}</td>;
-                            case 'cohort':
+                            case 'cohort': {
+                              const cohortTip = [row.portal_cohort && `Cohort: ${row.portal_cohort}`, row.chosen_start_date && `ISO: ${row.chosen_start_date}`]
+                                .filter(Boolean)
+                                .join(' · ');
                               return (
-                                <td key={def.id} className={`${bc} text-teal-900 font-mono text-[9px]`} title={row.portal_cohort || ''}>
-                                  {row.portal_cohort || '—'}
+                                <td key={def.id} className={`${bc} text-teal-900 font-mono text-[9px]`} title={cohortTip || ''}>
+                                  {formatProgramYmd(row.chosen_start_date)}
                                 </td>
                               );
+                            }
                             case 'tier': {
-                              const tip = [row.catalog_program_title, row.tier_label, row.chosen_start_date, row.chosen_end_date]
-                                .filter(Boolean)
+                              const tip = [
+                                row.catalog_program_title,
+                                row.tier_label,
+                                formatProgramYmd(row.chosen_start_date),
+                                formatProgramYmd(row.chosen_end_date),
+                              ]
+                                .filter((x) => x && x !== '—')
                                 .join(' · ');
                               return (
                                 <td key={def.id} className={`${bc} text-gray-800 leading-tight`} title={tip}>
@@ -1673,7 +1693,7 @@ const EnrollmentsTab = () => {
                                   className={`${bc} text-gray-700 text-[9px] font-mono`}
                                   title={[row.catalog_program_title, row.chosen_start_date].filter(Boolean).join(' · ')}
                                 >
-                                  {row.chosen_start_date || '—'}
+                                  {formatProgramYmd(row.chosen_start_date)}
                                 </td>
                               );
                             case 'progEnd':
@@ -1683,7 +1703,7 @@ const EnrollmentsTab = () => {
                                   className={`${bc} text-gray-700 text-[9px] font-mono`}
                                   title={[row.catalog_program_title, row.chosen_end_date].filter(Boolean).join(' · ')}
                                 >
-                                  {row.chosen_end_date || '—'}
+                                  {formatProgramYmd(row.chosen_end_date)}
                                 </td>
                               );
                             case 'mode':
@@ -1795,18 +1815,27 @@ const EnrollmentsTab = () => {
                                   {row.eligibility_month_label || '—'}
                                 </td>
                               );
-                            case 'cohort':
-                              return (
-                                <td key={def.id} className={`${bc} text-teal-900 font-mono text-[9px]`} title={row.portal_cohort || ''}>
-                                  {row.portal_cohort || '—'}
-                                </td>
-                              );
-                            case 'tier': {
-                              const tip = [row.catalog_program_title, row.tier_label, row.chosen_start_date, row.chosen_end_date]
+                            case 'cohort': {
+                              const cohortTip3 = [row.portal_cohort && `Cohort: ${row.portal_cohort}`, row.chosen_start_date && `ISO: ${row.chosen_start_date}`]
                                 .filter(Boolean)
                                 .join(' · ');
                               return (
-                                <td key={def.id} className={`${bc} text-gray-800 leading-tight`} title={tip}>
+                                <td key={def.id} className={`${bc} text-teal-900 font-mono text-[9px]`} title={cohortTip3 || ''}>
+                                  {formatProgramYmd(row.chosen_start_date)}
+                                </td>
+                              );
+                            }
+                            case 'tier': {
+                              const tip3 = [
+                                row.catalog_program_title,
+                                row.tier_label,
+                                formatProgramYmd(row.chosen_start_date),
+                                formatProgramYmd(row.chosen_end_date),
+                              ]
+                                .filter((x) => x && x !== '—')
+                                .join(' · ');
+                              return (
+                                <td key={def.id} className={`${bc} text-gray-800 leading-tight`} title={tip3}>
                                   {row.tier_label || row.catalog_program_title || '—'}
                                 </td>
                               );
@@ -1818,7 +1847,7 @@ const EnrollmentsTab = () => {
                                   className={`${bc} text-gray-700 text-[9px] font-mono`}
                                   title={[row.catalog_program_title, row.chosen_start_date].filter(Boolean).join(' · ')}
                                 >
-                                  {row.chosen_start_date || '—'}
+                                  {formatProgramYmd(row.chosen_start_date)}
                                 </td>
                               );
                             case 'progEnd':
@@ -1828,7 +1857,7 @@ const EnrollmentsTab = () => {
                                   className={`${bc} text-gray-700 text-[9px] font-mono`}
                                   title={[row.catalog_program_title, row.chosen_end_date].filter(Boolean).join(' · ')}
                                 >
-                                  {row.chosen_end_date || '—'}
+                                  {formatProgramYmd(row.chosen_end_date)}
                                 </td>
                               );
                             case 'name':
