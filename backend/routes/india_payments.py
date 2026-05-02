@@ -247,15 +247,63 @@ def _client_portal_cohort_from_client_doc(client: Optional[dict]) -> str:
     return ""
 
 
-async def _portal_cohort_by_booker_emails(enrollments: List[dict]) -> Dict[str, str]:
-    """Map normalized booker email → portal cohort id (awrp_batch_id) when a client row exists."""
+def _all_portal_client_ids_from_txns(txns_by_eid: Dict[str, List[dict]]) -> List[str]:
+    out: List[str] = []
+    seen = set()
+    for txns in (txns_by_eid or {}).values():
+        for t in txns or []:
+            cid = _norm_cmp_id(t.get("portal_client_id"))
+            if cid and cid not in seen:
+                seen.add(cid)
+                out.append(cid)
+    return out
+
+
+async def _portal_cohort_by_client_ids(client_ids: List[str]) -> Dict[str, str]:
+    """Map client id → portal cohort id (``awrp_batch_id``) for txns that store ``portal_client_id``."""
     uniq: List[str] = []
     seen = set()
-    for e in enrollments:
-        em = (_clean_str(e.get("booker_email")) or "").strip().lower()
+    for x in client_ids or []:
+        s = _norm_cmp_id(x)
+        if s and s not in seen:
+            seen.add(s)
+            uniq.append(s)
+    if not uniq:
+        return {}
+    rows = await db.clients.find(
+        {"id": {"$in": uniq}},
+        {"_id": 0, "id": 1, "awrp_batch_id": 1, "subscription": 1, "annual_subscription": 1},
+    ).to_list(len(uniq) + 50)
+    return {
+        str(r.get("id") or "").strip(): _client_portal_cohort_from_client_doc(r)
+        for r in rows
+        if r.get("id") is not None
+    }
+
+
+async def _portal_cohort_by_contact_emails(
+    enrollments: List[dict],
+    txns_by_eid: Dict[str, List[dict]],
+) -> Dict[str, str]:
+    """Map normalized email → portal cohort id for booker, participants, and payment txn contacts."""
+    uniq: List[str] = []
+    seen = set()
+
+    def add_em(raw: Any) -> None:
+        em = (_clean_str(raw) or "").strip().lower()
         if em and em not in seen:
             seen.add(em)
             uniq.append(em)
+
+    for e in enrollments:
+        add_em(e.get("booker_email"))
+        for p in (e.get("participants") or []):
+            if isinstance(p, dict):
+                add_em(_scalar_field(p, "email", "Email"))
+        eid = e.get("id") or ""
+        for t in txns_by_eid.get(eid) or []:
+            add_em(t.get("booker_email"))
+            add_em(t.get("payer_email"))
     if not uniq:
         return {}
     try:
@@ -292,16 +340,28 @@ async def _programs_duration_tiers_by_item_id(
         it = (_clean_str((txn or {}).get("item_type")) or _clean_str(e.get("item_type"))).lower()
         if it != "program":
             continue
-        pid = _clean_str((txn or {}).get("item_id")) or _clean_str(e.get("item_id"))
+        e_pid = _clean_str(e.get("item_id"))
+        if _clean_str(e.get("item_type")).lower() == "program" and e_pid:
+            pid = e_pid
+        else:
+            pid = _clean_str((txn or {}).get("item_id")) or e_pid
         if pid:
             ids.add(pid)
     if not ids:
         return {}
     id_list = list(ids)
+    id_query: List[Any] = []
+    for s in id_list:
+        id_query.append(s)
+        if s.isdigit():
+            try:
+                id_query.append(int(s))
+            except (ValueError, TypeError):
+                pass
     rows = await db.programs.find(
-        {"id": {"$in": id_list}},
+        {"id": {"$in": id_query}},
         {"_id": 0, "id": 1, "duration_tiers": 1},
-    ).to_list(len(id_list) + 50)
+    ).to_list(len(id_query) + 50)
     return {str(r.get("id")): r for r in rows if r.get("id") is not None}
 
 
@@ -452,6 +512,7 @@ def build_participant_report_rows(
     paid_completed_only: bool = False,
     programs_by_id: Optional[Dict[str, dict]] = None,
     portal_cohort_by_email: Optional[Dict[str, str]] = None,
+    portal_cohort_by_client_id: Optional[Dict[str, str]] = None,
 ) -> List[dict]:
     """
     One row per participant (or one booker row if participants missing).
@@ -494,10 +555,20 @@ def build_participant_report_rows(
         origin = _enrollment_origin(e)
 
         booker_email_key = (_clean_str(e.get("booker_email")) or "").strip().lower()
-        portal_cohort = (
-            (portal_cohort_by_email or {}).get(booker_email_key, "") if portal_cohort_by_email else ""
-        )
-        catalog_pid = _clean_str((txn or {}).get("item_id")) or _clean_str(e.get("item_id"))
+        payer_email_key = (_clean_str((txn or {}).get("payer_email")) or "").strip().lower()
+        txn_booker_email_key = (_clean_str((txn or {}).get("booker_email")) or "").strip().lower()
+        portal_cohort = ""
+        cid_key = _norm_cmp_id((txn or {}).get("portal_client_id"))
+        if cid_key and portal_cohort_by_client_id:
+            portal_cohort = (portal_cohort_by_client_id or {}).get(cid_key, "") or ""
+        if portal_cohort_by_email:
+            portal_cohort = portal_cohort or portal_cohort_by_email.get(booker_email_key, "")
+            portal_cohort = portal_cohort or portal_cohort_by_email.get(payer_email_key, "")
+            portal_cohort = portal_cohort or portal_cohort_by_email.get(txn_booker_email_key, "")
+        if item_type.lower() == "program" and _clean_str(e.get("item_id")):
+            catalog_pid = _clean_str(e.get("item_id"))
+        else:
+            catalog_pid = _clean_str((txn or {}).get("item_id")) or _clean_str(e.get("item_id"))
         total_slots = len(participants) if participants else 1
         tier_idx = _tier_index_from_enrollment(e, txn)
         if tier_idx is None and item_type.lower() == "program" and catalog_pid and programs_by_id:
@@ -1331,9 +1402,11 @@ async def participant_enrollment_rows(paid_completed_only: bool = False):
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)
-    prog_map, cohort_map = await asyncio.gather(
+    pc_ids = _all_portal_client_ids_from_txns(by_e)
+    prog_map, cohort_map, cohort_client_map = await asyncio.gather(
         _programs_duration_tiers_by_item_id(enrollments, by_e),
-        _portal_cohort_by_booker_emails(enrollments),
+        _portal_cohort_by_contact_emails(enrollments, by_e),
+        _portal_cohort_by_client_ids(pc_ids),
     )
     return build_participant_report_rows(
         enrollments,
@@ -1341,6 +1414,7 @@ async def participant_enrollment_rows(paid_completed_only: bool = False):
         paid_completed_only=paid_completed_only,
         programs_by_id=prog_map,
         portal_cohort_by_email=cohort_map,
+        portal_cohort_by_client_id=cohort_client_map,
     )
 
 
@@ -1357,9 +1431,11 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)
-    prog_map, cohort_map = await asyncio.gather(
+    pc_ids = _all_portal_client_ids_from_txns(by_e)
+    prog_map, cohort_map, cohort_client_map = await asyncio.gather(
         _programs_duration_tiers_by_item_id(enrollments, by_e),
-        _portal_cohort_by_booker_emails(enrollments),
+        _portal_cohort_by_contact_emails(enrollments, by_e),
+        _portal_cohort_by_client_ids(pc_ids),
     )
     rows = build_participant_report_rows(
         enrollments,
@@ -1367,6 +1443,7 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
         paid_completed_only=paid_completed_only,
         programs_by_id=prog_map,
         portal_cohort_by_email=cohort_map,
+        portal_cohort_by_client_id=cohort_client_map,
     )
 
     headers = [
