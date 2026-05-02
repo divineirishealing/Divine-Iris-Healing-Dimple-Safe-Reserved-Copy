@@ -44,6 +44,7 @@ RecordType = Literal[
     "aha_moment",
 ]
 RhythmCadence = Literal["monthly", "quarterly", "six_month", "yearly"]
+ExperienceCategory = Literal["relationships", "finances", "health", "self_evolution", "other"]
 
 SCORE_KEYS_5 = [
     "score_physical",
@@ -182,6 +183,8 @@ class IntakeProgressFieldsCore(BaseModel):
     experiences_aha_text: str = Field("", max_length=8000)
     # Calendar day when the experience happened (esp. aha_moment); distinct from created_at server timestamp
     experience_event_date: Optional[str] = Field(None, max_length=32)
+    # Thematic bucket for aha / quick logs (student + admin)
+    experience_category: Optional[ExperienceCategory] = None
 
 
 class IntakeProgressFieldsShared(IntakeProgressFieldsCore):
@@ -270,6 +273,7 @@ def _build_intake_doc(
         "referral_name": body.referral_name.strip(),
         "experiences_aha_text": body.experiences_aha_text.strip(),
         "experience_event_date": (body.experience_event_date or "").strip() or None,
+        "experience_category": body.experience_category,
         "notes_internal": (notes_internal or "").strip(),
         "score_scale": score_scale,
         "created_at": now,
@@ -302,6 +306,7 @@ class IntakeProgressPatch(BaseModel):
     health_issues_text: Optional[str] = None
     notes_internal: Optional[str] = None
     experience_event_date: Optional[str] = None
+    experience_category: Optional[str] = None
 
 
 async def _client_row_for_intake(client_id: Optional[str]) -> dict:
@@ -600,6 +605,11 @@ async def student_journey_intake_submit(
                 status_code=400,
                 detail="Please choose the calendar date this experience refers to (YYYY-MM-DD).",
             )
+        if not body.experience_category:
+            raise HTTPException(
+                status_code=400,
+                detail="Please choose a category for this experience (Relationships, Finances, Health, Self evolution, or Other).",
+            )
         payload = body.model_copy(
             update={
                 "record_type": "aha_moment",
@@ -607,6 +617,7 @@ async def student_journey_intake_submit(
                 "analysis_period_bucket": None,
                 "period_month": None,
                 "experience_event_date": evd,
+                "experience_category": body.experience_category,
                 "phone": overlay.get("phone") or body.phone,
                 "whatsapp": overlay.get("whatsapp") or body.whatsapp,
                 "city": overlay.get("city") or body.city,

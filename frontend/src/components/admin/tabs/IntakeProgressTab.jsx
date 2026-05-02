@@ -33,6 +33,14 @@ import {
 
 const API = getApiUrl();
 
+const EXPERIENCE_CATEGORY_LABELS = {
+  relationships: 'Relationships',
+  finances: 'Finances',
+  health: 'Health',
+  self_evolution: 'Self evolution',
+  other: 'Other',
+};
+
 function adminHeaders() {
   const t = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_token') : '';
   return t ? { 'X-Admin-Session': t } : {};
@@ -98,6 +106,7 @@ const initialForm = {
   referral_name: '',
   notes_internal: '',
   experience_event_date: '',
+  experience_category: '',
 };
 
 function shellCard(className = '') {
@@ -263,6 +272,7 @@ const IntakeProgressTab = () => {
       ...SCORE_KEYS.map(([k]) => k),
       'score_life_growth',
       'experience_event_date',
+      'experience_category',
       'primary_purpose',
       'heard_how',
     ];
@@ -679,6 +689,21 @@ const IntakeProgressTab = () => {
                 />
               </div>
               <div>
+                <Label className="text-violet-900">Experience category (for aha / logs)</Label>
+                <select
+                  className="mt-1 w-full max-w-md rounded-md border border-violet-200 bg-white/90 px-3 py-2 text-sm"
+                  value={form.experience_category}
+                  onChange={(e) => setForm((f) => ({ ...f, experience_category: e.target.value }))}
+                >
+                  <option value="">—</option>
+                  {Object.entries(EXPERIENCE_CATEGORY_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <Label className="text-violet-900">Aha / experience text (for aha_moment type)</Label>
                 <Textarea
                   value={form.experiences_aha_text}
@@ -848,6 +873,7 @@ const IntakeProgressTab = () => {
                     <tr>
                       <th className="p-3">Saved</th>
                       <th className="p-3">Event date</th>
+                      <th className="p-3">Category</th>
                       <th className="p-3">Name</th>
                       <th className="p-3">Email</th>
                       <th className="p-3">Type</th>
@@ -863,6 +889,9 @@ const IntakeProgressTab = () => {
                           <td className="p-3 text-violet-800 whitespace-nowrap">{String(r.created_at || '').slice(0, 10)}</td>
                           <td className="p-3 text-violet-700 whitespace-nowrap">
                             {r.experience_event_date ? String(r.experience_event_date).slice(0, 10) : '—'}
+                          </td>
+                          <td className="p-3 text-violet-700">
+                            {EXPERIENCE_CATEGORY_LABELS[r.experience_category] || r.experience_category || '—'}
                           </td>
                           <td className="p-3 text-violet-950">{r.full_name}</td>
                           <td className="p-3">
@@ -901,6 +930,14 @@ const IntakeProgressTab = () => {
                         <p className="text-[11px] text-violet-600 mt-1">
                           Event date: <span className="font-medium text-violet-800">{String(r.experience_event_date).slice(0, 10)}</span>
                           <span className="text-violet-500"> (story day)</span>
+                        </p>
+                      ) : null}
+                      {r.experience_category ? (
+                        <p className="text-[11px] text-violet-600 mt-1">
+                          Category:{' '}
+                          <span className="font-medium text-violet-800">
+                            {EXPERIENCE_CATEGORY_LABELS[r.experience_category] || r.experience_category}
+                          </span>
                         </p>
                       ) : null}
                       {r.record_type === 'aha_moment' && (r.experiences_aha_text || '').trim() ? (

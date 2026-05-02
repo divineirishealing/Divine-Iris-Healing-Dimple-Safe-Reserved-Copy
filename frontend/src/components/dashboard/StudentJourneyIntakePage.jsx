@@ -14,6 +14,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 const API = getApiUrl();
 
+const AHA_CATEGORIES = [
+  { value: 'relationships', label: 'Relationships' },
+  { value: 'finances', label: 'Finances' },
+  { value: 'health', label: 'Health' },
+  { value: 'self_evolution', label: 'Self evolution' },
+  { value: 'other', label: 'Other' },
+];
+
 const AREA_CHECKBOXES = [
   ['issues_physical', 'Physical'],
   ['issues_mental', 'Mental'],
@@ -104,6 +112,7 @@ function emptyReflectionForm() {
     referral_name: '',
     experiences_aha_text: '',
     experience_event_date: '',
+    experience_category: '',
   };
   return o;
 }
@@ -267,9 +276,19 @@ const StudentJourneyIntakePage = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      const fn = (form.full_name || '').trim() || (user?.name || '').trim();
+      const fn = (pre.full_name || user?.name || '').trim();
       if (!fn) {
-        toast({ title: 'Name', description: 'Add how you wish to be named.', variant: 'destructive' });
+        toast({
+          title: 'Profile name',
+          description: 'Add your name on Profile so we can hold this entry with care.',
+          variant: 'destructive',
+        });
+        setSaving(false);
+        return;
+      }
+      const cat = (form.experience_category || '').trim();
+      if (!cat) {
+        toast({ title: 'Category', description: 'Please choose what this moment is mostly about.', variant: 'destructive' });
         setSaving(false);
         return;
       }
@@ -284,6 +303,7 @@ const StudentJourneyIntakePage = () => {
         full_name: fn,
         record_type: 'baseline',
         experience_event_date: evd,
+        experience_category: cat,
         experiences_aha_text: form.experiences_aha_text,
         narrative_physical: '',
         narrative_mental: '',
@@ -305,7 +325,12 @@ const StudentJourneyIntakePage = () => {
         headers: getAuthHeaders(),
       });
       toast({ title: 'Saved', description: 'Your aha moment is recorded.' });
-      setForm((f) => ({ ...f, experiences_aha_text: '', experience_event_date: localYmd() }));
+      setForm((f) => ({
+        ...f,
+        experiences_aha_text: '',
+        experience_event_date: localYmd(),
+        experience_category: '',
+      }));
       await loadStatus();
     } catch (err) {
       toast({
@@ -674,17 +699,35 @@ const StudentJourneyIntakePage = () => {
             <p className="text-xs text-violet-700/85 leading-relaxed rounded-lg border border-violet-100/90 bg-violet-50/50 px-3 py-2">
               <strong className="text-violet-900">Where this is saved:</strong> each entry is stored in the same
               journey archive as your reflections — MongoDB collection <code className="text-[11px]">awrp_intake_progress</code>{' '}
-              with fields <code className="text-[11px]">experience_event_date</code> (the day you pick below) and{' '}
+              with fields <code className="text-[11px]">experience_event_date</code>,{' '}
+              <code className="text-[11px]">experience_category</code>, and{' '}
               <code className="text-[11px]">created_at</code> (when you pressed save). Admins review it under{' '}
               <strong className="text-violet-900">Admin → Journey insights</strong> (directory table and client timeline).
             </p>
+            <div className={`${shellCard('p-3')}`}>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-violet-500/90 mb-1">From your profile</p>
+              <p className="text-sm text-violet-900">
+                <span className="text-violet-600/80 text-xs block">Name on file</span>
+                {pre.full_name || user?.name || '—'}
+              </p>
+              <p className="text-[11px] text-violet-600/80 mt-2">
+                Update your name on <Link to="/dashboard/profile" className="underline font-medium text-amber-900/90">Profile</Link> if needed.
+              </p>
+            </div>
             <div>
-              <Label className="text-violet-900">Name *</Label>
-              <Input
-                value={form.full_name}
-                onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
-                className="mt-1 bg-white/90 border-violet-200"
-              />
+              <Label className="text-violet-900">Category *</Label>
+              <select
+                className="mt-1 w-full max-w-md rounded-md border border-violet-200 bg-white/90 px-3 py-2 text-sm text-violet-900"
+                value={form.experience_category}
+                onChange={(e) => setForm((f) => ({ ...f, experience_category: e.target.value }))}
+              >
+                <option value="">Choose one…</option>
+                {AHA_CATEGORIES.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <Label className="text-violet-900">Date this experience happened *</Label>
