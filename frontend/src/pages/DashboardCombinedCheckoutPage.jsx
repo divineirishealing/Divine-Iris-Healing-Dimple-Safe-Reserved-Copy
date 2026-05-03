@@ -1734,9 +1734,22 @@ export default function DashboardCombinedCheckoutPage() {
       return;
     }
     if (autoPayCheckoutKickedRef.current || processing) return;
+    // Wait until payable total is computed (HC EMI + roster ₹0 subtotal); otherwise client_declared_payable can be 0
+    // and Stripe would use full catalog pricing.
+    if (displayCheckoutTotal <= 0) return;
     autoPayCheckoutKickedRef.current = true;
     void handleCheckoutRef.current();
-  }, [autoPayFlag, items.length, enrollmentId, hasStripe, processing, navigate, setSearchParams, toast]);
+  }, [
+    autoPayFlag,
+    items.length,
+    enrollmentId,
+    hasStripe,
+    processing,
+    navigate,
+    setSearchParams,
+    toast,
+    displayCheckoutTotal,
+  ]);
 
   const portalReturnQs = useMemo(() => {
     const q = new URLSearchParams();

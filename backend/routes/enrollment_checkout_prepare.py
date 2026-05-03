@@ -403,13 +403,40 @@ async def enrollment_checkout_prepare(
 
     final_total = float(after_cart_deals)
 
+    # Trust UI-declared INR slice when (a) Divine Cart sends portal_checkout_cancel, or (b) checkout
+    # references the pinned Home Coming annual program — public /cart/checkout omits the portal flag
+    # but still sends client_declared_payable for EMI rows.
+    _portal = getattr(data, "portal_checkout_cancel", None) is True
+    _hc_annual_checkout = False
+    try:
+        if str(currency or "").lower() == "inr":
+            ss_pin = await db.site_settings.find_one(
+                {"id": "site_settings"},
+                {"_id": 0, "dashboard_sacred_home_annual_program_id": 1},
+            )
+            pin_hc = str((ss_pin or {}).get("dashboard_sacred_home_annual_program_id") or "").strip()
+            if pin_hc:
+                if str(getattr(data, "item_id", None) or "").strip() == pin_hc and getattr(
+                    data, "item_type", None
+                ) == "program":
+                    _hc_annual_checkout = True
+                else:
+                    for ci in data.cart_items or []:
+                        if isinstance(ci, dict) and str(ci.get("program_id") or "").strip() == pin_hc:
+                            _hc_annual_checkout = True
+                            break
+    except Exception as e:
+        logger.warning("Home Coming annual pin check for declared slice: %s", e)
+
+    _trust_client_declared_slice = _portal or _hc_annual_checkout
+
     # Sacred Home / Home Coming: roster can price ₹0 (current seat already inside annual) while the
     # portal sends client_declared_payable from the catalog renewal reference. Dashboard Stripe only.
     _decl_lift = getattr(data, "client_declared_payable", None)
     if (
         _decl_lift is not None
         and float(final_total) <= 0
-        and getattr(data, "portal_checkout_cancel", None) is True
+        and _trust_client_declared_slice
     ):
         try:
             _dl = float(_decl_lift)
@@ -420,7 +447,7 @@ async def enrollment_checkout_prepare(
 
     # Divine Cart / Sacred Home: one EMI or renewal slice is often far below server catalog `get_enrollment_pricing`
     # total. Trust the portal-declared rupees (capped at server total) so Stripe matches the checkout UI.
-    if getattr(data, "portal_checkout_cancel", None) is True and _decl_lift is not None:
+    if _trust_client_declared_slice and _decl_lift is not None:
         try:
             dcap = float(_decl_lift)
             if dcap >= 0 and dcap > 0:
@@ -438,7 +465,7 @@ async def enrollment_checkout_prepare(
         str(currency or "").lower() == "inr"
         and final_total > 0
         and enrollment.get("dashboard_mixed_total") is None
-        and getattr(data, "portal_checkout_cancel", None) is True
+        and _trust_client_declared_slice
     ):
         try:
             ss_inr = await db.site_settings.find_one(
@@ -541,7 +568,7 @@ async def enrollment_checkout_prepare(
             if d >= 0:
                 cur = float(final_total)
                 diff = abs(cur - d)
-                is_portal = getattr(data, "portal_checkout_cancel", None) is True
+                is_portal = _trust_client_declared_slice
                 if str(currency or "").lower() == "inr":
                     tol = 500.0 if is_portal else 5.0
                 else:
