@@ -12,6 +12,9 @@ import {
 import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
 import { Label } from '../../ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
+import { buildIndiaGpayOptions, buildIndiaBankOptions } from '../../../lib/indiaPaymentTags';
+import { adminPayMethodSelectValue, buildAdminPayMethodPatch } from '../../../lib/adminPayMethodPatch';
 import {
   Dialog,
   DialogContent,
@@ -102,6 +105,10 @@ export default function DashboardAccessTab() {
   const [annualPackageOfferYearlyEmiVisible, setAnnualPackageOfferYearlyEmiVisible] = useState(false);
   const [annualPackageOfferFlexiVisible, setAnnualPackageOfferFlexiVisible] = useState(false);
   const [portalLoginAllowed, setPortalLoginAllowed] = useState(true);
+  /** Non-annual only: same rails as Iris Annual Abundance “Pay method”. */
+  const [nonAnnualPayMethod, setNonAnnualPayMethod] = useState('');
+  const [nonAnnualGpayId, setNonAnnualGpayId] = useState('');
+  const [nonAnnualBankId, setNonAnnualBankId] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkLoading, setBulkLoading] = useState(false);
 
@@ -125,6 +132,9 @@ export default function DashboardAccessTab() {
       .then((r) => setIndiaSite(r.data || {}))
       .catch(() => setIndiaSite({}));
   }, []);
+
+  const indiaGpayOpts = useMemo(() => buildIndiaGpayOptions(indiaSite || {}), [indiaSite]);
+  const indiaBankOpts = useMemo(() => buildIndiaBankOptions(indiaSite || {}), [indiaSite]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -234,7 +244,23 @@ export default function DashboardAccessTab() {
     setAnnualPackageOfferYearlyEmiVisible(cl.annual_package_offer_yearly_emi_visible === true);
     setAnnualPackageOfferFlexiVisible(cl.annual_package_offer_flexi_visible === true);
     setPortalLoginAllowed(cl.portal_login_allowed !== false);
+    setNonAnnualPayMethod(adminPayMethodSelectValue(cl));
+    setNonAnnualGpayId((cl.preferred_india_gpay_id || '').trim());
+    setNonAnnualBankId((cl.preferred_india_bank_id || '').trim());
     setDialogOpen(true);
+  };
+
+  const onNonAnnualPayMethodChange = (v) => {
+    setNonAnnualPayMethod(v);
+    const low = String(v || '').trim().toLowerCase();
+    if (low === 'stripe' || !v) {
+      setNonAnnualGpayId('');
+      setNonAnnualBankId('');
+    } else if (low === 'bank_transfer' || low === 'cash_deposit') {
+      setNonAnnualGpayId('');
+    } else if (low === 'gpay_upi') {
+      setNonAnnualBankId('');
+    }
   };
 
   const closeDialog = () => {
@@ -248,7 +274,7 @@ export default function DashboardAccessTab() {
     try {
       const wasPending = isPendingIntakeReview(editing);
       const newlyGrantedPortal = editing.portal_login_allowed === false && portalLoginAllowed === true;
-      await axios.put(`${API}/clients/${editing.id}`, {
+      const body = {
         email: (clientEmail || '').trim().toLowerCase(),
         annual_member_dashboard: annualMemberDashboard,
         annual_package_offer_monthly_emi_visible: annualPackageOfferMonthlyEmiVisible,
@@ -257,7 +283,22 @@ export default function DashboardAccessTab() {
         annual_package_offer_flexi_visible: annualPackageOfferFlexiVisible,
         portal_login_allowed: portalLoginAllowed,
         intake_pending: false,
-      });
+      };
+      if (!annualMemberDashboard) {
+        Object.assign(body, buildAdminPayMethodPatch(nonAnnualPayMethod));
+        body.preferred_india_gpay_id = (nonAnnualGpayId || '').trim();
+        body.preferred_india_bank_id = (nonAnnualBankId || '').trim();
+        const low = String(nonAnnualPayMethod || '').trim().toLowerCase();
+        if (low === 'stripe' || !nonAnnualPayMethod) {
+          body.preferred_india_gpay_id = '';
+          body.preferred_india_bank_id = '';
+        } else if (low === 'bank_transfer' || low === 'cash_deposit') {
+          body.preferred_india_gpay_id = '';
+        } else if (low === 'gpay_upi') {
+          body.preferred_india_bank_id = '';
+        }
+      }
+      await axios.put(`${API}/clients/${editing.id}`, body);
       toast({
         title: 'Saved',
         description:
@@ -438,11 +479,11 @@ export default function DashboardAccessTab() {
             <h2 className="text-lg font-semibold text-gray-900">Dashboard access</h2>
             <p className="text-xs text-gray-500 mt-0.5 max-w-2xl">
               Use this tab for <strong>email</strong>, <strong>Google login</strong>, <strong>annual vs non-annual access</strong>, and{' '}
-              <strong>Home Coming package-page</strong> EMI/Flexi visibility. Payment rails, tags, GST, CRM fees, and Home Coming
-              courtesy discount are edited only in <strong>Iris Annual Abundance</strong> (not here), so those fields no longer
-              mirror between tabs. The grid below still shows payment and discount for quick reference (from the same client record).
-              Use the checkboxes + <strong>Allow Google login for selected</strong> or <strong>Bulk edit access type</strong> for
-              many rows. <strong>View as</strong> opens portal pricing from your admin session.
+              <strong>Home Coming package-page</strong> EMI/Flexi visibility. For <strong>non-annual</strong> members, <strong>Edit</strong>{' '}
+              includes <strong>Pay method</strong> (checkout rails + optional UPI/bank pin). GST, CRM fees, and Home Coming courtesy
+              stay in <strong>Iris Annual Abundance</strong>; annual members still edit full payment there. The grid below shows
+              payment and discount for quick reference. Use the checkboxes + <strong>Allow Google login for selected</strong> or{' '}
+              <strong>Bulk edit access type</strong> for many rows. <strong>View as</strong> opens portal pricing from your admin session.
             </p>
           </div>
         </div>
@@ -512,7 +553,8 @@ export default function DashboardAccessTab() {
           <span className="flex items-center gap-2 font-medium">
             <Bell size={18} className="text-orange-500 shrink-0" />
             <span>
-              <strong>{pendingCount}</strong> new intake request{pendingCount === 1 ? '' : 's'} — highlight below; enable Google login or mark reviewed. Payment and Home Coming discount are set in Iris Annual Abundance.
+              <strong>{pendingCount}</strong> new intake request{pendingCount === 1 ? '' : 's'} — highlight below; enable Google login or mark reviewed.{' '}
+              <strong>Non-annual</strong> pay method can be set in <strong>Edit dashboard access</strong>; GST / Home Coming discount stay in Iris Annual Abundance.
             </span>
           </span>
         </div>
@@ -844,6 +886,92 @@ export default function DashboardAccessTab() {
               )}
             </div>
 
+            {!annualMemberDashboard ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-3 space-y-2">
+                <Label className="text-xs font-semibold text-gray-800">Pay method (non-annual)</Label>
+                <p className="text-[10px] text-gray-500 leading-snug">
+                  Tags Sacred Home / India checkout rails for members who are <strong>not</strong> on the Iris Annual Abundance grid.
+                  Pin a Site Settings UPI or bank when offered.
+                </p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <select
+                    value={nonAnnualPayMethod}
+                    onChange={(e) => onNonAnnualPayMethodChange(e.target.value)}
+                    className="flex-1 min-w-[10rem] text-sm border rounded-md px-2 py-2 bg-white"
+                    data-testid="dashboard-access-nonannual-pay-method"
+                  >
+                    <option value="">—</option>
+                    <option value="stripe">Stripe</option>
+                    <option value="gpay_upi">GPay / UPI</option>
+                    <option value="bank_transfer">Bank transfer</option>
+                    <option value="cash_deposit">Cash deposit</option>
+                    <option value="any">Any / multiple</option>
+                  </select>
+                  {(() => {
+                    const pmLow = String(nonAnnualPayMethod || '').trim().toLowerCase();
+                    const gpayPick = pmLow === 'gpay_upi' || pmLow === 'any';
+                    const bankPick =
+                      pmLow === 'bank_transfer' || pmLow === 'cash_deposit' || pmLow === 'any';
+                    const needPick =
+                      (gpayPick && indiaGpayOpts.length >= 1) || (bankPick && indiaBankOpts.length >= 1);
+                    if (!needPick) return null;
+                    return (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-2 text-xs shrink-0"
+                            title="Pin UPI / bank from Site Settings"
+                          >
+                            UPI / Bank…
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-72 p-3 text-xs" align="start">
+                          <p className="text-[10px] text-gray-500 mb-2">Optional — same tags as Iris Annual Abundance.</p>
+                          {gpayPick && indiaGpayOpts.length >= 1 ? (
+                            <div className="mb-2">
+                              <span className="text-gray-700 font-medium block mb-1">UPI</span>
+                              <select
+                                className="w-full text-xs border rounded-md px-2 py-1.5 bg-white"
+                                value={nonAnnualGpayId}
+                                onChange={(e) => setNonAnnualGpayId(e.target.value)}
+                              >
+                                <option value="">All UPIs</option>
+                                {indiaGpayOpts.map((o) => (
+                                  <option key={o.tag_id} value={o.tag_id}>
+                                    {o.display_label || o.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          ) : null}
+                          {bankPick && indiaBankOpts.length >= 1 ? (
+                            <div>
+                              <span className="text-gray-700 font-medium block mb-1">Bank</span>
+                              <select
+                                className="w-full text-xs border rounded-md px-2 py-1.5 bg-white"
+                                value={nonAnnualBankId}
+                                onChange={(e) => setNonAnnualBankId(e.target.value)}
+                              >
+                                <option value="">All banks</option>
+                                {indiaBankOpts.map((o) => (
+                                  <option key={o.tag_id} value={o.tag_id}>
+                                    {o.display_label || o.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          ) : null}
+                        </PopoverContent>
+                      </Popover>
+                    );
+                  })()}
+                </div>
+              </div>
+            ) : null}
+
             <div
               className={`rounded-lg border px-3 py-2.5 ${
                 portalLoginAllowed ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/40'
@@ -870,13 +998,23 @@ export default function DashboardAccessTab() {
               </label>
             </div>
 
-            <div className="rounded-lg border border-violet-200 bg-violet-50/60 px-3 py-3 space-y-2">
-              <p className="text-[11px] font-semibold text-gray-800">Payment, GST, CRM fees &amp; Home Coming discount</p>
-              <p className="text-[10px] text-gray-600 leading-snug">
-                Edit these only under <strong>Iris Annual Abundance</strong> (client finances / Home Coming). This dialog no
-                longer updates those fields, so Dashboard Access and Abundance won&apos;t overwrite each other.
-              </p>
-            </div>
+            {annualMemberDashboard ? (
+              <div className="rounded-lg border border-violet-200 bg-violet-50/60 px-3 py-3 space-y-2">
+                <p className="text-[11px] font-semibold text-gray-800">Payment, GST, CRM fees &amp; Home Coming discount</p>
+                <p className="text-[10px] text-gray-600 leading-snug">
+                  Edit these under <strong>Iris Annual Abundance</strong> (client finances / Home Coming). This dialog does not
+                  change those fields for <strong>annual</strong> members.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-emerald-200/90 bg-emerald-50/40 px-3 py-3 space-y-2">
+                <p className="text-[11px] font-semibold text-gray-800">GST, CRM fees &amp; Home Coming discount</p>
+                <p className="text-[10px] text-gray-600 leading-snug">
+                  Still edited only in <strong>Iris Annual Abundance</strong>. For <strong>non-annual</strong> members, use{' '}
+                  <strong>Pay method</strong> above — no need to appear on the Abundance roster.
+                </p>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">

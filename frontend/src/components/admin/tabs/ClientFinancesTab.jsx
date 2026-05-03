@@ -15,6 +15,7 @@ import {
 import { getApiUrl } from '../../../lib/config';
 import { serverBandsToRows, validateBandRows, rowsToBandsPayload } from '../../../lib/indiaDiscountBandsUi';
 import { buildIndiaGpayOptions, buildIndiaBankOptions } from '../../../lib/indiaPaymentTags';
+import { adminPayMethodSelectValue, buildAdminPayMethodPatch } from '../../../lib/adminPayMethodPatch';
 import IndiaDiscountBandsEditor from '../IndiaDiscountBandsEditor';
 import {
   gstSummary,
@@ -331,18 +332,6 @@ function paymentMethodSummary(cl) {
   return labelFrom(PREFERRED_LABEL, key) || key;
 }
 
-/** Value for single admin pay-method control (legacy rows may differ until re-saved). */
-function adminPayMethodSelectValue(cl) {
-  const tag = (cl.india_payment_method || '').trim().toLowerCase();
-  if (tag === 'any') return 'any';
-  const pref = (cl.preferred_payment_method || '').trim().toLowerCase();
-  const ind = (cl.india_payment_method || '').trim().toLowerCase();
-  if (pref && ind && pref === ind) return pref;
-  if (pref) return pref;
-  if (ind) return ind;
-  return '';
-}
-
 /** Per-client pricing hub for signed-in portal users (matches GET /api/currency/detect). */
 function portalHubSummary(cl) {
   const h = String(cl?.pricing_hub_override || '').trim().toLowerCase();
@@ -350,39 +339,6 @@ function portalHubSummary(cl) {
   if (h === 'aed') return 'AED';
   if (h === 'usd') return 'USD';
   return 'Auto';
-}
-
-/** Sets both CRM fields so checkout and dashboard see one admin-tagged method. */
-function buildAdminPayMethodPatch(rawVal) {
-  const v = (rawVal || '').trim();
-  const low = v.toLowerCase();
-  if (!v) {
-    return {
-      preferred_payment_method: '',
-      india_payment_method: '',
-      preferred_india_gpay_id: '',
-      preferred_india_bank_id: '',
-    };
-  }
-  if (low === 'any') {
-    return {
-      preferred_payment_method: '',
-      india_payment_method: 'any',
-    };
-  }
-  const patch = {
-    preferred_payment_method: low,
-    india_payment_method: low,
-  };
-  if (low === 'stripe') {
-    patch.preferred_india_gpay_id = '';
-    patch.preferred_india_bank_id = '';
-  } else if (low === 'bank_transfer' || low === 'cash_deposit') {
-    patch.preferred_india_gpay_id = '';
-  } else if (low === 'gpay_upi') {
-    patch.preferred_india_bank_id = '';
-  }
-  return patch;
 }
 
 function buildFinanceGridDraft(cl) {
