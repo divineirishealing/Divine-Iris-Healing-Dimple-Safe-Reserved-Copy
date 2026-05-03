@@ -577,17 +577,6 @@ def _annual_emi_cadence_word(prefs: dict, subscription: dict) -> str:
     return ""
 
 
-def _ordinal_emi_label(n: int) -> str:
-    """e.g. 1 → '1st EMI', 11 → '11th EMI'."""
-    if n <= 0:
-        return f"EMI {n}"
-    if 11 <= (n % 100) <= 13:
-        suf = "th"
-    else:
-        suf = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
-    return f"{n}{suf} EMI"
-
-
 def _txn_inr_amount_tolerance(tx_amt: float) -> float:
     """Allow GST / platform drift between checkout txn amount and CRM EMI split rows."""
     if tx_amt <= 0:
@@ -698,7 +687,7 @@ def _maybe_overlay_home_coming_emi_tier_label(
 ) -> None:
     """
     When a portal client is on a Home Coming EMI plan, replace catalog tier text (e.g. '1 Month')
-    with '1st EMI (monthly)', 'End EMI (quarterly)', etc., derived from ``subscription.emis`` + txn match.
+    with an admin-clear label: Annual Program, which installment (e.g. EMI 3/12), cadence, and final flag.
     """
     if not clients_by_id or not tier_fields:
         return
@@ -746,14 +735,14 @@ def _maybe_overlay_home_coming_emi_tier_label(
     if emi_n <= 0:
         return
     cadence = _annual_emi_cadence_word(prefs, sub)
+    # e.g. "Annual Program — EMI 1/12 — monthly" or "… — EMI 12/12 (final) — monthly"
+    emi_slot = f"EMI {emi_n}/{total_n}"
     if total_n > 1 and emi_n >= total_n:
-        core = "End EMI"
-    else:
-        core = _ordinal_emi_label(emi_n)
+        emi_slot = f"EMI {emi_n}/{total_n} (final)"
+    bits = ["Annual Program", emi_slot]
     if cadence:
-        tier_fields["tier_label"] = f"{core} ({cadence})"
-    else:
-        tier_fields["tier_label"] = core
+        bits.append(cadence)
+    tier_fields["tier_label"] = " — ".join(bits)
 
 
 def build_participant_report_rows(
