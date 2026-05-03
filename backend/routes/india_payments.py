@@ -278,6 +278,53 @@ def _client_ids_for_emi_context(enrollments: List[dict], txns_by_eid: Dict[str, 
     return out
 
 
+async def _booker_email_client_ids_for_emi_overlay(
+    enrollments: List[dict],
+) -> Tuple[List[str], Dict[str, str]]:
+    """
+    When ``enrollment.client_id`` is missing, map booker email → ``clients.id`` so EMI tier tagging
+    can still load ``subscription.emis`` (same pattern as portal cohort email resolution).
+    """
+    emails: List[str] = []
+    seen_em = set()
+    for e in enrollments or []:
+        if _norm_cmp_id((e or {}).get("client_id")):
+            continue
+        em = (_clean_str((e or {}).get("booker_email")) or "").strip().lower()
+        if em and em not in seen_em:
+            seen_em.add(em)
+            emails.append(em)
+    if not emails:
+        return [], {}
+    try:
+        from pymongo.collation import Collation
+
+        coll = Collation(locale="en", strength=2)
+    except Exception:
+        coll = None
+    q = db.clients.find(
+        {"email": {"$in": emails[:3000]}},
+        {"_id": 0, "id": 1, "email": 1},
+    )
+    if coll is not None:
+        q = q.collation(coll)
+    rows = await q.to_list(len(emails) + 100)
+    by_email: Dict[str, str] = {}
+    out_ids: List[str] = []
+    seen_id = set()
+    for r in rows:
+        cid = _norm_cmp_id(r.get("id"))
+        em = (_clean_str(r.get("email")) or "").strip().lower()
+        if not cid or not em:
+            continue
+        if em not in by_email:
+            by_email[em] = cid
+        if cid not in seen_id:
+            seen_id.add(cid)
+            out_ids.append(cid)
+    return out_ids, by_email
+
+
 async def _load_portal_clients_emi_context_map(client_ids: List[str]) -> Dict[str, dict]:
     """Minimal client projection for Home Coming EMI tier labels on admin participant reports."""
     uniq: List[str] = []
@@ -680,18 +727,19 @@ def _maybe_overlay_home_coming_emi_tier_label(
     tier_fields: dict,
     *,
     enrollment: dict,
+    program_display: str,
     txn_for_amount: Optional[dict],
     all_txns: List[dict],
     clients_by_id: Optional[Dict[str, dict]],
     portal_client_id: str,
 ) -> None:
     """
-    When a portal client is on a Home Coming EMI plan, replace catalog tier text (e.g. '1 Month')
-    with an admin-clear label: Annual Program, which installment (e.g. EMI 3/12), cadence, and final flag.
+    Replace misleading catalog tier (e.g. '1 Month') when the linked CRM client has a multi-installment
+    subscription schedule: prefer 'Annual Program — EMI k/n — cadence'; if the installment cannot be
+    matched to a txn, still set 'Annual program · EMI (n installments)' so admins do not read EMI as a
+    one-month program.
     """
     if not clients_by_id or not tier_fields:
-        return
-    if not _enrollment_looks_like_home_coming(enrollment or {}):
         return
     pcid = _norm_cmp_id(portal_client_id)
     ecid = _norm_cmp_id((enrollment or {}).get("client_id"))
@@ -704,7 +752,10 @@ def _maybe_overlay_home_coming_emi_tier_label(
         return
     sub = cl.get("subscription") if isinstance(cl.get("subscription"), dict) else {}
     emis = sub.get("emis")
-    if not isinstance(emis, list) or len(emis) < 2:
+    if not isinstance(emis, list):
+        return
+    n_sched = sum(1 for x in emis if isinstance(x, dict))
+    if n_sched < 2:
         return
     prefs = cl.get("annual_package_offer_prefs") if isinstance(cl.get("annual_package_offer_prefs"), dict) else {}
     pm_pref = str(prefs.get("payment_mode") or "").strip().lower()
@@ -713,8 +764,22 @@ def _maybe_overlay_home_coming_emi_tier_label(
         num_emis_sub = int(sub.get("num_emis") or 0)
     except (TypeError, ValueError):
         num_emis_sub = 0
-    looks_emi = pm_sub == "EMI" or pm_pref.startswith("emi_") or num_emis_sub >= 2
+    looks_emi = (
+        pm_sub == "EMI"
+        or pm_pref.startswith("emi_")
+        or num_emis_sub >= 2
+        or n_sched >= 3
+    )
     if not looks_emi:
+        return
+
+    tier_now = _clean_str(tier_fields.get("tier_label"))
+    if not _eligible_for_annual_emi_admin_tier_tag(
+        enrollment or {},
+        program_display,
+        tier_now,
+        emi_row_count=n_sched,
+    ):
         return
 
     ordered_txns = sorted(
@@ -730,9 +795,11 @@ def _maybe_overlay_home_coming_emi_tier_label(
     if not hit and txn_for_amount:
         hit = _emi_installment_match_for_txn(txn_for_amount, emis)
     if not hit:
+        tier_fields["tier_label"] = f"Annual program · EMI ({n_sched} installments)"
         return
     emi_n, total_n = hit
     if emi_n <= 0:
+        tier_fields["tier_label"] = f"Annual program · EMI ({n_sched} installments)"
         return
     cadence = _annual_emi_cadence_word(prefs, sub)
     # e.g. "Annual Program — EMI 1/12 — monthly" or "… — EMI 12/12 (final) — monthly"
@@ -754,6 +821,7 @@ def build_participant_report_rows(
     portal_cohort_by_email: Optional[Dict[str, str]] = None,
     portal_cohort_by_client_id: Optional[Dict[str, str]] = None,
     portal_clients_by_id: Optional[Dict[str, dict]] = None,
+    booker_email_to_client_id: Optional[Dict[str, str]] = None,
 ) -> List[dict]:
     """
     One row per participant (or one booker row if participants missing).
@@ -836,9 +904,12 @@ def build_participant_report_rows(
                 pcid_emi = _norm_cmp_id(t.get("portal_client_id"))
                 if pcid_emi:
                     break
+        if not pcid_emi and booker_email_to_client_id:
+            pcid_emi = _norm_cmp_id((booker_email_to_client_id or {}).get(booker_email_key, ""))
         _maybe_overlay_home_coming_emi_tier_label(
             tier_fields,
             enrollment=e,
+            program_display=program,
             txn_for_amount=txn,
             all_txns=txn_list,
             clients_by_id=portal_clients_by_id,
@@ -1120,21 +1191,57 @@ def _is_home_coming_context(proof: dict, enrollment: dict) -> bool:
     return "home coming" in blob or "homecoming" in compact
 
 
-def _enrollment_looks_like_home_coming(enrollment: dict) -> bool:
-    """True when reporting row is clearly Home Coming (participant titles, item title, etc.)."""
+def _enrollment_looks_like_home_coming(enrollment: dict, program_display: str = "") -> bool:
+    """True when reporting row is clearly Home Coming (participant titles, item title, resolved program label)."""
     if not enrollment:
         return False
     parts = [
         enrollment.get("item_title"),
         enrollment.get("program_title"),
         enrollment.get("selected_program_title"),
+        program_display,
     ]
     for p in enrollment.get("participants") or []:
         if isinstance(p, dict):
             parts.append(_scalar_field(p, "program_title", "programTitle"))
+    for line in enrollment.get("portal_cart_lines") or []:
+        if isinstance(line, dict):
+            parts.append(line.get("title") or line.get("program_title") or line.get("name"))
     blob = " ".join(str(p or "") for p in parts).lower()
     compact = blob.replace(" ", "")
     return "home coming" in blob or "homecoming" in compact
+
+
+def _tier_label_implies_catalog_one_month(label: str) -> bool:
+    """Catalog / chosen tier text that reads like a single-month option (misleading on EMI annual)."""
+    s = (label or "").strip().lower()
+    if not s:
+        return False
+    if re.search(r"\b1\s*[-]?\s*months?\b", s):
+        return True
+    if re.search(r"\bone\s+months?\b", s):
+        return True
+    if re.search(r"\b30\s*[-]?\s*days?\b", s):
+        return True
+    return False
+
+
+def _eligible_for_annual_emi_admin_tier_tag(
+    enrollment: dict,
+    program_display: str,
+    tier_label: str,
+    *,
+    emi_row_count: int,
+) -> bool:
+    """Whether we should replace or tag tier text so admins do not read EMI annual as a one-month program."""
+    if emi_row_count < 2:
+        return False
+    if _enrollment_looks_like_home_coming(enrollment or {}, program_display):
+        return True
+    # Dashboard / cart rows: catalog may still say "1 Month" while CRM has a multi-installment schedule.
+    if emi_row_count >= 3 and _tier_label_implies_catalog_one_month(tier_label):
+        return True
+    return False
 
 
 def _emi_sort_number(emi: dict) -> int:
@@ -1700,7 +1807,9 @@ async def participant_enrollment_rows(paid_completed_only: bool = False):
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)
-    portal_client_ids = _client_ids_for_emi_context(enrollments, by_e)
+    extra_emi_ids, booker_email_client_map = await _booker_email_client_ids_for_emi_overlay(enrollments)
+    base_portal_ids = _client_ids_for_emi_context(enrollments, by_e)
+    portal_client_ids = list(dict.fromkeys(list(base_portal_ids) + list(extra_emi_ids)))
     prog_map, cohort_map, cohort_client_map, portal_clients_emi = await asyncio.gather(
         _programs_duration_tiers_by_item_id(enrollments, by_e),
         _portal_cohort_by_contact_emails(enrollments, by_e),
@@ -1715,6 +1824,7 @@ async def participant_enrollment_rows(paid_completed_only: bool = False):
         portal_cohort_by_email=cohort_map,
         portal_cohort_by_client_id=cohort_client_map,
         portal_clients_by_id=portal_clients_emi,
+        booker_email_to_client_id=booker_email_client_map or None,
     )
 
 
@@ -1731,7 +1841,9 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)
-    portal_client_ids = _client_ids_for_emi_context(enrollments, by_e)
+    extra_emi_ids, booker_email_client_map = await _booker_email_client_ids_for_emi_overlay(enrollments)
+    base_portal_ids = _client_ids_for_emi_context(enrollments, by_e)
+    portal_client_ids = list(dict.fromkeys(list(base_portal_ids) + list(extra_emi_ids)))
     prog_map, cohort_map, cohort_client_map, portal_clients_emi = await asyncio.gather(
         _programs_duration_tiers_by_item_id(enrollments, by_e),
         _portal_cohort_by_contact_emails(enrollments, by_e),
@@ -1746,6 +1858,7 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
         portal_cohort_by_email=cohort_map,
         portal_cohort_by_client_id=cohort_client_map,
         portal_clients_by_id=portal_clients_emi,
+        booker_email_to_client_id=booker_email_client_map or None,
     )
 
     headers = [
