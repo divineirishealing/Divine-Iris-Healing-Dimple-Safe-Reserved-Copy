@@ -7,6 +7,7 @@ import {
   labelFrom,
   gstSummary,
   formatTaggedPaymentDetails,
+  abundanceDiscountFields,
 } from '../../../lib/adminClientAccessDisplay';
 import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
@@ -104,10 +105,19 @@ export default function DashboardAccessTab() {
   const [annualPackageOfferYearlyEmiVisible, setAnnualPackageOfferYearlyEmiVisible] = useState(false);
   const [annualPackageOfferFlexiVisible, setAnnualPackageOfferFlexiVisible] = useState(false);
   const [portalLoginAllowed, setPortalLoginAllowed] = useState(true);
-  /** Non-annual only: same rails as Iris Annual Abundance “Pay method”. */
+  /** Sacred Home India checkout: same rails as Iris Annual Abundance “Pay method” (all access types). */
   const [nonAnnualPayMethod, setNonAnnualPayMethod] = useState('');
   const [nonAnnualGpayId, setNonAnnualGpayId] = useState('');
   const [nonAnnualBankId, setNonAnnualBankId] = useState('');
+  const [dashTaxEnabled, setDashTaxEnabled] = useState(false);
+  const [dashTaxPercent, setDashTaxPercent] = useState('18');
+  const [dashTaxLabel, setDashTaxLabel] = useState('GST');
+  const [dashTaxVisibleOnDashboard, setDashTaxVisibleOnDashboard] = useState(true);
+  const [dashHcCourtesyPct, setDashHcCourtesyPct] = useState('');
+  const [dashChFee, setDashChFee] = useState('');
+  const [dashLateFee, setDashLateFee] = useState('');
+  const [dashCrmShowLate, setDashCrmShowLate] = useState(false);
+  const [dashPricingHub, setDashPricingHub] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkLoading, setBulkLoading] = useState(false);
 
@@ -246,6 +256,25 @@ export default function DashboardAccessTab() {
     setNonAnnualPayMethod(adminPayMethodSelectValue(cl));
     setNonAnnualGpayId((cl.preferred_india_gpay_id || '').trim());
     setNonAnnualBankId((cl.preferred_india_bank_id || '').trim());
+    setDashTaxEnabled(!!cl.india_tax_enabled);
+    setDashTaxPercent(String(cl.india_tax_percent ?? 18));
+    setDashTaxLabel(((cl.india_tax_label || 'GST').trim() || 'GST').slice(0, 40));
+    setDashTaxVisibleOnDashboard(cl.india_tax_visible_on_dashboard !== false);
+    const { pct } = abundanceDiscountFields(cl);
+    setDashHcCourtesyPct(pct != null && pct !== '' ? String(pct) : '');
+    setDashChFee(
+      cl.crm_channelization_fee != null && cl.crm_channelization_fee !== ''
+        ? String(cl.crm_channelization_fee)
+        : '',
+    );
+    setDashLateFee(
+      cl.crm_late_fee_per_day != null && cl.crm_late_fee_per_day !== ''
+        ? String(cl.crm_late_fee_per_day)
+        : '',
+    );
+    setDashCrmShowLate(!!cl.crm_show_late_fees);
+    const hub = String(cl.pricing_hub_override || '').trim().toLowerCase();
+    setDashPricingHub(hub === 'inr' || hub === 'aed' || hub === 'usd' ? hub : '');
     setDialogOpen(true);
   };
 
@@ -283,20 +312,40 @@ export default function DashboardAccessTab() {
         portal_login_allowed: portalLoginAllowed,
         intake_pending: false,
       };
-      if (!annualMemberDashboard) {
-        Object.assign(body, buildAdminPayMethodPatch(nonAnnualPayMethod));
-        body.preferred_india_gpay_id = (nonAnnualGpayId || '').trim();
-        body.preferred_india_bank_id = (nonAnnualBankId || '').trim();
-        const low = String(nonAnnualPayMethod || '').trim().toLowerCase();
-        if (low === 'stripe' || !nonAnnualPayMethod) {
-          body.preferred_india_gpay_id = '';
-          body.preferred_india_bank_id = '';
-        } else if (low === 'bank_transfer' || low === 'cash_deposit') {
-          body.preferred_india_gpay_id = '';
-        } else if (low === 'gpay_upi') {
-          body.preferred_india_bank_id = '';
-        }
+      Object.assign(body, buildAdminPayMethodPatch(nonAnnualPayMethod));
+      body.preferred_india_gpay_id = (nonAnnualGpayId || '').trim();
+      body.preferred_india_bank_id = (nonAnnualBankId || '').trim();
+      const pmLow = String(nonAnnualPayMethod || '').trim().toLowerCase();
+      if (pmLow === 'stripe' || !nonAnnualPayMethod) {
+        body.preferred_india_gpay_id = '';
+        body.preferred_india_bank_id = '';
+      } else if (pmLow === 'bank_transfer' || pmLow === 'cash_deposit') {
+        body.preferred_india_gpay_id = '';
+      } else if (pmLow === 'gpay_upi') {
+        body.preferred_india_bank_id = '';
       }
+
+      const discRaw = String(dashHcCourtesyPct || '').replace(/,/g, '').trim();
+      body.home_coming_india_discount_percent = discRaw === '' ? 0 : parseFloat(discRaw) || 0;
+      body.india_tax_enabled = dashTaxEnabled;
+      body.india_tax_percent = dashTaxEnabled
+        ? parseFloat(String(dashTaxPercent).replace(/,/g, '')) || 0
+        : null;
+      body.india_tax_label = (dashTaxLabel || 'GST').trim() || 'GST';
+      body.india_tax_visible_on_dashboard = dashTaxVisibleOnDashboard;
+
+      const chRaw = String(dashChFee || '').replace(/,/g, '').trim();
+      const lateRaw = String(dashLateFee || '').replace(/,/g, '').trim();
+      const chNum = chRaw === '' ? null : parseFloat(chRaw);
+      const lateNum = lateRaw === '' ? null : parseFloat(lateRaw);
+      body.crm_channelization_fee = chNum != null && Number.isFinite(chNum) ? chNum : null;
+      body.crm_late_fee_per_day = lateNum != null && Number.isFinite(lateNum) ? lateNum : null;
+      body.crm_show_late_fees = dashCrmShowLate;
+
+      const phRaw = String(dashPricingHub || '').trim().toLowerCase();
+      body.pricing_hub_override =
+        phRaw === 'inr' || phRaw === 'aed' || phRaw === 'usd' ? phRaw : null;
+
       await axios.put(`${API}/clients/${editing.id}`, body);
       toast({
         title: 'Saved',
@@ -477,12 +526,13 @@ export default function DashboardAccessTab() {
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Dashboard access</h2>
             <p className="text-xs text-gray-500 mt-0.5 max-w-2xl">
-              Use this tab for <strong>email</strong>, <strong>Google login</strong>, <strong>annual vs non-annual access</strong>, and{' '}
-              <strong>Home Coming package-page</strong> EMI/Flexi visibility. For <strong>non-annual</strong> members, <strong>Edit</strong>{' '}
-              includes <strong>Pay method</strong> (checkout rails + optional UPI/bank pin). GST, CRM fees, and Home Coming courtesy
-              (HC package checkout only) stay in <strong>Iris Annual Abundance</strong>; annual members still edit full payment there. The grid below shows
-              payment method and GST for quick reference only. Use the checkboxes + <strong>Allow Google login for selected</strong> or{' '}
-              <strong>Bulk edit access type</strong> for many rows. <strong>View as</strong> opens portal pricing from your admin session.
+              Use this tab for <strong>email</strong>, <strong>Google login</strong>, <strong>annual vs non-annual access</strong>,{' '}
+              <strong>Home Coming package-page</strong> EMI/Flexi visibility, and — via <strong>Edit</strong> —{' '}
+              <strong>India checkout</strong> (pay method, UPI/bank pin), <strong>GST</strong>, <strong>Home Coming courtesy %</strong> (HC package checkout only),{' '}
+              <strong>CRM fees</strong>, and <strong>portal pricing hub</strong> for every client. <strong>Iris Annual Abundance</strong> is still where annual package
+              totals, EMI structure, flexi, payment history, and tiered HC group discounts are managed for members on that roster. The grid below is a quick
+              reference for pay method and GST. Use the checkboxes + <strong>Allow Google login for selected</strong> or <strong>Bulk edit access type</strong> for many rows.{' '}
+              <strong>View as</strong> opens portal pricing from your admin session.
             </p>
           </div>
         </div>
@@ -553,7 +603,7 @@ export default function DashboardAccessTab() {
             <Bell size={18} className="text-orange-500 shrink-0" />
             <span>
               <strong>{pendingCount}</strong> new intake request{pendingCount === 1 ? '' : 's'} — highlight below; enable Google login or mark reviewed.{' '}
-              <strong>Non-annual</strong> pay method can be set in <strong>Edit dashboard access</strong>; GST and Home Coming courtesy (HC package only) stay in Iris Annual Abundance.
+              India checkout (pay method, GST, HC courtesy %, CRM, hub) can be set in <strong>Edit dashboard access</strong> for anyone; Iris Annual Abundance remains for package totals and tiered group discounts on that roster.
             </span>
           </span>
         </div>
@@ -601,11 +651,11 @@ export default function DashboardAccessTab() {
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Preferred payment
-                  <span className="block font-normal normal-case text-[9px] text-gray-400 font-medium mt-0.5">(edit in Iris Annual)</span>
+                  <span className="block font-normal normal-case text-[9px] text-gray-400 font-medium mt-0.5">(Edit dashboard access)</span>
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Tagged payment (site)
-                  <span className="block font-normal normal-case text-[9px] text-gray-400 font-medium mt-0.5">(edit in Iris Annual)</span>
+                  <span className="block font-normal normal-case text-[9px] text-gray-400 font-medium mt-0.5">(from Site Settings)</span>
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Annual member? (intake)
@@ -615,7 +665,7 @@ export default function DashboardAccessTab() {
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   GST
-                  <span className="block font-normal normal-case text-[9px] text-gray-400 font-medium mt-0.5">(edit in Iris Annual)</span>
+                  <span className="block font-normal normal-case text-[9px] text-gray-400 font-medium mt-0.5">(Edit dashboard access)</span>
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Actions
@@ -773,7 +823,7 @@ export default function DashboardAccessTab() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={(o) => !o && closeDialog()}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="dashboard-access-edit-dialog">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto" data-testid="dashboard-access-edit-dialog">
           <DialogHeader>
             <DialogTitle>Edit dashboard access</DialogTitle>
             <DialogDescription>{editing?.name || 'Client'}</DialogDescription>
@@ -879,13 +929,17 @@ export default function DashboardAccessTab() {
               )}
             </div>
 
-            {!annualMemberDashboard ? (
-              <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-3 space-y-2">
-                <Label className="text-xs font-semibold text-gray-800">Pay method (non-annual)</Label>
-                <p className="text-[10px] text-gray-500 leading-snug">
-                  Tags Sacred Home / India checkout rails for members who are <strong>not</strong> on the Iris Annual Abundance grid.
-                  Pin a Site Settings UPI or bank when offered.
+            <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-3 space-y-3">
+              <div>
+                <Label className="text-xs font-semibold text-gray-800">Sacred Home — India checkout &amp; CRM</Label>
+                <p className="text-[10px] text-gray-500 leading-snug mt-0.5">
+                  Same fields as the finance row in Iris Annual Abundance, available here for <strong>every</strong> client. HC courtesy % applies only to the
+                  pinned <strong>Home Coming</strong> catalog package checkout.
                 </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] text-gray-600">Pay method</Label>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <select
                     value={nonAnnualPayMethod}
@@ -922,7 +976,7 @@ export default function DashboardAccessTab() {
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-72 p-3 text-xs" align="start">
-                          <p className="text-[10px] text-gray-500 mb-2">Optional — same tags as Iris Annual Abundance.</p>
+                          <p className="text-[10px] text-gray-500 mb-2">Optional — tags from Site Settings → Indian Payment.</p>
                           {gpayPick && indiaGpayOpts.length >= 1 ? (
                             <div className="mb-2">
                               <span className="text-gray-700 font-medium block mb-1">UPI</span>
@@ -963,7 +1017,132 @@ export default function DashboardAccessTab() {
                   })()}
                 </div>
               </div>
-            ) : null}
+
+              <div className="space-y-2 pt-1 border-t border-slate-200/80">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300"
+                    checked={dashTaxEnabled}
+                    onChange={(e) => setDashTaxEnabled(e.target.checked)}
+                    data-testid="dashboard-access-tax-enabled"
+                  />
+                  <span className="text-xs font-medium text-gray-800">Enable GST / tax on India quotes</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[10px] text-gray-600">Tax %</Label>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      className="mt-0.5 h-9 text-sm"
+                      disabled={!dashTaxEnabled}
+                      value={dashTaxPercent}
+                      onChange={(e) => setDashTaxPercent(e.target.value)}
+                      data-testid="dashboard-access-tax-percent"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-gray-600">Tax label</Label>
+                    <Input
+                      type="text"
+                      className="mt-0.5 h-9 text-sm"
+                      disabled={!dashTaxEnabled}
+                      value={dashTaxLabel}
+                      onChange={(e) => setDashTaxLabel(e.target.value)}
+                      placeholder="GST"
+                      data-testid="dashboard-access-tax-label"
+                    />
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300"
+                    checked={dashTaxVisibleOnDashboard}
+                    onChange={(e) => setDashTaxVisibleOnDashboard(e.target.checked)}
+                    disabled={!dashTaxEnabled}
+                    data-testid="dashboard-access-tax-visible-dashboard"
+                  />
+                  <span className="text-xs text-gray-800">Show tax line on student dashboard</span>
+                </label>
+              </div>
+
+              <div className="space-y-1.5 pt-1 border-t border-slate-200/80">
+                <Label className="text-[10px] text-gray-600">HC courtesy % (Home Coming package only)</Label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  className="h-9 text-sm max-w-[12rem]"
+                  value={dashHcCourtesyPct}
+                  onChange={(e) => setDashHcCourtesyPct(e.target.value)}
+                  placeholder="0"
+                  data-testid="dashboard-access-hc-courtesy-pct"
+                />
+                <p className="text-[10px] text-gray-500 leading-snug">
+                  Tiered “by # people” rules are still edited in Iris Annual Abundance (group discount dialog) when the member is on that grid.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-200/80">
+                <div>
+                  <Label className="text-[10px] text-gray-600">CRM channelization fee</Label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    className="mt-0.5 h-9 text-sm"
+                    value={dashChFee}
+                    onChange={(e) => setDashChFee(e.target.value)}
+                    placeholder="Optional"
+                    data-testid="dashboard-access-ch-fee"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-gray-600">CRM late fee / day</Label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    className="mt-0.5 h-9 text-sm"
+                    value={dashLateFee}
+                    onChange={(e) => setDashLateFee(e.target.value)}
+                    placeholder="Optional"
+                    data-testid="dashboard-access-late-fee"
+                  />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300"
+                  checked={dashCrmShowLate}
+                  onChange={(e) => setDashCrmShowLate(e.target.checked)}
+                  data-testid="dashboard-access-crm-show-late"
+                />
+                <span className="text-xs text-gray-800">Show late fees in CRM / quotes where applicable</span>
+              </label>
+
+              <div className="pt-1 border-t border-slate-200/80">
+                <Label className="text-[10px] text-gray-600">Portal pricing hub override</Label>
+                <select
+                  value={dashPricingHub}
+                  onChange={(e) => setDashPricingHub(e.target.value)}
+                  className="w-full max-w-xs mt-0.5 text-sm border rounded-md px-2 py-2 bg-white"
+                  data-testid="dashboard-access-pricing-hub"
+                >
+                  <option value="">Auto (geo / subscription)</option>
+                  <option value="inr">INR hub</option>
+                  <option value="aed">AED hub</option>
+                  <option value="usd">USD hub</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-amber-100 bg-amber-50/40 px-3 py-2.5">
+              <p className="text-[10px] text-gray-600 leading-snug">
+                <strong>Iris Annual Abundance</strong> is still the home for annual package fee, EMI counts, flexi, payment history, and tiered HC group
+                discounts for members listed there. Use this dialog when someone is not on that roster or you want checkout settings in one place.
+              </p>
+            </div>
 
             <div
               className={`rounded-lg border px-3 py-2.5 ${
@@ -991,24 +1170,6 @@ export default function DashboardAccessTab() {
               </label>
             </div>
 
-            {annualMemberDashboard ? (
-              <div className="rounded-lg border border-violet-200 bg-violet-50/60 px-3 py-3 space-y-2">
-                <p className="text-[11px] font-semibold text-gray-800">GST, CRM fees &amp; Home Coming courtesy</p>
-                <p className="text-[10px] text-gray-600 leading-snug">
-                  Edit under <strong>Iris Annual Abundance</strong>. <strong>HC courtesy %</strong> applies only to the pinned{' '}
-                  <strong>Home Coming</strong> catalog package — not to other programs. This dialog does not change those fields for{' '}
-                  <strong>annual</strong> members.
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-lg border border-emerald-200/90 bg-emerald-50/40 px-3 py-3 space-y-2">
-                <p className="text-[11px] font-semibold text-gray-800">GST, CRM fees &amp; Home Coming courtesy</p>
-                <p className="text-[10px] text-gray-600 leading-snug">
-                  Still edited only in <strong>Iris Annual Abundance</strong>. HC courtesy applies only to the <strong>Home Coming</strong>{' '}
-                  package checkout. For <strong>non-annual</strong> members, use <strong>Pay method</strong> above — no need to appear on the Abundance roster.
-                </p>
-              </div>
-            )}
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
@@ -1028,8 +1189,9 @@ export default function DashboardAccessTab() {
             <DialogTitle>Bulk edit access type</DialogTitle>
             <DialogDescription>
               Set Sacred Home <strong>annual vs non-annual</strong> for{' '}
-              <strong>{selectedIds.length}</strong> selected client(s). Check the box below to apply; payment, GST, and Home Coming courtesy are not
-              changed here — use Iris Annual Abundance (HC courtesy applies to the Home Coming package only).
+              <strong>{selectedIds.length}</strong> selected client(s). Check the box below to apply. Payment, GST, HC courtesy, CRM, and hub are not bulk
+              changed here — use <strong>Edit dashboard access</strong> per row or Iris Annual Abundance for rostered finance (HC courtesy applies to the Home
+              Coming package only).
             </DialogDescription>
           </DialogHeader>
 

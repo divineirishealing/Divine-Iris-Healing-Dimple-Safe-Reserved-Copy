@@ -2958,7 +2958,7 @@ class ClientUpdate(BaseModel):
     india_discount_percent: Optional[float] = None  # client-specific discount on base price
     # When set, first matching band (by order) overrides india_discount_percent for that participant count.
     india_discount_member_bands: Optional[List[IndiaDiscountMemberBand]] = None
-    # Home Coming package courtesy only (Iris Annual Abundance). Ignored for Dashboard Access ``india_discount_*``.
+    # Home Coming package courtesy only (HC catalog checkout). Editable from Dashboard access or Iris Annual Abundance.
     home_coming_india_discount_percent: Optional[float] = None
     home_coming_india_discount_member_bands: Optional[List[IndiaDiscountMemberBand]] = None
     preferred_payment_method: Optional[str] = None  # gpay_upi, bank_transfer, cash_deposit, stripe (intake / CRM)
