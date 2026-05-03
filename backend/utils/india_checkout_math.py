@@ -65,6 +65,31 @@ def _resolve_india_discount_rule(cp: Dict[str, Any], member_count: int) -> Dict[
     }
 
 
+def _extra_sacred_home_discount_inr(after_crm_discount: float, cp: Dict[str, Any], member_count: int) -> float:
+    """Optional admin extra discount (Dashboard access). Never used on HC-only carts (caller strips keys)."""
+    base = max(0.0, float(after_crm_discount))
+    if base <= 0:
+        return 0.0
+    kind = str(cp.get("sacred_home_extra_discount_kind") or "").strip().lower()
+    if kind not in ("percent", "inr"):
+        return 0.0
+    raw_val = cp.get("sacred_home_extra_discount_value")
+    if raw_val is None or raw_val == "":
+        return 0.0
+    try:
+        val = float(raw_val)
+    except (TypeError, ValueError):
+        return 0.0
+    if not math.isfinite(val) or val <= 0:
+        return 0.0
+    per = str(cp.get("sacred_home_extra_discount_per") or "cart").strip().lower()
+    mult = max(1, int(member_count)) if per in ("participant", "per_participant") else 1
+    if kind == "inr":
+        return min(base, val * mult)
+    pct = max(0.0, min(100.0, val))
+    return base * pct / 100.0
+
+
 def _apply_rule_to_base(base: float, rule: Dict[str, Any]) -> float:
     b = max(0.0, float(base))
     if not math.isfinite(b) or b <= 0:
@@ -110,6 +135,8 @@ def compute_india_checkout_breakdown(
         gst_pct = site_gst
 
     taxable = max(0.0, base - discount_amt)
+    extra_inr = _extra_sacred_home_discount_inr(taxable, cp, member_count)
+    taxable = max(0.0, taxable - extra_inr)
     gst_amt = (taxable * gst_pct) / 100.0
     platform_amt = (taxable * platform_pct) / 100.0
     final = taxable + gst_amt + platform_amt
@@ -117,6 +144,7 @@ def compute_india_checkout_breakdown(
     return {
         "list_price_inr": round(base, 2),
         "india_discount_inr": round(discount_amt, 2),
+        "sacred_home_extra_discount_inr": round(extra_inr, 2),
         "taxable_inr": round(taxable, 2),
         "gst_pct": gst_pct,
         "gst_inr": round(gst_amt, 2),

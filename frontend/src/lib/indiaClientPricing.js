@@ -175,7 +175,33 @@ export function computeIndiaCheckoutBreakdown(effectiveBase, clientPricing, sett
       : siteGstN;
   const taxLabel = String(cp.india_tax_label || 'GST').trim() || 'GST';
 
-  const taxableBase = Math.max(0, base - discountAmt);
+  let taxableBase = Math.max(0, base - discountAmt);
+
+  const kind = String(cp.sacred_home_extra_discount_kind || '')
+    .trim()
+    .toLowerCase();
+  let extraInr = 0;
+  if (kind === 'percent' || kind === 'inr') {
+    const rawV = cp.sacred_home_extra_discount_value;
+    const val = Number(rawV);
+    if (Number.isFinite(val) && val > 0) {
+      const per = String(cp.sacred_home_extra_discount_per || 'cart')
+        .trim()
+        .toLowerCase();
+      const n =
+        per === 'participant' || per === 'per_participant'
+          ? Math.max(1, Math.floor(Number.isFinite(mcRaw) ? mcRaw : 1))
+          : 1;
+      if (kind === 'inr') {
+        extraInr = Math.min(taxableBase, val * n);
+      } else {
+        const pct = Math.max(0, Math.min(100, val));
+        extraInr = (taxableBase * pct) / 100;
+      }
+    }
+  }
+  taxableBase = Math.max(0, taxableBase - extraInr);
+
   const gstAmount = (taxableBase * gstPct) / 100;
   const platformAmount = (taxableBase * platformPctN) / 100;
   const finalTotal = taxableBase + gstAmount + platformAmount;

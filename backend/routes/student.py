@@ -240,7 +240,8 @@ def _merge_client_india_pricing_portal(client: dict, sub: Optional[dict], site_d
 
     **Discount:** When the subscription row is authoritative (Excel-style package), use
     ``subscription.individual_discount_pct``. Otherwise use the client row's ``india_discount_percent`` /
-    ``india_discount_member_bands`` (CRM: other programs / non–Home Coming India checkout — see Dashboard access).
+    ``india_discount_member_bands`` (CRM: other programs / non–Home Coming India checkout — Dashboard access).
+    Optional ``sacred_home_extra_discount_*`` is passed through for portal INR math (stripped on Home Coming–only carts).
     Home Coming package courtesy stays in ``client_discount_source`` and enrollment paths that run
     ``client_pricing_row_for_india_checkout`` + ``filter_client_pricing_for_home_coming_checkout``.
     """
@@ -281,6 +282,9 @@ def _merge_client_india_pricing_portal(client: dict, sub: Optional[dict], site_d
         "india_tax_enabled": eff_tax_enabled,
         "india_tax_percent": eff_tax,
         "india_tax_label": eff_label,
+        "sacred_home_extra_discount_kind": client.get("sacred_home_extra_discount_kind"),
+        "sacred_home_extra_discount_value": client.get("sacred_home_extra_discount_value"),
+        "sacred_home_extra_discount_per": client.get("sacred_home_extra_discount_per"),
     }
 
 

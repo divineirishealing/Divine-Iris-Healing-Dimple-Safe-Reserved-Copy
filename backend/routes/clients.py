@@ -929,6 +929,9 @@ async def list_annual_finance_roster(search: Optional[str] = None):
         "annual_period_ledger": 1,
         "annual_package_offer_prefs": 1,
         "pricing_hub_override": 1,
+        "sacred_home_extra_discount_kind": 1,
+        "sacred_home_extra_discount_value": 1,
+        "sacred_home_extra_discount_per": 1,
     }
     rows = await db.clients.find(query, proj).sort([("name", 1), ("id", 1)]).to_list(5000)
     out = []
@@ -2848,7 +2851,9 @@ async def bulk_update_dashboard_access(data: BulkDashboardAccessBody):
 
     uf: Dict[str, Any] = {}
     if "annual_member_dashboard" in patch:
-        uf["annual_member_dashboard"] = bool(patch["annual_member_dashboard"])
+        am = bool(patch["annual_member_dashboard"])
+        uf["annual_member_dashboard"] = am
+        uf["intake_claims_annual_member"] = am
     if "preferred_payment_method" in patch:
         pm = (patch.get("preferred_payment_method") or "").strip().lower()
         uf["preferred_payment_method"] = pm if pm else None
@@ -2958,7 +2963,7 @@ class ClientUpdate(BaseModel):
     india_discount_percent: Optional[float] = None  # client-specific discount on base price
     # When set, first matching band (by order) overrides india_discount_percent for that participant count.
     india_discount_member_bands: Optional[List[IndiaDiscountMemberBand]] = None
-    # Home Coming package courtesy only (HC catalog checkout). Editable from Dashboard access or Iris Annual Abundance.
+    # Home Coming package courtesy only (HC catalog checkout). Editable from Dashboard access or annual finance tools.
     home_coming_india_discount_percent: Optional[float] = None
     home_coming_india_discount_member_bands: Optional[List[IndiaDiscountMemberBand]] = None
     preferred_payment_method: Optional[str] = None  # gpay_upi, bank_transfer, cash_deposit, stripe (intake / CRM)
@@ -2992,6 +2997,10 @@ class ClientUpdate(BaseModel):
     crm_show_late_fees: Optional[bool] = None
     # When set (inr/aed/usd), logged-in portal user uses this pricing hub regardless of IP (see /currency/detect).
     pricing_hub_override: Optional[str] = None
+    # Optional extra Sacred Home India discount (Dashboard access). Stripped for Home Coming–only carts.
+    sacred_home_extra_discount_kind: Optional[str] = None  # percent | inr
+    sacred_home_extra_discount_value: Optional[float] = None
+    sacred_home_extra_discount_per: Optional[str] = None  # cart | participant
 
 
 @router.put("/{client_id}")
@@ -3118,7 +3127,9 @@ async def update_client(client_id: str, data: ClientUpdate):
     if data.preferred_india_bank_id is not None:
         update_fields["preferred_india_bank_id"] = (data.preferred_india_bank_id or "").strip()
     if data.annual_member_dashboard is not None:
-        update_fields["annual_member_dashboard"] = bool(data.annual_member_dashboard)
+        v_annual = bool(data.annual_member_dashboard)
+        update_fields["annual_member_dashboard"] = v_annual
+        update_fields["intake_claims_annual_member"] = v_annual
     if data.annual_package_offer_monthly_emi_visible is not None:
         update_fields["annual_package_offer_monthly_emi_visible"] = bool(
             data.annual_package_offer_monthly_emi_visible
@@ -3173,6 +3184,35 @@ async def update_client(client_id: str, data: ClientUpdate):
                     detail="pricing_hub_override must be inr, aed, usd, or empty to use automatic geo rules",
                 )
             update_fields["pricing_hub_override"] = v
+
+    if "sacred_home_extra_discount_kind" in incoming:
+        raw_k = data.sacred_home_extra_discount_kind
+        if raw_k is None or (isinstance(raw_k, str) and not str(raw_k).strip()):
+            update_fields["sacred_home_extra_discount_kind"] = None
+            update_fields["sacred_home_extra_discount_value"] = None
+            update_fields["sacred_home_extra_discount_per"] = None
+        else:
+            k = str(raw_k).strip().lower()
+            if k not in ("percent", "inr"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="sacred_home_extra_discount_kind must be percent, inr, or empty",
+                )
+            update_fields["sacred_home_extra_discount_kind"] = k
+    if "sacred_home_extra_discount_value" in incoming:
+        vv = data.sacred_home_extra_discount_value
+        update_fields["sacred_home_extra_discount_value"] = None if vv is None else float(vv)
+    if "sacred_home_extra_discount_per" in incoming:
+        rp = (data.sacred_home_extra_discount_per or "").strip().lower()
+        if not rp or rp in ("cart", "whole", "order"):
+            update_fields["sacred_home_extra_discount_per"] = "cart"
+        elif rp in ("participant", "per_participant"):
+            update_fields["sacred_home_extra_discount_per"] = "participant"
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="sacred_home_extra_discount_per must be cart or participant",
+            )
 
     if data.email is not None:
         new_em = normalize_email(data.email)

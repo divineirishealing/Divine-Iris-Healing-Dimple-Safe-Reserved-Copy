@@ -64,7 +64,9 @@ async def submit_intake(data: ClientIntakeSubmit):
         "updated_at":            now,
     }
     if data.intake_claims_annual_member is not None:
-        intake_fields["intake_claims_annual_member"] = bool(data.intake_claims_annual_member)
+        am = bool(data.intake_claims_annual_member)
+        intake_fields["intake_claims_annual_member"] = am
+        intake_fields["annual_member_dashboard"] = am
     if data.city:    intake_fields["city"]    = data.city.strip()
     if data.state:   intake_fields["state"]   = data.state.strip()
     if data.country: intake_fields["country_name"] = data.country.strip()

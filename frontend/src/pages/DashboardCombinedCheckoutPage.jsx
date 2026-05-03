@@ -1208,6 +1208,9 @@ export default function DashboardCombinedCheckoutPage() {
       ...clientIndiaPricing,
       india_discount_percent: 0,
       india_discount_member_bands: null,
+      sacred_home_extra_discount_kind: null,
+      sacred_home_extra_discount_value: null,
+      sacred_home_extra_discount_per: null,
     };
   }, [clientIndiaPricing, hasHomeComingCatalogPay]);
 

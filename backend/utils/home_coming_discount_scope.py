@@ -51,5 +51,9 @@ def filter_client_pricing_for_home_coming_checkout(
     if allow:
         out["india_discount_percent"] = hc_pct
         out["india_discount_member_bands"] = hc_bands
+        # Admin “extra” Sacred Home discount must never apply to Home Coming–only carts.
+        out.pop("sacred_home_extra_discount_kind", None)
+        out.pop("sacred_home_extra_discount_value", None)
+        out.pop("sacred_home_extra_discount_per", None)
         return out
     return out

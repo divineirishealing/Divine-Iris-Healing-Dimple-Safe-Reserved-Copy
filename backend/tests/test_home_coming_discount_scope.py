@@ -81,3 +81,39 @@ def test_filter_legacy_client_same_discount_both_paths():
 
 def test_filter_passes_through_none():
     assert filter_client_pricing_for_home_coming_checkout(None, pin_program_id="x", checkout_program_ids=["x"]) is None
+
+
+def test_filter_strips_admin_extra_on_hc_only_cart():
+    raw = {
+        "india_discount_percent": 2.0,
+        "home_coming_india_discount_percent": 5.0,
+        "sacred_home_extra_discount_kind": "inr",
+        "sacred_home_extra_discount_value": 100.0,
+        "sacred_home_extra_discount_per": "cart",
+    }
+    cp = client_pricing_row_for_india_checkout(raw)
+    out = filter_client_pricing_for_home_coming_checkout(
+        cp,
+        pin_program_id="hc",
+        checkout_program_ids=["hc"],
+    )
+    assert out.get("sacred_home_extra_discount_kind") is None
+    assert out.get("sacred_home_extra_discount_value") is None
+
+
+def test_filter_keeps_admin_extra_on_non_hc_cart():
+    raw = {
+        "india_discount_percent": 2.0,
+        "home_coming_india_discount_percent": 5.0,
+        "sacred_home_extra_discount_kind": "inr",
+        "sacred_home_extra_discount_value": 50.0,
+        "sacred_home_extra_discount_per": "participant",
+    }
+    cp = client_pricing_row_for_india_checkout(raw)
+    out = filter_client_pricing_for_home_coming_checkout(
+        cp,
+        pin_program_id="hc",
+        checkout_program_ids=["other"],
+    )
+    assert out["sacred_home_extra_discount_kind"] == "inr"
+    assert out["sacred_home_extra_discount_value"] == 50.0

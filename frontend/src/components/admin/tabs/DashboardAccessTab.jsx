@@ -105,7 +105,7 @@ export default function DashboardAccessTab() {
   const [annualPackageOfferYearlyEmiVisible, setAnnualPackageOfferYearlyEmiVisible] = useState(false);
   const [annualPackageOfferFlexiVisible, setAnnualPackageOfferFlexiVisible] = useState(false);
   const [portalLoginAllowed, setPortalLoginAllowed] = useState(true);
-  /** Sacred Home India checkout: same rails as Iris Annual Abundance “Pay method” (all access types). */
+  /** Sacred Home India checkout: pay method rails for all access types. */
   const [nonAnnualPayMethod, setNonAnnualPayMethod] = useState('');
   const [nonAnnualGpayId, setNonAnnualGpayId] = useState('');
   const [nonAnnualBankId, setNonAnnualBankId] = useState('');
@@ -116,6 +116,9 @@ export default function DashboardAccessTab() {
   const [dashHcCourtesyPct, setDashHcCourtesyPct] = useState('');
   /** CRM flat % for India checkout on programs other than the pinned Home Coming package. */
   const [dashOtherProgramsIndiaDiscPct, setDashOtherProgramsIndiaDiscPct] = useState('');
+  const [dashExtraDiscKind, setDashExtraDiscKind] = useState('');
+  const [dashExtraDiscValue, setDashExtraDiscValue] = useState('');
+  const [dashExtraDiscPer, setDashExtraDiscPer] = useState('cart');
   const [dashChFee, setDashChFee] = useState('');
   const [dashLateFee, setDashLateFee] = useState('');
   const [dashCrmShowLate, setDashCrmShowLate] = useState(false);
@@ -266,6 +269,14 @@ export default function DashboardAccessTab() {
     setDashHcCourtesyPct(pct != null && pct !== '' ? String(pct) : '');
     const op = cl.india_discount_percent;
     setDashOtherProgramsIndiaDiscPct(op != null && op !== '' ? String(op) : '');
+    const ek = String(cl.sacred_home_extra_discount_kind || '').trim().toLowerCase();
+    setDashExtraDiscKind(ek === 'percent' || ek === 'inr' ? ek : '');
+    const ev = cl.sacred_home_extra_discount_value;
+    setDashExtraDiscValue(
+      ev != null && ev !== '' && Number.isFinite(Number(ev)) ? String(ev) : '',
+    );
+    const ep = String(cl.sacred_home_extra_discount_per || 'cart').trim().toLowerCase();
+    setDashExtraDiscPer(ep === 'participant' || ep === 'per_participant' ? 'participant' : 'cart');
     setDashChFee(
       cl.crm_channelization_fee != null && cl.crm_channelization_fee !== ''
         ? String(cl.crm_channelization_fee)
@@ -338,6 +349,26 @@ export default function DashboardAccessTab() {
       } else {
         const n = parseFloat(otherDiscRaw);
         body.india_discount_percent = Number.isFinite(n) ? n : null;
+      }
+
+      const dk = String(dashExtraDiscKind || '').trim().toLowerCase();
+      if (!dk || (dk !== 'percent' && dk !== 'inr')) {
+        body.sacred_home_extra_discount_kind = null;
+        body.sacred_home_extra_discount_value = null;
+        body.sacred_home_extra_discount_per = null;
+      } else {
+        const vx = String(dashExtraDiscValue || '').replace(/,/g, '').trim();
+        const num = vx === '' ? NaN : parseFloat(vx);
+        if (!Number.isFinite(num) || num <= 0) {
+          body.sacred_home_extra_discount_kind = null;
+          body.sacred_home_extra_discount_value = null;
+          body.sacred_home_extra_discount_per = null;
+        } else {
+          body.sacred_home_extra_discount_kind = dk;
+          body.sacred_home_extra_discount_value = num;
+          body.sacred_home_extra_discount_per =
+            dk === 'percent' ? 'cart' : dashExtraDiscPer === 'participant' ? 'participant' : 'cart';
+        }
       }
       body.india_tax_enabled = dashTaxEnabled;
       body.india_tax_percent = dashTaxEnabled
@@ -538,13 +569,12 @@ export default function DashboardAccessTab() {
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Dashboard access</h2>
             <p className="text-xs text-gray-500 mt-0.5 max-w-2xl">
-              Use this tab for <strong>email</strong>, <strong>Google login</strong>, <strong>annual vs non-annual access</strong>,{' '}
-              <strong>Home Coming package-page</strong> EMI/Flexi visibility, and — via <strong>Edit</strong> —{' '}
+              Use this tab for <strong>email</strong>, <strong>Google login</strong>, <strong>annual vs non-annual access</strong> (kept in sync with{' '}
+              <strong>Annual member</strong> on intake), <strong>Home Coming package-page</strong> EMI/Flexi visibility, and — via <strong>Edit</strong> —{' '}
               <strong>India checkout</strong> (pay method, UPI/bank pin), <strong>GST</strong>, <strong>India discount %</strong> (other programs — not the Home Coming package),{' '}
-              <strong>Home Coming courtesy %</strong> (HC package checkout only), <strong>CRM fees</strong>, and <strong>portal pricing hub</strong> for every client. <strong>Iris Annual Abundance</strong> is still where annual package
-              totals, EMI structure, flexi, payment history, and tiered HC group discounts are managed for members on that roster. The grid below is a quick
-              reference for pay method and GST. Use the checkboxes + <strong>Allow Google login for selected</strong> or <strong>Bulk edit access type</strong> for many rows.{' '}
-              <strong>View as</strong> opens portal pricing from your admin session.
+              <strong>extra admin discount</strong> (₹ or %, optional per participant for fixed rupees), <strong>Home Coming courtesy %</strong> (HC package checkout only),{' '}
+              <strong>CRM fees</strong>, and <strong>portal pricing hub</strong>. The grid is a quick reference for pay method and GST. Use the checkboxes +{' '}
+              <strong>Allow Google login for selected</strong> or <strong>Bulk edit access type</strong> for many rows. <strong>View as</strong> opens portal pricing from your admin session.
             </p>
           </div>
         </div>
@@ -615,7 +645,7 @@ export default function DashboardAccessTab() {
             <Bell size={18} className="text-orange-500 shrink-0" />
             <span>
               <strong>{pendingCount}</strong> new intake request{pendingCount === 1 ? '' : 's'} — highlight below; enable Google login or mark reviewed.{' '}
-              India checkout (pay method, GST, HC courtesy %, CRM, hub) can be set in <strong>Edit dashboard access</strong> for anyone; Iris Annual Abundance remains for package totals and tiered group discounts on that roster.
+              India checkout (pay method, GST, discounts, HC courtesy %, CRM, hub) can be set in <strong>Edit dashboard access</strong> for anyone.
             </span>
           </span>
         </div>
@@ -870,9 +900,8 @@ export default function DashboardAccessTab() {
             <div>
               <Label className="text-xs text-gray-600">Access type (Sacred Home)</Label>
               <p className="text-[10px] text-gray-400 mb-1.5">
-                Turn on for annual-member pricing on the dashboard. If <strong>End Date</strong> under Annual + dashboard
-                is in the past, Sacred Home still treats the subscription as expired until you extend dates there (or via
-                Excel).
+                Turn on for annual-member pricing on Sacred Home. If subscription end dates in admin finance tools are in
+                the past, Sacred Home still treats the package as expired until you extend them (including via Excel import).
               </p>
               <select
                 value={annualMemberDashboard ? 'annual' : 'non_annual'}
@@ -939,15 +968,18 @@ export default function DashboardAccessTab() {
                   </label>
                 </div>
               )}
+              <p className="text-[10px] text-gray-600 bg-slate-50/80 border border-slate-100 rounded-md px-2.5 py-1.5 mt-2 leading-snug">
+                <strong>Annual</strong> here updates <strong>Annual member (intake)</strong> to match. Intake forms that answer “annual member” set this access type when the
+                record is created or updated.
+              </p>
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-3 space-y-3">
               <div>
                 <Label className="text-xs font-semibold text-gray-800">Sacred Home — India checkout &amp; CRM</Label>
                 <p className="text-[10px] text-gray-500 leading-snug mt-0.5">
-                  Same fields as the finance row in Iris Annual Abundance, available here for <strong>every</strong> client. <strong>India discount %</strong> applies to
-                  other programs (Divine Cart, sessions, flagship India math). <strong>HC courtesy %</strong> applies only to the pinned <strong>Home Coming</strong> catalog
-                  package checkout.
+                  <strong>India discount %</strong> applies to other programs (Divine Cart, sessions, flagship India math). <strong>Extra admin discount</strong> is optional
+                  on top of that (never on Home Coming–only checkouts). <strong>HC courtesy %</strong> applies only to the pinned <strong>Home Coming</strong> catalog package.
                 </p>
               </div>
 
@@ -1093,8 +1125,60 @@ export default function DashboardAccessTab() {
                   data-testid="dashboard-access-other-india-discount-pct"
                 />
                 <p className="text-[10px] text-gray-500 leading-snug">
-                  Does not apply when the cart is only the Home Coming package (that cart uses HC courtesy % below). Tiered group rules for this bucket are
-                  still edited on the Iris Annual Abundance finance row when the member appears there.
+                  Does not apply when the cart is only the Home Coming package (that cart uses HC courtesy % below). Tiered “by # people” rules for this bucket use the
+                  annual subscriber finance grid when configured there.
+                </p>
+              </div>
+
+              <div className="space-y-2 pt-1 border-t border-slate-200/80">
+                <Label className="text-[10px] text-gray-600">Extra Sacred Home discount (admin)</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
+                  <div>
+                    <Label className="text-[9px] text-gray-500">Type</Label>
+                    <select
+                      value={dashExtraDiscKind}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setDashExtraDiscKind(v);
+                        if (v === 'percent') setDashExtraDiscPer('cart');
+                      }}
+                      className="w-full mt-0.5 text-sm border rounded-md px-2 py-2 bg-white"
+                      data-testid="dashboard-access-extra-disc-kind"
+                    >
+                      <option value="">None</option>
+                      <option value="percent">% off (after India discount above)</option>
+                      <option value="inr">Fixed ₹ off</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-[9px] text-gray-500">Amount / %</Label>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      className="mt-0.5 h-9 text-sm"
+                      disabled={!dashExtraDiscKind}
+                      value={dashExtraDiscValue}
+                      onChange={(e) => setDashExtraDiscValue(e.target.value)}
+                      placeholder={dashExtraDiscKind === 'inr' ? '₹' : '%'}
+                      data-testid="dashboard-access-extra-disc-value"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[9px] text-gray-500">Apply</Label>
+                    <select
+                      value={dashExtraDiscPer}
+                      onChange={(e) => setDashExtraDiscPer(e.target.value)}
+                      disabled={!dashExtraDiscKind || dashExtraDiscKind === 'percent'}
+                      className="w-full mt-0.5 text-sm border rounded-md px-2 py-2 bg-white disabled:opacity-50"
+                      data-testid="dashboard-access-extra-disc-per"
+                    >
+                      <option value="cart">Whole cart (once per checkout)</option>
+                      <option value="participant">Per participant (₹ × headcount)</option>
+                    </select>
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-500 leading-snug">
+                  Never applies when checkout is only the Home Coming catalog package. Clear Type to remove. For one-off use, clear after the member has paid.
                 </p>
               </div>
 
@@ -1110,7 +1194,7 @@ export default function DashboardAccessTab() {
                   data-testid="dashboard-access-hc-courtesy-pct"
                 />
                 <p className="text-[10px] text-gray-500 leading-snug">
-                  Tiered “by # people” rules are still edited in Iris Annual Abundance (group discount dialog) when the member is on that grid.
+                  Tiered “by # people” rules for HC courtesy use the annual subscriber group-discount editor when configured there.
                 </p>
               </div>
 
@@ -1167,13 +1251,6 @@ export default function DashboardAccessTab() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-amber-100 bg-amber-50/40 px-3 py-2.5">
-              <p className="text-[10px] text-gray-600 leading-snug">
-                <strong>Iris Annual Abundance</strong> is still the home for annual package fee, EMI counts, flexi, payment history, and tiered HC group
-                discounts for members listed there. Use this dialog when someone is not on that roster or you want checkout settings in one place.
-              </p>
-            </div>
-
             <div
               className={`rounded-lg border px-3 py-2.5 ${
                 portalLoginAllowed ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/40'
@@ -1194,7 +1271,7 @@ export default function DashboardAccessTab() {
                   </span>
                   <span className="text-[10px] text-gray-500 block mt-1 leading-snug">
                     When you enable this for someone who was blocked (e.g. after intake), they receive a welcome email at this address with a link to sign in.{' '}
-                    The <strong>Annual + dashboard</strong> sheet lists everyone tagged Annual; <strong>Excel import</strong> still skips rows with login blocked until you allow sign-in here.
+                    Admin exports and finance tools list everyone tagged <strong>Annual</strong>; <strong>Excel import</strong> still skips rows with login blocked until you allow sign-in here.
                   </span>
                 </span>
               </label>
@@ -1220,8 +1297,7 @@ export default function DashboardAccessTab() {
             <DialogDescription>
               Set Sacred Home <strong>annual vs non-annual</strong> for{' '}
               <strong>{selectedIds.length}</strong> selected client(s). Check the box below to apply. Payment, GST, HC courtesy, CRM, and hub are not bulk
-              changed here — use <strong>Edit dashboard access</strong> per row or Iris Annual Abundance for rostered finance (HC courtesy applies to the Home
-              Coming package only).
+              changed here — use <strong>Edit dashboard access</strong> per row (HC courtesy applies to the Home Coming package only).
             </DialogDescription>
           </DialogHeader>
 
