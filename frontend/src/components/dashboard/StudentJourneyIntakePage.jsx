@@ -14,6 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 const API = getApiUrl();
 
+/** Muted antique gold for range sliders (reads as gold, not orange). */
+const REFLECTION_RANGE_GOLD = '#8f6b1d';
+
 const AHA_CATEGORIES = [
   { value: 'relationships', label: 'Relationships' },
   { value: 'finances', label: 'Finances' },
@@ -23,10 +26,10 @@ const AHA_CATEGORIES = [
 ];
 
 const AREA_CHECKBOXES = [
-  ['issues_physical', 'Physical'],
-  ['issues_mental', 'Mental'],
-  ['issues_emotional', 'Emotional'],
-  ['issues_relational', 'Relational / community'],
+  ['issues_physical', 'Physical health'],
+  ['issues_mental', 'Mental health'],
+  ['issues_emotional', 'Emotional health'],
+  ['issues_relational', 'Relationship'],
   ['issues_spiritual', 'Spiritual'],
   ['issues_financial', 'Financial'],
   ['issues_other_areas', 'Other life areas'],
@@ -43,10 +46,10 @@ const NARRATIVE_BY_ISSUE = {
 };
 
 const SCORE_SLIDERS = [
-  ['score_physical', 'Physical'],
-  ['score_mental', 'Mental'],
-  ['score_emotional', 'Emotional'],
-  ['score_relational', 'Relational'],
+  ['score_physical', 'Physical health'],
+  ['score_mental', 'Mental health'],
+  ['score_emotional', 'Emotional health'],
+  ['score_relational', 'Relationship'],
   ['score_spiritual', 'Spiritual'],
   ['score_financial', 'Financial'],
   ['score_other_areas', 'Other areas'],
@@ -104,6 +107,7 @@ function emptyReflectionForm() {
     weight_kg: '',
     waist_in: '',
     clothing_size: '',
+    age_years: '',
     health_issues_text: '',
     cravings_habits: '',
     past_actions: '',
@@ -218,18 +222,40 @@ const StudentJourneyIntakePage = () => {
     const ht = Number(form.happiness_true_1_10);
     if (!Number.isFinite(ht) || ht < 1 || ht > 10) {
       toast({
-        title: 'Happiness',
-        description: 'Slide to a number from 1 to 10 for how happy you feel, truly, in this season.',
+        title: 'Question 3 — happiness',
+        description: 'Slide from 1 to 10: how true is it that you are usually a happy person?',
         variant: 'destructive',
       });
       return;
     }
     const unhappy = (form.unhappiness_reasons || '').trim();
-    if (unhappy.length < 40) {
+    const minUnhappy = ht >= 8 ? 18 : 40;
+    if (unhappy.length < minUnhappy) {
       toast({
-        title: 'What is beneath the strain',
+        title: 'Question 4 — share why',
         description:
-          'Write a fuller picture of what feeds any unhappiness or heaviness — body, love, work, money, pace, grief — at least a few sentences so we can meet you honestly.',
+          ht >= 8
+            ? 'Add a few sentences about why life feels the way it does (even when you are often happy), or note “not much to add” with a little context — a short honest paragraph.'
+            : 'When the slider is below 8, we ask for more depth: relationships, body, work, money, pace, grief — at least a few fuller sentences.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const ageRaw = String(form.age_years ?? '').trim();
+    const ageNum = /^\d{1,3}$/.test(ageRaw) ? parseInt(ageRaw, 10) : NaN;
+    if (!Number.isFinite(ageNum) || ageNum < 1 || ageNum > 120) {
+      toast({
+        title: 'Question 5 — age',
+        description: 'Please enter your age as a whole number only (for example 42), between 1 and 120.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const healthIss = (form.health_issues_text || '').trim();
+    if (healthIss.length < 10) {
+      toast({
+        title: 'Question 6 — physical health',
+        description: 'Please share your physical health issues in at least a short honest note.',
         variant: 'destructive',
       });
       return;
@@ -269,6 +295,7 @@ const StudentJourneyIntakePage = () => {
         weight_kg: form.weight_kg === '' ? null : Number(form.weight_kg),
         waist_in: form.waist_in === '' ? null : Number(form.waist_in),
         clothing_size: form.clothing_size,
+        age_years: ageNum,
         health_issues_text: form.health_issues_text,
         cravings_habits: form.cravings_habits,
         past_actions: form.past_actions,
@@ -506,45 +533,50 @@ const StudentJourneyIntakePage = () => {
                 </div>
               </div>
 
-              <div className={`${shellCard()} p-5 sm:p-6 space-y-4 border-amber-100/80`}>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-amber-800/90">Heart of your journey</p>
-                <p className="text-xs text-violet-800/90 leading-relaxed">
+              <div className={`${shellCard()} p-5 sm:p-6 space-y-5 border-amber-100/80`}>
+                <p className="text-xs uppercase tracking-[0.18em] text-amber-800/90">Heart of your journey</p>
+                <p className="text-sm text-violet-800/90 leading-relaxed">
                   A few anchors help your guides witness you clearly. Everything here is saved with your reflection in
                   the same secure archive admins open under <strong className="text-violet-950">Journey insights</strong>.
                 </p>
                 <div>
-                  <Label className="text-violet-900">What is your primary reason for joining AWRP? *</Label>
+                  <Label className="text-violet-950 text-base font-medium">
+                    1. What is your primary reason for joining AWRP? *
+                  </Label>
                   <Textarea
                     value={form.primary_purpose}
                     onChange={(e) => setForm((f) => ({ ...f, primary_purpose: e.target.value }))}
-                    className="mt-1 bg-white/90 border-violet-200"
+                    className="mt-2 bg-white/90 border-violet-200 text-base leading-relaxed"
                     rows={4}
                     placeholder="What longing, question, or chapter of life brings you here?"
                   />
-                  <p className="text-[11px] text-violet-600/80 mt-1">A few sentences minimum — this is the centre of your intake.</p>
+                  <p className="text-sm text-violet-600/85 mt-1.5">A few sentences minimum — this is the centre of your intake.</p>
                 </div>
                 <div>
-                  <Label className="text-violet-900">What would you love to see shift in the next 6–12 months?</Label>
+                  <Label className="text-violet-950 text-base font-medium">
+                    2. What would you love to see shift in the next 6–12 months? <span className="font-normal text-violet-600">(optional)</span>
+                  </Label>
                   <Textarea
                     value={form.reflection_outcomes_hoped}
                     onChange={(e) => setForm((f) => ({ ...f, reflection_outcomes_hoped: e.target.value }))}
-                    className="mt-1 bg-white/90 border-violet-200"
+                    className="mt-2 bg-white/90 border-violet-200 text-base leading-relaxed"
                     rows={3}
                     placeholder="Optional but powerful for before-and-after rhythm — body, relationships, work, inner life…"
                   />
                 </div>
               </div>
 
-              <div className={`${shellCard()} p-5 sm:p-6 space-y-4 border-violet-100`}>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-violet-700/90">Happiness &amp; truth</p>
-                <p className="text-xs text-violet-800/90 leading-relaxed">
-                  This pair helps your guides sense how light or heavy life feels for you now, and how much depth the
-                  work may ask for — not as a label, but as a living snapshot.
+              <div className={`${shellCard()} p-5 sm:p-6 space-y-5 border-violet-100`}>
+                <p className="text-xs uppercase tracking-[0.18em] text-violet-700/90">Going deeper</p>
+                <p className="text-sm text-violet-800/90 leading-relaxed">
+                  Questions 3–6 help us meet you where you are — not as a label, but as a living snapshot.
                 </p>
                 <div>
-                  <Label className="text-violet-900">How happy do you feel, truly, in this season of your life? *</Label>
-                  <p className="text-[11px] text-violet-600/85 mt-0.5 mb-2">
-                    1 — very low, disconnected, or in pain · 10 — deeply aligned, grateful, at home in yourself
+                  <Label className="text-violet-950 text-base font-medium">
+                    3. Are you usually a happy person? <span className="text-red-600">*</span>
+                  </Label>
+                  <p className="text-sm text-violet-700/90 mt-1 mb-2 leading-relaxed">
+                    1 — not really, life has felt heavy or flat · 10 — yes, most of the time I recognise myself as happy
                   </p>
                   <input
                     type="range"
@@ -552,21 +584,60 @@ const StudentJourneyIntakePage = () => {
                     max={10}
                     value={form.happiness_true_1_10}
                     onChange={(e) => setForm((f) => ({ ...f, happiness_true_1_10: Number(e.target.value) }))}
-                    className="w-full accent-violet-600"
+                    className="w-full h-3 rounded-full"
+                    style={{ accentColor: REFLECTION_RANGE_GOLD }}
                   />
-                  <p className="text-center text-sm font-medium text-violet-900 mt-1">{form.happiness_true_1_10}</p>
+                  <p className="text-center text-base font-semibold text-violet-900 mt-1">{form.happiness_true_1_10}</p>
                 </div>
                 <div>
-                  <Label className="text-violet-900">What is the reason for your unhappiness — as fully as you can name it? *</Label>
-                  <p className="text-[11px] text-violet-600/85 mt-0.5 mb-1">
-                    Include every thread that matters: relationships, health, money, work, loneliness, pace, old hurts,
-                    numbness, fear, longing — weave the picture you need someone to see.
+                  <Label className="text-violet-950 text-base font-medium">
+                    4. If not — or if life is more complicated than that — share why. <span className="text-red-600">*</span>
+                  </Label>
+                  <p className="text-sm text-violet-700/90 mt-1 mb-2 leading-relaxed">
+                    Relationships, health, money, work, loneliness, pace, old hurts, numbness, fear, longing — weave the picture you need someone to see.
+                    {Number(form.happiness_true_1_10) >= 8 ? (
+                      <span className="block mt-1 text-violet-600">A shorter answer is fine when your slider is 8 or above.</span>
+                    ) : (
+                      <span className="block mt-1 text-violet-600">When your slider is below 8, we ask for a fuller few sentences.</span>
+                    )}
                   </p>
                   <Textarea
                     value={form.unhappiness_reasons}
                     onChange={(e) => setForm((f) => ({ ...f, unhappiness_reasons: e.target.value }))}
-                    className="mt-1 bg-white/90 border-violet-200"
+                    className="mt-1 bg-white/90 border-violet-200 text-base leading-relaxed"
                     rows={5}
+                  />
+                </div>
+                <div>
+                  <Label className="text-violet-950 text-base font-medium">
+                    5. How old are you? <span className="text-red-600">*</span>
+                  </Label>
+                  <p className="text-sm text-violet-700/90 mt-1 mb-2">Whole years only (required).</p>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={120}
+                    step={1}
+                    value={form.age_years}
+                    onChange={(e) => setForm((f) => ({ ...f, age_years: e.target.value }))}
+                    className="mt-1 max-w-[200px] bg-white/90 border-violet-200 text-base"
+                    placeholder="Age"
+                  />
+                </div>
+                <div>
+                  <Label className="text-violet-950 text-base font-medium">
+                    6. Share your physical health issues <span className="text-red-600">*</span>
+                  </Label>
+                  <p className="text-sm text-violet-700/90 mt-1 mb-2 leading-relaxed">
+                    Diagnoses, symptoms, medications, injuries, energy, sleep — whatever is true for your body right now.
+                  </p>
+                  <Textarea
+                    value={form.health_issues_text}
+                    onChange={(e) => setForm((f) => ({ ...f, health_issues_text: e.target.value }))}
+                    className="mt-1 bg-white/90 border-violet-200 text-base leading-relaxed"
+                    rows={4}
+                    placeholder="Required — even a short honest list helps."
                   />
                 </div>
               </div>
@@ -605,11 +676,11 @@ const StudentJourneyIntakePage = () => {
               ) : null}
 
               <div className="space-y-4">
-                <Label className="text-violet-900">Areas you are tending — check each that applies</Label>
-                <p className="text-xs text-violet-700/80 -mt-2">
+                <Label className="text-violet-950 text-base font-medium">Areas you are tending — check each that applies</Label>
+                <p className="text-sm text-violet-700/85 -mt-1">
                   For each area you check, add a few heartfelt words in the matching box below (required).
                 </p>
-                <div className="flex flex-wrap gap-3 text-sm text-violet-900">
+                <div className="flex flex-wrap gap-3 text-base text-violet-900">
                   {AREA_CHECKBOXES.map(([key, label]) => (
                     <label key={key} className="flex items-center gap-2">
                       <input
@@ -631,20 +702,24 @@ const StudentJourneyIntakePage = () => {
               </div>
 
               <div className="space-y-4">
-                <Label className="text-violet-900">Narrative for each tending area</Label>
+                <Label className="text-violet-950 text-base font-medium">Narrative for each tending area</Label>
                 {AREA_CHECKBOXES.map(([issueKey, label]) => {
                   const narrKey = NARRATIVE_BY_ISSUE[issueKey];
+                  const checkedPh =
+                    issueKey === 'issues_physical'
+                      ? 'Share what is going on in your physical health — symptoms, care, edges you are navigating.'
+                      : 'What feels true here right now?';
                   return (
                     <div key={narrKey} className={form[issueKey] ? '' : 'opacity-80'}>
-                      <Label className="text-xs text-violet-800">{label}</Label>
+                      <Label className="text-sm font-medium text-violet-900">{label}</Label>
                       <Textarea
                         value={form[narrKey]}
                         onChange={(e) => setForm((f) => ({ ...f, [narrKey]: e.target.value }))}
-                        className="mt-1 bg-white/90 border-violet-200"
+                        className="mt-1.5 bg-white/90 border-violet-200 text-base leading-relaxed"
                         rows={form[issueKey] ? 3 : 2}
                         placeholder={
                           form[issueKey]
-                            ? 'What feels true here right now?'
+                            ? checkedPh
                             : 'Optional — fill if you want to name this area even without checking above.'
                         }
                       />
@@ -667,7 +742,7 @@ const StudentJourneyIntakePage = () => {
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {SCORE_SLIDERS.map(([key, label]) => (
                   <div key={key}>
-                    <Label className="text-violet-900 text-xs">
+                    <Label className="text-violet-900 text-sm font-medium">
                       {label} (0–10)
                     </Label>
                     <input
@@ -676,13 +751,14 @@ const StudentJourneyIntakePage = () => {
                       max={10}
                       value={form[key]}
                       onChange={(e) => setForm((f) => ({ ...f, [key]: Number(e.target.value) }))}
-                      className="w-full accent-amber-600"
+                      className="w-full h-3 rounded-full"
+                      style={{ accentColor: REFLECTION_RANGE_GOLD }}
                     />
-                    <p className="text-center text-sm text-violet-800">{form[key]}</p>
+                    <p className="text-center text-base font-medium text-violet-800">{form[key]}</p>
                   </div>
                 ))}
                 <div>
-                  <Label className="text-violet-900 text-xs">Life growth (optional 0–10)</Label>
+                  <Label className="text-violet-900 text-sm font-medium">Life growth (optional 0–10)</Label>
                   <Input
                     type="number"
                     min={0}
@@ -723,16 +799,7 @@ const StudentJourneyIntakePage = () => {
               </div>
 
               <div>
-                <Label className="text-violet-900">Health &amp; habits (optional)</Label>
-                <Textarea
-                  value={form.health_issues_text}
-                  onChange={(e) => setForm((f) => ({ ...f, health_issues_text: e.target.value }))}
-                  className="mt-1 bg-white/90 border-violet-200"
-                  rows={3}
-                />
-              </div>
-              <div>
-                <Label className="text-violet-900">Cravings / habits</Label>
+                <Label className="text-violet-900 text-base font-medium">Cravings / habits</Label>
                 <Textarea
                   value={form.cravings_habits}
                   onChange={(e) => setForm((f) => ({ ...f, cravings_habits: e.target.value }))}

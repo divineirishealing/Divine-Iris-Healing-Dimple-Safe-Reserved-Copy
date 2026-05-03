@@ -47,14 +47,16 @@ function adminHeaders() {
 }
 
 const SCORE_KEYS = [
-  ['score_physical', 'Physical'],
-  ['score_mental', 'Mental'],
-  ['score_emotional', 'Emotional'],
-  ['score_relational', 'Relational'],
+  ['score_physical', 'Physical health'],
+  ['score_mental', 'Mental health'],
+  ['score_emotional', 'Emotional health'],
+  ['score_relational', 'Relationship'],
   ['score_spiritual', 'Spiritual'],
   ['score_financial', 'Financial'],
   ['score_other_areas', 'Other areas'],
 ];
+
+const REFLECTION_RANGE_GOLD = '#8f6b1d';
 
 const initialForm = {
   client_id: '',
@@ -98,6 +100,7 @@ const initialForm = {
   weight_kg: '',
   waist_in: '',
   clothing_size: '',
+  age_years: '',
   health_issues_text: '',
   cravings_habits: '',
   past_actions: '',
@@ -209,13 +212,13 @@ const IntakeProgressTab = () => {
     const rows = overview?.monthly_trend || [];
     return rows.map((r) => ({
       month: r.month,
-      Physical: r.score_physical,
-      Mental: r.score_mental,
-      Emotional: r.score_emotional,
-      Relational: r.score_relational,
+      'Physical health': r.score_physical,
+      'Mental health': r.score_mental,
+      'Emotional health': r.score_emotional,
+      Relationship: r.score_relational,
       Spiritual: r.score_spiritual,
       Financial: r.score_financial,
-      Other: r.score_other_areas,
+      'Other areas': r.score_other_areas,
     }));
   }, [overview]);
 
@@ -244,6 +247,7 @@ const IntakeProgressTab = () => {
         score_life_growth: form.score_life_growth === '' ? null : Number(form.score_life_growth),
         weight_kg: form.weight_kg === '' ? null : Number(form.weight_kg),
         waist_in: form.waist_in === '' ? null : Number(form.waist_in),
+        age_years: form.age_years === '' ? null : Number(form.age_years),
       };
       await axios.post(`${API}/admin/intake-progress/records`, payload, { headers: adminHeaders() });
       toast({ title: 'Reflection saved', description: 'Held with care in your journey archive.' });
@@ -284,6 +288,8 @@ const IntakeProgressTab = () => {
       'reflection_communication_notes',
       'happiness_true_1_10',
       'unhappiness_reasons',
+      'age_years',
+      'health_issues_text',
       'heard_how',
     ];
     const esc = (v) => {
@@ -440,12 +446,20 @@ const IntakeProgressTab = () => {
                           background: 'rgba(255,255,255,0.96)',
                         }}
                       />
-                      {['Physical', 'Mental', 'Emotional', 'Relational', 'Spiritual', 'Financial', 'Other'].map((name, i) => (
+                      {[
+                        'Physical health',
+                        'Mental health',
+                        'Emotional health',
+                        'Relationship',
+                        'Spiritual',
+                        'Financial',
+                        'Other areas',
+                      ].map((name, i) => (
                         <Line
                           key={name}
                           type="monotone"
                           dataKey={name}
-                          stroke={['#7c3aed', '#a78bfa', '#c4b5fd', '#d4af37', '#c084fc', '#059669', '#f97316'][i]}
+                          stroke={['#7c3aed', '#a78bfa', '#c4b5fd', '#8f6b1d', '#c084fc', '#059669', '#6b5b2f'][i]}
                           strokeWidth={2}
                           dot={false}
                         />
@@ -629,10 +643,10 @@ const IntakeProgressTab = () => {
                 <Label className="text-violet-900">Tending areas (check all that apply)</Label>
                 <div className="flex flex-wrap gap-4 text-sm text-violet-900">
                   {[
-                    ['issues_physical', 'Physical'],
-                    ['issues_mental', 'Mental'],
-                    ['issues_emotional', 'Emotional'],
-                    ['issues_relational', 'Relational'],
+                    ['issues_physical', 'Physical health'],
+                    ['issues_mental', 'Mental health'],
+                    ['issues_emotional', 'Emotional health'],
+                    ['issues_relational', 'Relationship'],
                     ['issues_spiritual', 'Spiritual'],
                     ['issues_financial', 'Financial'],
                     ['issues_other_areas', 'Other areas'],
@@ -659,10 +673,10 @@ const IntakeProgressTab = () => {
               <div className="space-y-3">
                 <Label className="text-violet-900">Narratives per area</Label>
                 {[
-                  ['narrative_physical', 'Physical'],
-                  ['narrative_mental', 'Mental'],
-                  ['narrative_emotional', 'Emotional'],
-                  ['narrative_relational', 'Relational'],
+                  ['narrative_physical', 'Physical health'],
+                  ['narrative_mental', 'Mental health'],
+                  ['narrative_emotional', 'Emotional health'],
+                  ['narrative_relational', 'Relationship'],
                   ['narrative_spiritual', 'Spiritual'],
                   ['narrative_financial', 'Financial'],
                   ['narrative_other_areas', 'Other areas'],
@@ -734,7 +748,8 @@ const IntakeProgressTab = () => {
                       max={10}
                       value={form[key]}
                       onChange={(e) => setForm((f) => ({ ...f, [key]: Number(e.target.value) }))}
-                      className="w-full accent-amber-600"
+                      className="w-full h-3 rounded-full"
+                      style={{ accentColor: REFLECTION_RANGE_GOLD }}
                     />
                     <p className="text-center text-sm text-violet-800">{form[key]}</p>
                   </div>
@@ -781,7 +796,19 @@ const IntakeProgressTab = () => {
               </div>
 
               <div>
-                <Label className="text-violet-900">Health &amp; habits (long form)</Label>
+                <Label className="text-violet-900">Age (years)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={form.age_years}
+                  onChange={(e) => setForm((f) => ({ ...f, age_years: e.target.value }))}
+                  className="mt-1 max-w-[200px] bg-white/90 border-violet-200"
+                  placeholder="Optional for admin entry"
+                />
+              </div>
+              <div>
+                <Label className="text-violet-900">Physical health issues (long form)</Label>
                 <Textarea
                   value={form.health_issues_text}
                   onChange={(e) => setForm((f) => ({ ...f, health_issues_text: e.target.value }))}
@@ -851,19 +878,20 @@ const IntakeProgressTab = () => {
               <div className={`${shellCard()} p-4 space-y-3 border-violet-100/90`}>
                 <p className="text-[10px] uppercase tracking-[0.22em] text-violet-700/90">Happiness &amp; truth</p>
                 <div>
-                  <Label className="text-violet-900">True happiness (1–10)</Label>
+                  <Label className="text-violet-900">Usually a happy person? (1–10)</Label>
                   <input
                     type="range"
                     min={1}
                     max={10}
                     value={form.happiness_true_1_10}
                     onChange={(e) => setForm((f) => ({ ...f, happiness_true_1_10: Number(e.target.value) }))}
-                    className="w-full accent-violet-600 mt-2"
+                    className="w-full h-3 rounded-full mt-2"
+                    style={{ accentColor: REFLECTION_RANGE_GOLD }}
                   />
                   <p className="text-center text-sm text-violet-900">{form.happiness_true_1_10}</p>
                 </div>
                 <div>
-                  <Label className="text-violet-900">Reasons for unhappiness / strain (holistic)</Label>
+                  <Label className="text-violet-900">If not — or if life is complicated — share why</Label>
                   <Textarea
                     value={form.unhappiness_reasons}
                     onChange={(e) => setForm((f) => ({ ...f, unhappiness_reasons: e.target.value }))}
@@ -1041,14 +1069,25 @@ const IntakeProgressTab = () => {
                       r.happiness_true_1_10 != null &&
                       r.happiness_true_1_10 !== '' ? (
                         <p className="text-[11px] text-violet-700 mt-2">
-                          Happiness (1–10):{' '}
+                          Usually happy (1–10):{' '}
                           <span className="font-semibold text-violet-900">{r.happiness_true_1_10}</span>
                         </p>
                       ) : null}
                       {r.record_type !== 'aha_moment' && (r.unhappiness_reasons || '').trim() ? (
                         <p className="text-xs text-violet-800/95 mt-2 leading-relaxed whitespace-pre-wrap">
-                          <span className="font-medium text-violet-800">Unhappiness / strain: </span>
+                          <span className="font-medium text-violet-800">If not / why: </span>
                           {(r.unhappiness_reasons || '').trim()}
+                        </p>
+                      ) : null}
+                      {r.record_type !== 'aha_moment' && r.age_years != null && r.age_years !== '' ? (
+                        <p className="text-[11px] text-violet-700 mt-1">
+                          Age: <span className="font-semibold text-violet-900">{r.age_years}</span>
+                        </p>
+                      ) : null}
+                      {r.record_type !== 'aha_moment' && (r.health_issues_text || '').trim() ? (
+                        <p className="text-xs text-violet-800/95 mt-2 leading-relaxed whitespace-pre-wrap">
+                          <span className="font-medium text-violet-800">Physical health issues: </span>
+                          {(r.health_issues_text || '').trim()}
                         </p>
                       ) : null}
                       <p className="text-xs text-violet-700 mt-2">

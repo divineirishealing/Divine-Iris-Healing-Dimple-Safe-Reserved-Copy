@@ -56,10 +56,10 @@ SCORE_KEYS_5 = [
 SCORE_KEYS_7 = SCORE_KEYS_5 + ["score_financial", "score_other_areas"]
 
 NARRATIVE_PAIRS = [
-    ("issues_physical", "narrative_physical", "Physical"),
-    ("issues_mental", "narrative_mental", "Mental"),
-    ("issues_emotional", "narrative_emotional", "Emotional"),
-    ("issues_relational", "narrative_relational", "Relational"),
+    ("issues_physical", "narrative_physical", "Physical health"),
+    ("issues_mental", "narrative_mental", "Mental health"),
+    ("issues_emotional", "narrative_emotional", "Emotional health"),
+    ("issues_relational", "narrative_relational", "Relationship"),
     ("issues_spiritual", "narrative_spiritual", "Spiritual"),
     ("issues_financial", "narrative_financial", "Financial"),
     ("issues_other_areas", "narrative_other_areas", "Other areas"),
@@ -132,15 +132,27 @@ def _validate_reflection_core_questions(body: "IntakeProgressFieldsCore") -> Non
     if h is None or h < 1 or h > 10:
         raise HTTPException(
             status_code=400,
-            detail="Please mark how happy you feel, truly, on the scale from 1 (very low) to 10 (deeply aligned).",
+            detail="Please slide to how true it is for you that you are usually a happy person — "
+            "1 (not really) through 10 (yes, most of the time).",
         )
     ur = (body.unhappiness_reasons or "").strip()
-    if len(ur) < 40:
+    min_ur = 18 if (h or 0) >= 8 else 40
+    if len(ur) < min_ur:
         raise HTTPException(
             status_code=400,
-            detail="Please share what lies beneath any unhappiness, strain, or heaviness you carry — "
-            "across relationships, body, work, money, spirit, pace of life — so we can sense how deep the path may go "
-            "(at least a few sentences).",
+            detail="Please share why life may not feel happy right now — or anything that complicates the picture — "
+            f"in at least a few sentences (a bit more depth is asked when your slider is below 8; minimum about {min_ur} characters).",
+        )
+    if body.age_years is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Please enter your age in whole years (this field is required).",
+        )
+    hi = (body.health_issues_text or "").strip()
+    if len(hi) < 10:
+        raise HTTPException(
+            status_code=400,
+            detail="Please share your physical health issues in at least a short honest note (about 10 characters or more).",
         )
 
 
@@ -199,6 +211,7 @@ class IntakeProgressFieldsCore(BaseModel):
     weight_kg: Optional[float] = None
     waist_in: Optional[float] = None
     clothing_size: str = Field("", max_length=80)
+    age_years: Optional[int] = Field(None, ge=1, le=120)
     health_issues_text: str = Field("", max_length=8000)
     cravings_habits: str = Field("", max_length=4000)
     past_actions: str = Field("", max_length=8000)
@@ -297,6 +310,7 @@ def _build_intake_doc(
         "weight_kg": body.weight_kg,
         "waist_in": body.waist_in,
         "clothing_size": body.clothing_size.strip(),
+        "age_years": body.age_years,
         "health_issues_text": body.health_issues_text.strip(),
         "cravings_habits": body.cravings_habits.strip(),
         "past_actions": body.past_actions.strip(),
@@ -349,6 +363,7 @@ class IntakeProgressPatch(BaseModel):
     reflection_communication_notes: Optional[str] = None
     happiness_true_1_10: Optional[int] = Field(None, ge=1, le=10)
     unhappiness_reasons: Optional[str] = None
+    age_years: Optional[int] = Field(None, ge=1, le=120)
 
 
 async def _client_row_for_intake(client_id: Optional[str]) -> dict:
