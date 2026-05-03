@@ -418,6 +418,20 @@ async def enrollment_checkout_prepare(
         except (TypeError, ValueError):
             pass
 
+    # Divine Cart / Sacred Home: one EMI or renewal slice is often far below server catalog `get_enrollment_pricing`
+    # total. Trust the portal-declared rupees (capped at server total) so Stripe matches the checkout UI.
+    if getattr(data, "portal_checkout_cancel", None) is True and _decl_lift is not None:
+        try:
+            dcap = float(_decl_lift)
+            if dcap >= 0 and dcap > 0:
+                ft_cap = float(final_total)
+                if ft_cap > 0:
+                    final_total = round(min(ft_cap, dcap), 2)
+                else:
+                    final_total = round(dcap, 2)
+        except (TypeError, ValueError):
+            pass
+
     # Portal Stripe (INR): charge taxable base after Client Garden CRM discount (no GST add-on), matching
     # Divine Cart / dashboard flows when `portal_checkout_cancel` is sent. Skip for pre-mixed admin totals.
     if (
