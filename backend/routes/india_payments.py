@@ -280,20 +280,30 @@ def _client_ids_for_emi_context(enrollments: List[dict], txns_by_eid: Dict[str, 
 
 async def _booker_email_client_ids_for_emi_overlay(
     enrollments: List[dict],
+    txns_by_eid: Dict[str, List[dict]],
 ) -> Tuple[List[str], Dict[str, str]]:
     """
-    When ``enrollment.client_id`` is missing, map booker email → ``clients.id`` so EMI tier tagging
-    can still load ``subscription.emis`` (same pattern as portal cohort email resolution).
+    When ``enrollment.client_id`` is missing, map contact emails → ``clients.id`` so EMI tier tagging
+    can still load ``subscription.emis``. Uses booker email on the enrollment plus payer / booker
+    emails on linked payment rows (Sacred Home often stores the portal payer only on the txn).
     """
     emails: List[str] = []
     seen_em = set()
-    for e in enrollments or []:
-        if _norm_cmp_id((e or {}).get("client_id")):
-            continue
-        em = (_clean_str((e or {}).get("booker_email")) or "").strip().lower()
+
+    def add_em(raw: Any) -> None:
+        em = (_clean_str(raw) or "").strip().lower()
         if em and em not in seen_em:
             seen_em.add(em)
             emails.append(em)
+
+    for e in enrollments or []:
+        if _norm_cmp_id((e or {}).get("client_id")):
+            continue
+        add_em((e or {}).get("booker_email"))
+        eid = (e or {}).get("id")
+        for t in txns_by_eid.get(eid) or []:
+            add_em((t or {}).get("booker_email"))
+            add_em((t or {}).get("payer_email"))
     if not emails:
         return [], {}
     try:
@@ -905,7 +915,10 @@ def build_participant_report_rows(
                 if pcid_emi:
                     break
         if not pcid_emi and booker_email_to_client_id:
-            pcid_emi = _norm_cmp_id((booker_email_to_client_id or {}).get(booker_email_key, ""))
+            for em_key in (booker_email_key, payer_email_key, txn_booker_email_key):
+                pcid_emi = _norm_cmp_id((booker_email_to_client_id or {}).get(em_key, ""))
+                if pcid_emi:
+                    break
         _maybe_overlay_home_coming_emi_tier_label(
             tier_fields,
             enrollment=e,
@@ -915,6 +928,13 @@ def build_participant_report_rows(
             clients_by_id=portal_clients_by_id,
             portal_client_id=pcid_emi,
         )
+        tl_after = _clean_str(tier_fields.get("tier_label"))
+        if (
+            _tier_label_implies_catalog_one_month(tl_after)
+            and _enrollment_looks_like_home_coming(e, program)
+            and "annual program" not in tl_after.lower()
+        ):
+            tier_fields["tier_label"] = "Annual program · EMI"
 
         def push_row(p: Optional[dict], index: int, *, booker_only: bool) -> None:
             if booker_only or p is None:
@@ -1807,7 +1827,7 @@ async def participant_enrollment_rows(paid_completed_only: bool = False):
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)
-    extra_emi_ids, booker_email_client_map = await _booker_email_client_ids_for_emi_overlay(enrollments)
+    extra_emi_ids, booker_email_client_map = await _booker_email_client_ids_for_emi_overlay(enrollments, by_e)
     base_portal_ids = _client_ids_for_emi_context(enrollments, by_e)
     portal_client_ids = list(dict.fromkeys(list(base_portal_ids) + list(extra_emi_ids)))
     prog_map, cohort_map, cohort_client_map, portal_clients_emi = await asyncio.gather(
@@ -1841,7 +1861,7 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)
-    extra_emi_ids, booker_email_client_map = await _booker_email_client_ids_for_emi_overlay(enrollments)
+    extra_emi_ids, booker_email_client_map = await _booker_email_client_ids_for_emi_overlay(enrollments, by_e)
     base_portal_ids = _client_ids_for_emi_context(enrollments, by_e)
     portal_client_ids = list(dict.fromkeys(list(base_portal_ids) + list(extra_emi_ids)))
     prog_map, cohort_map, cohort_client_map, portal_clients_emi = await asyncio.gather(

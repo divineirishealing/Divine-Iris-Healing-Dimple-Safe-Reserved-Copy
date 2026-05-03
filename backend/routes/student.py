@@ -3760,8 +3760,27 @@ def _order_participant_names_display(
             if n and n not in names:
                 names.append(n)
 
+    def _participant_program_id(p: dict) -> str:
+        return str(p.get("program_id") or p.get("programId") or "").strip()
+
+    raw_participants: Any = None
     if enrollment:
-        _collect_from_participant_list(enrollment.get("participants"))
+        raw_participants = enrollment.get("participants")
+    txn_pid = str((order_row or {}).get("item_id") or "").strip()
+    if (
+        enrollment
+        and txn_pid
+        and isinstance(raw_participants, list)
+        and len(raw_participants) >= 2
+    ):
+        with_pid = [p for p in raw_participants if isinstance(p, dict) and _participant_program_id(p)]
+        if with_pid and any(_participant_program_id(p) == txn_pid for p in raw_participants if isinstance(p, dict)):
+            narrowed = [p for p in raw_participants if isinstance(p, dict) and _participant_program_id(p) == txn_pid]
+            if narrowed:
+                raw_participants = narrowed
+
+    if enrollment:
+        _collect_from_participant_list(raw_participants)
     if not names:
         _collect_from_participant_list(order_row.get("participants"))
 
@@ -4018,7 +4037,14 @@ async def list_student_orders_impl(user: dict, paid_within_days: Optional[int] =
     if eids:
         enrollments_list = await db.enrollments.find(
             {"id": {"$in": list(eids)}},
-            {"_id": 0, "id": 1, "item_title": 1, "participants": 1, "portal_cart_lines": 1},
+            {
+                "_id": 0,
+                "id": 1,
+                "item_id": 1,
+                "item_title": 1,
+                "participants": 1,
+                "portal_cart_lines": 1,
+            },
         ).to_list(max(len(eids), 1))
         by_eid = {e["id"]: e for e in enrollments_list}
         prog_ids: List[str] = []
