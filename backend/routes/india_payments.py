@@ -1,7 +1,7 @@
 import asyncio
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import os, uuid, logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -257,6 +257,24 @@ def _all_portal_client_ids_from_txns(txns_by_eid: Dict[str, List[dict]]) -> List
                 seen.add(cid)
                 out.append(cid)
     return out
+
+
+async def _load_portal_clients_emi_context_map(client_ids: List[str]) -> Dict[str, dict]:
+    """Minimal client projection for Home Coming EMI tier labels on admin participant reports."""
+    uniq: List[str] = []
+    seen = set()
+    for x in client_ids or []:
+        s = _norm_cmp_id(x)
+        if s and s not in seen:
+            seen.add(s)
+            uniq.append(s)
+    if not uniq:
+        return {}
+    rows = await db.clients.find(
+        {"id": {"$in": uniq}},
+        {"_id": 0, "id": 1, "subscription": 1, "annual_package_offer_prefs": 1},
+    ).to_list(len(uniq) + 50)
+    return {str(r.get("id") or "").strip(): r for r in rows if r.get("id") is not None}
 
 
 async def _portal_cohort_by_client_ids(client_ids: List[str]) -> Dict[str, str]:
@@ -519,6 +537,161 @@ def _program_tier_fields_for_report(
     return base
 
 
+def _annual_emi_cadence_word(prefs: dict, subscription: dict) -> str:
+    """Human cadence for EMI tier column: monthly / quarterly / yearly."""
+    pm = str((prefs or {}).get("payment_mode") or "").strip().lower()
+    if pm == "emi_monthly":
+        return "monthly"
+    if pm == "emi_quarterly":
+        return "quarterly"
+    if pm == "emi_yearly":
+        return "yearly"
+    if str((subscription or {}).get("payment_mode") or "").strip().upper() == "EMI":
+        emis = (subscription or {}).get("emis") or []
+        n = len(emis) if isinstance(emis, list) else 0
+        if n >= 12:
+            return "monthly"
+        if n > 4:
+            return "quarterly"
+        if n > 1:
+            return "yearly"
+    return ""
+
+
+def _ordinal_emi_label(n: int) -> str:
+    """e.g. 1 → '1st EMI', 11 → '11th EMI'."""
+    if n <= 0:
+        return f"EMI {n}"
+    if 11 <= (n % 100) <= 13:
+        suf = "th"
+    else:
+        suf = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suf} EMI"
+
+
+def _emi_installment_match_for_txn(txn: dict, emis: List[dict]) -> Optional[Tuple[int, int]]:
+    """
+    Map a paid checkout txn to (installment_number, total_installments) using CRM EMI rows.
+    Prefers transaction_id / stripe_session_id / razorpay id on the EMI row; falls back to amount match.
+    """
+    if not txn or not emis:
+        return None
+    st_pay = str(txn.get("payment_status") or "").lower()
+    if st_pay not in ("paid", "complete", "completed"):
+        return None
+    total = len(emis)
+    if total < 2:
+        return None
+    sid = str(txn.get("stripe_session_id") or "").strip()
+    rzp = str(txn.get("razorpay_payment_id") or "").strip()
+    try:
+        tx_amt = float(txn.get("amount") or 0)
+    except (TypeError, ValueError):
+        tx_amt = 0.0
+    tol = max(2.0, tx_amt * 0.02) if tx_amt else 2.0
+
+    paid = [x for x in emis if isinstance(x, dict) and str(x.get("status", "")).lower() == "paid"]
+    if not paid:
+        return None
+
+    def ref_hit(emi: dict) -> bool:
+        tid = str(emi.get("transaction_id") or "").strip()
+        if not tid:
+            return False
+        if sid and (tid == sid or sid in tid or tid in sid):
+            return True
+        if rzp and rzp in tid:
+            return True
+        return False
+
+    for emi in paid:
+        if ref_hit(emi):
+            try:
+                n = int(emi.get("number") or emi.get("emi_number") or 0)
+            except (TypeError, ValueError):
+                continue
+            if n >= 1:
+                return n, total
+
+    cand: List[dict] = []
+    for emi in paid:
+        try:
+            ea = float(emi.get("amount") or 0)
+        except (TypeError, ValueError):
+            continue
+        if ea > 0 and tx_amt > 0 and abs(ea - tx_amt) <= tol:
+            cand.append(emi)
+    if not cand:
+        return None
+    cand.sort(key=_emi_sort_number)
+    try:
+        n0 = int(cand[0].get("number") or cand[0].get("emi_number") or 0)
+    except (TypeError, ValueError):
+        return None
+    if n0 >= 1:
+        return n0, total
+    return None
+
+
+def _maybe_overlay_home_coming_emi_tier_label(
+    tier_fields: dict,
+    *,
+    enrollment: dict,
+    txn_for_amount: Optional[dict],
+    all_txns: List[dict],
+    clients_by_id: Optional[Dict[str, dict]],
+    portal_client_id: str,
+) -> None:
+    """
+    When a portal client is on a Home Coming EMI plan, replace catalog tier text (e.g. '1 Month')
+    with '1st EMI (monthly)', 'End EMI (quarterly)', etc., derived from ``subscription.emis`` + txn match.
+    """
+    if not clients_by_id or not tier_fields:
+        return
+    pcid = _norm_cmp_id(portal_client_id)
+    if not pcid:
+        return
+    cl = clients_by_id.get(pcid)
+    if not isinstance(cl, dict):
+        return
+    sub = cl.get("subscription") if isinstance(cl.get("subscription"), dict) else {}
+    emis = sub.get("emis")
+    if not isinstance(emis, list) or len(emis) < 2:
+        return
+    prefs = cl.get("annual_package_offer_prefs") if isinstance(cl.get("annual_package_offer_prefs"), dict) else {}
+    pm_pref = str(prefs.get("payment_mode") or "").strip().lower()
+    pm_sub = str(sub.get("payment_mode") or "").strip().upper()
+    if not (pm_sub == "EMI" or pm_pref.startswith("emi_")):
+        return
+
+    ordered_txns = sorted(
+        [t for t in (all_txns or []) if str(t.get("payment_status") or "").lower() in ("paid", "complete", "completed")],
+        key=_txn_sort_key,
+        reverse=True,
+    )
+    hit: Optional[Tuple[int, int]] = None
+    for t in ordered_txns:
+        hit = _emi_installment_match_for_txn(t, emis)
+        if hit:
+            break
+    if not hit and txn_for_amount:
+        hit = _emi_installment_match_for_txn(txn_for_amount, emis)
+    if not hit:
+        return
+    emi_n, total_n = hit
+    if emi_n <= 0:
+        return
+    cadence = _annual_emi_cadence_word(prefs, sub)
+    if total_n > 1 and emi_n >= total_n:
+        core = "End EMI"
+    else:
+        core = _ordinal_emi_label(emi_n)
+    if cadence:
+        tier_fields["tier_label"] = f"{core} ({cadence})"
+    else:
+        tier_fields["tier_label"] = core
+
+
 def build_participant_report_rows(
     enrollments: List[dict],
     txns_by_eid: Dict[str, List[dict]],
@@ -527,6 +700,7 @@ def build_participant_report_rows(
     programs_by_id: Optional[Dict[str, dict]] = None,
     portal_cohort_by_email: Optional[Dict[str, str]] = None,
     portal_cohort_by_client_id: Optional[Dict[str, str]] = None,
+    portal_clients_by_id: Optional[Dict[str, dict]] = None,
 ) -> List[dict]:
     """
     One row per participant (or one booker row if participants missing).
@@ -602,6 +776,21 @@ def build_participant_report_rows(
         if p_cl:
             tier_fields["tier_label"] = p_cl
         tier_fields["portal_cohort"] = portal_cohort
+        pcid_emi = cid_key
+        txn_list = txns_by_eid.get(eid) or []
+        if not pcid_emi and txn_list:
+            for t in txn_list:
+                pcid_emi = _norm_cmp_id(t.get("portal_client_id"))
+                if pcid_emi:
+                    break
+        _maybe_overlay_home_coming_emi_tier_label(
+            tier_fields,
+            enrollment=e,
+            txn_for_amount=txn,
+            all_txns=txn_list,
+            clients_by_id=portal_clients_by_id,
+            portal_client_id=pcid_emi,
+        )
 
         def push_row(p: Optional[dict], index: int, *, booker_only: bool) -> None:
             if booker_only or p is None:
@@ -1439,10 +1628,11 @@ async def participant_enrollment_rows(paid_completed_only: bool = False):
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)
     pc_ids = _all_portal_client_ids_from_txns(by_e)
-    prog_map, cohort_map, cohort_client_map = await asyncio.gather(
+    prog_map, cohort_map, cohort_client_map, portal_clients_emi = await asyncio.gather(
         _programs_duration_tiers_by_item_id(enrollments, by_e),
         _portal_cohort_by_contact_emails(enrollments, by_e),
         _portal_cohort_by_client_ids(pc_ids),
+        _load_portal_clients_emi_context_map(pc_ids),
     )
     return build_participant_report_rows(
         enrollments,
@@ -1451,6 +1641,7 @@ async def participant_enrollment_rows(paid_completed_only: bool = False):
         programs_by_id=prog_map,
         portal_cohort_by_email=cohort_map,
         portal_cohort_by_client_id=cohort_client_map,
+        portal_clients_by_id=portal_clients_emi,
     )
 
 
@@ -1468,10 +1659,11 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)
     pc_ids = _all_portal_client_ids_from_txns(by_e)
-    prog_map, cohort_map, cohort_client_map = await asyncio.gather(
+    prog_map, cohort_map, cohort_client_map, portal_clients_emi = await asyncio.gather(
         _programs_duration_tiers_by_item_id(enrollments, by_e),
         _portal_cohort_by_contact_emails(enrollments, by_e),
         _portal_cohort_by_client_ids(pc_ids),
+        _load_portal_clients_emi_context_map(pc_ids),
     )
     rows = build_participant_report_rows(
         enrollments,
@@ -1480,6 +1672,7 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
         programs_by_id=prog_map,
         portal_cohort_by_email=cohort_map,
         portal_cohort_by_client_id=cohort_client_map,
+        portal_clients_by_id=portal_clients_emi,
     )
 
     headers = [
