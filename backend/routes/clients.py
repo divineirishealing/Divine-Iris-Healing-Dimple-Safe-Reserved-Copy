@@ -3096,8 +3096,9 @@ async def update_client(client_id: str, data: ClientUpdate):
     if data.india_payment_method is not None:
         vpm = (data.india_payment_method or "").strip()
         update_fields["india_payment_method"] = vpm if vpm else None
-    if data.india_discount_percent is not None:
-        update_fields["india_discount_percent"] = float(data.india_discount_percent)
+    if "india_discount_percent" in incoming:
+        v = data.india_discount_percent
+        update_fields["india_discount_percent"] = None if v is None else float(v)
     if data.preferred_payment_method is not None:
         pm = (data.preferred_payment_method or "").strip().lower()
         update_fields["preferred_payment_method"] = pm if pm else None

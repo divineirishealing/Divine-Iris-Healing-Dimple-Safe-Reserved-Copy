@@ -238,10 +238,11 @@ def _apply_crm_portal_discount_to_pricing_total(
 def _merge_client_india_pricing_portal(client: dict, sub: Optional[dict], site_doc: dict) -> Dict[str, Any]:
     """Merged India manual-checkout fields for Sacred Home (Divine Cart, payment proofs).
 
-    **Discount:** Only ``subscription.individual_discount_pct`` when the subscription row is authoritative
-    (Excel-style package). Iris Annual Abundance ``india_discount_percent`` / bands are **not** merged here —
-    use ``client_discount_source`` for Home Coming package UI only; checkout math uses
-    ``filter_client_pricing_for_home_coming_checkout`` plus sacred-home catalog quotes.
+    **Discount:** When the subscription row is authoritative (Excel-style package), use
+    ``subscription.individual_discount_pct``. Otherwise use the client row's ``india_discount_percent`` /
+    ``india_discount_member_bands`` (CRM: other programs / non–Home Coming India checkout — see Dashboard access).
+    Home Coming package courtesy stays in ``client_discount_source`` and enrollment paths that run
+    ``client_pricing_row_for_india_checkout`` + ``filter_client_pricing_for_home_coming_checkout``.
     """
     sub = sub or {}
     auth = _subscription_is_authoritative(sub)
@@ -251,8 +252,11 @@ def _merge_client_india_pricing_portal(client: dict, sub: Optional[dict], site_d
 
     if auth and sub_disc_f is not None:
         eff_disc = float(sub_disc_f)
+        eff_bands = None
     else:
-        eff_disc = 0.0
+        crm_disc = _optional_float(client.get("india_discount_percent"))
+        eff_disc = float(crm_disc) if crm_disc is not None else 0.0
+        eff_bands = client.get("india_discount_member_bands")
 
     sub_tax_f = _optional_float(sub.get("individual_tax_pct")) if auth else None
 
@@ -273,7 +277,7 @@ def _merge_client_india_pricing_portal(client: dict, sub: Optional[dict], site_d
     return {
         "india_payment_method": pm or None,
         "india_discount_percent": eff_disc,
-        "india_discount_member_bands": None,
+        "india_discount_member_bands": eff_bands if not auth else None,
         "india_tax_enabled": eff_tax_enabled,
         "india_tax_percent": eff_tax,
         "india_tax_label": eff_label,

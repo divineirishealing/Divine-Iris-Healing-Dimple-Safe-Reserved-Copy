@@ -1,5 +1,6 @@
-"""Tests for Home Coming–only CRM discount scope on generic India checkout paths."""
+"""Tests for Home Coming vs non–Home Coming CRM discount scope on India checkout paths."""
 
+from utils.home_coming_crm_fields import client_pricing_row_for_india_checkout
 from utils.home_coming_discount_scope import (
     checkout_program_ids_from_submit,
     filter_client_pricing_for_home_coming_checkout,
@@ -25,35 +26,57 @@ def test_checkout_ids_single_program():
     assert checkout_program_ids_from_submit(s) == ["pin-1"]
 
 
-def test_filter_keeps_discount_when_all_match_pin():
-    cp = {"india_discount_percent": 8.0, "india_tax_enabled": True}
+def test_filter_applies_hc_discount_when_all_match_pin():
+    raw = {"india_discount_percent": 1.0, "home_coming_india_discount_percent": 8.0}
+    cp = client_pricing_row_for_india_checkout(raw)
     out = filter_client_pricing_for_home_coming_checkout(
         cp,
         pin_program_id="same",
         checkout_program_ids=["same", "same"],
     )
     assert out["india_discount_percent"] == 8.0
+    assert "_hc_india_discount_percent" not in out
 
 
-def test_filter_strips_when_program_mismatch():
-    cp = {"india_discount_percent": 8.0, "india_discount_member_bands": [{"min": 1, "max": 5, "percent": 5}]}
+def test_filter_keeps_general_discount_when_program_mismatch():
+    raw = {
+        "india_discount_percent": 3.0,
+        "home_coming_india_discount_percent": 8.0,
+        "india_discount_member_bands": [{"min": 1, "max": 2, "percent": 2.0}],
+    }
+    cp = client_pricing_row_for_india_checkout(raw)
     out = filter_client_pricing_for_home_coming_checkout(
         cp,
         pin_program_id="hc",
         checkout_program_ids=["other"],
     )
-    assert out["india_discount_percent"] is None
-    assert out["india_discount_member_bands"] is None
+    assert out["india_discount_percent"] == 3.0
+    assert out["india_discount_member_bands"][0]["percent"] == 2.0
+    assert "_hc_india_discount_percent" not in out
 
 
-def test_filter_strips_when_no_checkout_ids():
-    cp = {"india_discount_percent": 8.0}
+def test_filter_empty_checkout_ids_keeps_general():
+    raw = {"india_discount_percent": 4.0, "home_coming_india_discount_percent": 9.0}
+    cp = client_pricing_row_for_india_checkout(raw)
     out = filter_client_pricing_for_home_coming_checkout(
         cp,
         pin_program_id="hc",
         checkout_program_ids=[],
     )
-    assert out["india_discount_percent"] is None
+    assert out["india_discount_percent"] == 4.0
+
+
+def test_filter_legacy_client_same_discount_both_paths():
+    raw = {"india_discount_percent": 7.0}
+    cp = client_pricing_row_for_india_checkout(raw)
+    out_hc = filter_client_pricing_for_home_coming_checkout(
+        cp, pin_program_id="x", checkout_program_ids=["x"]
+    )
+    assert out_hc["india_discount_percent"] == 7.0
+    out_other = filter_client_pricing_for_home_coming_checkout(
+        cp, pin_program_id="x", checkout_program_ids=["y"]
+    )
+    assert out_other["india_discount_percent"] == 7.0
 
 
 def test_filter_passes_through_none():

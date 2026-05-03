@@ -114,6 +114,8 @@ export default function DashboardAccessTab() {
   const [dashTaxLabel, setDashTaxLabel] = useState('GST');
   const [dashTaxVisibleOnDashboard, setDashTaxVisibleOnDashboard] = useState(true);
   const [dashHcCourtesyPct, setDashHcCourtesyPct] = useState('');
+  /** CRM flat % for India checkout on programs other than the pinned Home Coming package. */
+  const [dashOtherProgramsIndiaDiscPct, setDashOtherProgramsIndiaDiscPct] = useState('');
   const [dashChFee, setDashChFee] = useState('');
   const [dashLateFee, setDashLateFee] = useState('');
   const [dashCrmShowLate, setDashCrmShowLate] = useState(false);
@@ -262,6 +264,8 @@ export default function DashboardAccessTab() {
     setDashTaxVisibleOnDashboard(cl.india_tax_visible_on_dashboard !== false);
     const { pct } = abundanceDiscountFields(cl);
     setDashHcCourtesyPct(pct != null && pct !== '' ? String(pct) : '');
+    const op = cl.india_discount_percent;
+    setDashOtherProgramsIndiaDiscPct(op != null && op !== '' ? String(op) : '');
     setDashChFee(
       cl.crm_channelization_fee != null && cl.crm_channelization_fee !== ''
         ? String(cl.crm_channelization_fee)
@@ -327,6 +331,14 @@ export default function DashboardAccessTab() {
 
       const discRaw = String(dashHcCourtesyPct || '').replace(/,/g, '').trim();
       body.home_coming_india_discount_percent = discRaw === '' ? 0 : parseFloat(discRaw) || 0;
+
+      const otherDiscRaw = String(dashOtherProgramsIndiaDiscPct || '').replace(/,/g, '').trim();
+      if (otherDiscRaw === '') {
+        body.india_discount_percent = null;
+      } else {
+        const n = parseFloat(otherDiscRaw);
+        body.india_discount_percent = Number.isFinite(n) ? n : null;
+      }
       body.india_tax_enabled = dashTaxEnabled;
       body.india_tax_percent = dashTaxEnabled
         ? parseFloat(String(dashTaxPercent).replace(/,/g, '')) || 0
@@ -528,8 +540,8 @@ export default function DashboardAccessTab() {
             <p className="text-xs text-gray-500 mt-0.5 max-w-2xl">
               Use this tab for <strong>email</strong>, <strong>Google login</strong>, <strong>annual vs non-annual access</strong>,{' '}
               <strong>Home Coming package-page</strong> EMI/Flexi visibility, and — via <strong>Edit</strong> —{' '}
-              <strong>India checkout</strong> (pay method, UPI/bank pin), <strong>GST</strong>, <strong>Home Coming courtesy %</strong> (HC package checkout only),{' '}
-              <strong>CRM fees</strong>, and <strong>portal pricing hub</strong> for every client. <strong>Iris Annual Abundance</strong> is still where annual package
+              <strong>India checkout</strong> (pay method, UPI/bank pin), <strong>GST</strong>, <strong>India discount %</strong> (other programs — not the Home Coming package),{' '}
+              <strong>Home Coming courtesy %</strong> (HC package checkout only), <strong>CRM fees</strong>, and <strong>portal pricing hub</strong> for every client. <strong>Iris Annual Abundance</strong> is still where annual package
               totals, EMI structure, flexi, payment history, and tiered HC group discounts are managed for members on that roster. The grid below is a quick
               reference for pay method and GST. Use the checkboxes + <strong>Allow Google login for selected</strong> or <strong>Bulk edit access type</strong> for many rows.{' '}
               <strong>View as</strong> opens portal pricing from your admin session.
@@ -933,8 +945,9 @@ export default function DashboardAccessTab() {
               <div>
                 <Label className="text-xs font-semibold text-gray-800">Sacred Home — India checkout &amp; CRM</Label>
                 <p className="text-[10px] text-gray-500 leading-snug mt-0.5">
-                  Same fields as the finance row in Iris Annual Abundance, available here for <strong>every</strong> client. HC courtesy % applies only to the
-                  pinned <strong>Home Coming</strong> catalog package checkout.
+                  Same fields as the finance row in Iris Annual Abundance, available here for <strong>every</strong> client. <strong>India discount %</strong> applies to
+                  other programs (Divine Cart, sessions, flagship India math). <strong>HC courtesy %</strong> applies only to the pinned <strong>Home Coming</strong> catalog
+                  package checkout.
                 </p>
               </div>
 
@@ -1066,6 +1079,23 @@ export default function DashboardAccessTab() {
                   />
                   <span className="text-xs text-gray-800">Show tax line on student dashboard</span>
                 </label>
+              </div>
+
+              <div className="space-y-1.5 pt-1 border-t border-slate-200/80">
+                <Label className="text-[10px] text-gray-600">India discount % (other programs — not Home Coming)</Label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  className="h-9 text-sm max-w-[12rem]"
+                  value={dashOtherProgramsIndiaDiscPct}
+                  onChange={(e) => setDashOtherProgramsIndiaDiscPct(e.target.value)}
+                  placeholder="Leave blank for none"
+                  data-testid="dashboard-access-other-india-discount-pct"
+                />
+                <p className="text-[10px] text-gray-500 leading-snug">
+                  Does not apply when the cart is only the Home Coming package (that cart uses HC courtesy % below). Tiered group rules for this bucket are
+                  still edited on the Iris Annual Abundance finance row when the member appears there.
+                </p>
               </div>
 
               <div className="space-y-1.5 pt-1 border-t border-slate-200/80">

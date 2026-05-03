@@ -2780,14 +2780,11 @@ async def get_client_tax_for_enrollment(enrollment_id: str):
         chk_ids = [str(enrollment.get("item_id")).strip()]
 
     from utils.home_coming_discount_scope import filter_client_pricing_for_home_coming_checkout
-    from utils.home_coming_crm_fields import home_coming_crm_discount_fields
+    from utils.home_coming_crm_fields import client_pricing_row_for_india_checkout
 
-    _eff_disc = home_coming_crm_discount_fields(client_doc)
+    cp_row = client_pricing_row_for_india_checkout(client_doc) or {}
     cp_filtered = filter_client_pricing_for_home_coming_checkout(
-        {
-            "india_discount_percent": _eff_disc["india_discount_percent"],
-            "india_discount_member_bands": _eff_disc["india_discount_member_bands"],
-        },
+        cp_row,
         pin_program_id=pin_hc,
         checkout_program_ids=chk_ids,
     )

@@ -25,11 +25,11 @@ def test_empty_client_discount_is_zero_not_site_default():
     assert out["india_discount_percent"] == 0.0
 
 
-def test_crm_client_discount_not_in_general_india_merge():
-    """Iris Annual Abundance % is Home Coming–only; merged India cart fields must not use it."""
+def test_crm_client_discount_in_general_india_merge_when_sub_not_authoritative():
+    """Client ``india_discount_*`` is for non–Home Coming / Divine Cart when subscription is not authoritative."""
     site = {"portal_standard_india_discount_percent": 99}
     out = _merge_client_india_pricing_portal({"india_discount_percent": 9}, None, site)
-    assert out["india_discount_percent"] == 0.0
+    assert out["india_discount_percent"] == 9.0
     assert out["india_discount_member_bands"] is None
 
 

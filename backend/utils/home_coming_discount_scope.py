@@ -31,18 +31,25 @@ def filter_client_pricing_for_home_coming_checkout(
     checkout_program_ids: List[str],
 ) -> Optional[Dict[str, Any]]:
     """
-    Return a copy of ``client_pricing`` with ``india_discount_percent`` and
-    ``india_discount_member_bands`` cleared unless every checkout program id
-    matches ``dashboard_sacred_home_annual_program_id`` (Home Coming package only).
+    After :func:`client_pricing_row_for_india_checkout`, choose which discount applies:
+
+    * **HC-only cart** (every line is ``dashboard_sacred_home_annual_program_id``): set
+      ``india_discount_*`` from ``_hc_india_discount_*`` (Home Coming courtesy / legacy HC discount).
+    * **Any other cart**: keep CRM ``india_discount_*`` on the client (other programs); Home Coming courtesy
+      is not applied.
+
+    Ephemeral ``_hc_india_discount_*`` keys are always removed from the returned dict.
     """
     if not client_pricing:
         return client_pricing
     pin = (pin_program_id or "").strip()
     ids = [str(p).strip() for p in checkout_program_ids if p and str(p).strip()]
     allow = bool(pin and ids and all(p == pin for p in ids))
-    if allow:
-        return client_pricing
     out = dict(client_pricing)
-    out["india_discount_percent"] = None
-    out["india_discount_member_bands"] = None
+    hc_pct = out.pop("_hc_india_discount_percent", None)
+    hc_bands = out.pop("_hc_india_discount_member_bands", None)
+    if allow:
+        out["india_discount_percent"] = hc_pct
+        out["india_discount_member_bands"] = hc_bands
+        return out
     return out

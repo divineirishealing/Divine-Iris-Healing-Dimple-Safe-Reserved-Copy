@@ -1,4 +1,4 @@
-"""Home Coming (Iris Annual Abundance) CRM discount fields vs Dashboard Access ``india_discount_*``."""
+"""Home Coming courtesy fields vs CRM ``india_discount_*`` (other programs / Divine Cart)."""
 
 from __future__ import annotations
 
@@ -27,11 +27,16 @@ def home_coming_crm_discount_fields(client: Optional[Dict[str, Any]]) -> Dict[st
 
 
 def client_pricing_row_for_india_checkout(client_slice: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """Merge a Mongo client projection into the shape ``compute_india_checkout_breakdown`` expects."""
+    """Merge a Mongo client projection into the shape ``compute_india_checkout_breakdown`` + filter expect.
+
+    ``india_discount_*`` on the document stay the **non–Home Coming** CRM fields (Divine Cart, other programs).
+    Home Coming courtesy (split ``home_coming_*`` or legacy fallback) is attached as ``_hc_india_discount_*``
+    for :func:`filter_client_pricing_for_home_coming_checkout` to apply only when the cart is HC-only.
+    """
     if not client_slice:
         return None
     out = dict(client_slice)
-    eff = home_coming_crm_discount_fields(client_slice)
-    out["india_discount_percent"] = eff["india_discount_percent"]
-    out["india_discount_member_bands"] = eff["india_discount_member_bands"]
+    hc = home_coming_crm_discount_fields(client_slice)
+    out["_hc_india_discount_percent"] = hc["india_discount_percent"]
+    out["_hc_india_discount_member_bands"] = hc["india_discount_member_bands"]
     return out
