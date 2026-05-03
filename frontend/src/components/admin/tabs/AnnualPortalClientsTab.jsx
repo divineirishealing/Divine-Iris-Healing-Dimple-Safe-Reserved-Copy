@@ -45,6 +45,15 @@ function formatPortalSubscriptionDate(raw) {
   return formatDateDdMonYyyy(s.slice(0, 10)) || s;
 }
 
+/** Start/end strings aligned with API ``annual_portal_lifecycle`` (subscription / programs_detail / CRM). */
+function annualPortalEffectiveDateBounds(r) {
+  const life = r?.annual_portal_lifecycle;
+  const sub = r?.annual_subscription || {};
+  const start = (life?.start_date || '').trim() || (sub.start_date || '').trim();
+  const end = (life?.end_date || '').trim() || (sub.end_date || '').trim();
+  return { start, end };
+}
+
 const ANNUAL_PORTAL_FLAT_COLS = [
   { id: 'sn', label: '#', required: true },
   { id: 'name', label: 'Name', required: true },
@@ -221,7 +230,7 @@ function fullAnnualPortalSort(a, b, sortState) {
       c = dateColCompare(
         a,
         b,
-        (x) => (x.annual_subscription || {}).start_date,
+        (x) => annualPortalEffectiveDateBounds(x).start,
         mode === 'new',
       );
       break;
@@ -229,7 +238,7 @@ function fullAnnualPortalSort(a, b, sortState) {
       c = dateColCompare(
         a,
         b,
-        (x) => (x.annual_subscription || {}).end_date,
+        (x) => annualPortalEffectiveDateBounds(x).end,
         mode === 'new',
       );
       break;
@@ -260,15 +269,16 @@ const FILTER_BLANKS = '(Blanks)';
 /** Filter value per column — must match cell display text. */
 function getAnnualPortalFilterValue(r, colId) {
   const sub = r?.annual_subscription || {};
+  const bounds = annualPortalEffectiveDateBounds(r);
   switch (colId) {
     case 'name':
       return (r.name || '').trim() || FILTER_BLANKS;
     case 'email':
       return (r.email || '').trim().toLowerCase() || FILTER_BLANKS;
     case 'start':
-      return (sub.start_date || '').trim() || FILTER_BLANKS;
+      return bounds.start ? formatPortalSubscriptionDate(bounds.start) : FILTER_BLANKS;
     case 'end':
-      return (sub.end_date || '').trim() || FILTER_BLANKS;
+      return bounds.end ? formatPortalSubscriptionDate(bounds.end) : FILTER_BLANKS;
     case 'status':
       return (r.annual_portal_lifecycle?.label || '').trim() || FILTER_BLANKS;
     case 'diid':
@@ -303,6 +313,7 @@ function annualPortalPassesColumnFilters(r, filters) {
 /** Lowercased haystack for quick “find in sheet” search (all visible columns). */
 function annualPortalRowSearchHaystack(r) {
   const sub = r?.annual_subscription || {};
+  const b = annualPortalEffectiveDateBounds(r);
   const usageStr =
     sub.usage && Object.keys(sub.usage).length > 0 ? formatHomeComingUsageSummary(sub) : '';
   const parts = [
@@ -310,8 +321,8 @@ function annualPortalRowSearchHaystack(r) {
     r.email,
     r.id,
     r.household_key,
-    sub.start_date,
-    sub.end_date,
+    b.start,
+    b.end,
     sub.annual_diid,
     r.annual_portal_lifecycle?.label,
     r.annual_portal_lifecycle?.days_until_end,
@@ -1507,6 +1518,7 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
               ) : (
                 sortedRows.map((r, idx) => {
                   const sub = r.annual_subscription || {};
+                  const portalBounds = annualPortalEffectiveDateBounds(r);
                   const stripe = idx % 2 === 0 ? rowEven : rowOdd;
                   const tone = annualPortalRowTone(r);
                   const life = r.annual_portal_lifecycle;
@@ -1553,10 +1565,10 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                     )}
                     {flatColVisible('email') && <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>}
                     {flatColVisible('start') && (
-                      <td className={tdTabular}>{formatPortalSubscriptionDate(sub.start_date)}</td>
+                      <td className={tdTabular}>{formatPortalSubscriptionDate(portalBounds.start)}</td>
                     )}
                     {flatColVisible('end') && (
-                      <td className={tdTabular}>{formatPortalSubscriptionDate(sub.end_date)}</td>
+                      <td className={tdTabular}>{formatPortalSubscriptionDate(portalBounds.end)}</td>
                     )}
                     {flatColVisible('status') && (
                       <td className={`${tdBase} whitespace-nowrap`}>
@@ -1804,6 +1816,7 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                       <tbody>
                         {g.members.map((r, ri) => {
                           const sub = r.annual_subscription || {};
+                          const portalBounds = annualPortalEffectiveDateBounds(r);
                           const stripe = ri % 2 === 0 ? rowEven : rowOdd;
                           const tone = annualPortalRowTone(r);
                           const life = r.annual_portal_lifecycle;
@@ -1847,8 +1860,8 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                               </span>
                             </td>
                             <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>
-                            <td className={tdTabular}>{formatPortalSubscriptionDate(sub.start_date)}</td>
-                            <td className={tdTabular}>{formatPortalSubscriptionDate(sub.end_date)}</td>
+                            <td className={tdTabular}>{formatPortalSubscriptionDate(portalBounds.start)}</td>
+                            <td className={tdTabular}>{formatPortalSubscriptionDate(portalBounds.end)}</td>
                             <td className={`${tdBase} whitespace-nowrap`}>
                               <span className="font-semibold text-neutral-900">{life?.label ?? '—'}</span>
                               {life?.status === 'renewal_due' && life.days_until_end != null && (

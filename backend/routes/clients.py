@@ -813,6 +813,7 @@ async def list_annual_portal_subscribers():
         "household_key": 1,
         "is_primary_household_contact": 1,
         "annual_subscription": 1,
+        "subscription": 1,
         "portal_login_allowed": 1,
         "annual_period_ledger": 1,
     }
@@ -959,13 +960,44 @@ def _parse_yyyy_mm_dd_field(val: Any) -> Optional[date]:
         return None
 
 
+def _program_detail_row_looks_annual_bundle(p: Any) -> bool:
+    """Same shape heuristic as ``_subscription_annual_package_signals`` on ``student`` programs_detail."""
+    if not isinstance(p, dict):
+        return False
+    blob = f"{p.get('label', '')} {p.get('name', '')}".lower()
+    return (
+        "annual" in blob
+        or "year" in blob
+        or "home coming" in blob
+        or "homecoming" in blob
+    )
+
+
+def _best_programs_detail_window_for_portal(sub: Dict[str, Any]) -> Tuple[Optional[date], Optional[date]]:
+    """Latest end_date among programs_detail rows that look like the annual / Home Coming bundle."""
+    best_end: Optional[date] = None
+    best_start: Optional[date] = None
+    for p in sub.get("programs_detail") or []:
+        if not _program_detail_row_looks_annual_bundle(p):
+            continue
+        ed = _parse_yyyy_mm_dd_field(p.get("end_date"))
+        if not ed:
+            continue
+        sd = _parse_yyyy_mm_dd_field(p.get("start_date"))
+        if best_end is None or ed > best_end:
+            best_end = ed
+            best_start = sd
+    return best_start, best_end
+
+
 def effective_annual_portal_dates(client: Dict[str, Any]) -> Tuple[Optional[date], Optional[date], str]:
     """
     Calendar bounds for Sacred Home / Iris Annual Abundance lifecycle.
 
-    Dashboard renewal updates ``subscription.start_date`` / ``subscription.end_date``; Client Garden may still
-    hold the previous window in ``annual_subscription``. When subscription ends strictly after the CRM annual
-    end, treat the subscription row as authoritative so admin and portal stay aligned with the student dashboard.
+    Picks the **latest-ending** window among Client Garden ``annual_subscription``, the subscriber
+    ``subscription`` row, and annual-like lines in ``subscription.programs_detail`` so admin, portal,
+    and Sacred Exchange stay aligned when the dashboard updates any of those (renewal, membership save,
+    or program line edits).
     """
     asy = client.get("annual_subscription") or {}
     sub = client.get("subscription") or {}
@@ -973,16 +1005,34 @@ def effective_annual_portal_dates(client: Dict[str, Any]) -> Tuple[Optional[date
     a_end = _parse_yyyy_mm_dd_field(asy.get("end_date"))
     s_start = _parse_yyyy_mm_dd_field(sub.get("start_date"))
     s_end = _parse_yyyy_mm_dd_field(sub.get("end_date"))
-    if s_end and a_end and s_end > a_end:
-        start = s_start or a_start
-        return start, s_end, "subscription"
+    pd_start, pd_end = _best_programs_detail_window_for_portal(sub)
+
+    candidates: List[Tuple[Optional[date], Optional[date], str]] = []
     if a_end:
-        start = a_start or s_start
-        return start, a_end, "annual_subscription"
+        candidates.append((a_start or s_start or pd_start, a_end, "annual_subscription"))
     if s_end:
-        start = s_start or a_start
-        return start, s_end, "subscription"
-    return None, None, "none"
+        candidates.append((s_start or a_start or pd_start, s_end, "subscription"))
+    if pd_end:
+        candidates.append((pd_start or s_start or a_start, pd_end, "programs_detail"))
+
+    if not candidates:
+        return None, None, "none"
+
+    tie = {"programs_detail": 2, "subscription": 1, "annual_subscription": 0}
+
+    def _sort_key(item: Tuple[Optional[date], Optional[date], str]) -> Tuple[date, int]:
+        st, en, src = item
+        return en, tie.get(src, 0)
+
+    start, end, src = max(candidates, key=_sort_key)
+    if start is None:
+        if src == "programs_detail":
+            start = pd_start or s_start or a_start
+        elif src == "subscription":
+            start = s_start or a_start or pd_start
+        else:
+            start = a_start or s_start or pd_start
+    return start, end, src
 
 
 def parse_annual_subscription_end_date(client: Dict[str, Any]) -> Optional[date]:
@@ -1018,7 +1068,7 @@ def annual_portal_lifecycle_payload(client: Dict[str, Any]) -> Dict[str, Any]:
     crm_start = _parse_yyyy_mm_dd_field(asy.get("start_date"))
     crm_end = _parse_yyyy_mm_dd_field(asy.get("end_date"))
     prior_crm = None
-    if win_src == "subscription" and crm_end and end_d and crm_end < end_d:
+    if crm_end and end_d and crm_end < end_d:
         prior_crm = {
             "start_date": crm_start.isoformat() if crm_start else None,
             "end_date": crm_end.isoformat(),

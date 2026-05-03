@@ -26,6 +26,7 @@ from routes.clients import (
     annual_portal_lifecycle_payload,
     annual_renewal_reminder_for_portal,
     annual_subscription_period_expired,
+    effective_annual_portal_dates,
     ensure_client_from_enrollment_lead,
 )
 from routes.currency import assert_claimed_hub_matches_stripe
@@ -509,10 +510,15 @@ def _last_annual_package_portal_payload(
     sub: dict,
     pkg_row_home: Optional[dict],
 ) -> Optional[dict]:
-    """Current / last Sacred Home enrollment window (subscription Excel + Client Garden annual_subscription)."""
+    """Current / last Sacred Home enrollment window — same effective calendar as admin lifecycle."""
     asy = client.get("annual_subscription") or {}
-    start = _trim_calendar_ymd(asy.get("start_date")) or _trim_calendar_ymd(sub.get("start_date"))
-    end = _trim_calendar_ymd(asy.get("end_date")) or _trim_calendar_ymd(sub.get("end_date"))
+    est, een, _src = effective_annual_portal_dates(client)
+    start = _trim_calendar_ymd(est.isoformat() if est else None) or _trim_calendar_ymd(
+        asy.get("start_date")
+    ) or _trim_calendar_ymd(sub.get("start_date"))
+    end = _trim_calendar_ymd(een.isoformat() if een else None) or _trim_calendar_ymd(
+        asy.get("end_date")
+    ) or _trim_calendar_ymd(sub.get("end_date"))
     if not start and not end:
         return None
     prog = (sub.get("annual_program") or "").strip()
@@ -3573,9 +3579,18 @@ async def put_membership_period(data: MembershipPeriodBody, user: dict = Depends
                 p["start_date"] = start_s
                 p["end_date"] = end_s
     now = datetime.now(timezone.utc).isoformat()
+    merged_as = dict(client.get("annual_subscription") or {})
+    merged_as["start_date"] = start_s
+    merged_as["end_date"] = end_s
     await db.clients.update_one(
         {"id": cid},
-        {"$set": {"subscription": sub, "updated_at": now}},
+        {
+            "$set": {
+                "subscription": sub,
+                "annual_subscription": merged_as,
+                "updated_at": now,
+            }
+        },
     )
     emi_note = None
     if isinstance(emis, list) and len(emis) > 0:

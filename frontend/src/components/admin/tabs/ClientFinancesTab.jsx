@@ -1921,10 +1921,12 @@ export default function ClientFinancesTab() {
                     {expand && subExpanded ? (
                       <tr className="border-b border-amber-100/90 bg-amber-50/30 align-top">
                         <td colSpan={colCount} className="pl-8 pr-4 py-2.5 text-[10px] text-gray-800 leading-snug">
-                          {rowLife?.window_source === 'subscription' ? (
+                          {rowLife?.window_source === 'subscription' ||
+                          rowLife?.window_source === 'programs_detail' ? (
                             <p className="text-[10px] font-medium text-violet-900/90 mb-2">
-                              Main row dates reflect the subscriber package (e.g. dashboard renewal). Details below
-                              are the prior Client Garden window and archived periods.
+                              Main row dates reflect the Sacred Exchange / subscriber record (dashboard or program
+                              lines), not only Client Garden. Details below are the prior Client Garden window and
+                              archived periods when those differ.
                             </p>
                           ) : null}
                           {prior && (prior.start_date || prior.end_date) ? (
