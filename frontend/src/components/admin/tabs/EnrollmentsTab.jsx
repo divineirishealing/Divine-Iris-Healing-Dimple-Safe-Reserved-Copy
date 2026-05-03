@@ -347,7 +347,8 @@ const EnrollmentsTab = () => {
   const [viewMode, setViewMode] = useState('summary');
   const [participantRows, setParticipantRows] = useState([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
-  const [selectedProgramBatch, setSelectedProgramBatch] = useState('');
+  /** null = all programs (no title filter); string[] = only those program titles */
+  const [selectedProgramTitles, setSelectedProgramTitles] = useState(null);
   const [paidOnlyReport, setPaidOnlyReport] = useState(false);
   const [participantSearch, setParticipantSearch] = useState('');
   const [autoReport, setAutoReport] = useState({
@@ -580,21 +581,22 @@ const EnrollmentsTab = () => {
   }, [participantRows]);
 
   useEffect(() => {
-    if (
-      (viewMode !== 'program_analytics' && viewMode !== 'program_three_month') ||
-      programBatchTitles.length === 0
-    ) {
-      return;
-    }
-    setSelectedProgramBatch((prev) => (prev && programBatchTitles.includes(prev) ? prev : programBatchTitles[0]));
+    if (viewMode !== 'program_analytics' && viewMode !== 'program_three_month') return;
+    if (programBatchTitles.length === 0) return;
+    setSelectedProgramTitles((prev) => {
+      if (prev == null) return null;
+      const next = prev.filter((t) => programBatchTitles.includes(t));
+      return next.length === 0 ? null : next;
+    });
   }, [viewMode, programBatchTitles]);
 
   const programBatchBaseRows = useMemo(() => {
-    if (!selectedProgramBatch) return [];
     if (viewMode !== 'program_analytics' && viewMode !== 'program_three_month') return [];
     return participantRows.filter((row) => {
       const title = (row.program || '').trim() || '(Untitled program)';
-      if (title !== selectedProgramBatch) return false;
+      if (selectedProgramTitles != null && selectedProgramTitles.length > 0 && !selectedProgramTitles.includes(title)) {
+        return false;
+      }
       if (originFilter !== 'all' && enrollmentOriginKey(row.enrollment_origin) !== originFilter) {
         return false;
       }
@@ -613,7 +615,26 @@ const EnrollmentsTab = () => {
         row.tier_label,
       ].filter(Boolean).some((f) => String(f).toLowerCase().includes(q));
     });
-  }, [participantRows, selectedProgramBatch, participantSearch, originFilter, viewMode]);
+  }, [participantRows, selectedProgramTitles, participantSearch, originFilter, viewMode]);
+
+  const programBatchFilterLabel = useMemo(() => {
+    if (programBatchTitles.length === 0) return '—';
+    if (selectedProgramTitles == null) return 'All programs';
+    if (selectedProgramTitles.length === 0) return 'All programs';
+    if (selectedProgramTitles.length === 1) {
+      const t = selectedProgramTitles[0];
+      return t.length > 42 ? `${t.slice(0, 40)}…` : t;
+    }
+    return `${selectedProgramTitles.length} programs`;
+  }, [programBatchTitles.length, selectedProgramTitles]);
+
+  const programBatchCsvSlug = useMemo(() => {
+    if (selectedProgramTitles == null || selectedProgramTitles.length === 0) return 'all_programs';
+    if (selectedProgramTitles.length === 1) {
+      return selectedProgramTitles[0].replace(/[^\w\-]+/g, '_').slice(0, 60);
+    }
+    return `multi_${selectedProgramTitles.length}_programs`;
+  }, [selectedProgramTitles]);
 
   const threeMonthMonthlyRows = useMemo(() => {
     if (viewMode !== 'program_three_month') return [];
@@ -775,8 +796,7 @@ const EnrollmentsTab = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const safe = selectedProgramBatch.replace(/[^\w\-]+/g, '_').slice(0, 60);
-    a.download = `program_batch_${safe}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `program_batch_${programBatchCsvSlug}_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
     toast({ title: 'CSV downloaded' });
@@ -832,8 +852,7 @@ const EnrollmentsTab = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const safe = selectedProgramBatch.replace(/[^\w\-]+/g, '_').slice(0, 60);
-    a.download = `program_3mo_monthly_${safe}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `program_3mo_monthly_${programBatchCsvSlug}_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
     toast({ title: 'CSV downloaded' });
@@ -1146,26 +1165,74 @@ const EnrollmentsTab = () => {
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <label htmlFor="program-batch-select" className="text-[11px] text-gray-600 whitespace-nowrap">
-              Program
-            </label>
-            <select
-              id="program-batch-select"
-              value={selectedProgramBatch}
-              onChange={(e) => setSelectedProgramBatch(e.target.value)}
-              className="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white min-w-[200px] max-w-md"
-              data-testid="program-batch-program-select"
-            >
-              {programBatchTitles.length === 0 ? (
-                <option value="">—</option>
-              ) : (
-                programBatchTitles.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))
-              )}
-            </select>
+            <span className="text-[11px] text-gray-600 whitespace-nowrap">Program</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  id="program-batch-select"
+                  data-testid="program-batch-program-select"
+                  className="flex items-center justify-between gap-2 text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white min-w-[200px] max-w-md text-left hover:bg-gray-50"
+                >
+                  <span className="truncate text-gray-900">{programBatchFilterLabel}</span>
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-gray-500" aria-hidden />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[min(22rem,calc(100vw-2rem))] p-0" align="start">
+                <div className="p-2 border-b border-gray-100 space-y-2">
+                  <label className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-50 cursor-pointer text-xs font-medium text-gray-900">
+                    <Checkbox
+                      checked={selectedProgramTitles == null}
+                      onCheckedChange={(c) => {
+                        if (c === true) setSelectedProgramTitles(null);
+                        else if (programBatchTitles.length > 0) setSelectedProgramTitles([programBatchTitles[0]]);
+                      }}
+                    />
+                    All programs
+                  </label>
+                  <button
+                    type="button"
+                    className="text-[10px] text-violet-700 hover:underline px-2 text-left disabled:opacity-40"
+                    onClick={() => setSelectedProgramTitles([...programBatchTitles])}
+                    disabled={programBatchTitles.length === 0}
+                  >
+                    Select every program in the list (then untick to narrow)
+                  </button>
+                </div>
+                <div className="max-h-60 overflow-y-auto p-2 space-y-0.5">
+                  {programBatchTitles.map((t) => {
+                    const checked = selectedProgramTitles != null && selectedProgramTitles.includes(t);
+                    return (
+                      <label
+                        key={t}
+                        className="flex items-start gap-2 px-2 py-1.5 rounded-md hover:bg-gray-50 cursor-pointer text-[11px] text-gray-800 leading-snug"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(c) => {
+                            if (c === true) {
+                              setSelectedProgramTitles((prev) => {
+                                if (prev == null) return [t];
+                                if (prev.includes(t)) return prev;
+                                return [...prev, t];
+                              });
+                            } else {
+                              setSelectedProgramTitles((prev) => {
+                                if (prev == null) return null;
+                                const next = prev.filter((x) => x !== t);
+                                return next.length === 0 ? null : next;
+                              });
+                            }
+                          }}
+                          className="mt-0.5"
+                        />
+                        <span className="break-words">{t}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
