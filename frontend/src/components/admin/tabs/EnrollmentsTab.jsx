@@ -84,6 +84,7 @@ const PARTICIPANT_COLUMN_DEFS = [
   { id: 'amt', label: 'Amt' },
   { id: 'cur', label: 'Cur' },
   { id: 'prog', label: 'Prog' },
+  { id: 'hcYear', label: 'HC yr' },
   { id: 'booker', label: 'Booker' },
   { id: 'invoice', label: 'Inv' },
   { id: 'origin', label: 'Orig' },
@@ -570,6 +571,7 @@ const EnrollmentsTab = () => {
       row.state,
       row.relationship,
       row.program,
+      row.home_coming_year,
       row.invoice_number,
       row.enrollment_id,
       row.notify_enrollment,
@@ -626,6 +628,7 @@ const EnrollmentsTab = () => {
         formatProgramYmd(row.chosen_start_date),
         formatProgramYmd(row.chosen_end_date),
         row.tier_label,
+        row.home_coming_year,
       ].filter(Boolean).some((f) => String(f).toLowerCase().includes(q));
     });
   }, [participantRows, selectedProgramTitles, participantSearch, originFilter, viewMode]);
@@ -754,6 +757,7 @@ const EnrollmentsTab = () => {
       'Country',
       'Batch (program start, DD-MON-YYYY)',
       'Catalog program (Mongo)',
+      'Home Coming year',
       'Tier',
       'Start (DD-MON-YYYY)',
       'End (DD-MON-YYYY)',
@@ -788,6 +792,7 @@ const EnrollmentsTab = () => {
             esc(row.country),
             esc(formatProgramYmd(row.chosen_start_date)),
             esc(row.catalog_program_title),
+            esc(row.home_coming_year),
             esc(row.tier_label),
             esc(formatProgramYmd(row.chosen_start_date)),
             esc(formatProgramYmd(row.chosen_end_date)),
@@ -1675,6 +1680,12 @@ const EnrollmentsTab = () => {
                               return <td key={def.id} className={`${pc} uppercase text-gray-600`}>{cur || '—'}</td>;
                             case 'prog':
                               return <td key={def.id} className={`${pc} text-gray-700`} title={row.program}>{row.program || '—'}</td>;
+                            case 'hcYear':
+                              return (
+                                <td key={def.id} className={`${pc} text-gray-700 tabular-nums`} title={row.home_coming_year || ''}>
+                                  {row.home_coming_year || '—'}
+                                </td>
+                              );
                             case 'booker':
                               return (
                                 <td key={def.id} className={`${pc} text-gray-600`}>

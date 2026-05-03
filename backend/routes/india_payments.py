@@ -126,6 +126,50 @@ def _program_title_without_batch_suffix(val: Any) -> str:
     return re.sub(r"\s*·\s*batch\s+.+$", "", s, flags=re.I).strip() or s
 
 
+_HC_YEAR_TAIL_RE = re.compile(
+    r"\s*(?:[·•]\s*|—\s*|–\s|-\s)\s*Year\s+(\d+)\s*$",
+    re.I,
+)
+
+
+def _title_looks_like_home_coming(title: str) -> bool:
+    t = (_clean_str(title) or "").lower()
+    if not t:
+        return False
+    if "home coming" in t:
+        return True
+    return "homecoming" in t.replace(" ", "")
+
+
+def _split_hc_title_base_year(title: str) -> Tuple[str, str]:
+    """
+    Split Home Coming journey labels such as ``… · Year 2`` into base title and ``Year 2``.
+    Non–Home Coming titles are returned unchanged with an empty year label.
+    """
+    t = _clean_str(title)
+    if not t or not _title_looks_like_home_coming(t):
+        return t, ""
+    m = _HC_YEAR_TAIL_RE.search(t)
+    if not m:
+        return t, ""
+    base = t[: m.start()].rstrip()
+    try:
+        n = int(m.group(1))
+    except (TypeError, ValueError):
+        return t, ""
+    if not base:
+        return t, ""
+    return base, f"Year {n}"
+
+
+def _normalize_hc_year_separator_in_title(title: str) -> str:
+    """Use `` — Year N`` so the product name and renewal year read as two clear parts."""
+    base, yrl = _split_hc_title_base_year(title)
+    if not yrl:
+        return _clean_str(title)
+    return f"{base} — {yrl}"
+
+
 def _scalar_field(d: dict, *keys: str) -> Any:
     """First non-empty value for any of the keys (exact or case-insensitive)."""
     if not isinstance(d, dict):
@@ -499,6 +543,8 @@ def _program_display_label_for_non_hc_seat(
     *,
     programs_by_id: Optional[Dict[str, dict]],
     row_tf: dict,
+    enrollment: Optional[dict] = None,
+    txn: Optional[dict] = None,
 ) -> str:
     """
     Program column for seats that are not Home Coming: use that seat's line + tier window so mixed
@@ -512,7 +558,19 @@ def _program_display_label_for_non_hc_seat(
         pr = programs_by_id.get(ppid)
         if isinstance(pr, dict):
             cat_title = _clean_str(pr.get("title"))
-    base = ptitle or cat_title or "Program"
+    base = ""
+    for cand in (
+        ptitle,
+        cat_title,
+        _clean_str((enrollment or {}).get("item_title")),
+        _clean_str((txn or {}).get("item_title")),
+    ):
+        c = _clean_str(cand)
+        if c and c.lower() != "program":
+            base = c
+            break
+    if not base:
+        base = "Catalog program (title missing)"
     cs = _clean_str(row_tf.get("chosen_start_date"))
     ce = _clean_str(row_tf.get("chosen_end_date"))
     if cs and ce:
@@ -1046,7 +1104,11 @@ def build_participant_report_rows(
         amt, cur = _payment_amount_currency(e, txn)
         inv = _clean_str((txn or {}).get("invoice_number")) or _clean_str(e.get("invoice_number"))
         participants = _merge_participants_for_report(e, txn)
-        program = display_program_title_for_enrollment(e, participants, None)
+        raw_program = display_program_title_for_enrollment(e, participants, None)
+        program = _normalize_hc_year_separator_in_title(
+            _program_title_without_batch_suffix(raw_program) or raw_program
+        )
+        _, enc_hc_year = _split_hc_title_base_year(program)
         item_type = _clean_str(e.get("item_type")) or _clean_str((txn or {}).get("item_type"))
         booker_name = _clean_str(e.get("booker_name"))
         booker_email = _clean_str(e.get("booker_email"))
@@ -1119,6 +1181,7 @@ def build_participant_report_rows(
                     "invoice_number": inv,
                     "enrollment_id": eid,
                     "program": program,
+                    "home_coming_year": enc_hc_year,
                     "item_type": item_type,
                     "enrollment_status": _clean_str(e.get("status")),
                     "enrollment_origin": origin,
@@ -1167,6 +1230,7 @@ def build_participant_report_rows(
                 "invoice_number": inv,
                 "enrollment_id": eid,
                 "program": program,
+                "home_coming_year": enc_hc_year if _participant_seat_is_home_coming(p) else "",
                 "item_type": item_type,
                 "enrollment_status": _clean_str(e.get("status")),
                 "enrollment_origin": origin,
@@ -1224,8 +1288,13 @@ def build_participant_report_rows(
             row.update(row_tf)
             if not _participant_seat_is_home_coming(p):
                 row["program"] = _program_display_label_for_non_hc_seat(
-                    p, programs_by_id=programs_by_id, row_tf=row_tf
+                    p,
+                    programs_by_id=programs_by_id,
+                    row_tf=row_tf,
+                    enrollment=e,
+                    txn=txn,
                 )
+                row["home_coming_year"] = ""
             rows.append(row)
 
         if not participants:
@@ -2205,6 +2274,7 @@ def _participant_report_rows_to_xlsx_bytes(rows: List[dict], *, sheet_title: str
         "Invoice #",
         "Enrollment ID",
         "Program",
+        "Home Coming year",
         "Type",
         "Portal cohort (client)",
         "Program catalog id",
@@ -2286,6 +2356,7 @@ def _participant_report_rows_to_xlsx_bytes(rows: List[dict], *, sheet_title: str
                 _clean_str(r.get("invoice_number")),
                 _clean_str(r.get("enrollment_id")),
                 _clean_str(r.get("program")),
+                _clean_str(r.get("home_coming_year")),
                 _clean_str(r.get("item_type")),
                 _clean_str(r.get("portal_cohort")),
                 _clean_str(r.get("program_catalog_id")),
@@ -2420,6 +2491,7 @@ async def build_program_batch_xlsx_bytes(
                 r.get("chosen_start_date"),
                 r.get("chosen_end_date"),
                 r.get("tier_label"),
+                r.get("home_coming_year"),
             ]
             return any((str(f).lower().find(q) >= 0 for f in pool if f is not None and str(f).strip() != ""))
 
