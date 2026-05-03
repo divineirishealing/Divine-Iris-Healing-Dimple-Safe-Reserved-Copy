@@ -802,6 +802,34 @@ const EnrollmentsTab = () => {
     toast({ title: 'CSV downloaded' });
   };
 
+  const handleProgramBatchExcel = async () => {
+    if (programBatchAnalyticsRows.length === 0) return;
+    try {
+      const programs =
+        selectedProgramTitles != null && selectedProgramTitles.length > 0
+          ? selectedProgramTitles.join('|||')
+          : '';
+      const r = await axios.get(`${API}/india-payments/admin/enrollments/program-batch-export`, {
+        params: {
+          paid_completed_only: paidOnlyReport,
+          programs,
+          origin: originFilter === 'all' ? '' : originFilter,
+          search: participantSearch.trim(),
+        },
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([r.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `program_batch_${programBatchCsvSlug}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Program batch Excel downloaded' });
+    } catch {
+      toast({ title: 'Export failed', variant: 'destructive' });
+    }
+  };
+
   const downloadThreeMonthCsv = () => {
     if (threeMonthMonthlyRows.length === 0) return;
     const headers = [
@@ -922,15 +950,26 @@ const EnrollmentsTab = () => {
               <Download size={12} /> 3-mo CSV
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={downloadProgramBatchCsv}
-              disabled={programBatchAnalyticsRows.length === 0}
-              data-testid="export-program-batch-csv"
-              className="flex items-center gap-1.5 text-[10px] px-4 py-2 rounded-full bg-green-600 text-white hover:bg-green-700 font-medium disabled:opacity-50"
-            >
-              <Download size={12} /> Program CSV
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleProgramBatchExcel}
+                disabled={programBatchAnalyticsRows.length === 0}
+                data-testid="export-program-batch-excel"
+                className="flex items-center gap-1.5 text-[10px] px-4 py-2 rounded-full bg-green-600 text-white hover:bg-green-700 font-medium disabled:opacity-50"
+              >
+                <Download size={12} /> Program Excel
+              </button>
+              <button
+                type="button"
+                onClick={downloadProgramBatchCsv}
+                disabled={programBatchAnalyticsRows.length === 0}
+                data-testid="export-program-batch-csv"
+                className="flex items-center gap-1.5 text-[10px] px-4 py-2 rounded-full bg-white border border-green-600 text-green-700 hover:bg-green-50 font-medium disabled:opacity-50"
+              >
+                <Download size={12} /> Program CSV
+              </button>
+            </div>
           )}
           <Popover>
             <PopoverTrigger asChild>

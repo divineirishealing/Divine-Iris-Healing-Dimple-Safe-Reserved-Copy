@@ -1,6 +1,6 @@
 import asyncio
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query
 from typing import Any, Dict, List, Optional, Tuple
 import os, uuid, logging
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -471,6 +471,95 @@ def _tier_index_from_enrollment(enrollment: dict, txn: Optional[dict]) -> Option
         return None
 
 
+def _tier_index_from_participant(p: dict) -> Optional[int]:
+    if not isinstance(p, dict):
+        return None
+    raw = p.get("tier_index")
+    if raw is None:
+        raw = p.get("tierIndex")
+    if raw is None or str(raw).strip() == "":
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _participant_seat_is_home_coming(p: dict) -> bool:
+    """
+    True when this seat is the Home Coming annual line (not an AWRP-only add-on).
+    Prefer participant ``program_title``; avoid using combined enrollment program text when the seat
+    title is missing (would mis-tag AWRP-only seats on mixed carts).
+    """
+    if not isinstance(p, dict):
+        return False
+    pt = (_clean_str(_scalar_field(p, "program_title", "programTitle")) or "").lower()
+    if not pt:
+        return False
+    tcompact = pt.replace(" ", "")
+    if "homecoming" in tcompact or "home coming" in pt:
+        return True
+    if "home" not in pt and ("atomic weight" in pt or " awrp" in f" {pt}" or "awrp)" in pt):
+        return False
+    return False
+
+
+def _format_hc_emi_compact_label(*, emi_n: int, total_n: int, cadence: str) -> str:
+    """Admin-facing compact label, e.g. HC-EMI-1st, HC-EMI-final (monthly)."""
+    if total_n > 1 and emi_n >= total_n:
+        core = "HC-EMI-final"
+    else:
+        n = max(1, emi_n)
+        if 11 <= (n % 100) <= 13:
+            suf = f"{n}th"
+        else:
+            r = n % 10
+            if r == 1:
+                suf = f"{n}st"
+            elif r == 2:
+                suf = f"{n}nd"
+            elif r == 3:
+                suf = f"{n}rd"
+            else:
+                suf = f"{n}th"
+        core = f"HC-EMI-{suf}"
+    cad = (cadence or "").strip().lower()
+    if cad:
+        return f"{core} ({cad})"
+    return core
+
+
+def _tier_fields_for_non_hc_participant_seat(
+    p: dict,
+    enrollment: dict,
+    txn: Optional[dict],
+    *,
+    item_type: str,
+    catalog_pid: str,
+    enrollment_tier_idx: Optional[int],
+    programs_by_id: Optional[Dict[str, dict]],
+    base_tier_fields: dict,
+) -> dict:
+    """Catalog tier row for a participant seat that is not Home Coming (e.g. one-month AWRP add-on)."""
+    ppid = _clean_str(_scalar_field(p, "program_id", "programId"))
+    alt_pid = ppid or catalog_pid
+    tix_alt = _tier_index_from_participant(p)
+    if tix_alt is None:
+        tix_alt = enrollment_tier_idx if alt_pid == catalog_pid else None
+    prog_doc = programs_by_id.get(alt_pid) if programs_by_id and alt_pid else None
+    if tix_alt is None and isinstance(prog_doc, dict):
+        tix_alt = _infer_tier_index_from_inr_list_prices(enrollment, txn, prog_doc, 1)
+    if tix_alt is None:
+        tix_alt = 0
+    out = _program_tier_fields_for_report(item_type, alt_pid, tix_alt, programs_by_id)
+    out["portal_cohort"] = base_tier_fields.get("portal_cohort", "")
+    if base_tier_fields.get("chosen_start_date"):
+        out["chosen_start_date"] = base_tier_fields["chosen_start_date"]
+    if base_tier_fields.get("chosen_end_date"):
+        out["chosen_end_date"] = base_tier_fields["chosen_end_date"]
+    return out
+
+
 def _infer_tier_index_from_inr_list_prices(
     enrollment: dict,
     txn: Optional[dict],
@@ -733,24 +822,22 @@ def _emi_installment_match_for_txn(txn: dict, emis: List[dict]) -> Optional[Tupl
     return None
 
 
-def _maybe_overlay_home_coming_emi_tier_label(
-    tier_fields: dict,
+def _compute_hc_emi_overlay_context(
     *,
+    tier_label_for_eligibility: str,
     enrollment: dict,
     program_display: str,
     txn_for_amount: Optional[dict],
     all_txns: List[dict],
     clients_by_id: Optional[Dict[str, dict]],
     portal_client_id: str,
-) -> None:
+) -> Optional[dict]:
     """
-    Replace misleading catalog tier (e.g. '1 Month') when the linked CRM client has a multi-installment
-    subscription schedule: prefer 'Annual Program — EMI k/n — cadence'; if the installment cannot be
-    matched to a txn, still set 'Annual program · EMI (n installments)' so admins do not read EMI as a
-    one-month program.
+    When the linked CRM client has a Home Coming–eligible EMI schedule, return installment metadata
+    for per-participant tier labels (HC seats vs non-HC seats in the same enrollment).
     """
-    if not clients_by_id or not tier_fields:
-        return
+    if not clients_by_id:
+        return None
     pcid = _norm_cmp_id(portal_client_id)
     ecid = _norm_cmp_id((enrollment or {}).get("client_id"))
     cl = None
@@ -759,14 +846,14 @@ def _maybe_overlay_home_coming_emi_tier_label(
     if cl is None and ecid:
         cl = clients_by_id.get(ecid)
     if not isinstance(cl, dict):
-        return
+        return None
     sub = cl.get("subscription") if isinstance(cl.get("subscription"), dict) else {}
     emis = sub.get("emis")
     if not isinstance(emis, list):
-        return
+        return None
     n_sched = sum(1 for x in emis if isinstance(x, dict))
     if n_sched < 2:
-        return
+        return None
     prefs = cl.get("annual_package_offer_prefs") if isinstance(cl.get("annual_package_offer_prefs"), dict) else {}
     pm_pref = str(prefs.get("payment_mode") or "").strip().lower()
     pm_sub = str(sub.get("payment_mode") or "").strip().upper()
@@ -781,17 +868,18 @@ def _maybe_overlay_home_coming_emi_tier_label(
         or n_sched >= 3
     )
     if not looks_emi:
-        return
+        return None
 
-    tier_now = _clean_str(tier_fields.get("tier_label"))
+    tier_now = _clean_str(tier_label_for_eligibility)
     if not _eligible_for_annual_emi_admin_tier_tag(
         enrollment or {},
         program_display,
         tier_now,
         emi_row_count=n_sched,
     ):
-        return
+        return None
 
+    cadence = _annual_emi_cadence_word(prefs, sub)
     ordered_txns = sorted(
         [t for t in (all_txns or []) if str(t.get("payment_status") or "").lower() in ("paid", "complete", "completed")],
         key=_txn_sort_key,
@@ -804,22 +892,23 @@ def _maybe_overlay_home_coming_emi_tier_label(
             break
     if not hit and txn_for_amount:
         hit = _emi_installment_match_for_txn(txn_for_amount, emis)
-    if not hit:
-        tier_fields["tier_label"] = f"Annual program · EMI ({n_sched} installments)"
-        return
-    emi_n, total_n = hit
-    if emi_n <= 0:
-        tier_fields["tier_label"] = f"Annual program · EMI ({n_sched} installments)"
-        return
-    cadence = _annual_emi_cadence_word(prefs, sub)
-    # e.g. "Annual Program — EMI 1/12 — monthly" or "… — EMI 12/12 (final) — monthly"
-    emi_slot = f"EMI {emi_n}/{total_n}"
-    if total_n > 1 and emi_n >= total_n:
-        emi_slot = f"EMI {emi_n}/{total_n} (final)"
-    bits = ["Annual Program", emi_slot]
-    if cadence:
-        bits.append(cadence)
-    tier_fields["tier_label"] = " — ".join(bits)
+    if hit:
+        emi_n, total_n = hit
+        if emi_n <= 0:
+            return {"hit": False, "emi_n": 0, "total_n": n_sched, "cadence": cadence, "n_sched": n_sched}
+        return {"hit": True, "emi_n": emi_n, "total_n": total_n, "cadence": cadence, "n_sched": n_sched}
+    return {"hit": False, "emi_n": 0, "total_n": n_sched, "cadence": cadence, "n_sched": n_sched}
+
+
+def _hc_emi_tier_label_from_context(ctx: dict) -> str:
+    """Compact HC EMI label for admin participant / program batch rows."""
+    if ctx.get("hit"):
+        return _format_hc_emi_compact_label(
+            emi_n=int(ctx.get("emi_n") or 0),
+            total_n=int(ctx.get("total_n") or 0),
+            cadence=str(ctx.get("cadence") or ""),
+        )
+    return "HC-EMI-1st"
 
 
 def build_participant_report_rows(
@@ -919,8 +1008,8 @@ def build_participant_report_rows(
                 pcid_emi = _norm_cmp_id((booker_email_to_client_id or {}).get(em_key, ""))
                 if pcid_emi:
                     break
-        _maybe_overlay_home_coming_emi_tier_label(
-            tier_fields,
+        emi_ctx = _compute_hc_emi_overlay_context(
+            tier_label_for_eligibility=tier_fields.get("tier_label") or "",
             enrollment=e,
             program_display=program,
             txn_for_amount=txn,
@@ -928,13 +1017,6 @@ def build_participant_report_rows(
             clients_by_id=portal_clients_by_id,
             portal_client_id=pcid_emi,
         )
-        tl_after = _clean_str(tier_fields.get("tier_label"))
-        if (
-            _tier_label_implies_catalog_one_month(tl_after)
-            and _enrollment_looks_like_home_coming(e, program)
-            and "annual program" not in tl_after.lower()
-        ):
-            tier_fields["tier_label"] = "Annual program · EMI"
 
         def push_row(p: Optional[dict], index: int, *, booker_only: bool) -> None:
             if booker_only or p is None:
@@ -1025,7 +1107,28 @@ def build_participant_report_rows(
                 "payment_status": pay_st or _clean_str(e.get("status")),
                 "created_at": created,
             }
-            row.update(tier_fields)
+            row_tf = dict(tier_fields)
+            if emi_ctx and _participant_seat_is_home_coming(p):
+                row_tf["tier_label"] = _hc_emi_tier_label_from_context(emi_ctx)
+            elif emi_ctx and not _participant_seat_is_home_coming(p):
+                row_tf = _tier_fields_for_non_hc_participant_seat(
+                    p,
+                    e,
+                    txn,
+                    item_type=item_type,
+                    catalog_pid=catalog_pid,
+                    enrollment_tier_idx=tier_idx,
+                    programs_by_id=programs_by_id,
+                    base_tier_fields=tier_fields,
+                )
+            elif (
+                not emi_ctx
+                and _tier_label_implies_catalog_one_month(_clean_str(tier_fields.get("tier_label")))
+                and _enrollment_looks_like_home_coming(e, program)
+                and _participant_seat_is_home_coming(p)
+            ):
+                row_tf["tier_label"] = "HC-EMI-1st"
+            row.update(row_tf)
             rows.append(row)
 
         if not participants:
@@ -1848,8 +1951,8 @@ async def participant_enrollment_rows(paid_completed_only: bool = False):
     )
 
 
-async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False) -> bytes:
-    """Build participant-level enrollment Excel as raw bytes (HTTP download or email attachment)."""
+def _participant_report_rows_to_xlsx_bytes(rows: List[dict], *, sheet_title: str = "Participants") -> bytes:
+    """Serialize participant report dict rows to an .xlsx workbook (one sheet)."""
     import io
 
     try:
@@ -1857,29 +1960,6 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     except ImportError:
         raise RuntimeError("openpyxl not installed")
-
-    enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
-    eids = [e.get("id") for e in enrollments if e.get("id")]
-    by_e = await _transactions_grouped_by_enrollment(eids)
-    extra_emi_ids, booker_email_client_map = await _booker_email_client_ids_for_emi_overlay(enrollments, by_e)
-    base_portal_ids = _client_ids_for_emi_context(enrollments, by_e)
-    portal_client_ids = list(dict.fromkeys(list(base_portal_ids) + list(extra_emi_ids)))
-    prog_map, cohort_map, cohort_client_map, portal_clients_emi = await asyncio.gather(
-        _programs_duration_tiers_by_item_id(enrollments, by_e),
-        _portal_cohort_by_contact_emails(enrollments, by_e),
-        _portal_cohort_by_client_ids(portal_client_ids),
-        _load_portal_clients_emi_context_map(portal_client_ids),
-    )
-    rows = build_participant_report_rows(
-        enrollments,
-        by_e,
-        paid_completed_only=paid_completed_only,
-        programs_by_id=prog_map,
-        portal_cohort_by_email=cohort_map,
-        portal_cohort_by_client_id=cohort_client_map,
-        portal_clients_by_id=portal_clients_emi,
-        booker_email_to_client_id=booker_email_client_map or None,
-    )
 
     headers = [
         "Invoice #",
@@ -1929,7 +2009,7 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
 
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Participants"
+    ws.title = (sheet_title or "Participants")[:31]
 
     header_font = Font(bold=True, color="FFFFFF", size=11)
     header_fill = PatternFill(start_color="4A148C", end_color="4A148C", fill_type="solid")
@@ -2019,6 +2099,89 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
     return output.getvalue()
 
 
+async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False) -> bytes:
+    """Build participant-level enrollment Excel as raw bytes (HTTP download or email attachment)."""
+    enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    eids = [e.get("id") for e in enrollments if e.get("id")]
+    by_e = await _transactions_grouped_by_enrollment(eids)
+    extra_emi_ids, booker_email_client_map = await _booker_email_client_ids_for_emi_overlay(enrollments, by_e)
+    base_portal_ids = _client_ids_for_emi_context(enrollments, by_e)
+    portal_client_ids = list(dict.fromkeys(list(base_portal_ids) + list(extra_emi_ids)))
+    prog_map, cohort_map, cohort_client_map, portal_clients_emi = await asyncio.gather(
+        _programs_duration_tiers_by_item_id(enrollments, by_e),
+        _portal_cohort_by_contact_emails(enrollments, by_e),
+        _portal_cohort_by_client_ids(portal_client_ids),
+        _load_portal_clients_emi_context_map(portal_client_ids),
+    )
+    rows = build_participant_report_rows(
+        enrollments,
+        by_e,
+        paid_completed_only=paid_completed_only,
+        programs_by_id=prog_map,
+        portal_cohort_by_email=cohort_map,
+        portal_cohort_by_client_id=cohort_client_map,
+        portal_clients_by_id=portal_clients_emi,
+        booker_email_to_client_id=booker_email_client_map or None,
+    )
+    return _participant_report_rows_to_xlsx_bytes(rows, sheet_title="Participants")
+
+
+async def build_program_batch_xlsx_bytes(
+    paid_completed_only: bool = False,
+    program_titles: Optional[List[str]] = None,
+    origin_key: Optional[str] = None,
+    search: Optional[str] = None,
+) -> bytes:
+    """Same rows as the participant report, filtered like the Program batch admin view when params are set."""
+    enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    eids = [e.get("id") for e in enrollments if e.get("id")]
+    by_e = await _transactions_grouped_by_enrollment(eids)
+    extra_emi_ids, booker_email_client_map = await _booker_email_client_ids_for_emi_overlay(enrollments, by_e)
+    base_portal_ids = _client_ids_for_emi_context(enrollments, by_e)
+    portal_client_ids = list(dict.fromkeys(list(base_portal_ids) + list(extra_emi_ids)))
+    prog_map, cohort_map, cohort_client_map, portal_clients_emi = await asyncio.gather(
+        _programs_duration_tiers_by_item_id(enrollments, by_e),
+        _portal_cohort_by_contact_emails(enrollments, by_e),
+        _portal_cohort_by_client_ids(portal_client_ids),
+        _load_portal_clients_emi_context_map(portal_client_ids),
+    )
+    rows = build_participant_report_rows(
+        enrollments,
+        by_e,
+        paid_completed_only=paid_completed_only,
+        programs_by_id=prog_map,
+        portal_cohort_by_email=cohort_map,
+        portal_cohort_by_client_id=cohort_client_map,
+        portal_clients_by_id=portal_clients_emi,
+        booker_email_to_client_id=booker_email_client_map or None,
+    )
+    if program_titles:
+        want = {_clean_str(t) for t in program_titles if _clean_str(t)}
+        if want:
+            rows = [r for r in rows if _clean_str(r.get("program")) in want]
+    ok_origin = (_clean_str(origin_key) or "").lower()
+    if ok_origin and ok_origin != "all":
+        rows = [r for r in rows if (_clean_str(r.get("enrollment_origin")).lower() or "website") == ok_origin]
+    q = (_clean_str(search) or "").strip().lower()
+    if q:
+
+        def _row_matches_search(r: dict) -> bool:
+            pool = [
+                r.get("participant_name"),
+                r.get("participant_email"),
+                r.get("invoice_number"),
+                r.get("enrollment_id"),
+                r.get("portal_cohort"),
+                r.get("chosen_start_date"),
+                r.get("chosen_end_date"),
+                r.get("tier_label"),
+            ]
+            return any((str(f).lower().find(q) >= 0 for f in pool if f is not None and str(f).strip() != ""))
+
+        rows = [r for r in rows if _row_matches_search(r)]
+    return _participant_report_rows_to_xlsx_bytes(rows, sheet_title="Program batch")
+
+
 @router.get("/admin/enrollments/clean-export")
 async def export_participant_enrollments_excel(paid_completed_only: bool = False):
     """Excel: one row per participant — clean columns for ops."""
@@ -2037,6 +2200,39 @@ async def export_participant_enrollments_excel(paid_completed_only: bool = False
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
             "Content-Disposition": f"attachment; filename=enrollments_by_participant_{suffix}.xlsx"
+        },
+    )
+
+
+@router.get("/admin/enrollments/program-batch-export")
+async def export_program_batch_enrollments_excel(
+    paid_completed_only: bool = False,
+    programs: str = Query("", description="Program display titles, |||-separated; empty = all programs"),
+    origin: str = Query("", description="dashboard | website | empty for all"),
+    search: str = Query("", description="Substring filter across participant / invoice / tier fields"),
+):
+    """Excel export for the Program batch view (same columns as participant clean export, with UI filters)."""
+    import io
+
+    titles = [t.strip() for t in (programs or "").split("|||") if t.strip()]
+    try:
+        data = await build_program_batch_xlsx_bytes(
+            paid_completed_only=paid_completed_only,
+            program_titles=titles or None,
+            origin_key=origin or None,
+            search=search or None,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    from fastapi.responses import StreamingResponse
+
+    suffix = "paid_only" if paid_completed_only else "all"
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename=program_batch_{suffix}.xlsx"
         },
     )
 
