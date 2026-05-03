@@ -118,6 +118,14 @@ def _clean_str(val: Any) -> str:
     return s
 
 
+def _program_title_without_batch_suffix(val: Any) -> str:
+    """Match Enrollments program filter: drop ``· batch YYYY-MM-DD - …`` cohort suffix."""
+    s = _clean_str(val)
+    if not s:
+        return ""
+    return re.sub(r"\s*·\s*batch\s+.+$", "", s, flags=re.I).strip() or s
+
+
 def _scalar_field(d: dict, *keys: str) -> Any:
     """First non-empty value for any of the keys (exact or case-insensitive)."""
     if not isinstance(d, dict):
@@ -2390,7 +2398,12 @@ async def build_program_batch_xlsx_bytes(
     if program_titles:
         want = {_clean_str(t) for t in program_titles if _clean_str(t)}
         if want:
-            rows = [r for r in rows if _clean_str(r.get("program")) in want]
+            rows = [
+                r
+                for r in rows
+                if _clean_str(r.get("program")) in want
+                or _program_title_without_batch_suffix(r.get("program")) in want
+            ]
     ok_origin = (_clean_str(origin_key) or "").lower()
     if ok_origin and ok_origin != "all":
         rows = [r for r in rows if (_clean_str(r.get("enrollment_origin")).lower() or "website") == ok_origin]

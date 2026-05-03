@@ -270,6 +270,13 @@ function formatProgramYmd(iso) {
   return s || '—';
 }
 
+/** Program batch filter: show catalog name only; batch window is in Start / End columns. */
+function programTitleWithoutBatchSuffix(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '(Untitled program)';
+  return s.replace(/\s*·\s*batch\s+.+$/i, '').trim() || '(Untitled program)';
+}
+
 /** Single-participant row: human-readable attendance from stored mode. */
 function participantAttendanceLabel(mode) {
   const b = attendanceBucket(mode);
@@ -575,7 +582,8 @@ const EnrollmentsTab = () => {
   const programBatchTitles = useMemo(() => {
     const set = new Set();
     participantRows.forEach((r) => {
-      set.add((r.program || '').trim() || '(Untitled program)');
+      const full = (r.program || '').trim() || '(Untitled program)';
+      set.add(programTitleWithoutBatchSuffix(full));
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [participantRows]);
@@ -594,7 +602,12 @@ const EnrollmentsTab = () => {
     if (viewMode !== 'program_analytics' && viewMode !== 'program_three_month') return [];
     return participantRows.filter((row) => {
       const title = (row.program || '').trim() || '(Untitled program)';
-      if (selectedProgramTitles != null && selectedProgramTitles.length > 0 && !selectedProgramTitles.includes(title)) {
+      const filterKey = programTitleWithoutBatchSuffix(title);
+      if (
+        selectedProgramTitles != null &&
+        selectedProgramTitles.length > 0 &&
+        !selectedProgramTitles.includes(filterKey)
+      ) {
         return false;
       }
       if (originFilter !== 'all' && enrollmentOriginKey(row.enrollment_origin) !== originFilter) {
