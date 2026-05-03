@@ -485,6 +485,34 @@ def _tier_index_from_participant(p: dict) -> Optional[int]:
         return None
 
 
+def _program_display_label_for_non_hc_seat(
+    p: dict,
+    *,
+    programs_by_id: Optional[Dict[str, dict]],
+    row_tf: dict,
+) -> str:
+    """
+    Program column for seats that are not Home Coming: use that seat's line + tier window so mixed
+    carts do not show every participant under the combined Home Coming title (and program-batch filters
+    stay accurate).
+    """
+    ptitle = _clean_str(_scalar_field(p, "program_title", "programTitle"))
+    ppid = _clean_str(_scalar_field(p, "program_id", "programId"))
+    cat_title = ""
+    if programs_by_id and ppid:
+        pr = programs_by_id.get(ppid)
+        if isinstance(pr, dict):
+            cat_title = _clean_str(pr.get("title"))
+    base = ptitle or cat_title or "Program"
+    cs = _clean_str(row_tf.get("chosen_start_date"))
+    ce = _clean_str(row_tf.get("chosen_end_date"))
+    if cs and ce:
+        return f"{base} · batch {cs} – {ce}"
+    if cs:
+        return f"{base} · batch from {cs}"
+    return base
+
+
 def _participant_seat_is_home_coming(p: dict) -> bool:
     """
     True when this seat is the Home Coming annual line (not an AWRP-only add-on).
@@ -1129,6 +1157,10 @@ def build_participant_report_rows(
             ):
                 row_tf["tier_label"] = "HC-EMI-1st"
             row.update(row_tf)
+            if not _participant_seat_is_home_coming(p):
+                row["program"] = _program_display_label_for_non_hc_seat(
+                    p, programs_by_id=programs_by_id, row_tf=row_tf
+                )
             rows.append(row)
 
         if not participants:
