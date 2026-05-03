@@ -1,4 +1,9 @@
-"""Iris Annual Abundance (client CRM) India discount applies only to the Sacred Home annual program."""
+"""
+Strip CRM India discount from checkout unless every cart line is the pinned Home Coming program.
+
+``dashboard_sacred_home_annual_program_id`` identifies the Home Coming package; other programs never
+receive ``home_coming_india_discount_*`` / merged courtesy % in enrollment India math.
+"""
 
 from __future__ import annotations
 
@@ -28,7 +33,7 @@ def filter_client_pricing_for_home_coming_checkout(
     """
     Return a copy of ``client_pricing`` with ``india_discount_percent`` and
     ``india_discount_member_bands`` cleared unless every checkout program id
-    matches ``dashboard_sacred_home_annual_program_id``.
+    matches ``dashboard_sacred_home_annual_program_id`` (Home Coming package only).
     """
     if not client_pricing:
         return client_pricing

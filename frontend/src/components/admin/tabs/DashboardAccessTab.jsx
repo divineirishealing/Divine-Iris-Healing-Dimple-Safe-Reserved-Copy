@@ -6,7 +6,6 @@ import {
   TAG_LABEL,
   labelFrom,
   gstSummary,
-  irisAnnualAbundanceDiscountSummary,
   formatTaggedPaymentDetails,
 } from '../../../lib/adminClientAccessDisplay';
 import { Input } from '../../ui/input';
@@ -481,8 +480,8 @@ export default function DashboardAccessTab() {
               Use this tab for <strong>email</strong>, <strong>Google login</strong>, <strong>annual vs non-annual access</strong>, and{' '}
               <strong>Home Coming package-page</strong> EMI/Flexi visibility. For <strong>non-annual</strong> members, <strong>Edit</strong>{' '}
               includes <strong>Pay method</strong> (checkout rails + optional UPI/bank pin). GST, CRM fees, and Home Coming courtesy
-              stay in <strong>Iris Annual Abundance</strong>; annual members still edit full payment there. The grid below shows
-              payment and discount for quick reference. Use the checkboxes + <strong>Allow Google login for selected</strong> or{' '}
+              (HC package checkout only) stay in <strong>Iris Annual Abundance</strong>; annual members still edit full payment there. The grid below shows
+              payment method and GST for quick reference only. Use the checkboxes + <strong>Allow Google login for selected</strong> or{' '}
               <strong>Bulk edit access type</strong> for many rows. <strong>View as</strong> opens portal pricing from your admin session.
             </p>
           </div>
@@ -554,7 +553,7 @@ export default function DashboardAccessTab() {
             <Bell size={18} className="text-orange-500 shrink-0" />
             <span>
               <strong>{pendingCount}</strong> new intake request{pendingCount === 1 ? '' : 's'} — highlight below; enable Google login or mark reviewed.{' '}
-              <strong>Non-annual</strong> pay method can be set in <strong>Edit dashboard access</strong>; GST / Home Coming discount stay in Iris Annual Abundance.
+              <strong>Non-annual</strong> pay method can be set in <strong>Edit dashboard access</strong>; GST and Home Coming courtesy (HC package only) stay in Iris Annual Abundance.
             </span>
           </span>
         </div>
@@ -565,17 +564,16 @@ export default function DashboardAccessTab() {
           <table className="w-full text-sm table-fixed">
             <colgroup>
               <col className="w-[3%]" />
-              <col className="w-[7%]" />
-              <col className="w-[11%]" />
-              <col className="w-[7%]" />
-              <col className="w-[6%]" />
               <col className="w-[8%]" />
-              <col className="w-[14%]" />
-              <col className="w-[6%]" />
+              <col className="w-[12%]" />
+              <col className="w-[8%]" />
               <col className="w-[7%]" />
-              <col className="w-[6%]" />
-              <col className="w-[5%]" />
-              <col className="w-[10%]" />
+              <col className="w-[9%]" />
+              <col className="w-[15%]" />
+              <col className="w-[7%]" />
+              <col className="w-[8%]" />
+              <col className="w-[7%]" />
+              <col className="w-[16%]" />
             </colgroup>
             <thead className="bg-gray-50 border-b">
               <tr>
@@ -620,10 +618,6 @@ export default function DashboardAccessTab() {
                   <span className="block font-normal normal-case text-[9px] text-gray-400 font-medium mt-0.5">(edit in Iris Annual)</span>
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                  HC discount
-                  <span className="block font-normal normal-case text-[9px] text-gray-400 font-medium mt-0.5">(Abundance)</span>
-                </th>
-                <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -631,14 +625,14 @@ export default function DashboardAccessTab() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-12 text-center text-gray-500">
+                  <td colSpan={11} className="px-4 py-12 text-center text-gray-500">
                     <Loader2 className="inline animate-spin mr-2 align-middle" size={18} />
                     Loading…
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-10 text-center text-gray-400 text-sm">
+                  <td colSpan={11} className="px-4 py-10 text-center text-gray-400 text-sm">
                     No clients match.
                   </td>
                 </tr>
@@ -720,7 +714,6 @@ export default function DashboardAccessTab() {
                         )}
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{gstSummary(cl)}</td>
-                      <td className="px-3 py-2 text-xs text-gray-700">{irisAnnualAbundanceDiscountSummary(cl)}</td>
                       <td className="px-2 py-2 align-top">
                         <div className="flex flex-col items-end gap-1.5">
                           {isPendingIntakeReview(cl) && (
@@ -1000,18 +993,19 @@ export default function DashboardAccessTab() {
 
             {annualMemberDashboard ? (
               <div className="rounded-lg border border-violet-200 bg-violet-50/60 px-3 py-3 space-y-2">
-                <p className="text-[11px] font-semibold text-gray-800">Payment, GST, CRM fees &amp; Home Coming discount</p>
+                <p className="text-[11px] font-semibold text-gray-800">GST, CRM fees &amp; Home Coming courtesy</p>
                 <p className="text-[10px] text-gray-600 leading-snug">
-                  Edit these under <strong>Iris Annual Abundance</strong> (client finances / Home Coming). This dialog does not
-                  change those fields for <strong>annual</strong> members.
+                  Edit under <strong>Iris Annual Abundance</strong>. <strong>HC courtesy %</strong> applies only to the pinned{' '}
+                  <strong>Home Coming</strong> catalog package — not to other programs. This dialog does not change those fields for{' '}
+                  <strong>annual</strong> members.
                 </p>
               </div>
             ) : (
               <div className="rounded-lg border border-emerald-200/90 bg-emerald-50/40 px-3 py-3 space-y-2">
-                <p className="text-[11px] font-semibold text-gray-800">GST, CRM fees &amp; Home Coming discount</p>
+                <p className="text-[11px] font-semibold text-gray-800">GST, CRM fees &amp; Home Coming courtesy</p>
                 <p className="text-[10px] text-gray-600 leading-snug">
-                  Still edited only in <strong>Iris Annual Abundance</strong>. For <strong>non-annual</strong> members, use{' '}
-                  <strong>Pay method</strong> above — no need to appear on the Abundance roster.
+                  Still edited only in <strong>Iris Annual Abundance</strong>. HC courtesy applies only to the <strong>Home Coming</strong>{' '}
+                  package checkout. For <strong>non-annual</strong> members, use <strong>Pay method</strong> above — no need to appear on the Abundance roster.
                 </p>
               </div>
             )}
@@ -1034,8 +1028,8 @@ export default function DashboardAccessTab() {
             <DialogTitle>Bulk edit access type</DialogTitle>
             <DialogDescription>
               Set Sacred Home <strong>annual vs non-annual</strong> for{' '}
-              <strong>{selectedIds.length}</strong> selected client(s). Check the box below to apply; payment and discount are not
-              changed here — use Iris Annual Abundance.
+              <strong>{selectedIds.length}</strong> selected client(s). Check the box below to apply; payment, GST, and Home Coming courtesy are not
+              changed here — use Iris Annual Abundance (HC courtesy applies to the Home Coming package only).
             </DialogDescription>
           </DialogHeader>
 

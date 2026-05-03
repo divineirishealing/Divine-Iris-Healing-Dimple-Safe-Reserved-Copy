@@ -7,12 +7,12 @@ from typing import Any, Dict, Optional
 
 def home_coming_crm_discount_fields(client: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Discount % / bands that apply to **Home Coming package** catalog quotes and student package UI.
+    Discount % / bands for the **Sacred Home Home Coming catalog package only** (quotes, package UI,
+    and India checkout math after :func:`filter_client_pricing_for_home_coming_checkout`).
 
-    Once ``home_coming_india_discount_percent`` or ``home_coming_india_discount_member_bands`` exists on
-    the client document (Mongo key present — set from Iris Annual Abundance), those values are the
-    only source for this math. Legacy ``india_discount_*`` remains for **Dashboard Access** and is
-    ignored for Home Coming until the split fields are saved.
+    These fields must **not** affect other program checkouts. Once ``home_coming_india_discount_percent``
+    or ``home_coming_india_discount_member_bands`` exists on the client (set from Iris Annual Abundance),
+    they are the source for Home Coming. Legacy ``india_discount_*`` is used only until split fields are saved.
     """
     c = client or {}
     if "home_coming_india_discount_percent" in c or "home_coming_india_discount_member_bands" in c:

@@ -83,7 +83,7 @@ const FINANCE_COLUMNS = [
   { id: 'payMethod', label: 'Pay method', hideable: true },
   { id: 'portalHub', label: 'Portal hub', hideable: true },
   { id: 'annualFee', label: 'Annual fee', hideable: true },
-  { id: 'discount', label: 'HC courtesy %', hideable: true },
+  { id: 'discount', label: 'HC courtesy % (HC pkg only)', hideable: true },
   { id: 'tax', label: 'Tax', hideable: true },
   { id: 'chFee', label: 'Ch. fee', hideable: true },
   { id: 'lateFee', label: 'Late fee', hideable: true },
