@@ -6,7 +6,8 @@ import os, uuid, logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
-from datetime import datetime, timezone
+import calendar
+from datetime import datetime, timezone, date
 import re
 import mimetypes
 
@@ -1699,6 +1700,145 @@ async def _resolve_portal_client_id_for_home_coming_emi(tx: dict, enrollment: di
     return ""
 
 
+def _add_calendar_months_to_date(d: date, months: int) -> date:
+    """Add whole calendar months (same idea as Sacred Home ``addCalendarMonthsYmd``)."""
+    total = d.month - 1 + int(months)
+    y = d.year + total // 12
+    m = total % 12 + 1
+    dim = calendar.monthrange(y, m)[1]
+    return date(y, m, min(d.day, dim))
+
+
+def _calendar_date_from_tx_or_proof(tx: dict, proof_like: dict) -> Optional[date]:
+    """Best-effort payment calendar day for renewal alignment."""
+    from routes.student import _parse_ymd_loose
+
+    pd = (proof_like or {}).get("payment_date")
+    if isinstance(pd, str) and len(pd) >= 10:
+        d = _parse_ymd_loose(pd[:10])
+        if d:
+            return d
+    for key in ("paid_at", "updated_at", "created_at"):
+        v = (tx or {}).get(key)
+        if isinstance(v, str) and len(v) >= 10:
+            d = _parse_ymd_loose(v[:10])
+            if d:
+                return d
+    return None
+
+
+async def sync_home_coming_renewal_calendar_after_paid_enrollment_tx(
+    tx: dict,
+    enrollment: dict,
+    proof_like: dict,
+) -> None:
+    """
+    After a **paid** Dashboard Home Coming checkout, persist the renewed membership window on the client
+    when the payment date falls **after** the prior effective annual end (matches Sacred Home renewal UI).
+
+    Writes ``subscription.start_date`` / ``end_date``, matching ``programs_detail`` annual-like rows, and
+    ``annual_subscription`` start/end so admin lifecycle and finance grids match the dashboard.
+    """
+    from routes.student import _add_months_subscription_end, _parse_ymd_loose
+    from routes.clients import effective_annual_portal_dates, _program_detail_row_looks_annual_bundle
+
+    if not tx or str(tx.get("payment_status") or "").lower() != "paid":
+        return
+    if not _is_home_coming_context(proof_like or {}, enrollment or {}):
+        return
+    pcid = await _resolve_portal_client_id_for_home_coming_emi(tx, enrollment or {})
+    if not pcid:
+        return
+    pay_d = _calendar_date_from_tx_or_proof(tx, proof_like or {})
+    if not pay_d:
+        return
+    cl = await db.clients.find_one({"id": pcid}, {"_id": 0, "subscription": 1, "annual_subscription": 1, "annual_package_offer_prefs": 1})
+    if not cl:
+        return
+    prev_start, prev_end, _src = effective_annual_portal_dates(cl)
+    if not prev_end:
+        return
+    if pay_d <= prev_end:
+        return
+
+    prefs = cl.get("annual_package_offer_prefs") if isinstance(cl.get("annual_package_offer_prefs"), dict) else {}
+    desired_raw = str(prefs.get("desired_start_date") or "").strip()[:10]
+    desired_d = _parse_ymd_loose(desired_raw) if len(desired_raw) == 10 else None
+
+    sub0 = cl.get("subscription") or {}
+    pkg_id = (sub0.get("package_id") or "").strip()
+    pkg_row = None
+    if pkg_id:
+        pkg_row = await db.annual_packages.find_one({"package_id": pkg_id}, {"_id": 0, "duration_months": 1})
+    duration = 12
+    if pkg_row and pkg_row.get("duration_months") is not None:
+        try:
+            duration = max(1, min(120, int(pkg_row["duration_months"])))
+        except (TypeError, ValueError):
+            duration = 12
+
+    rs = prev_start or _parse_ymd_loose(str((sub0.get("start_date") or "")).strip()[:10])
+
+    start_d: Optional[date] = None
+    if desired_d and desired_d > prev_end:
+        start_d = desired_d
+    elif rs:
+        s = rs
+        for _guard in range(24):
+            win_end_s = _add_months_subscription_end(s.isoformat(), duration)
+            win_end = _parse_ymd_loose(win_end_s)
+            if not win_end:
+                break
+            if pay_d <= win_end:
+                start_d = s
+                break
+            ns = _add_calendar_months_to_date(s, duration)
+            if ns <= s:
+                break
+            s = ns
+        if start_d is None:
+            start_d = s
+    else:
+        logger.warning(
+            "Home Coming renewal calendar: skip client=%s (no anchor start; set desired_start_date or subscription.start_date)",
+            pcid,
+        )
+        return
+
+    if not start_d:
+        return
+    end_s = _add_months_subscription_end(start_d.isoformat(), duration)
+    if not end_s or len(end_s) < 10:
+        return
+
+    sub = dict(sub0)
+    start_iso = start_d.isoformat()
+    sub["start_date"] = start_iso
+    sub["end_date"] = end_s[:10]
+    pd = sub.get("programs_detail")
+    if isinstance(pd, list):
+        for p in pd:
+            if isinstance(p, dict) and _program_detail_row_looks_annual_bundle(p):
+                p["start_date"] = start_iso
+                p["end_date"] = end_s[:10]
+    asy = dict(cl.get("annual_subscription") or {})
+    asy["start_date"] = start_iso
+    asy["end_date"] = end_s[:10]
+    now = datetime.now(timezone.utc).isoformat()
+    await db.clients.update_one(
+        {"id": pcid},
+        {"$set": {"subscription": sub, "annual_subscription": asy, "updated_at": now}},
+    )
+    logger.info(
+        "Home Coming renewal calendar synced client=%s start=%s end=%s (paid=%s prev_end=%s)",
+        pcid,
+        start_iso,
+        end_s[:10],
+        pay_d.isoformat(),
+        prev_end.isoformat(),
+    )
+
+
 async def sync_home_coming_emis_for_paid_enrollment_tx(tx: dict) -> None:
     """
     Update Home Coming ``clients.subscription.emis`` from a paid enrollment transaction.
@@ -1722,6 +1862,10 @@ async def sync_home_coming_emis_for_paid_enrollment_tx(tx: dict) -> None:
         proof_doc = await db.india_payment_proofs.find_one({"id": iid}, {"_id": 0})
         if proof_doc and (proof_doc.get("status") or "").strip().lower() == "approved":
             proof_like = _merge_india_proof_into_proof_like(proof_like, proof_doc, tx)
+    try:
+        await sync_home_coming_renewal_calendar_after_paid_enrollment_tx(tx, enrollment, proof_like)
+    except Exception as ex:
+        logger.warning("Home Coming renewal calendar sync: %s", ex)
     await _apply_home_coming_emi_payment_sync(
         client_id=pcid,
         proof=proof_like,
