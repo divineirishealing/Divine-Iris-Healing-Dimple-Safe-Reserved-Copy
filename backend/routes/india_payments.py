@@ -939,6 +939,62 @@ def _hc_emi_tier_label_from_context(ctx: dict) -> str:
     return "HC-EMI-1st"
 
 
+def _participant_row_identity_batch_key(r: dict) -> Tuple[str, str, str, str]:
+    """Stable key: participant (email or name), booker email, tier window."""
+    pem = (_clean_str(r.get("participant_email")) or "").strip().lower()
+    pnm = (_clean_str(r.get("participant_name")) or "").strip().lower()
+    be = (_clean_str(r.get("booker_email")) or "").strip().lower()
+    cs = _clean_str(r.get("chosen_start_date"))
+    ce = _clean_str(r.get("chosen_end_date"))
+    ident = pem if pem else f"name:{pnm}"
+    return (ident, be, cs, ce)
+
+
+def _participant_row_text_has_home_coming(row: dict) -> bool:
+    blob = " ".join(
+        [
+            _clean_str(row.get("participant_program_title")),
+            _clean_str(row.get("program")),
+        ]
+    ).lower()
+    compact = blob.replace(" ", "")
+    return "homecoming" in compact or "home coming" in blob
+
+
+def _dedupe_mixed_cart_shadow_participant_rows(rows: List[dict]) -> List[dict]:
+    """
+    When the same person is both (a) a non–Home-Coming line on a multi-seat enrollment and (b) the
+    only participant on another enrollment for the same batch window, drop (a). Matches portal order
+    history where the AWRP seat is its own checkout, not duplicated under the combined cart row.
+    """
+    solo_non_hc_keys = set()
+    for r in rows:
+        try:
+            tot = int(r.get("participant_total") or 0)
+        except (TypeError, ValueError):
+            tot = 0
+        if tot != 1:
+            continue
+        if _participant_row_text_has_home_coming(r):
+            continue
+        k = _participant_row_identity_batch_key(r)
+        if k[0] and k[1]:
+            solo_non_hc_keys.add(k)
+
+    out: List[dict] = []
+    for r in rows:
+        try:
+            tot = int(r.get("participant_total") or 0)
+        except (TypeError, ValueError):
+            tot = 0
+        if tot > 1 and not _participant_row_text_has_home_coming(r):
+            k = _participant_row_identity_batch_key(r)
+            if k in solo_non_hc_keys:
+                continue
+        out.append(r)
+    return out
+
+
 def build_participant_report_rows(
     enrollments: List[dict],
     txns_by_eid: Dict[str, List[dict]],
@@ -1169,7 +1225,7 @@ def build_participant_report_rows(
             for i, p in enumerate(participants, start=1):
                 push_row(p, i, booker_only=False)
 
-    return rows
+    return _dedupe_mixed_cart_shadow_participant_rows(rows)
 
 
 UPLOAD_DIR = ROOT_DIR / "uploads" / "payment_proofs"
