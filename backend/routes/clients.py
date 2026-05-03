@@ -949,16 +949,52 @@ HOME_COMING_SKU = "home_coming"
 _ANNUAL_RENEWAL_WARN_DAYS = 15
 
 
-def parse_annual_subscription_end_date(client: Dict[str, Any]) -> Optional[date]:
-    """Calendar end date from Client Garden ``annual_subscription`` (YYYY-MM-DD), or None."""
-    sub = client.get("annual_subscription") or {}
-    end = (sub.get("end_date") or "").strip()
-    if not end or len(end) < 10:
+def _parse_yyyy_mm_dd_field(val: Any) -> Optional[date]:
+    t = (str(val or "").strip())
+    if len(t) < 10:
         return None
     try:
-        return datetime.strptime(end[:10], "%Y-%m-%d").date()
+        return datetime.strptime(t[:10], "%Y-%m-%d").date()
     except ValueError:
         return None
+
+
+def effective_annual_portal_dates(client: Dict[str, Any]) -> Tuple[Optional[date], Optional[date], str]:
+    """
+    Calendar bounds for Sacred Home / Iris Annual Abundance lifecycle.
+
+    Dashboard renewal updates ``subscription.start_date`` / ``subscription.end_date``; Client Garden may still
+    hold the previous window in ``annual_subscription``. When subscription ends strictly after the CRM annual
+    end, treat the subscription row as authoritative so admin and portal stay aligned with the student dashboard.
+    """
+    asy = client.get("annual_subscription") or {}
+    sub = client.get("subscription") or {}
+    a_start = _parse_yyyy_mm_dd_field(asy.get("start_date"))
+    a_end = _parse_yyyy_mm_dd_field(asy.get("end_date"))
+    s_start = _parse_yyyy_mm_dd_field(sub.get("start_date"))
+    s_end = _parse_yyyy_mm_dd_field(sub.get("end_date"))
+    if s_end and a_end and s_end > a_end:
+        start = s_start or a_start
+        return start, s_end, "subscription"
+    if a_end:
+        start = a_start or s_start
+        return start, a_end, "annual_subscription"
+    if s_end:
+        start = s_start or a_start
+        return start, s_end, "subscription"
+    return None, None, "none"
+
+
+def parse_annual_subscription_end_date(client: Dict[str, Any]) -> Optional[date]:
+    """Effective annual portal calendar end (CRM window or subscription when renewed on the student dashboard)."""
+    _start, end, _src = effective_annual_portal_dates(client)
+    return end
+
+
+def parse_annual_subscription_start_date(client: Dict[str, Any]) -> Optional[date]:
+    """Effective annual portal calendar start (paired with :func:`parse_annual_subscription_end_date`)."""
+    start, _end, _src = effective_annual_portal_dates(client)
+    return start
 
 
 def utc_today() -> date:
@@ -975,36 +1011,55 @@ def annual_subscription_period_expired(client: Dict[str, Any]) -> bool:
 
 def annual_portal_lifecycle_payload(client: Dict[str, Any]) -> Dict[str, Any]:
     """Admin/student summary: active annual window, renewal window (see ``_ANNUAL_RENEWAL_WARN_DAYS``), or lapsed."""
+    start_d = parse_annual_subscription_start_date(client)
     end_d = parse_annual_subscription_end_date(client)
+    _es, _ee, win_src = effective_annual_portal_dates(client)
+    asy = client.get("annual_subscription") or {}
+    crm_start = _parse_yyyy_mm_dd_field(asy.get("start_date"))
+    crm_end = _parse_yyyy_mm_dd_field(asy.get("end_date"))
+    prior_crm = None
+    if win_src == "subscription" and crm_end and end_d and crm_end < end_d:
+        prior_crm = {
+            "start_date": crm_start.isoformat() if crm_start else None,
+            "end_date": crm_end.isoformat(),
+        }
+    start_s = start_d.isoformat() if start_d else None
+    end_s = end_d.isoformat() if end_d else None
     today = utc_today()
+    base_meta = {
+        "start_date": start_s,
+        "end_date": end_s,
+        "window_source": win_src,
+        "prior_crm_annual_window": prior_crm,
+    }
     if not end_d:
         return {
             "status": "no_end_date",
             "label": "No end date",
             "days_until_end": None,
             "end_date": None,
+            **base_meta,
         }
     days_left = (end_d - today).days
-    end_s = end_d.isoformat()
     if days_left < 0:
         return {
             "status": "expired",
             "label": "Lapsed",
             "days_until_end": days_left,
-            "end_date": end_s,
+            **base_meta,
         }
     if days_left <= _ANNUAL_RENEWAL_WARN_DAYS:
         return {
             "status": "renewal_due",
             "label": "Renewal due",
             "days_until_end": days_left,
-            "end_date": end_s,
+            **base_meta,
         }
     return {
         "status": "active",
         "label": "Active",
         "days_until_end": days_left,
-        "end_date": end_s,
+        **base_meta,
     }
 
 

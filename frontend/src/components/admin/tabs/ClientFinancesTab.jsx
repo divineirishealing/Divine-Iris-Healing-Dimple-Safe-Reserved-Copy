@@ -1,6 +1,17 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { Columns3, Filter, IndianRupee, Loader2, Pencil, RefreshCw, Search, X } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Columns3,
+  Filter,
+  IndianRupee,
+  Loader2,
+  Pencil,
+  RefreshCw,
+  Search,
+  X,
+} from 'lucide-react';
 import { getApiUrl } from '../../../lib/config';
 import { serverBandsToRows, validateBandRows, rowsToBandsPayload } from '../../../lib/indiaDiscountBandsUi';
 import { buildIndiaGpayOptions, buildIndiaBankOptions } from '../../../lib/indiaPaymentTags';
@@ -89,6 +100,41 @@ function formatAnnualDate(raw) {
   const s = (raw || '').trim();
   if (!s) return '—';
   return formatDateDdMonYyyy(s.slice(0, 10)) || s;
+}
+
+function sortedAnnualLedgerForFinance(cl) {
+  const raw = cl?.annual_period_ledger;
+  if (!Array.isArray(raw) || !raw.length) return [];
+  return [...raw].sort((a, b) => {
+    const ta = (a.archived_at || '').slice(0, 10);
+    const tb = (b.archived_at || '').slice(0, 10);
+    if (ta !== tb) return ta.localeCompare(tb);
+    return String(a.id || '').localeCompare(String(b.id || ''));
+  });
+}
+
+/** Effective Iris / Client Garden window for display (matches ``annual_portal_lifecycle`` after dashboard renewal). */
+function financeDisplayAnnualBounds(cl) {
+  const life = cl?.annual_portal_lifecycle;
+  const asub = cl?.annual_subscription || {};
+  const startRaw = (life?.start_date || '').trim() || (asub.start_date || '').trim();
+  const endRaw = (life?.end_date || '').trim() || (asub.end_date || '').trim();
+  return { startRaw, endRaw };
+}
+
+function financeAnnualExpansionParts(cl) {
+  const prior = cl?.annual_portal_lifecycle?.prior_crm_annual_window;
+  const led = sortedAnnualLedgerForFinance(cl);
+  const expand = !!(prior || led.length);
+  return { prior, led, expand };
+}
+
+function ledgerArchiveSourceLabel(source) {
+  if (!source) return '';
+  if (source === 'excel_import') return 'Excel import';
+  if (source === 'admin_patch') return 'Client Garden save';
+  if (source === 'admin_iris_year_renewal') return 'Iris year bump (finance grid)';
+  return source;
 }
 
 function subscriptionBlock(cl) {
@@ -388,7 +434,7 @@ const FINANCE_FILTERABLE_COL_IDS = new Set(
 
 function getFinanceFilterValue(r, colId) {
   if (!FINANCE_FILTERABLE_COL_IDS.has(colId)) return FINANCE_FILTER_BLANKS;
-  const asub = r?.annual_subscription || {};
+  const bounds = financeDisplayAnnualBounds(r);
   const life = r?.annual_portal_lifecycle;
   const rollup = r?.finance_payment_rollup;
   const fin = computedFinanceTotal(r);
@@ -399,9 +445,9 @@ function getFinanceFilterValue(r, colId) {
     case 'email':
       return (r.email || '').trim().toLowerCase() || FINANCE_FILTER_BLANKS;
     case 'start':
-      return (asub.start_date || '').trim() ? formatAnnualDate(asub.start_date) : FINANCE_FILTER_BLANKS;
+      return bounds.startRaw ? formatAnnualDate(bounds.startRaw) : FINANCE_FILTER_BLANKS;
     case 'end':
-      return (asub.end_date || '').trim() ? formatAnnualDate(asub.end_date) : FINANCE_FILTER_BLANKS;
+      return bounds.endRaw ? formatAnnualDate(bounds.endRaw) : FINANCE_FILTER_BLANKS;
     case 'status':
       return (life?.label || '').trim() || FINANCE_FILTER_BLANKS;
     case 'iris': {
@@ -686,6 +732,7 @@ export default function ClientFinancesTab() {
   const [financeGridEditId, setFinanceGridEditId] = useState(null);
   const [financeGridDraft, setFinanceGridDraft] = useState(null);
   const [financeGridSaving, setFinanceGridSaving] = useState(false);
+  const [financeExpanded, setFinanceExpanded] = useState({});
 
   useEffect(() => {
     if (!dialogOpen || !editing) return;
@@ -745,6 +792,11 @@ export default function ClientFinancesTab() {
   const cancelFinanceGridEdit = useCallback(() => {
     setFinanceGridEditId(null);
     setFinanceGridDraft(null);
+  }, []);
+
+  const toggleFinanceAnnualExpand = useCallback((rowKey) => {
+    if (!rowKey) return;
+    setFinanceExpanded((prev) => ({ ...prev, [rowKey]: !prev[rowKey] }));
   }, []);
 
   const startFinanceGridEdit = useCallback((rowCl) => {
@@ -930,7 +982,6 @@ export default function ClientFinancesTab() {
   const colCount = visibleColumns.length;
 
   const renderCell = (cl, colId, rowIndex) => {
-    const asub = cl.annual_subscription || {};
     const life = cl.annual_portal_lifecycle;
     const rollup = cl.finance_payment_rollup;
     const fin = computedFinanceTotal(cl);
@@ -962,6 +1013,7 @@ export default function ClientFinancesTab() {
       : showBankRow;
     const needAcctPick =
       (gpayPick && indiaGpayOpts.length >= 1) || (bankPick && indiaBankOpts.length >= 1);
+    const effAnnual = financeDisplayAnnualBounds(cl);
 
     switch (colId) {
       case 'sno':
@@ -970,12 +1022,37 @@ export default function ClientFinancesTab() {
             {rowIndex}
           </td>
         );
-      case 'name':
+      case 'name': {
+        const rowKey = cl.id || cl.email;
+        const { expand: finExpandable } = financeAnnualExpansionParts(cl);
+        const finExpanded = !!(rowKey && financeExpanded[rowKey]);
         return (
           <td className="py-2 pl-3 pr-2 align-top text-[10px] font-semibold text-gray-900 whitespace-nowrap">
-            {(cl.name || '').trim() || '—'}
+            <span className="inline-flex items-center gap-1 flex-wrap">
+              {finExpandable && rowKey ? (
+                <button
+                  type="button"
+                  className="shrink-0 rounded p-0.5 text-gray-500 hover:bg-gray-200/90 hover:text-gray-800"
+                  title={
+                    finExpanded
+                      ? 'Hide prior Client Garden window & archived periods'
+                      : 'Show prior Client Garden window & archived periods'
+                  }
+                  aria-expanded={finExpanded}
+                  onClick={() => toggleFinanceAnnualExpand(rowKey)}
+                >
+                  {finExpanded ? (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              ) : null}
+              <span>{(cl.name || '').trim() || '—'}</span>
+            </span>
           </td>
         );
+      }
       case 'email':
         return (
           <td className="py-2 px-2 align-top text-[10px] text-gray-600 max-w-[9rem] truncate" title={cl.email}>
@@ -985,21 +1062,33 @@ export default function ClientFinancesTab() {
       case 'start':
         return (
           <td className="py-2 px-2 align-top text-[10px] tabular-nums text-gray-800 whitespace-nowrap">
-            {formatAnnualDate(asub.start_date)}
+            {formatAnnualDate(effAnnual.startRaw)}
           </td>
         );
       case 'end':
         return (
           <td className="py-2 px-2 align-top text-[10px] tabular-nums text-gray-800 whitespace-nowrap">
-            {formatAnnualDate(asub.end_date)}
+            {formatAnnualDate(effAnnual.endRaw)}
           </td>
         );
       case 'status': {
         const lbl = life?.label ?? '—';
-        const active = String(lbl).toLowerCase() === 'active';
+        const low = String(lbl).toLowerCase();
+        const active = low === 'active';
+        const renewalDue = low === 'renewal due';
         return (
           <td className="py-2 px-2 align-top text-[10px] whitespace-nowrap">
-            <span className={active ? 'font-semibold text-green-700' : 'text-gray-800'}>{lbl}</span>
+            <span
+              className={
+                active
+                  ? 'font-semibold text-green-700'
+                  : renewalDue
+                    ? 'font-semibold text-amber-800'
+                    : 'text-gray-800'
+              }
+            >
+              {lbl}
+            </span>
           </td>
         );
       }
@@ -1811,20 +1900,105 @@ export default function ClientFinancesTab() {
                 </td>
               </tr>
             ) : (
-              displayedRows.map((cl, idx) => (
-                <tr
-                  key={cl.id || cl.email}
-                  className={`group border-b border-gray-100 align-top ${
-                    financeGridEditId === cl.id
-                      ? 'bg-amber-50/40 ring-1 ring-inset ring-amber-200/50'
-                      : 'bg-white hover:bg-amber-50/30'
-                  }`}
-                >
-                  {visibleColumns.map((c) => (
-                    <React.Fragment key={c.id}>{renderCell(cl, c.id, idx + 1)}</React.Fragment>
-                  ))}
-                </tr>
-              ))
+              displayedRows.map((cl, idx) => {
+                const rowKey = cl.id || cl.email;
+                const { prior, led, expand } = financeAnnualExpansionParts(cl);
+                const subExpanded = !!(rowKey && financeExpanded[rowKey]);
+                const rowLife = cl.annual_portal_lifecycle;
+                return (
+                  <React.Fragment key={rowKey}>
+                    <tr
+                      className={`group border-b border-gray-100 align-top ${
+                        financeGridEditId === cl.id
+                          ? 'bg-amber-50/40 ring-1 ring-inset ring-amber-200/50'
+                          : 'bg-white hover:bg-amber-50/30'
+                      }`}
+                    >
+                      {visibleColumns.map((c) => (
+                        <React.Fragment key={c.id}>{renderCell(cl, c.id, idx + 1)}</React.Fragment>
+                      ))}
+                    </tr>
+                    {expand && subExpanded ? (
+                      <tr className="border-b border-amber-100/90 bg-amber-50/30 align-top">
+                        <td colSpan={colCount} className="pl-8 pr-4 py-2.5 text-[10px] text-gray-800 leading-snug">
+                          {rowLife?.window_source === 'subscription' ? (
+                            <p className="text-[10px] font-medium text-violet-900/90 mb-2">
+                              Main row dates reflect the subscriber package (e.g. dashboard renewal). Details below
+                              are the prior Client Garden window and archived periods.
+                            </p>
+                          ) : null}
+                          {prior && (prior.start_date || prior.end_date) ? (
+                            <div className="mb-3 rounded border border-amber-200/80 bg-white/80 px-2.5 py-2">
+                              <p className="font-semibold text-gray-900">Previous Client Garden annual window</p>
+                              <p className="tabular-nums text-gray-800 mt-0.5">
+                                {formatAnnualDate(prior.start_date)} → {formatAnnualDate(prior.end_date)}
+                              </p>
+                              {cl.annual_member_dashboard ? (
+                                <p className="text-[10px] text-gray-600 mt-1">
+                                  Annual + Dashboard (roster) was on for that CRM period.
+                                </p>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          {led.length > 0 ? (
+                            <div>
+                              <p className="font-semibold text-gray-900 mb-1.5">Archived annual periods (ledger)</p>
+                              <ul className="space-y-2 max-h-56 overflow-y-auto">
+                                {led.map((e) => (
+                                  <li
+                                    key={e.id || `${e.archived_at}-${e.start_date}`}
+                                    className="border-b border-amber-100/90 pb-2 last:border-0 last:pb-0"
+                                  >
+                                    <p className="font-medium tabular-nums text-gray-800">
+                                      {formatAnnualDate(e.start_date)} → {formatAnnualDate(e.end_date)}
+                                      {e.annual_diid ? (
+                                        <span className="text-gray-600 font-normal"> · {e.annual_diid}</span>
+                                      ) : null}
+                                    </p>
+                                    {e.annual_program ? (
+                                      <p className="text-[10px] text-gray-700 mt-0.5">{e.annual_program}</p>
+                                    ) : null}
+                                    {e.total_fee != null && Number(e.total_fee) > 0 ? (
+                                      <p className="text-[10px] text-gray-700 mt-0.5 tabular-nums">
+                                        {Number(e.total_fee).toLocaleString()}{' '}
+                                        {(e.currency || subscriptionBlock(cl).currency || 'INR')
+                                          .toString()
+                                          .toUpperCase()}
+                                        {e.payment_mode ? (
+                                          <span className="text-gray-600">
+                                            {' '}
+                                            ·{' '}
+                                            {installmentModeLabel({
+                                              subscription: {
+                                                payment_mode: e.payment_mode,
+                                                emis: Array.isArray(e.emis) ? e.emis : [],
+                                              },
+                                            })}
+                                          </span>
+                                        ) : null}
+                                        {e.num_emis != null && Number(e.num_emis) > 0 ? (
+                                          <span className="text-gray-600"> · {Number(e.num_emis)} EMIs</span>
+                                        ) : null}
+                                      </p>
+                                    ) : null}
+                                    <p className="text-[10px] text-gray-500 mt-0.5">
+                                      Archived {formatAnnualDate((e.archived_at || '').slice(0, 10))}
+                                      {e.iris_year_at_archive != null
+                                        ? ` · Iris year ${e.iris_year_at_archive} at archive`
+                                        : ''}
+                                      {e.source ? ` · ${ledgerArchiveSourceLabel(e.source)}` : ''}
+                                    </p>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ) : null}
+                  </React.Fragment>
+                );
+              })
             )}
           </tbody>
         </table>
