@@ -243,6 +243,17 @@ function scaleScheduleRowsToTarget(rows, targetTotal) {
   return out;
 }
 
+function coerceDiscountPercent(value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const raw = String(value).replace(/,/g, '').trim();
+  if (!raw) return null;
+  const m = raw.match(/[-+]?\d*\.?\d+/);
+  if (!m) return null;
+  const n = Number(m[0]);
+  return Number.isFinite(n) ? n : null;
+}
+
 /** Rows for the illustrative schedule table (all payment modes). */
 function buildPaymentScheduleRows(mode, total, startYmd, durationMonths) {
   const totalNum = Math.max(0, Number(total) || 0);
@@ -473,7 +484,7 @@ export default function AnnualPackagePurchasePage() {
     const fam = homeData.immediate_family;
     const n = Math.max(1, 1 + (Array.isArray(fam) ? fam.length : 0));
     const cp = {
-      india_discount_percent: src.india_discount_percent,
+      india_discount_percent: coerceDiscountPercent(src.india_discount_percent),
       india_discount_member_bands: src.india_discount_member_bands,
     };
     const rule = resolveIndiaDiscountRule(cp, n, 0);
@@ -514,7 +525,7 @@ export default function AnnualPackagePurchasePage() {
     const fam = homeData.immediate_family;
     const n = Math.max(1, 1 + (Array.isArray(fam) ? fam.length : 0));
     const cp = {
-      india_discount_percent: src.india_discount_percent,
+      india_discount_percent: coerceDiscountPercent(src.india_discount_percent),
       india_discount_member_bands: src.india_discount_member_bands,
     };
     return resolveIndiaDiscountRule(cp, n, 0);
@@ -533,7 +544,7 @@ export default function AnnualPackagePurchasePage() {
     const fam = homeData.immediate_family;
     const n = Math.max(1, 1 + (Array.isArray(fam) ? fam.length : 0));
     const cp = {
-      india_discount_percent: src.india_discount_percent,
+      india_discount_percent: coerceDiscountPercent(src.india_discount_percent),
       india_discount_member_bands: src.india_discount_member_bands,
     };
     const rule = resolveIndiaDiscountRule(cp, n, 0);
