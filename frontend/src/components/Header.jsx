@@ -114,10 +114,17 @@ const Header = () => {
   const pillFont = offer.pill_font || 'Lato';
   const bannerColor = offer.banner_color || '#dc2626';
 
-  /** Upcoming programs with a deadline/start for offer banner — earliest first; show up to 3 badges. */
+  /** Upcoming programs still open for registration — earliest closing first; show up to 3 badges. */
   const MAX_OFFER_BANNER_PROGRAMS = 3;
+  const nowTs = Date.now();
   const upcomingProgramsForBanner = programs
-    .filter((p) => p.is_upcoming && (p.deadline_date || p.start_date))
+    .filter((p) => {
+      if (!p.is_upcoming) return false;
+      const endRaw = p.deadline_date || p.start_date;
+      if (!endRaw) return false;
+      const endTs = new Date(endRaw).getTime();
+      return Number.isFinite(endTs) && endTs > nowTs;
+    })
     .sort((a, b) => String(a.deadline_date || a.start_date).localeCompare(String(b.deadline_date || b.start_date)))
     .slice(0, MAX_OFFER_BANNER_PROGRAMS);
   const bannerEnabled = offer.banner_enabled && upcomingProgramsForBanner.length > 0;
