@@ -2359,7 +2359,7 @@ export default function AnnualPackagePurchasePage() {
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[rgba(80,55,145,0.55)] px-3 py-2.5 bg-[rgba(250,245,255,0.7)] border-b border-[rgba(160,100,240,0.08)]">
                       {scheduleTitle}
                     </p>
-                    <div className="overflow-x-auto max-h-[min(28rem,70vh)] overflow-y-auto">
+                    <div className="overflow-x-auto">
                       <table className="w-full min-w-[720px] table-fixed border-collapse text-center text-[10px]">
                         <colgroup>
                           <col style={{ width: '7%' }} />
