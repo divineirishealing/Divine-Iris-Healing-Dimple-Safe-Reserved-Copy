@@ -2996,6 +2996,12 @@ async def _reconcile_home_coming_upgrade_from_paid_transactions(client_doc: dict
     if not ors:
         return
 
+    settings_pin = await db.site_settings.find_one(
+        {"id": "site_settings"},
+        {"_id": 0, "dashboard_sacred_home_annual_program_id": 1},
+    )
+    pin_annual_id = str((settings_pin or {}).get("dashboard_sacred_home_annual_program_id") or "").strip()
+
     txs = (
         await db.payment_transactions.find(
             {
@@ -3016,7 +3022,12 @@ async def _reconcile_home_coming_upgrade_from_paid_transactions(client_doc: dict
 
     for tx in txs:
         try:
-            await sync_home_coming_emis_for_paid_enrollment_tx(tx)
+            tx_use = dict(tx)
+            if pin_annual_id and str(tx_use.get("item_id") or "").strip() == pin_annual_id:
+                # Legacy Home Coming renewals were stored with AWRP item_title; force HC context for sync.
+                tx_use["item_title"] = str(tx_use.get("item_title") or "Home Coming Package")
+                tx_use["program_title"] = str(tx_use.get("program_title") or "Home Coming Package")
+            await sync_home_coming_emis_for_paid_enrollment_tx(tx_use)
         except Exception as ex:
             logger.warning("Home Coming paid-transaction reconcile skip tx=%s: %s", tx.get("id"), ex)
 
