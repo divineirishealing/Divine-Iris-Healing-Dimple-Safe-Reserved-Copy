@@ -1247,7 +1247,12 @@ export default function AnnualPackagePurchasePage() {
         map.set(row.key, {
           paidAtYmd: when.slice(0, 10),
           stripeSessionId: String(o.stripe_session_id || '').trim(),
-          paymentMethod: String(o.india_payment_method || o.payment_method || 'razorpay').trim(),
+          paymentMethod: String(
+            o.india_payment_method ||
+              o.payment_method ||
+              o.payment_provider ||
+              (o.stripe_session_id ? 'stripe' : 'stripe'),
+          ).trim(),
         });
         break;
       }
@@ -2442,7 +2447,7 @@ export default function AnnualPackagePurchasePage() {
                                         '',
                                       payment_method:
                                         portalEmiMatch?.paymentMethod ||
-                                        (portalPayFullMatchesRow ? 'stripe' : 'razorpay'),
+                                        'stripe',
                                     }
                                   : emiRow;
                             let paidDateCell = '—';
