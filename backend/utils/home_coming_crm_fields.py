@@ -2,7 +2,29 @@
 
 from __future__ import annotations
 
+import math
+import re
 from typing import Any, Dict, Optional
+
+
+def _coerce_percent(value: Any) -> Optional[float]:
+    """Accept plain numbers and loose strings like ``8.25 (relax)``."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        n = float(value)
+        return n if math.isfinite(n) else None
+    raw = str(value).replace(",", "").strip()
+    if not raw:
+        return None
+    m = re.search(r"[-+]?\d*\.?\d+", raw)
+    if not m:
+        return None
+    try:
+        n = float(m.group(0))
+    except (TypeError, ValueError):
+        return None
+    return n if math.isfinite(n) else None
 
 
 def home_coming_crm_discount_fields(client: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -17,11 +39,11 @@ def home_coming_crm_discount_fields(client: Optional[Dict[str, Any]]) -> Dict[st
     c = client or {}
     if "home_coming_india_discount_percent" in c or "home_coming_india_discount_member_bands" in c:
         return {
-            "india_discount_percent": c.get("home_coming_india_discount_percent"),
+            "india_discount_percent": _coerce_percent(c.get("home_coming_india_discount_percent")),
             "india_discount_member_bands": c.get("home_coming_india_discount_member_bands"),
         }
     return {
-        "india_discount_percent": c.get("india_discount_percent"),
+        "india_discount_percent": _coerce_percent(c.get("india_discount_percent")),
         "india_discount_member_bands": c.get("india_discount_member_bands"),
     }
 
