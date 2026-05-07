@@ -1839,12 +1839,14 @@ async def sync_home_coming_renewal_calendar_after_paid_enrollment_tx(
     prev_start, prev_end, _src = effective_annual_portal_dates(cl)
     if not prev_end:
         return
-    if pay_d <= prev_end:
-        return
 
     prefs = cl.get("annual_package_offer_prefs") if isinstance(cl.get("annual_package_offer_prefs"), dict) else {}
     desired_raw = str(prefs.get("desired_start_date") or "").strip()[:10]
     desired_d = _parse_ymd_loose(desired_raw) if len(desired_raw) == 10 else None
+    # Allow valid early renewals: if member already picked a next-cycle start date after current end,
+    # do not block rollover just because payment arrived before previous window end date.
+    if pay_d <= prev_end and not (desired_d and desired_d > prev_end):
+        return
 
     sub0 = cl.get("subscription") or {}
     pkg_id = (sub0.get("package_id") or "").strip()
