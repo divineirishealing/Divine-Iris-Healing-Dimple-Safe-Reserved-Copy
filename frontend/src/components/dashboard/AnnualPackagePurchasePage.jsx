@@ -227,6 +227,22 @@ function buildPaymentScheduleRowsFromCrmEmis(emis) {
   }));
 }
 
+function scaleScheduleRowsToTarget(rows, targetTotal) {
+  const list = Array.isArray(rows) ? rows : [];
+  const target = Number(targetTotal);
+  if (!Number.isFinite(target) || target <= 0 || list.length === 0) return list;
+  const base = list.reduce((sum, r) => sum + (Number.isFinite(Number(r.amount)) ? Number(r.amount) : 0), 0);
+  if (!Number.isFinite(base) || base <= 0) return list;
+  const scale = target / base;
+  const out = list.map((r) => ({ ...r, amount: Math.round((Number(r.amount) || 0) * scale * 100) / 100 }));
+  const drift = Math.round((target - out.reduce((s, r) => s + (Number(r.amount) || 0), 0)) * 100) / 100;
+  if (Math.abs(drift) >= 0.01) {
+    const lastIdx = out.length - 1;
+    out[lastIdx] = { ...out[lastIdx], amount: Math.round(((Number(out[lastIdx].amount) || 0) + drift) * 100) / 100 };
+  }
+  return out;
+}
+
 /** Rows for the illustrative schedule table (all payment modes). */
 function buildPaymentScheduleRows(mode, total, startYmd, durationMonths) {
   const totalNum = Math.max(0, Number(total) || 0);
@@ -487,6 +503,23 @@ export default function AnnualPackagePurchasePage() {
     };
   }, [catalogAmountHub, homeData, baseCurrency, toDisplay]);
 
+  const homeComingCourtesyRule = useMemo(() => {
+    if (!homeData) return null;
+    const src = homeData.client_discount_source;
+    if (!src) return null;
+    const hasBands =
+      Array.isArray(src.india_discount_member_bands) && src.india_discount_member_bands.length > 0;
+    const hasPct = src.india_discount_percent != null && src.india_discount_percent !== '';
+    if (!hasBands && !hasPct) return null;
+    const fam = homeData.immediate_family;
+    const n = Math.max(1, 1 + (Array.isArray(fam) ? fam.length : 0));
+    const cp = {
+      india_discount_percent: src.india_discount_percent,
+      india_discount_member_bands: src.india_discount_member_bands,
+    };
+    return resolveIndiaDiscountRule(cp, n, 0);
+  }, [homeData]);
+
   /** Iris Annual Abundance courtesy on on-file package fee — shown only on this page (Sacred Exchange uses raw totals). */
   const onFilePackageCourtesyBreakdown = useMemo(() => {
     const baseRaw = Number(fin.base_package_fee || fin.total_fee || 0);
@@ -544,6 +577,25 @@ export default function AnnualPackagePurchasePage() {
         Number(v) >= 0,
     );
   }, [catalogOfferTotal]);
+
+  const catalogAllPositiveEntriesCourtesyAdjusted = useMemo(() => {
+    if (!homeComingCourtesyRule) return catalogAllPositiveEntries;
+    return catalogAllPositiveEntries.map(([k, v]) => {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n <= 0) return [k, v];
+      if (
+        homeComingCourtesyRule.mode === 'amount' &&
+        Number(homeComingCourtesyRule.amountInr || 0) > 0 &&
+        String(k || '').toLowerCase() !== 'inr'
+      ) {
+        return [k, v];
+      }
+      const applied = applyIndiaDiscountRuleToBase(n, homeComingCourtesyRule);
+      const discountAmt = Number(applied.discountAmt || 0);
+      if (!(discountAmt > 0)) return [k, v];
+      return [k, Math.max(0, Math.round((n - discountAmt) * 100) / 100)];
+    });
+  }, [catalogAllPositiveEntries, homeComingCourtesyRule]);
 
   const lap = homeData?.last_annual_package;
   const portalLife = homeData?.annual_portal_lifecycle;
@@ -1061,10 +1113,23 @@ export default function AnnualPackagePurchasePage() {
 
   const paymentScheduleRows = useMemo(() => {
     if (useCrmMonthlyEmiSchedule) {
-      return buildPaymentScheduleRowsFromCrmEmis(emis);
+      const rows = buildPaymentScheduleRowsFromCrmEmis(emis);
+      if (onFileCourtesyAdjustedTotal != null && Number(fin.total_fee || 0) > 0) {
+        return scaleScheduleRowsToTarget(rows, onFileCourtesyAdjustedTotal);
+      }
+      return rows;
     }
     return buildPaymentScheduleRows(paymentMode, scheduleSplitTotal, scheduleBasisYmd, durationMonths);
-  }, [useCrmMonthlyEmiSchedule, emis, paymentMode, scheduleSplitTotal, scheduleBasisYmd, durationMonths]);
+  }, [
+    useCrmMonthlyEmiSchedule,
+    emis,
+    onFileCourtesyAdjustedTotal,
+    fin.total_fee,
+    paymentMode,
+    scheduleSplitTotal,
+    scheduleBasisYmd,
+    durationMonths,
+  ]);
 
   /**
    * When ``subscription.emis`` lags paid Razorpay/Stripe/manual-receipt orders, match each unpaid CRM
@@ -1958,12 +2023,12 @@ export default function AnnualPackagePurchasePage() {
                           {(baseCurrency || 'aed').toUpperCase()} under <span className="font-semibold">Home Coming catalog</span>{' '}
                           → package offer.
                         </p>
-                        {catalogAllPositiveEntries.length > 0 ? (
+                        {catalogAllPositiveEntriesCourtesyAdjusted.length > 0 ? (
                           <div className="pt-2 mt-2 border-t border-violet-100/80 space-y-1">
                             <p className="text-[9px] uppercase tracking-wide text-[rgba(100,55,155,0.4)] font-semibold">
                               Catalog (other hubs)
                             </p>
-                            {catalogAllPositiveEntries.map(([k, v]) => (
+                            {catalogAllPositiveEntriesCourtesyAdjusted.map(([k, v]) => (
                               <p
                                 key={String(k)}
                                 className="text-[11px] font-semibold tabular-nums text-[rgba(60,35,115,0.75)]"
@@ -1974,9 +2039,9 @@ export default function AnnualPackagePurchasePage() {
                           </div>
                         ) : null}
                       </div>
-                    ) : catalogAllPositiveEntries.length > 0 ? (
+                    ) : catalogAllPositiveEntriesCourtesyAdjusted.length > 0 ? (
                       <div className="space-y-1">
-                        {catalogAllPositiveEntries.map(([k, v]) => (
+                        {catalogAllPositiveEntriesCourtesyAdjusted.map(([k, v]) => (
                           <p
                             key={String(k)}
                             className="text-[1.35rem] sm:text-[1.5rem] font-bold text-[#1a0a3d] tabular-nums"
