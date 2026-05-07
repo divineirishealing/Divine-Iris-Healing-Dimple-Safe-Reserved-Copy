@@ -2571,7 +2571,7 @@ export default function AnnualPackagePurchasePage() {
                           <tfoot>
                             <tr className="bg-[rgba(244,240,255,0.95)] border-t-2 border-[rgba(160,100,240,0.22)] text-[#3b0764]">
                               <td colSpan={2} className="px-1.5 py-2.5 text-left text-[9px] font-bold uppercase tracking-wide">
-                                TOTAL PAID
+                                TOTAL ROW
                                 {paymentScheduleEmiRowCount > 0
                                   ? ` · ${paymentScheduleEmiRowCount} INSTALLMENT${paymentScheduleEmiRowCount !== 1 ? 'S' : ''}`
                                   : null}
@@ -2579,11 +2579,11 @@ export default function AnnualPackagePurchasePage() {
                               <td className="py-2.5 text-[9px] text-[rgba(80,55,145,0.55)]">—</td>
                               <td className="px-1.5 py-2.5 text-[10px] font-bold tabular-nums">
                                 {symbol}
-                                {Number(toDisplay(paymentSchedulePaidTotal)).toLocaleString()}
+                                {Number(toDisplay(paymentScheduleNumericTotal)).toLocaleString()}
                               </td>
                               <td colSpan={3} className="px-1.5 py-2.5 text-[9px] text-[rgba(80,55,145,0.65)] text-left font-semibold uppercase tracking-wide">
-                                PAID SO FAR · SCHEDULE TOTAL {symbol}
-                                {Number(toDisplay(paymentScheduleNumericTotal)).toLocaleString()}
+                                TOTAL PAID {symbol}
+                                {Number(toDisplay(paymentSchedulePaidTotal)).toLocaleString()}
                               </td>
                             </tr>
                           </tfoot>
