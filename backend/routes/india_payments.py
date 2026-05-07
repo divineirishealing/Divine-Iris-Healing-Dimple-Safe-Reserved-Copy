@@ -1817,7 +1817,11 @@ async def sync_home_coming_renewal_calendar_after_paid_enrollment_tx(
     ``annual_subscription`` start/end so admin lifecycle and finance grids match the dashboard.
     """
     from routes.student import _add_months_subscription_end, _parse_ymd_loose
-    from routes.clients import effective_annual_portal_dates, _program_detail_row_looks_annual_bundle
+    from routes.clients import (
+        effective_annual_portal_dates,
+        _program_detail_row_looks_annual_bundle,
+        _append_annual_period_ledger,
+    )
 
     if not tx or str(tx.get("payment_status") or "").lower() != "paid":
         return
@@ -1889,6 +1893,7 @@ async def sync_home_coming_renewal_calendar_after_paid_enrollment_tx(
         return
 
     sub = dict(sub0)
+    prev_sub_snapshot = dict(sub0)
     start_iso = start_d.isoformat()
     sub["start_date"] = start_iso
     sub["end_date"] = end_s[:10]
@@ -1899,12 +1904,32 @@ async def sync_home_coming_renewal_calendar_after_paid_enrollment_tx(
                 p["start_date"] = start_iso
                 p["end_date"] = end_s[:10]
     asy = dict(cl.get("annual_subscription") or {})
+    old_iris_year = None
+    try:
+        old_iris_year = int(sub0.get("iris_year") or 1)
+    except (TypeError, ValueError):
+        old_iris_year = None
+    if old_iris_year is not None:
+        sub["iris_year"] = max(1, min(12, old_iris_year + 1))
     asy["start_date"] = start_iso
     asy["end_date"] = end_s[:10]
+    if old_iris_year is not None:
+        asy["iris_year"] = max(1, min(12, old_iris_year + 1))
+    ledger = _append_annual_period_ledger(
+        cl,
+        prev_sub_snapshot,
+        sub,
+        source="home_coming_paid_upgrade",
+        iris_year=old_iris_year,
+        fee_snapshot=prev_sub_snapshot,
+    )
     now = datetime.now(timezone.utc).isoformat()
+    set_doc = {"subscription": sub, "annual_subscription": asy, "updated_at": now}
+    if ledger is not None:
+        set_doc["annual_period_ledger"] = ledger
     await db.clients.update_one(
         {"id": pcid},
-        {"$set": {"subscription": sub, "annual_subscription": asy, "updated_at": now}},
+        {"$set": set_doc},
     )
     logger.info(
         "Home Coming renewal calendar synced client=%s start=%s end=%s (paid=%s prev_end=%s)",
