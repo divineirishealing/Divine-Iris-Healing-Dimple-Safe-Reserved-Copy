@@ -789,6 +789,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
     const s = p.enrollment_status || (p.enrollment_open !== false ? 'open' : 'closed');
     return s === 'open';
   });
+  const hasOpenRegistrations = openVisiblePrograms.length > 0;
 
   const applyTitleStyle = (styleObj, defaults) => {
     if (!styleObj) return defaults;
@@ -856,7 +857,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
               ))}
 
               {/* Combo Discount Banner — spans full width below cards on mobile, beside sponsor on desktop */}
-              {comboDiscount && comboDiscount.rules?.length > 0 && (
+              {hasOpenRegistrations && comboDiscount && comboDiscount.rules?.length > 0 && (
                 <div className="lg:hidden col-span-full" data-testid="combo-banner-mobile">
                   <ComboBanner programs={openVisiblePrograms} comboRules={comboDiscount.rules} />
                 </div>
@@ -874,14 +875,14 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
       )}
 
       {/* Combo Banner — desktop full width below grid */}
-      {!inline && comboDiscount && comboDiscount.rules?.length > 0 && (
+      {!inline && hasOpenRegistrations && comboDiscount && comboDiscount.rules?.length > 0 && (
         <div className="hidden lg:block mt-6">
           <ComboBanner programs={openVisiblePrograms} comboRules={comboDiscount.rules} />
         </div>
       )}
 
       {/* Cross-Sell Strips — full width below cards */}
-      {!inline && crossSellRules.length > 0 && (
+      {!inline && hasOpenRegistrations && crossSellRules.length > 0 && (
         <div className="mt-4">
           <CrossSellBanner rules={crossSellRules} programs={catalogForDiscounts} />
         </div>
