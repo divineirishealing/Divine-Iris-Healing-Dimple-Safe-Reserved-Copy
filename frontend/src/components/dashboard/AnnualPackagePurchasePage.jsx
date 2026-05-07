@@ -1264,6 +1264,36 @@ export default function AnnualPackagePurchasePage() {
     return Math.round(s * 100) / 100;
   }, [paymentScheduleRows]);
 
+  const paymentSchedulePaidTotal = useMemo(() => {
+    let paid = 0;
+    for (const row of paymentScheduleRows) {
+      const amt = Number(row.amount);
+      if (row.amount == null || row.amountDisplay != null || Number.isNaN(amt)) continue;
+      const k = String(row.key || '');
+      if (!(k.startsWith('emi-') || k === 'pay-full' || k === 'flex-ref')) continue;
+      const n = Number(row.n);
+      const emiRow = Number.isFinite(n) ? emiByNumber.get(n) : null;
+      const portalPayFullMatchesRow =
+        portalHomeComingPaidInfo &&
+        paymentMode === 'full' &&
+        k === 'pay-full' &&
+        Math.abs(Number(portalHomeComingPaidInfo.amount) - amt) <= Math.max(2, Math.abs(amt) * 0.025);
+      const crmEmiPaid = emiRow && String(emiRow.status || '').toLowerCase() === 'paid';
+      const portalEmiMatch = portalEmiInstallmentMatches.get(k) || null;
+      const syntheticPaidRow = Boolean(
+        (portalPayFullMatchesRow && !crmEmiPaid) || (portalEmiMatch && !crmEmiPaid),
+      );
+      if (crmEmiPaid || syntheticPaidRow) paid += amt;
+    }
+    return Math.round(paid * 100) / 100;
+  }, [
+    paymentScheduleRows,
+    emiByNumber,
+    portalHomeComingPaidInfo,
+    paymentMode,
+    portalEmiInstallmentMatches,
+  ]);
+
   const paymentScheduleEmiRowCount = useMemo(
     () => paymentScheduleRows.filter((r) => String(r.key || '').startsWith('emi-')).length,
     [paymentScheduleRows],
@@ -2533,7 +2563,7 @@ export default function AnnualPackagePurchasePage() {
                           <tfoot>
                             <tr className="bg-[rgba(244,240,255,0.95)] border-t-2 border-[rgba(160,100,240,0.22)] text-[#3b0764]">
                               <td colSpan={2} className="px-1.5 py-2.5 text-left text-[9px] font-bold uppercase tracking-wide">
-                                ROW TOTAL
+                                TOTAL PAID
                                 {paymentScheduleEmiRowCount > 0
                                   ? ` · ${paymentScheduleEmiRowCount} INSTALLMENT${paymentScheduleEmiRowCount !== 1 ? 'S' : ''}`
                                   : null}
@@ -2541,10 +2571,11 @@ export default function AnnualPackagePurchasePage() {
                               <td className="py-2.5 text-[9px] text-[rgba(80,55,145,0.55)]">—</td>
                               <td className="px-1.5 py-2.5 text-[10px] font-bold tabular-nums">
                                 {symbol}
-                                {Number(toDisplay(paymentScheduleNumericTotal)).toLocaleString()}
+                                {Number(toDisplay(paymentSchedulePaidTotal)).toLocaleString()}
                               </td>
                               <td colSpan={3} className="px-1.5 py-2.5 text-[9px] text-[rgba(80,55,145,0.65)] text-left font-semibold uppercase tracking-wide">
-                                ILLUSTRATIVE TOTAL · MATCHES QUOTED BUNDLE
+                                PAID SO FAR · SCHEDULE TOTAL {symbol}
+                                {Number(toDisplay(paymentScheduleNumericTotal)).toLocaleString()}
                               </td>
                             </tr>
                           </tfoot>
