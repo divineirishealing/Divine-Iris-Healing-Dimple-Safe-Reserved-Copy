@@ -2581,9 +2581,14 @@ export default function AnnualPackagePurchasePage() {
                                 {symbol}
                                 {Number(toDisplay(paymentScheduleNumericTotal)).toLocaleString()}
                               </td>
-                              <td colSpan={3} className="px-1.5 py-2.5 text-[9px] text-[rgba(80,55,145,0.65)] text-left font-semibold uppercase tracking-wide">
-                                TOTAL PAID {symbol}
-                                {Number(toDisplay(paymentSchedulePaidTotal)).toLocaleString()}
+                              <td colSpan={3} className="px-1.5 py-2.5 text-left">
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/70 bg-emerald-50/95 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide text-emerald-800 shadow-sm">
+                                  TOTAL PAID
+                                  <span className="tabular-nums text-[10px] text-emerald-900">
+                                    {symbol}
+                                    {Number(toDisplay(paymentSchedulePaidTotal)).toLocaleString()}
+                                  </span>
+                                </span>
                               </td>
                             </tr>
                           </tfoot>
