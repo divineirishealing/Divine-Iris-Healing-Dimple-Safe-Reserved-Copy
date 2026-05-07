@@ -489,7 +489,7 @@ export default function AnnualPackagePurchasePage() {
 
   /** Iris Annual Abundance courtesy on on-file package fee — shown only on this page (Sacred Exchange uses raw totals). */
   const onFilePackageCourtesyBreakdown = useMemo(() => {
-    const baseRaw = Number(fin.base_package_fee || 0);
+    const baseRaw = Number(fin.base_package_fee || fin.total_fee || 0);
     if (!(baseRaw > 0) || !homeData) return null;
     const src = homeData.client_discount_source;
     if (!src) return null;
@@ -511,12 +511,19 @@ export default function AnnualPackagePurchasePage() {
     const applied = applyIndiaDiscountRuleToBase(baseRaw, rule);
     const discountAmt = Math.round(Number(applied.discountAmt || 0) * 100) / 100;
     if (discountAmt <= 0) return null;
+    const finalNum = Math.max(0, Math.round((baseRaw - discountAmt) * 100) / 100);
     const pctLabel =
       applied.discountKind === 'percent' && applied.discountNominalPercent != null
         ? `${Number(applied.discountNominalPercent).toFixed(1).replace(/\.0$/, '')}%`
         : null;
-    return { discountAmt, pctLabel };
-  }, [fin.base_package_fee, fin.currency, homeData, baseCurrency]);
+    return { baseRaw, discountAmt, finalNum, pctLabel };
+  }, [fin.base_package_fee, fin.total_fee, fin.currency, homeData, baseCurrency]);
+
+  const onFileCourtesyAdjustedTotal = useMemo(() => {
+    if (!onFilePackageCourtesyBreakdown) return null;
+    const n = Number(onFilePackageCourtesyBreakdown.finalNum);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [onFilePackageCourtesyBreakdown]);
 
   const catalogOtherCurrencies = useMemo(() => {
     if (!catalogOfferTotal || typeof catalogOfferTotal !== 'object') return [];
@@ -1011,10 +1018,16 @@ export default function AnnualPackagePurchasePage() {
   /** Basis for splitting the payment schedule: admin CRM fee when set for renewal/EMI, else program quote, else catalog. */
   const scheduleSplitTotal = useMemo(() => {
     const onFileFee = Number(fin.total_fee || 0);
-    if (preferCrmAnnualScheduleTotal && onFileFee > 0) return onFileFee;
+    if (preferCrmAnnualScheduleTotal && onFileFee > 0) {
+      return onFileCourtesyAdjustedTotal != null ? onFileCourtesyAdjustedTotal : onFileFee;
+    }
     if (totalRaw > 0) return totalRaw;
-    if (crmSubscriptionFeeMatchesHub && onFileFee > 0) return onFileFee;
-    if (preferOnFilePackagePricing && onFileFee > 0) return onFileFee;
+    if (crmSubscriptionFeeMatchesHub && onFileFee > 0) {
+      return onFileCourtesyAdjustedTotal != null ? onFileCourtesyAdjustedTotal : onFileFee;
+    }
+    if (preferOnFilePackagePricing && onFileFee > 0) {
+      return onFileCourtesyAdjustedTotal != null ? onFileCourtesyAdjustedTotal : onFileFee;
+    }
     if (
       catalogCourtesyBreakdown != null &&
       Number(catalogCourtesyBreakdown.finalNum) > 0
@@ -1028,6 +1041,7 @@ export default function AnnualPackagePurchasePage() {
     preferOnFilePackagePricing,
     crmSubscriptionFeeMatchesHub,
     fin.total_fee,
+    onFileCourtesyAdjustedTotal,
     totalRaw,
     catalogAmountHub,
     catalogCourtesyBreakdown,
@@ -1736,12 +1750,14 @@ export default function AnnualPackagePurchasePage() {
                           Your renewal energy exchange
                         </p>
                         {onFilePackageCourtesyBreakdown != null &&
-                        Number(fin.base_package_fee || 0) > 0 ? (
+                        Number(onFilePackageCourtesyBreakdown.baseRaw || 0) > 0 ? (
                           <>
                             <p className="text-left">
                               <span className="text-xl sm:text-2xl font-semibold text-[rgba(80,55,145,0.45)] tabular-nums line-through decoration-[rgba(120,80,160,0.35)]">
                                 {symbol}
-                                {Number(toDisplay(Number(fin.base_package_fee))).toLocaleString()}
+                                {Number(
+                                  toDisplay(Number(onFilePackageCourtesyBreakdown.baseRaw || 0)),
+                                ).toLocaleString()}
                               </span>{' '}
                               <span className="text-sm font-medium text-[rgba(80,55,145,0.45)]">
                                 {(sacredMoneyCurrency || 'INR')}
@@ -1769,7 +1785,15 @@ export default function AnnualPackagePurchasePage() {
                         <p className="text-left">
                           <span className="text-[2rem] sm:text-[2.35rem] font-bold text-[#1a0a3d] tabular-nums tracking-tight">
                             {symbol}
-                            {Number(toDisplay(Number(fin.total_fee || 0))).toLocaleString()}
+                            {Number(
+                              toDisplay(
+                                Number(
+                                  onFileCourtesyAdjustedTotal != null
+                                    ? onFileCourtesyAdjustedTotal
+                                    : fin.total_fee || 0,
+                                ),
+                              ),
+                            ).toLocaleString()}
                           </span>{' '}
                           <span className="text-lg font-semibold text-[rgba(80,55,145,0.55)]">
                             {(sacredMoneyCurrency || 'AED')}
@@ -1801,7 +1825,15 @@ export default function AnnualPackagePurchasePage() {
                         <p className="text-left">
                           <span className="text-[2rem] sm:text-[2.35rem] font-bold text-[#1a0a3d] tabular-nums tracking-tight">
                             {symbol}
-                            {Number(toDisplay(Number(fin.total_fee || 0))).toLocaleString()}
+                            {Number(
+                              toDisplay(
+                                Number(
+                                  onFileCourtesyAdjustedTotal != null
+                                    ? onFileCourtesyAdjustedTotal
+                                    : fin.total_fee || 0,
+                                ),
+                              ),
+                            ).toLocaleString()}
                           </span>{' '}
                           <span className="text-lg font-semibold text-[rgba(80,55,145,0.55)]">
                             {(sacredMoneyCurrency || 'AED')}
