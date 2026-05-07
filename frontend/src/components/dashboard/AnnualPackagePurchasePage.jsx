@@ -1209,17 +1209,20 @@ export default function AnnualPackagePurchasePage() {
   const portalEmiInstallmentMatches = useMemo(() => {
     const hub = String(baseCurrency || '').toLowerCase();
     const list = Array.isArray(portalOrders) ? portalOrders : [];
-    const candidates = list.filter((o) => {
+    const baseCandidates = list.filter((o) => {
       if (!o || o.is_free) return false;
       if (String(o.payment_status || '').toLowerCase() !== 'paid') return false;
-      const title = String(o.item_title || '').toLowerCase();
-      if (!title.includes('home coming')) return false;
       const amt = Number(o.amount);
       if (!Number.isFinite(amt) || amt <= 0) return false;
       const cur = String(o.currency || '').toLowerCase();
       if (hub && cur && cur !== hub) return false;
       return true;
     });
+    const strictCandidates = baseCandidates.filter((o) =>
+      String(o.item_title || '').toLowerCase().includes('home coming'),
+    );
+    // Legacy rows may carry AWRP title for Home Coming EMI transactions.
+    const candidates = strictCandidates.length > 0 ? strictCandidates : baseCandidates;
     candidates.sort((a, b) => {
       const ta = new Date(a.created_at || a.updated_at || 0).getTime();
       const tb = new Date(b.created_at || b.updated_at || 0).getTime();

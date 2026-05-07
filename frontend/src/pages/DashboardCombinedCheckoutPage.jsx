@@ -1646,6 +1646,15 @@ export default function DashboardCombinedCheckoutPage() {
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
         client_declared_payable: displayCheckoutTotal,
+        ...(homeComingAnnualOfferPlan &&
+        homeComingAnnualOfferPlan.mode !== 'full' &&
+        homeComingAnnualOfferPlan.mode !== 'emi_flexi'
+          ? {
+              checkout_is_emi: true,
+              checkout_emi_months_covered: String(homeComingAnnualOfferPlan.payInstallmentN || 1),
+              home_coming_pay_installment_n: Number(homeComingAnnualOfferPlan.payInstallmentN || 1),
+            }
+          : {}),
       });
       if (res.data.url === '__FREE_SUCCESS__') {
         suppressEmptyCartRedirectRef.current = true;

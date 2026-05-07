@@ -204,6 +204,18 @@ class EnrollmentSubmit(BaseModel):
     portal_checkout_cancel: Optional[bool] = None
     # Optional: UI total after discounts/points; server uses it only if within tight tolerance of recomputed amount.
     client_declared_payable: Optional[float] = None
+    # Optional Home Coming installment metadata from dashboard combined checkout.
+    checkout_is_emi: Optional[bool] = None
+    checkout_emi_months_covered: Optional[str] = None
+    home_coming_pay_installment_n: Optional[int] = None
+
+
+def _ordinal(n: int) -> str:
+    if 10 <= (n % 100) <= 20:
+        suf = "th"
+    else:
+        suf = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suf}"
 
 
 def stripe_checkout_cancel_url(origin: str, data: EnrollmentSubmit, enrollment_id: str) -> str:
@@ -757,6 +769,16 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         enrollment.get("participants"),
         item,
     )
+    try:
+        inst_n = int(getattr(data, "home_coming_pay_installment_n", 0) or 0)
+    except (TypeError, ValueError):
+        inst_n = 0
+    if (
+        getattr(data, "portal_checkout_cancel", None) is True
+        and getattr(data, "checkout_is_emi", None) is True
+        and inst_n >= 1
+    ):
+        checkout_item_title = f"Home Coming Package · {_ordinal(inst_n)} EMI"
 
     origin = resolve_checkout_public_origin(data, request)
     host_url = str(request.base_url).rstrip("/")
@@ -817,6 +839,11 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         "pre_points_total": prep["pre_points_total"],
         "points_redeemed": prep["points_redeemed"],
         "points_discount": round(float(prep["points_discount"]), 2),
+        **(
+            {"checkout_emi_months_covered": str(data.checkout_emi_months_covered)}
+            if data.checkout_emi_months_covered not in (None, "")
+            else {}
+        ),
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
     }
@@ -831,6 +858,16 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
                 "status": "checkout_started",
                 "stripe_session_id": session.session_id,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
+                **(
+                    {"checkout_is_emi": bool(data.checkout_is_emi)}
+                    if data.checkout_is_emi is not None
+                    else {}
+                ),
+                **(
+                    {"checkout_emi_months_covered": str(data.checkout_emi_months_covered)}
+                    if data.checkout_emi_months_covered not in (None, "")
+                    else {}
+                ),
                 **({"item_title": checkout_item_title} if checkout_item_title else {}),
             }
         },

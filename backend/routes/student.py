@@ -3877,6 +3877,24 @@ def _order_display_title_from_enrollment(
     if not enrollment:
         return txn_fallback or (order_row.get("item_id") or "") or "Order"
 
+    def _ord(v: int) -> str:
+        if 10 <= (v % 100) <= 20:
+            s = "th"
+        else:
+            s = {1: "st", 2: "nd", 3: "rd"}.get(v % 10, "th")
+        return f"{v}{s}"
+
+    en_title = (enrollment.get("item_title") or "").strip()
+    if "home coming" in en_title.lower():
+        n_raw = enrollment.get("checkout_emi_months_covered") or order_row.get("checkout_emi_months_covered")
+        try:
+            n = int(str(n_raw).strip()) if n_raw not in (None, "") else 0
+        except (TypeError, ValueError):
+            n = 0
+        if n >= 1:
+            return f"Home Coming Package · {_ord(n)} EMI"
+        return en_title
+
     titles: List[str] = []
     for p in enrollment.get("participants") or []:
         t = (p.get("program_title") or "").strip()
@@ -3903,7 +3921,6 @@ def _order_display_title_from_enrollment(
         if t:
             return t
 
-    en_title = (enrollment.get("item_title") or "").strip()
     if en_title:
         return en_title
 
@@ -4074,6 +4091,7 @@ async def list_student_orders_impl(user: dict, paid_within_days: Optional[int] =
                 "id": 1,
                 "item_id": 1,
                 "item_title": 1,
+                "checkout_emi_months_covered": 1,
                 "participants": 1,
                 "portal_cart_lines": 1,
             },
