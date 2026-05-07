@@ -2979,6 +2979,15 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     """Fetch personalized home data: Schedule, Package, Financials, Programs."""
     client_id = user.get("client_id")
     client = await _student_client_row_with_expiry(client_id)
+    # Legacy portal users may have a missing/old ``client_id`` despite matching CRM email.
+    # Fallback by email so Home Coming courtesy / annual package fields still reflect admin edits.
+    if not client:
+        u_email = (user.get("email") or "").strip().lower()
+        if u_email:
+            by_email = await db.clients.find_one({"email": u_email}, {"_id": 0})
+            if by_email:
+                client = by_email
+                client_id = by_email.get("id") or client_id
     annual_portal_access_effective = _annual_dashboard_access(client)
 
     # 1. Upcoming programs — same pipeline + ordering as public homepage (GET /api/programs?visible_only&upcoming_only)
