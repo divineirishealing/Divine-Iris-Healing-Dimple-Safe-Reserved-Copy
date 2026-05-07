@@ -2974,6 +2974,53 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     }
 
 
+async def _reconcile_home_coming_upgrade_from_paid_transactions(client_doc: dict, user_doc: dict) -> None:
+    """
+    Safety net for older payments: if webhook/receipt sync was missed, replay Home Coming
+    paid transactions to advance annual window + EMI state.
+    """
+    if not isinstance(client_doc, dict) or not client_doc:
+        return
+    life = annual_portal_lifecycle_payload(client_doc) or {}
+    st = str(life.get("status") or "").strip().lower()
+    if st not in ("renewal_due", "expired", "lapsed"):
+        return
+
+    cid = str(client_doc.get("id") or "").strip()
+    em = (user_doc.get("email") or client_doc.get("email") or "").strip().lower()
+    ors = []
+    if cid:
+        ors.append({"portal_client_id": cid})
+    if em:
+        ors.append({"booker_email": em})
+    if not ors:
+        return
+
+    txs = (
+        await db.payment_transactions.find(
+            {
+                "$or": ors,
+                "payment_status": {"$in": ["paid", "complete", "completed"]},
+                "enrollment_id": {"$exists": True, "$ne": ""},
+            },
+            {"_id": 0},
+        )
+        .sort([("created_at", -1), ("updated_at", -1)])
+        .limit(12)
+        .to_list(12)
+    )
+    if not txs:
+        return
+
+    from routes.india_payments import sync_home_coming_emis_for_paid_enrollment_tx
+
+    for tx in txs:
+        try:
+            await sync_home_coming_emis_for_paid_enrollment_tx(tx)
+        except Exception as ex:
+            logger.warning("Home Coming paid-transaction reconcile skip tx=%s: %s", tx.get("id"), ex)
+
+
 @router.get("/home")
 async def get_student_home(user: dict = Depends(get_current_student_user)):
     """Fetch personalized home data: Schedule, Package, Financials, Programs."""
@@ -2988,6 +3035,9 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
             if by_email:
                 client = by_email
                 client_id = by_email.get("id") or client_id
+    await _reconcile_home_coming_upgrade_from_paid_transactions(client, user)
+    if client_id:
+        client = await _student_client_row_with_expiry(client_id)
     annual_portal_access_effective = _annual_dashboard_access(client)
 
     # 1. Upcoming programs — same pipeline + ordering as public homepage (GET /api/programs?visible_only&upcoming_only)
