@@ -597,6 +597,59 @@ export default function AnnualPackagePurchasePage() {
     });
   }, [catalogAllPositiveEntries, homeComingCourtesyRule]);
 
+  const primaryCatalogFallbackEntry = useMemo(() => {
+    if (!catalogAllPositiveEntries.length) return null;
+    const inr = catalogAllPositiveEntries.find(([k]) => String(k || '').toLowerCase() === 'inr');
+    return inr || catalogAllPositiveEntries[0] || null;
+  }, [catalogAllPositiveEntries]);
+
+  const primaryCatalogFallbackCourtesyBreakdown = useMemo(() => {
+    if (!primaryCatalogFallbackEntry) return null;
+    const [curRaw, amtRaw] = primaryCatalogFallbackEntry;
+    const cur = String(curRaw || '').toLowerCase();
+    const listNum = Number(amtRaw);
+    if (!Number.isFinite(listNum) || listNum <= 0) return null;
+    if (!homeComingCourtesyRule) {
+      return {
+        currencyKey: cur.toUpperCase(),
+        listNum,
+        finalNum: listNum,
+        discountAmt: 0,
+        changed: false,
+        pctLabel: null,
+      };
+    }
+    if (
+      homeComingCourtesyRule.mode === 'amount' &&
+      Number(homeComingCourtesyRule.amountInr || 0) > 0 &&
+      cur !== 'inr'
+    ) {
+      return {
+        currencyKey: cur.toUpperCase(),
+        listNum,
+        finalNum: listNum,
+        discountAmt: 0,
+        changed: false,
+        pctLabel: null,
+      };
+    }
+    const applied = applyIndiaDiscountRuleToBase(listNum, homeComingCourtesyRule);
+    const discountAmt = Math.round(Number(applied.discountAmt || 0) * 100) / 100;
+    const finalNum = Math.max(0, Math.round((listNum - discountAmt) * 100) / 100);
+    const pctLabel =
+      applied.discountKind === 'percent' && applied.discountNominalPercent != null
+        ? `${Number(applied.discountNominalPercent).toFixed(1).replace(/\.0$/, '')}%`
+        : null;
+    return {
+      currencyKey: cur.toUpperCase(),
+      listNum,
+      finalNum,
+      discountAmt,
+      changed: discountAmt > 0.009,
+      pctLabel,
+    };
+  }, [primaryCatalogFallbackEntry, homeComingCourtesyRule]);
+
   const lap = homeData?.last_annual_package;
   const portalLife = homeData?.annual_portal_lifecycle;
   const lapEndYmd = (lap?.end_date || '').trim().slice(0, 10);
@@ -1086,6 +1139,12 @@ export default function AnnualPackagePurchasePage() {
     ) {
       return Number(catalogCourtesyBreakdown.finalNum);
     }
+    if (
+      primaryCatalogFallbackCourtesyBreakdown != null &&
+      Number(primaryCatalogFallbackCourtesyBreakdown.finalNum) > 0
+    ) {
+      return Number(primaryCatalogFallbackCourtesyBreakdown.finalNum);
+    }
     if (catalogAmountHub != null && Number(catalogAmountHub) > 0) return Number(catalogAmountHub);
     return 0;
   }, [
@@ -1097,6 +1156,7 @@ export default function AnnualPackagePurchasePage() {
     totalRaw,
     catalogAmountHub,
     catalogCourtesyBreakdown,
+    primaryCatalogFallbackCourtesyBreakdown,
   ]);
 
   const scheduleBasisYmd = useMemo(() => {
@@ -2040,18 +2100,58 @@ export default function AnnualPackagePurchasePage() {
                         ) : null}
                       </div>
                     ) : catalogAllPositiveEntriesCourtesyAdjusted.length > 0 ? (
-                      <div className="space-y-1">
-                        {catalogAllPositiveEntriesCourtesyAdjusted.map(([k, v]) => (
-                          <p
-                            key={String(k)}
-                            className="text-[1.35rem] sm:text-[1.5rem] font-bold text-[#1a0a3d] tabular-nums"
-                          >
-                            <span className="text-base font-semibold text-[rgba(80,55,145,0.55)] mr-1.5 inline-block">
-                              {String(k).toUpperCase()}
-                            </span>
-                            {Number(v).toLocaleString()}
-                          </p>
-                        ))}
+                      <div className="space-y-2 text-left">
+                        {primaryCatalogFallbackCourtesyBreakdown?.changed ? (
+                          <>
+                            <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-[rgba(100,55,155,0.45)]">
+                              Catalog price ({primaryCatalogFallbackCourtesyBreakdown.currencyKey})
+                            </p>
+                            <p className="text-left">
+                              <span className="text-xl sm:text-2xl font-semibold text-[rgba(80,55,145,0.45)] tabular-nums line-through decoration-[rgba(120,80,160,0.35)]">
+                                {symbol}
+                                {Number(primaryCatalogFallbackCourtesyBreakdown.listNum).toLocaleString()}
+                              </span>
+                            </p>
+                            <div className="rounded-xl border border-[rgba(212,175,55,0.35)] bg-gradient-to-r from-[#fffbf0]/95 via-white/90 to-[#fdf6e3]/90 px-3.5 py-3 text-left shadow-sm shadow-amber-900/5">
+                              <p className="text-[12px] text-[#5c4a12] leading-snug">
+                                Courtesy savings:{' '}
+                                <strong className="text-[#6b5210] tabular-nums">
+                                  {symbol}
+                                  {Number(primaryCatalogFallbackCourtesyBreakdown.discountAmt).toLocaleString()}
+                                </strong>
+                                {primaryCatalogFallbackCourtesyBreakdown.pctLabel ? (
+                                  <span className="text-[#6b5210]">
+                                    {' '}
+                                    ({primaryCatalogFallbackCourtesyBreakdown.pctLabel})
+                                  </span>
+                                ) : null}
+                              </p>
+                            </div>
+                            <p className="text-left">
+                              <span className="text-[2rem] sm:text-[2.35rem] font-bold text-[#1a0a3d] tabular-nums tracking-tight">
+                                {symbol}
+                                {Number(primaryCatalogFallbackCourtesyBreakdown.finalNum).toLocaleString()}
+                              </span>{' '}
+                              <span className="text-lg font-semibold text-[rgba(80,55,145,0.55)]">
+                                {primaryCatalogFallbackCourtesyBreakdown.currencyKey}
+                              </span>
+                            </p>
+                          </>
+                        ) : (
+                          <div className="space-y-1">
+                            {catalogAllPositiveEntriesCourtesyAdjusted.map(([k, v]) => (
+                              <p
+                                key={String(k)}
+                                className="text-[1.35rem] sm:text-[1.5rem] font-bold text-[#1a0a3d] tabular-nums"
+                              >
+                                <span className="text-base font-semibold text-[rgba(80,55,145,0.55)] mr-1.5 inline-block">
+                                  {String(k).toUpperCase()}
+                                </span>
+                                {Number(v).toLocaleString()}
+                              </p>
+                            ))}
+                          </div>
+                        )}
                         {catalogAmountHub == null ? (
                           <p className="text-[10px] text-[rgba(60,35,115,0.45)] mt-2 max-w-xl leading-relaxed">
                             No catalog amount published for your current pricing hub (
