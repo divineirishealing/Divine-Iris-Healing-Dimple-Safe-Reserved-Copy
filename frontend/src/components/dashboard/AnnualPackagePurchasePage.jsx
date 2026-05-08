@@ -719,6 +719,13 @@ export default function AnnualPackagePurchasePage() {
     hasRecordedAnnualPayment &&
     (/^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd) ||
       (portalHomeComingPaidInfo != null && /^\d{4}-\d{2}-\d{2}$/.test(desiredStart)));
+  const desiredStartReachedOrPast =
+    /^\d{4}-\d{2}-\d{2}$/.test(desiredStart) && desiredStart <= todayYmd;
+  const cycleAlreadyStarted =
+    (/^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd) && recordStartYmd <= todayYmd) ||
+    (/^\d{4}-\d{2}-\d{2}$/.test(lapStartYmd) && lapStartYmd <= todayYmd);
+  const desiredStartInputLocked =
+    membershipCycleDatesLocked || desiredStartReachedOrPast || cycleAlreadyStarted;
   const cycleDisplayStart = useMemo(() => {
     if (!membershipCycleDatesLocked) return desiredStart;
     const paidYmd = portalHomeComingPaidInfo?.paidAtYmd;
@@ -824,10 +831,18 @@ export default function AnnualPackagePurchasePage() {
     [membershipCycleDatesLocked, homeComingAnnualFullyPaid],
   );
 
-  const autoRenewalYear = useMemo(
-    () => Math.min(12, Math.max(1, parseInt(homeData?.renewal_entering_iris_year, 10) || 1)),
-    [homeData?.renewal_entering_iris_year],
-  );
+  const autoRenewalYear = useMemo(() => {
+    const apiYear = parseInt(homeData?.renewal_entering_iris_year, 10) || 1;
+    const subYear = parseInt(homeData?.subscription_journey?.iris_year, 10) || 1;
+    const ledgerRows = Array.isArray(homeData?.annual_period_ledger) ? homeData.annual_period_ledger : [];
+    let maxArchivedYear = 0;
+    for (const row of ledgerRows) {
+      const y = parseInt(row?.iris_year_at_archive, 10);
+      if (!Number.isNaN(y) && y > maxArchivedYear) maxArchivedYear = y;
+    }
+    const ledgerDerivedYear = maxArchivedYear > 0 ? maxArchivedYear + 1 : 1;
+    return Math.min(12, Math.max(1, apiYear, subYear, ledgerDerivedYear));
+  }, [homeData?.renewal_entering_iris_year, homeData?.subscription_journey?.iris_year, homeData?.annual_period_ledger]);
   const memberFirstName = useMemo(() => {
     const raw =
       typeof homeData?.user_details?.full_name === 'string'
@@ -1694,25 +1709,30 @@ export default function AnnualPackagePurchasePage() {
                                     </span>
                                   </span>
                                 </Label>
-                                <Input
-                                  type="date"
-                                  className={cn(
-                                    'h-10 mt-1.5 w-[11.75rem] max-w-full border-[rgba(160,80,220,0.22)] bg-white/75 mx-auto',
-                                    membershipCycleDatesLocked &&
-                                      'cursor-not-allowed opacity-95 bg-violet-50/80 border-violet-200/90',
-                                  )}
-                                  value={desiredStart}
-                                  onChange={(e) => setDesiredStart(e.target.value)}
-                                  disabled={membershipCycleDatesLocked}
-                                  data-testid="annual-offer-start-date-hero"
-                                />
-                                {membershipCycleDatesLocked ? (
+                                {desiredStartInputLocked ? (
+                                  <div
+                                    className="h-10 mt-1.5 w-[11.75rem] max-w-full rounded-md border border-violet-200/90 bg-violet-50/80 mx-auto px-3 flex items-center justify-center text-[14px] font-medium tracking-[0.02em] text-violet-950"
+                                    data-testid="annual-offer-start-date-hero"
+                                    aria-label="Locked bundle start date"
+                                  >
+                                    {formatDateDdMonYyyy(desiredStart || cycleDisplayStart || todayYmd)}
+                                  </div>
+                                ) : (
+                                  <Input
+                                    type="date"
+                                    className="h-10 mt-1.5 w-[11.75rem] max-w-full border-[rgba(160,80,220,0.22)] bg-white/75 mx-auto"
+                                    value={desiredStart}
+                                    onChange={(e) => setDesiredStart(e.target.value)}
+                                    data-testid="annual-offer-start-date-hero"
+                                  />
+                                )}
+                                {desiredStartInputLocked ? (
                                   <p className="text-[10px] text-[rgba(80,45,130,0.72)] mt-1.5 leading-snug max-w-md mx-auto">
                                     Start and bundle end are locked to your Sacred Exchange record after payment.
                                   </p>
                                 ) : null}
                               </div>
-                              {preferredDom >= 1 && preferredDom <= 28 && !membershipCycleDatesLocked ? (
+                              {preferredDom >= 1 && preferredDom <= 28 && !desiredStartInputLocked ? (
                                 <Button
                                   type="button"
                                   variant="outline"
