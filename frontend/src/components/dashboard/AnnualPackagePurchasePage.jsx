@@ -50,6 +50,14 @@ const DIVINE_IRIS_HOME_COMING_PROGRAMS_LABEL =
 
 const HEART_QUOTE = 'You are exactly where you need to be — trust the becoming.';
 
+/** Sacred Home / Home Coming annual bundle always anchors to this day-of-month (product rule). */
+const HOME_COMING_BUNDLE_DOM = 3;
+
+function anchorHomeComingBundleStartYmd(ymd) {
+  if (!ymd || typeof ymd !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return ymd;
+  return `${ymd.slice(0, 8)}${String(HOME_COMING_BUNDLE_DOM).padStart(2, '0')}`;
+}
+
 /** Full Home Coming bundle contents (shown in ALL CAPS). Shared with Household overview. */
 export const HOME_COMING_BUNDLE_INCLUDES_LINES = [
   '12-MONTH AWRP',
@@ -356,6 +364,8 @@ export default function AnnualPackagePurchasePage() {
   const prefsInitDone = useRef(false);
 
   const [desiredStart, setDesiredStart] = useState('');
+  /** Flexi first row: amount member chooses before Pay · Stripe. */
+  const [flexiAmountInput, setFlexiAmountInput] = useState('');
   const [priorSacredCycleOpen, setPriorSacredCycleOpen] = useState(false);
   const [paymentMode, setPaymentMode] = useState('full');
   /** Home Coming annual path: online vs offline only (no in-person seat on this bundle). */
@@ -451,10 +461,6 @@ export default function AnnualPackagePurchasePage() {
     return formatSchedulePayTag(pref || indiaTag || finMode);
   }, [homeData?.preferred_payment_method, homeData?.client_india_pricing?.india_payment_method, fin.payment_mode]);
   const durationMonths = Math.max(1, Number(pkg.duration_months) || 12);
-  const preferredDom = Math.min(
-    28,
-    Math.max(0, typeof pkg.preferred_membership_day_of_month === 'number' ? pkg.preferred_membership_day_of_month : parseInt(pkg.preferred_membership_day_of_month, 10) || 0),
-  );
   const catalogFrom = (pkg.catalog_valid_from || '').trim().slice(0, 10);
   const catalogTo = (pkg.catalog_valid_to || '').trim().slice(0, 10);
   const hc = homeData?.home_coming;
@@ -727,7 +733,11 @@ export default function AnnualPackagePurchasePage() {
   const desiredStartInputLocked =
     membershipCycleDatesLocked || desiredStartReachedOrPast || cycleAlreadyStarted;
   const cycleDisplayStart = useMemo(() => {
-    if (!membershipCycleDatesLocked) return desiredStart;
+    if (!membershipCycleDatesLocked) {
+      return /^\d{4}-\d{2}-\d{2}$/.test(desiredStart)
+        ? anchorHomeComingBundleStartYmd(desiredStart)
+        : desiredStart;
+    }
     const paidYmd = portalHomeComingPaidInfo?.paidAtYmd;
     const re = recordEndYmd;
     const rs = recordStartYmd;
@@ -744,7 +754,7 @@ export default function AnnualPackagePurchasePage() {
       /^\d{4}-\d{2}-\d{2}$/.test(rs) &&
       paidYmd > re
     ) {
-      let s = rs;
+      let s = /^\d{4}-\d{2}-\d{2}$/.test(rs) ? anchorHomeComingBundleStartYmd(rs) : rs;
       let guard = 0;
       while (guard < 24) {
         const winEnd = addMonthsAnnualBundleEnd(s, stepM);
@@ -752,13 +762,13 @@ export default function AnnualPackagePurchasePage() {
         if (paidYmd <= winEnd) break;
         const nextS = addCalendarMonthsYmd(s, stepM);
         if (!nextS || nextS === s) break;
-        s = nextS;
+        s = anchorHomeComingBundleStartYmd(nextS) || nextS;
         guard += 1;
       }
       if (/^\d{4}-\d{2}-\d{2}$/.test(desiredStart) && desiredStart > re) {
-        return desiredStart;
+        return anchorHomeComingBundleStartYmd(desiredStart);
       }
-      return s;
+      return anchorHomeComingBundleStartYmd(s) || s;
     }
     if (
       portalHomeComingPaidInfo &&
@@ -766,10 +776,12 @@ export default function AnnualPackagePurchasePage() {
       /^\d{4}-\d{2}-\d{2}$/.test(re) &&
       desiredStart > re
     ) {
-      return desiredStart;
+      return anchorHomeComingBundleStartYmd(desiredStart);
     }
-    if (/^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd)) return recordStartYmd;
-    return desiredStart;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd)) return anchorHomeComingBundleStartYmd(recordStartYmd);
+    return /^\d{4}-\d{2}-\d{2}$/.test(desiredStart)
+      ? anchorHomeComingBundleStartYmd(desiredStart)
+      : desiredStart;
   }, [
     membershipCycleDatesLocked,
     portalHomeComingPaidInfo,
@@ -791,7 +803,7 @@ export default function AnnualPackagePurchasePage() {
       /^\d{4}-\d{2}-\d{2}$/.test(recordEndYmd) &&
       portalHomeComingPaidInfo &&
       /^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd) &&
-      recordStartYmd === cycleDisplayStart
+      anchorHomeComingBundleStartYmd(recordStartYmd) === cycleDisplayStart
     ) {
       return recordEndYmd;
     }
@@ -807,6 +819,13 @@ export default function AnnualPackagePurchasePage() {
     durationMonths,
     portalHomeComingPaidInfo,
   ]);
+
+  useEffect(() => {
+    if (!prefsLoaded || desiredStartInputLocked) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(desiredStart)) return;
+    const anchored = anchorHomeComingBundleStartYmd(desiredStart);
+    if (anchored !== desiredStart) setDesiredStart(anchored);
+  }, [prefsLoaded, desiredStartInputLocked, desiredStart]);
 
   /** Home Coming bundle has no balance left to collect (portal receipt counts when CRM lags). */
   const homeComingAnnualFullyPaid = useMemo(() => {
@@ -1016,7 +1035,13 @@ export default function AnnualPackagePurchasePage() {
       ALL_PAY_MODES.filter((row) => isAnnualOfferPayModeEnabled(homeData, row.value)).map((r) => r.value),
     );
     if (p && typeof p === 'object') {
-      if (p.desired_start_date) setDesiredStart(String(p.desired_start_date).slice(0, 10));
+      if (p.desired_start_date) {
+        const raw = String(p.desired_start_date).slice(0, 10);
+        setDesiredStart(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? anchorHomeComingBundleStartYmd(raw) : raw);
+      } else {
+        const ymd = nextDateWithDayOfMonth(null, HOME_COMING_BUNDLE_DOM);
+        if (ymd) setDesiredStart(ymd);
+      }
       if (p.payment_mode) {
         const pm = String(p.payment_mode).trim();
         setPaymentMode(allowed.has(pm) ? pm : 'full');
@@ -1025,12 +1050,16 @@ export default function AnnualPackagePurchasePage() {
       if (p.participation_mode === 'offline' || p.participation_mode === 'online') {
         setAnnualParticipationMode(p.participation_mode);
       }
-    } else if (preferredDom >= 1 && preferredDom <= 28) {
-      const ymd = nextDateWithDayOfMonth(null, preferredDom);
+    } else {
+      const ymd = nextDateWithDayOfMonth(null, HOME_COMING_BUNDLE_DOM);
       if (ymd) setDesiredStart(ymd);
     }
     setPrefsLoaded(true);
-  }, [homeData, preferredDom]);
+  }, [homeData]);
+
+  useEffect(() => {
+    if (paymentMode !== 'emi_flexi') setFlexiAmountInput('');
+  }, [paymentMode]);
 
   useEffect(() => {
     if (!prefsLoaded || !homeData) return;
@@ -1044,7 +1073,8 @@ export default function AnnualPackagePurchasePage() {
     if (!homeData || !prefsLoaded || !membershipCycleDatesLocked) return;
     if (portalHomeComingPaidInfo) return;
     if (/^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd)) {
-      setDesiredStart((prev) => (prev === recordStartYmd ? prev : recordStartYmd));
+      const anchored = anchorHomeComingBundleStartYmd(recordStartYmd);
+      setDesiredStart((prev) => (prev === anchored ? prev : anchored));
     }
   }, [homeData, prefsLoaded, membershipCycleDatesLocked, recordStartYmd, portalHomeComingPaidInfo]);
 
@@ -1186,8 +1216,8 @@ export default function AnnualPackagePurchasePage() {
   ]);
 
   const scheduleBasisYmd = useMemo(() => {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(cycleDisplayStart)) return cycleDisplayStart;
-    return desiredStart;
+    const raw = /^\d{4}-\d{2}-\d{2}$/.test(cycleDisplayStart) ? cycleDisplayStart : desiredStart;
+    return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? anchorHomeComingBundleStartYmd(raw) : raw;
   }, [cycleDisplayStart, desiredStart]);
 
   const useCrmMonthlyEmiSchedule = useMemo(() => {
@@ -1488,11 +1518,30 @@ export default function AnnualPackagePurchasePage() {
   /** Optional `clickedRow`: schedule row when using Pay · Stripe on a specific installment. */
   const goCheckout = (clickedRow = null) => {
     const autoQs = useAutoStripeCheckout ? '?autoPay=1' : '';
+    let rowForQuote = clickedRow;
+    if (
+      pinnedProgram &&
+      paymentMode === 'emi_flexi' &&
+      clickedRow &&
+      String(clickedRow.key) === 'flex-a'
+    ) {
+      const trimmed = String(flexiAmountInput).replace(/,/g, '').trim();
+      const n = Number(trimmed);
+      if (!Number.isFinite(n) || n <= 0) {
+        toast({
+          title: 'Enter your amount',
+          description: `Type how much you wish to pay (${(baseCurrency || 'inr').toUpperCase()}), then tap Pay again.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+      rowForQuote = { ...clickedRow, amount: Math.round(n * 100) / 100 };
+    }
     if (pinnedProgram) {
       const tierIdx = pickTierIndexForDashboard(pinnedProgram, true) ?? 0;
       const participants = buildSacredHomeQuickPayParticipants(pinnedProgram);
-      const quoted = resolveHomeComingQuotedTotal(clickedRow);
-      const payInstallmentN = resolveHomeComingPayInstallmentN(clickedRow);
+      const quoted = resolveHomeComingQuotedTotal(rowForQuote);
+      const payInstallmentN = resolveHomeComingPayInstallmentN(rowForQuote);
       const schedulePreview =
         paymentMode !== 'full' && paymentMode !== 'emi_flexi'
           ? paymentScheduleRows
@@ -1705,7 +1754,9 @@ export default function AnnualPackagePurchasePage() {
                                       Anchor your membership start
                                     </span>
                                     <span className="block normal-case tracking-normal text-[11px] font-medium text-[rgba(60,35,115,0.65)] mt-1 mx-auto max-w-none w-full">
-                                      Choose your bundle start date. Your Iris year follows your Iris Garden path automatically.
+                                      Home Coming batch always opens on the <strong>3rd</strong> of the month — pick the
+                                      month you are entering; we anchor the start date to the 3rd automatically. Your Iris
+                                      year follows your Iris Garden path.
                                     </span>
                                   </span>
                                 </Label>
@@ -1732,20 +1783,18 @@ export default function AnnualPackagePurchasePage() {
                                   </p>
                                 ) : null}
                               </div>
-                              {preferredDom >= 1 && preferredDom <= 28 && !desiredStartInputLocked ? (
+                              {!desiredStartInputLocked ? (
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="sm"
                                   className="h-10 border-violet-200/90 text-violet-900 bg-white/70 hover:bg-violet-50 shrink-0"
                                   onClick={() => {
-                                    const ymd = nextDateWithDayOfMonth(null, preferredDom);
+                                    const ymd = nextDateWithDayOfMonth(null, HOME_COMING_BUNDLE_DOM);
                                     if (ymd) setDesiredStart(ymd);
                                   }}
                                 >
-                                  Next {preferredDom}
-                                  {preferredDom === 1 ? 'st' : preferredDom === 2 ? 'nd' : preferredDom === 3 ? 'rd' : 'th'} of
-                                  month
+                                  Next 3rd of month
                                 </Button>
                               ) : null}
                             </div>
@@ -2438,6 +2487,8 @@ export default function AnnualPackagePurchasePage() {
                               hasNumericAmount
                                 ? `${symbol}${Number(toDisplay(Number(row.amount))).toLocaleString()}`
                                 : energyExchangeShown;
+                            const isFlexiChooseRow =
+                              paymentMode === 'emi_flexi' && String(row.key || '') === 'flex-a';
                             const emiRow =
                               typeof row.n === 'number' && !Number.isNaN(row.n)
                                 ? emiByNumber.get(row.n)
@@ -2527,7 +2578,28 @@ export default function AnnualPackagePurchasePage() {
                                   {dueStr}
                                 </td>
                                 <td className="px-1.5 py-2.5 align-middle font-semibold tabular-nums break-words">
-                                  {totalAmountShown}
+                                  {isFlexiChooseRow ? (
+                                    <div className="mx-auto flex max-w-[9.5rem] flex-col items-stretch gap-1">
+                                      <span className="text-[8px] font-semibold uppercase tracking-wide text-[rgba(80,55,145,0.55)] text-center leading-tight">
+                                        Your amount
+                                      </span>
+                                      <div className="flex items-center justify-center gap-0.5">
+                                        <span className="text-[10px] shrink-0 tabular-nums">{symbol}</span>
+                                        <Input
+                                          type="text"
+                                          inputMode="decimal"
+                                          autoComplete="off"
+                                          placeholder="0"
+                                          value={flexiAmountInput}
+                                          onChange={(e) => setFlexiAmountInput(e.target.value)}
+                                          className="h-8 min-w-0 w-[5.25rem] text-center text-[11px] font-medium tabular-nums px-1.5 py-0"
+                                          data-testid="annual-offer-flexi-amount"
+                                        />
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    totalAmountShown
+                                  )}
                                 </td>
                                 <td className="px-1.5 py-2.5 align-middle">
                                   {emiRowEffective?.status === 'paid' ? (
