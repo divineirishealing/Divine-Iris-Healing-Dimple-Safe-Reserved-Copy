@@ -28,9 +28,10 @@ import {
 import {
   cn,
   formatDateDdMonYyyy,
-  nextDateWithDayOfMonth,
   addMonthsAnnualBundleEnd,
   addCalendarMonthsYmd,
+  localCalendarTodayYmd,
+  homeComingThirdOfMonthAfterCurrentCalendarMonth,
 } from '../../lib/utils';
 import { useToast } from '../../hooks/use-toast';
 import { useCart } from '../../context/CartContext';
@@ -727,11 +728,16 @@ export default function AnnualPackagePurchasePage() {
       (portalHomeComingPaidInfo != null && /^\d{4}-\d{2}-\d{2}$/.test(desiredStart)));
   const desiredStartReachedOrPast =
     /^\d{4}-\d{2}-\d{2}$/.test(desiredStart) && desiredStart <= todayYmd;
+  /** Only the *active* on-record cycle counts — not a completed previous window during renewal. */
   const cycleAlreadyStarted =
-    (/^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd) && recordStartYmd <= todayYmd) ||
-    (/^\d{4}-\d{2}-\d{2}$/.test(lapStartYmd) && lapStartYmd <= todayYmd);
+    lapOnRecordIsCurrent &&
+    ((/^\d{4}-\d{2}-\d{2}$/.test(recordStartYmd) && recordStartYmd <= todayYmd) ||
+      (/^\d{4}-\d{2}-\d{2}$/.test(lapStartYmd) && lapStartYmd <= todayYmd));
+  const renewingChooseNextStart = showNextSacredHomeEnrollment && !membershipCycleDatesLocked;
   const desiredStartInputLocked =
-    membershipCycleDatesLocked || desiredStartReachedOrPast || cycleAlreadyStarted;
+    membershipCycleDatesLocked ||
+    (desiredStartReachedOrPast && !renewingChooseNextStart) ||
+    cycleAlreadyStarted;
   const cycleDisplayStart = useMemo(() => {
     if (!membershipCycleDatesLocked) {
       return /^\d{4}-\d{2}-\d{2}$/.test(desiredStart)
@@ -1039,7 +1045,9 @@ export default function AnnualPackagePurchasePage() {
         const raw = String(p.desired_start_date).slice(0, 10);
         setDesiredStart(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? anchorHomeComingBundleStartYmd(raw) : raw);
       } else {
-        const ymd = nextDateWithDayOfMonth(null, HOME_COMING_BUNDLE_DOM);
+        const rawNext = homeComingThirdOfMonthAfterCurrentCalendarMonth(localCalendarTodayYmd());
+        const ymd =
+          /^\d{4}-\d{2}-\d{2}$/.test(rawNext) ? anchorHomeComingBundleStartYmd(rawNext) : '';
         if (ymd) setDesiredStart(ymd);
       }
       if (p.payment_mode) {
@@ -1051,11 +1059,31 @@ export default function AnnualPackagePurchasePage() {
         setAnnualParticipationMode(p.participation_mode);
       }
     } else {
-      const ymd = nextDateWithDayOfMonth(null, HOME_COMING_BUNDLE_DOM);
+      const rawNext = homeComingThirdOfMonthAfterCurrentCalendarMonth(localCalendarTodayYmd());
+      const ymd = /^\d{4}-\d{2}-\d{2}$/.test(rawNext) ? anchorHomeComingBundleStartYmd(rawNext) : '';
       if (ymd) setDesiredStart(ymd);
     }
     setPrefsLoaded(true);
   }, [homeData]);
+
+  /** Next advertised batch: 3rd of the calendar month after the member's current local month (renewal / no active cycle). */
+  useEffect(() => {
+    if (!prefsLoaded || !homeData) return;
+    if (!(showNextSacredHomeEnrollment && !membershipCycleDatesLocked)) return;
+    const todayLocal = localCalendarTodayYmd();
+    const rawSuggested = homeComingThirdOfMonthAfterCurrentCalendarMonth(todayLocal);
+    const suggested =
+      /^\d{4}-\d{2}-\d{2}$/.test(rawSuggested) ? anchorHomeComingBundleStartYmd(rawSuggested) : '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(suggested)) return;
+    setDesiredStart((prev) => {
+      const anchoredPrev =
+        prev && /^\d{4}-\d{2}-\d{2}$/.test(prev) ? anchorHomeComingBundleStartYmd(prev) : prev;
+      if (!anchoredPrev || !/^\d{4}-\d{2}-\d{2}$/.test(anchoredPrev)) return suggested;
+      if (anchoredPrev < todayLocal) return suggested;
+      if (anchoredPrev.slice(0, 7) === todayLocal.slice(0, 7)) return suggested;
+      return anchoredPrev;
+    });
+  }, [prefsLoaded, homeData, showNextSacredHomeEnrollment, membershipCycleDatesLocked]);
 
   useEffect(() => {
     if (paymentMode !== 'emi_flexi') setFlexiAmountInput('');
@@ -1754,9 +1782,11 @@ export default function AnnualPackagePurchasePage() {
                                       Anchor your membership start
                                     </span>
                                     <span className="block normal-case tracking-normal text-[11px] font-medium text-[rgba(60,35,115,0.65)] mt-1 mx-auto max-w-none w-full">
-                                      Home Coming batch always opens on the <strong>3rd</strong> of the month — pick the
-                                      month you are entering; we anchor the start date to the 3rd automatically. Your Iris
-                                      year follows your Iris Garden path.
+                                      Home Coming opens on the <strong>3rd</strong> of each month. While you are choosing
+                                      your next cycle, we default the batch to the <strong>3rd of the next calendar month</strong>{' '}
+                                      (e.g. in May → 3 June; in June → 3 July). Your Iris year still follows your Iris Garden
+                                      path; your host can align dates in Iris Annual Abundance if something on record needs a
+                                      gentle correction.
                                     </span>
                                   </span>
                                 </Label>
@@ -1790,11 +1820,16 @@ export default function AnnualPackagePurchasePage() {
                                   size="sm"
                                   className="h-10 border-violet-200/90 text-violet-900 bg-white/70 hover:bg-violet-50 shrink-0"
                                   onClick={() => {
-                                    const ymd = nextDateWithDayOfMonth(null, HOME_COMING_BUNDLE_DOM);
+                                    const todayLocal = localCalendarTodayYmd();
+                                    const raw = homeComingThirdOfMonthAfterCurrentCalendarMonth(todayLocal);
+                                    const ymd =
+                                      /^\d{4}-\d{2}-\d{2}$/.test(raw)
+                                        ? anchorHomeComingBundleStartYmd(raw)
+                                        : '';
                                     if (ymd) setDesiredStart(ymd);
                                   }}
                                 >
-                                  Next 3rd of month
+                                  Default · 3rd next month
                                 </Button>
                               ) : null}
                             </div>

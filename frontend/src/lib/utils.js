@@ -234,6 +234,29 @@ export function nextDateWithDayOfMonth(from, dom) {
   return "";
 }
 
+/** Local calendar ``YYYY-MM-DD`` (browser timezone) for student-facing copy and batch rules. */
+export function localCalendarTodayYmd() {
+  const d = new Date();
+  const pad2 = (x) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/**
+ * Home Coming: the next advertised annual batch opens on the **3rd** of the calendar month
+ * immediately after the month of ``fromYmd`` (``fromYmd`` is typically {@link localCalendarTodayYmd}).
+ */
+export function homeComingThirdOfMonthAfterCurrentCalendarMonth(fromYmd) {
+  if (!fromYmd || typeof fromYmd !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(fromYmd)) return "";
+  const parts = fromYmd.split("-");
+  const y = parseInt(parts[0], 10);
+  const m0 = parseInt(parts[1], 10) - 1;
+  if (!Number.isFinite(y) || !Number.isFinite(m0) || m0 < 0 || m0 > 11) return "";
+  const d = new Date(y, m0, 1, 12, 0, 0, 0);
+  d.setMonth(d.getMonth() + 1);
+  const pad2 = (x) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-03`;
+}
+
 /**
  * Sacred Exchange EMI Schedule typography — reuse for My Programs tables and other dashboard grids.
  * Body text-sm; headers uppercase 10px gray-400; dates/amounts tabular-nums (dashboard uses Lato).
