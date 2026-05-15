@@ -3090,12 +3090,17 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
             show_pin = True
         elif show_non_annual_pin:
             show_pin = True
+    # Home Coming catalog program (checkout / quotes) — may differ from public Upcoming list.
+    home_coming_catalog_program = None
     if show_pin:
         pin_doc = await program_dict_with_deadline_sync(db, pin_annual_id)
         if pin_doc:
             pin_doc["dashboard_annual_product_pin"] = True
-            rest = [p for p in upcoming if str(p.get("id")) != str(pin_annual_id)]
-            upcoming = [pin_doc] + rest
+            home_coming_catalog_program = pin_doc
+            # Only surface on dashboard Upcoming when admin kept the program on the homepage Upcoming list.
+            if pin_doc.get("is_upcoming"):
+                rest = [p for p in upcoming if str(p.get("id")) != str(pin_annual_id)]
+                upcoming = [pin_doc] + rest
     dashboard_offer_annual = settings_doc.get("dashboard_offer_annual") or {}
     dashboard_offer_family = settings_doc.get("dashboard_offer_family") or {}
     dashboard_offer_extended = settings_doc.get("dashboard_offer_extended") or {}
@@ -3359,6 +3364,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     return {
         "client_id": client_id,
         "upcoming_programs": upcoming,
+        "home_coming_catalog_program": home_coming_catalog_program,
         "is_annual_subscriber": is_annual,
         "annual_member_dashboard": bool(client.get("annual_member_dashboard")),
         "annual_portal_access": annual_portal_access_effective,

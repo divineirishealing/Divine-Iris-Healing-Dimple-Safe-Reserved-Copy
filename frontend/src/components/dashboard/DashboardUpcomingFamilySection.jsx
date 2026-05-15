@@ -667,7 +667,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     );
   }, [seatModalCtx?.programId, seatDraftsByProgram, bookerSeatMode, bookerSeatNotify, guestSeatForm]);
 
-  const upcomingList = homeData?.upcoming_programs || [];
+  const upcomingList = useMemo(
+    () => (homeData?.upcoming_programs || []).filter((p) => p && p.is_upcoming !== false),
+    [homeData?.upcoming_programs],
+  );
   const programsForPrefetch = useMemo(
     () => upcomingList.slice(0, DASHBOARD_UPCOMING_PREFETCH_LIMIT),
     [upcomingList]

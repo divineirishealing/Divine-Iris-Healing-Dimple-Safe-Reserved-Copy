@@ -114,15 +114,6 @@ function isAnnualOfferPayModeEnabled(homeData, mode) {
   return homeData[key] !== false;
 }
 
-/** Calendar YYYY-MM-DD + delta days (UTC noon) for renewal window copy. */
-function ymdAddDays(ymd, deltaDays) {
-  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return '';
-  const d = new Date(`${ymd}T12:00:00.000Z`);
-  if (Number.isNaN(d.getTime())) return '';
-  d.setUTCDate(d.getUTCDate() + deltaDays);
-  return d.toISOString().slice(0, 10);
-}
-
 function emiInstallmentCount(mode, durationMonths) {
   const d = Math.max(1, Number(durationMonths) || 12);
   if (mode === 'emi_monthly') return d;
@@ -402,10 +393,11 @@ export default function AnnualPackagePurchasePage() {
   }, [refresh]);
 
   const pinnedProgram = useMemo(() => {
+    if (homeData?.home_coming_catalog_program) return homeData.home_coming_catalog_program;
     const list = homeData?.upcoming_programs || [];
     const pin = list.find((p) => p.dashboard_annual_product_pin);
     return pin || list[0] || null;
-  }, [homeData?.upcoming_programs]);
+  }, [homeData?.home_coming_catalog_program, homeData?.upcoming_programs]);
 
   const pkg = homeData?.package || {};
   const fin = homeData?.financials || {};
@@ -683,7 +675,6 @@ export default function AnnualPackagePurchasePage() {
     lapEndYmd.length === 10 &&
     lapStartYmd <= todayYmd &&
     todayYmd <= lapEndYmd;
-  const renewalWindowOpensYmd = lapEndYmd.length === 10 ? ymdAddDays(lapEndYmd, -15) : '';
   const onRecordCycleBannerTitle = lapOnRecordIsCurrent
     ? 'CURRENT ANNUAL CYCLE · ON RECORD'
     : lapEnded
@@ -1679,34 +1670,48 @@ export default function AnnualPackagePurchasePage() {
                   aria-hidden
                 />
                 <div className="w-full min-w-0 space-y-4">
+                  {(lap?.start_date || lap?.end_date) && !useCollapsiblePriorSacredCycle ? (
+                    <div
+                      className="rounded-[1.35rem] border-[3px] border-[rgba(124,58,237,0.45)] bg-gradient-to-br from-white via-[#faf8ff] to-violet-50/90 px-6 py-8 sm:px-10 sm:py-10 md:px-12 md:py-11 shadow-[0_16px_56px_rgba(91,33,182,0.18)] ring-1 ring-violet-200/60"
+                      data-testid="home-coming-current-cycle-highlight"
+                    >
+                      <p className="text-xs sm:text-sm uppercase tracking-[0.2em] text-[rgba(100,55,155,0.62)] font-bold mb-4">
+                        {onRecordCycleBannerTitle}
+                      </p>
+                      <p
+                        className="text-xl sm:text-2xl md:text-[1.85rem] lg:text-3xl font-bold text-[#3b0764] leading-snug tracking-tight max-w-[42rem] mx-auto"
+                        data-testid="last-annual-package-label"
+                      >
+                        {lastAnnualCycleDisplayName || lap.program_label || 'Annual program'}
+                      </p>
+                      <dl className="mt-8 flex flex-wrap justify-center gap-x-14 sm:gap-x-20 gap-y-6 tabular-nums">
+                        <div>
+                          <dt className="text-xs sm:text-sm uppercase tracking-[0.14em] text-[rgba(100,55,155,0.5)] mb-2.5 font-semibold">
+                            Start date
+                          </dt>
+                          <dd className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.65rem] font-bold text-[#3b0764] leading-none">
+                            {lap.start_date ? formatDateDdMonYyyy(lap.start_date) : '—'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs sm:text-sm uppercase tracking-[0.14em] text-[rgba(100,55,155,0.5)] mb-2.5 font-semibold">
+                            End date
+                          </dt>
+                          <dd className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.65rem] font-bold text-[#3b0764] leading-none">
+                            {lap.end_date ? formatDateDdMonYyyy(lap.end_date) : '—'}
+                          </dd>
+                        </div>
+                      </dl>
+                    </div>
+                  ) : null}
                   <p
                     className="font-[family-name:'Playfair_Display',Georgia,serif] text-[17px] sm:text-lg leading-relaxed text-[#2e1067]/92"
                     data-testid="home-coming-welcome-lead"
                   >
                     {irisWelcomeLeadEl}
                   </p>
-                  {(lap?.start_date || lap?.end_date) && !useCollapsiblePriorSacredCycle ? (
-                    <div className="rounded-2xl border border-white/80 bg-white/58 px-4 py-3.5 shadow-sm shadow-violet-200/40">
-                      <p className="text-[10px] uppercase tracking-[0.16em] text-[rgba(100,55,155,0.42)] font-semibold mb-2">
-                        {onRecordCycleBannerTitle}
-                      </p>
-                      <p className="text-sm font-semibold text-[#3b0764]" data-testid="last-annual-package-label">
-                        {lastAnnualCycleDisplayName || lap.program_label || 'Annual program'}
-                      </p>
-                      <dl className="mt-3 flex flex-wrap justify-center gap-x-10 gap-y-2 text-[13px] text-[rgba(60,35,115,0.88)] tabular-nums">
-                        <div>
-                          <dt className="text-[10px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-1">START DATE</dt>
-                          <dd>{lap.start_date ? formatDateDdMonYyyy(lap.start_date) : '—'}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-[10px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-1">END DATE</dt>
-                          <dd>{lap.end_date ? formatDateDdMonYyyy(lap.end_date) : '—'}</dd>
-                        </div>
-                      </dl>
-                    </div>
-                  ) : null}
+                  {showNextSacredHomeEnrollment ? (
                   <div className="rounded-2xl border border-[rgba(124,58,237,0.35)] bg-gradient-to-br from-violet-50/90 to-white/70 px-4 py-3.5 shadow-sm shadow-violet-200/30 space-y-3">
-                    {showNextSacredHomeEnrollment ? (
                       <>
                         {membershipCycleDatesLocked ? (
                           <>
@@ -1872,31 +1877,8 @@ export default function AnnualPackagePurchasePage() {
                           </>
                         )}
                       </>
-                    ) : (
-                      <>
-                        <p className="text-[10px] uppercase tracking-[0.16em] text-[rgba(100,55,155,0.48)] font-semibold">
-                          Next renewal window
-                        </p>
-                        <p className="text-[12px] sm:text-[13px] text-[rgba(60,35,115,0.88)] leading-relaxed text-left sm:text-center max-w-xl mx-auto">
-                          You are in the <span className="font-semibold text-[#3b0764]">current</span> Sacred Home annual
-                          window (through{' '}
-                          <span className="font-semibold tabular-nums">
-                            {lapEndYmd ? formatDateDdMonYyyy(lapEndYmd) : '—'}
-                          </span>
-                          ). Member renewal flow typically opens in the{' '}
-                          <span className="font-semibold">15 days before</span> that end date
-                          {renewalWindowOpensYmd ? (
-                            <>
-                              {' '}
-                              (around <span className="font-semibold tabular-nums">{formatDateDdMonYyyy(renewalWindowOpensYmd)}</span>{' '}
-                              onward — same rule as your Sacred Home banner)
-                            </>
-                          ) : null}
-                          .
-                        </p>
-                      </>
-                    )}
                   </div>
+                  ) : null}
                   {useCollapsiblePriorSacredCycle && priorPeriodMeta ? (
                     <div
                       className="rounded-2xl border border-white/80 bg-white/58 px-3 py-2 shadow-sm shadow-violet-200/40 text-left"
