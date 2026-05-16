@@ -426,6 +426,7 @@ function AnnualPortalSortButton({ colId, title, sortKind, columnSort, setColumnS
 function AnnualPortalExcelColumnFilter({ colId, title, optionRows, activeFilter, onSetFilter }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const masterCheckboxRef = useRef(null);
   const options = useMemo(() => {
     const u = new Set();
     for (const row of optionRows) {
@@ -461,6 +462,15 @@ function AnnualPortalExcelColumnFilter({ colId, title, optionRows, activeFilter,
     setSearch('');
   };
 
+  const allValuesSelected = activeFilter === null;
+  const partiallySelected =
+    activeFilter !== null && activeFilter.size > 0 && activeFilter.size < options.length;
+
+  useEffect(() => {
+    const el = masterCheckboxRef.current;
+    if (el) el.indeterminate = partiallySelected;
+  }, [partiallySelected, open]);
+
   const hasFilter = activeFilter !== null;
 
   return (
@@ -476,7 +486,7 @@ function AnnualPortalExcelColumnFilter({ colId, title, optionRows, activeFilter,
           <Filter size={11} strokeWidth={2.5} />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-2 text-[10px] font-lato" onClick={(e) => e.stopPropagation()}>
+      <PopoverContent align="start" className="w-72 p-2 text-[10px] font-lato" onClick={(e) => e.stopPropagation()}>
         <div className="space-y-2">
           <Input
             placeholder="Search values…"
@@ -484,11 +494,24 @@ function AnnualPortalExcelColumnFilter({ colId, title, optionRows, activeFilter,
             onChange={(e) => setSearch(e.target.value)}
             className="h-7 text-[10px] px-2"
           />
-          <div className="flex gap-1 flex-wrap">
-            <Button type="button" variant="outline" size="sm" className="h-6 text-[9px] px-2 py-0" onClick={selectAll}>
+          <div className="grid grid-cols-2 gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[9px] px-1.5 py-0 w-full"
+              onClick={selectAll}
+            >
               Select all
             </Button>
-            <Button type="button" variant="outline" size="sm" className="h-6 text-[9px] px-2 py-0" onClick={unselectAll}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[9px] px-1.5 py-0 w-full"
+              data-testid={`annual-portal-filter-${colId}-unselect-all`}
+              onClick={unselectAll}
+            >
               Unselect all
             </Button>
           </div>
@@ -496,22 +519,34 @@ function AnnualPortalExcelColumnFilter({ colId, title, optionRows, activeFilter,
             {filteredOpts.length === 0 ? (
               <p className="text-neutral-400 text-[9px] p-2">No values</p>
             ) : (
-              filteredOpts.map((opt) => (
-                <label
-                  key={`${colId}-${String(opt).slice(0, 64)}`}
-                  className="flex items-start gap-2 px-2 py-1 hover:bg-neutral-50 cursor-pointer"
-                >
+              <>
+                <label className="flex items-start gap-2 px-2 py-1.5 hover:bg-neutral-50 cursor-pointer border-b border-neutral-100 bg-neutral-50/80 font-semibold">
                   <input
+                    ref={masterCheckboxRef}
                     type="checkbox"
-                    checked={isChecked(opt)}
-                    onChange={() => toggle(opt)}
+                    checked={allValuesSelected}
+                    onChange={(e) => (e.target.checked ? selectAll() : unselectAll())}
                     className="mt-0.5 rounded border-neutral-300 shrink-0"
                   />
-                  <span className="break-all text-neutral-800 leading-tight" title={String(opt)}>
-                    {String(opt).length > 80 ? `${String(opt).slice(0, 80)}…` : String(opt)}
-                  </span>
+                  <span className="text-neutral-900 leading-tight">(Select all)</span>
                 </label>
-              ))
+                {filteredOpts.map((opt) => (
+                  <label
+                    key={`${colId}-${String(opt).slice(0, 64)}`}
+                    className="flex items-start gap-2 px-2 py-1 hover:bg-neutral-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked(opt)}
+                      onChange={() => toggle(opt)}
+                      className="mt-0.5 rounded border-neutral-300 shrink-0"
+                    />
+                    <span className="break-all text-neutral-800 leading-tight" title={String(opt)}>
+                      {String(opt).length > 80 ? `${String(opt).slice(0, 80)}…` : String(opt)}
+                    </span>
+                  </label>
+                ))}
+              </>
             )}
           </div>
         </div>
