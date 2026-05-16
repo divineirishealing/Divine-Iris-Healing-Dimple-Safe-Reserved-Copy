@@ -16,6 +16,7 @@ import {
   X,
   ChevronRight,
   ChevronDown,
+  RotateCw,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -24,6 +25,11 @@ import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../Spre
 import { getApiUrl } from '../../../lib/config';
 import { useToast } from '../../../hooks/use-toast';
 import AnnualSubscriptionEditDialog from './AnnualSubscriptionEditDialog';
+import AnnualPortalRenewDialog from '../AnnualPortalRenewDialog';
+import {
+  annualPortalRowForYearOrdinal,
+  buildAnnualPortalYearTabs,
+} from '../../../lib/annualPortalYearView';
 import {
   HOME_COMING_SKU,
   HOME_COMING_DISPLAY,
@@ -810,6 +816,9 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
   const [listSearch, setListSearch] = useState('');
   /** Row id → expanded Home Coming session sub-rows */
   const [annualPortalExpanded, setAnnualPortalExpanded] = useState(() => ({}));
+  /** `current` or year ordinal string (`1`, `2`, …) for historical roster view */
+  const [rosterYearTab, setRosterYearTab] = useState('current');
+  const [renewRow, setRenewRow] = useState(null);
 
   const toggleAnnualPortalExpand = useCallback((rid) => {
     const id = String(rid || '').trim();
@@ -825,6 +834,22 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
           annualPortalRowMatchesListSearch(r, listSearch),
       ),
     [rows, columnFilters, listSearch],
+  );
+
+  const yearTabs = useMemo(() => buildAnnualPortalYearTabs(rows), [rows]);
+
+  const tabScopedRows = useMemo(() => {
+    if (rosterYearTab === 'current') return filteredRows;
+    const ord = parseInt(rosterYearTab, 10);
+    if (!Number.isFinite(ord) || ord < 1) return filteredRows;
+    return filteredRows
+      .map((r) => annualPortalRowForYearOrdinal(r, ord))
+      .filter(Boolean);
+  }, [filteredRows, rosterYearTab]);
+
+  const activeYearTabMeta = useMemo(
+    () => yearTabs.find((t) => t.id === rosterYearTab) || yearTabs[0],
+    [yearTabs, rosterYearTab],
   );
 
   const filterOptionBaseByCol = useMemo(() => {
@@ -1065,10 +1090,10 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
   }, [filteredRows, columnSort]);
 
   const sortedRows = useMemo(() => {
-    const base = [...filteredRows];
+    const base = [...tabScopedRows];
     base.sort((a, b) => fullAnnualPortalSort(a, b, columnSort));
     return base;
-  }, [filteredRows, columnSort]);
+  }, [tabScopedRows, columnSort]);
 
   /** Same serial in list and household views (sorted list order). */
   const serialByRowKey = useMemo(() => {
@@ -1301,6 +1326,28 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
           <Users className="h-3.5 w-3.5" />
           By household
         </button>
+        {yearTabs.length > 1 && (
+          <>
+            <span className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider ml-1 sm:ml-2">
+              Iris year
+            </span>
+            {yearTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                title={tab.label}
+                onClick={() => setRosterYearTab(tab.id)}
+                className={`inline-flex items-center border px-2 py-1 text-[11px] font-medium transition-colors rounded-sm max-w-[11rem] truncate ${
+                  rosterYearTab === tab.id
+                    ? 'border-[#1565c0] bg-[#e3f2fd] text-[#0d47a1] shadow-sm'
+                    : 'border-[#c6c6c6] bg-white text-neutral-700 hover:bg-neutral-50'
+                }`}
+              >
+                {tab.shortLabel}
+              </button>
+            ))}
+          </>
+        )}
         {viewMode === 'flat' && (
           <SpreadsheetColumnPicker
             columns={ANNUAL_PORTAL_FLAT_COLS}
@@ -1337,6 +1384,22 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
         toast={toast}
         onSaved={() => load()}
       />
+      <AnnualPortalRenewDialog
+        open={!!renewRow}
+        onOpenChange={(o) => !o && setRenewRow(null)}
+        row={renewRow}
+        toast={toast}
+        onRenewed={() => load()}
+      />
+
+      {rosterYearTab !== 'current' && activeYearTabMeta?.label && (
+        <p className="shrink-0 text-[11px] font-semibold text-[#0d47a1] bg-[#e3f2fd] border border-[#90caf9] px-2 py-1 rounded-sm">
+          Viewing: {activeYearTabMeta.label}
+          <span className="font-normal text-neutral-700 ml-1">
+            — dates and status for that Home Coming year; renew only on Current roster.
+          </span>
+        </p>
+      )}
 
       <div className={sheetFrame}>
         <div
@@ -1665,6 +1728,19 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
+                          {(r.id || '').trim() && rosterYearTab === 'current' ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 flex-1 rounded-none hover:bg-violet-50 text-violet-900"
+                              title="Renew to next Home Coming year"
+                              aria-label="Renew Home Coming year"
+                              onClick={() => setRenewRow(r)}
+                            >
+                              <RotateCw className="h-3.5 w-3.5" />
+                            </Button>
+                          ) : null}
                           {typeof onNavigateToClientFinances === 'function' && (r.id || '').trim() ? (
                             <Button
                               type="button"
@@ -1940,6 +2016,19 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
                                 </Button>
+                                {(r.id || '').trim() && rosterYearTab === 'current' ? (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 flex-1 rounded-none hover:bg-violet-50 text-violet-900"
+                                    title="Renew to next Home Coming year"
+                                    aria-label="Renew Home Coming year"
+                                    onClick={() => setRenewRow(r)}
+                                  >
+                                    <RotateCw className="h-3.5 w-3.5" />
+                                  </Button>
+                                ) : null}
                                 {typeof onNavigateToClientFinances === 'function' && (r.id || '').trim() ? (
                                   <Button
                                     type="button"

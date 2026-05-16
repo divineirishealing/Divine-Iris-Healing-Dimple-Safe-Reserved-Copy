@@ -123,6 +123,7 @@ export function buildHomeComingCycles(client) {
       ledgerId: e.id || null,
       start: e.start_date || '',
       end: e.end_date || '',
+      annualDiid: (e.annual_diid || '').trim(),
       sessions: sortSessionsList(e.home_coming_sessions || []),
       isCurrent: false,
     });
@@ -132,6 +133,7 @@ export function buildHomeComingCycles(client) {
       ledgerId: null,
       start: sub.start_date || '',
       end: sub.end_date || '',
+      annualDiid: (sub.annual_diid || '').trim(),
       sessions: sortSessionsList(sub.home_coming_sessions || []),
       isCurrent: true,
     });

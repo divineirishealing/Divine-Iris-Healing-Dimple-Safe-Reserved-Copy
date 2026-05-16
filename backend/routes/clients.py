@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Body
 from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import date, datetime, timezone
@@ -12,6 +12,7 @@ from utils.canonical_id import (
     new_entity_id,
     new_internal_diid,
     normalize_annual_diid,
+    suggest_annual_diid_from_name,
     validate_annual_diid_format,
 )
 from utils.garden_labels import (
@@ -1868,6 +1869,148 @@ async def patch_annual_subscription(client_id: str, data: AnnualSubscriptionUpda
     if ledger is not None:
         out["annual_period_ledger"] = ledger
     return out
+
+
+def _default_home_coming_renew_start_ymd() -> str:
+    """3rd of the calendar month immediately after the current local month (matches student UI)."""
+    today = date.today()
+    m = today.month + 1
+    y = today.year
+    if m > 12:
+        m = 1
+        y += 1
+    return f"{y:04d}-{m:02d}-03"
+
+
+def _home_coming_session_skeleton() -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    for prog, mx in _HOME_COMING_PROGRAM_SLOTS.items():
+        for slot in range(1, mx + 1):
+            rows.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "program": prog,
+                    "slot": slot,
+                    "paused": False,
+                    "source": "admin",
+                }
+            )
+    return rows
+
+
+class AdminHomeComingRenewBody(BaseModel):
+    start_date: Optional[str] = None
+    target_iris_year: Optional[int] = Field(None, ge=1, le=12)
+
+
+@router.post("/{client_id}/admin-home-coming-renew")
+async def admin_home_coming_renew(
+    client_id: str,
+    body: AdminHomeComingRenewBody = Body(default_factory=AdminHomeComingRenewBody),
+):
+    """
+  Admin one-click renewal: archive the current Home Coming window, open the next cycle,
+  reset usage + session grid, bump ``subscription.iris_year``, and sync subscription dates/EMIs.
+    """
+    from routes.student import _add_months_subscription_end
+    from routes.subscribers import _regenerate_emi_schedule_inplace
+
+    cl = await db.clients.find_one({"id": client_id})
+    if not cl:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    start_raw = (body.start_date or "").strip()[:10] if body.start_date else ""
+    start_iso = start_raw if start_raw else _default_home_coming_renew_start_ymd()
+    if len(start_iso) != 10 or start_iso[4] != "-" or start_iso[7] != "-":
+        raise HTTPException(status_code=400, detail="start_date must be YYYY-MM-DD")
+    try:
+        datetime.strptime(start_iso, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid start_date")
+
+    end_iso = (_add_months_subscription_end(start_iso, 12) or "").strip()[:10]
+    if len(end_iso) < 10:
+        raise HTTPException(status_code=400, detail="Could not compute end_date for renewal")
+
+    sub0 = cl.get("subscription") if isinstance(cl.get("subscription"), dict) else {}
+    old_iy = _iris_year_int(cl) or 1
+    new_iy = int(body.target_iris_year) if body.target_iris_year is not None else min(12, old_iy + 1)
+
+    prev_asy: Dict[str, Any] = dict(cl.get("annual_subscription") or {})
+    suggested_diid = suggest_annual_diid_from_name(str(cl.get("name") or ""), start_iso)
+    ad = (prev_asy.get("annual_diid") or "").strip()
+    if suggested_diid:
+        ad_norm = normalize_annual_diid(suggested_diid)
+        if validate_annual_diid_format(ad_norm):
+            dup = await db.clients.find_one(
+                {"annual_subscription.annual_diid": ad_norm, "id": {"$ne": client_id}}
+            )
+            if not dup:
+                ad = ad_norm
+
+    merged_asy: Dict[str, Any] = {
+        **prev_asy,
+        "package_sku": HOME_COMING_SKU,
+        "start_date": start_iso,
+        "end_date": end_iso,
+        "annual_diid": ad or None,
+        "usage_source": "manual",
+        "usage": {
+            "awrp_months_used": 0,
+            "mmm_months_used": 0,
+            "turbo_sessions_used": 0,
+            "meta_downloads_used": 0,
+        },
+        "home_coming_sessions": _home_coming_session_skeleton(),
+    }
+
+    now = datetime.now(timezone.utc).isoformat()
+    fee_snap = sub0 if sub0 else None
+    ledger = _append_annual_period_ledger(
+        cl,
+        prev_asy,
+        merged_asy,
+        source="admin_home_coming_renew",
+        iris_year=old_iy,
+        fee_snapshot=fee_snap,
+    )
+
+    set_doc: Dict[str, Any] = {"annual_subscription": merged_asy, "updated_at": now}
+    if ledger is not None:
+        set_doc["annual_period_ledger"] = ledger
+
+    sub_sync = dict(sub0) if sub0 else {
+        "currency": "INR",
+        "total_fee": 0.0,
+        "payment_mode": "No EMI",
+        "num_emis": 0,
+        "iris_year": new_iy,
+        "iris_year_mode": "manual",
+        "emis": [],
+        "installment_surcharge_percent": 0.0,
+    }
+    sub_sync["start_date"] = start_iso
+    sub_sync["end_date"] = end_iso
+    sub_sync["iris_year"] = new_iy
+    sub_sync["iris_year_mode"] = "manual"
+    _regenerate_emi_schedule_inplace(sub_sync)
+    sub_sync["updated_at"] = now
+    set_doc["subscription"] = sub_sync
+
+    if not cl.get("annual_member_dashboard"):
+        set_doc["annual_member_dashboard"] = True
+
+    await db.clients.update_one({"id": client_id}, {"$set": set_doc})
+
+    return {
+        "client_id": client_id,
+        "start_date": start_iso,
+        "end_date": end_iso,
+        "iris_year": new_iy,
+        "previous_iris_year": old_iy,
+        "annual_subscription": merged_asy,
+        "annual_period_ledger": ledger if ledger is not None else list(cl.get("annual_period_ledger") or []),
+    }
 
 
 @router.post("/{client_id}/home-coming-sessions/sync-from-global-schedule")
