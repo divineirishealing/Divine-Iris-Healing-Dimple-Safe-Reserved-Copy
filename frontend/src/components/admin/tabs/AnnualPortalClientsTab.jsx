@@ -456,6 +456,11 @@ function AnnualPortalExcelColumnFilter({ colId, title, optionRows, activeFilter,
     setSearch('');
   };
 
+  const unselectAll = () => {
+    onSetFilter(new Set());
+    setSearch('');
+  };
+
   const hasFilter = activeFilter !== null;
 
   return (
@@ -482,6 +487,9 @@ function AnnualPortalExcelColumnFilter({ colId, title, optionRows, activeFilter,
           <div className="flex gap-1 flex-wrap">
             <Button type="button" variant="outline" size="sm" className="h-6 text-[9px] px-2 py-0" onClick={selectAll}>
               Select all
+            </Button>
+            <Button type="button" variant="outline" size="sm" className="h-6 text-[9px] px-2 py-0" onClick={unselectAll}>
+              Unselect all
             </Button>
           </div>
           <div className="max-h-52 overflow-y-auto border border-neutral-100 rounded-md divide-y divide-neutral-50">
