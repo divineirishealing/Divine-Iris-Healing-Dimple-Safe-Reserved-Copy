@@ -1110,6 +1110,7 @@ export default function AnnualPackagePurchasePage() {
       currency: baseCurrency,
       family_count: 0,
       booker_joins: true,
+      home_coming_catalog: true,
     };
     if (pinnedProgram.is_flagship && tiers.length > 0 && tierIdx != null) {
       params.tier_index = tierIdx;

@@ -28,6 +28,7 @@ from routes.clients import (
     annual_subscription_period_expired,
     effective_annual_portal_dates,
     ensure_client_from_enrollment_lead,
+    parse_annual_subscription_end_date,
 )
 from routes.currency import assert_claimed_hub_matches_stripe
 from country_normalize import normalize_country_iso2
@@ -513,6 +514,25 @@ def _trim_calendar_ymd(v: Any) -> str:
     return x[:10] if len(x) >= 10 and x[4] == "-" and x[7] == "-" else ""
 
 
+def _pending_renewal_desired_start_ymd(client: dict) -> Optional[str]:
+    """When CRM still shows the prior cycle but the member chose a next-cycle start (renewal checkout)."""
+    if not bool(client.get("annual_member_dashboard")):
+        return None
+    prefs = client.get("annual_package_offer_prefs")
+    if not isinstance(prefs, dict):
+        return None
+    raw = str(prefs.get("desired_start_date") or "").strip()[:10]
+    if len(raw) != 10:
+        return None
+    desired = _parse_ymd_loose(raw)
+    if not desired:
+        return None
+    prev_end = parse_annual_subscription_end_date(client)
+    if prev_end and desired <= prev_end:
+        return None
+    return raw
+
+
 def _last_annual_package_portal_payload(
     client: dict,
     sub: dict,
@@ -527,6 +547,18 @@ def _last_annual_package_portal_payload(
     end = _trim_calendar_ymd(een.isoformat() if een else None) or _trim_calendar_ymd(
         asy.get("end_date")
     ) or _trim_calendar_ymd(sub.get("end_date"))
+    pending_start = _pending_renewal_desired_start_ymd(client)
+    if pending_start:
+        dur = 12
+        if pkg_row_home and pkg_row_home.get("duration_months") is not None:
+            try:
+                dur = max(1, min(120, int(pkg_row_home["duration_months"])))
+            except (TypeError, ValueError):
+                dur = 12
+        pending_end = _add_months_subscription_end(pending_start, dur)
+        if pending_end:
+            start = pending_start
+            end = pending_end[:10]
     if not start and not end:
         return None
     prog = (sub.get("annual_program") or "").strip()
@@ -581,12 +613,19 @@ async def _sacred_home_catalog_pricing_and_crm_discount(
     included_in_annual_package: bool,
     cohort_batch_id: Optional[Any],
     participant_count: int,
+    home_coming_catalog: bool = False,
 ) -> dict:
     """Set Sacred Home bundle total from catalog and apply Iris Annual Abundance CRM discount **only** on that path.
 
     If the pin program is also sold as flagship tier lines (Divine Cart), those quotes must **not** pick up
     the CRM % / bands — only the Home Coming package row (``offer_total`` for this currency) does.
+
+    ``home_coming_catalog`` must be True (GET /dashboard-quote?home_coming_catalog=true from the Home Coming
+    purchase page). When AWRP is the pinned catalog program, ordinary upcoming-program quotes must keep
+    tier list/offer pricing without HC courtesy %.
     """
+    if not home_coming_catalog:
+        return pricing
     pin = (settings_doc.get("dashboard_sacred_home_annual_program_id") or "").strip()
     if not pin or str(program_id).strip() != pin:
         return pricing
@@ -789,10 +828,14 @@ def _annual_dashboard_access(client: dict) -> bool:
 
     Drives portal offers, tier promotional pricing, package inclusion, and household club eligibility.
     """
+    if bool(client.get("annual_member_dashboard")):
+        if not annual_subscription_period_expired(client):
+            return True
+        if _pending_renewal_desired_start_ymd(client):
+            return True
+        return False
     if annual_subscription_period_expired(client):
         return False
-    if bool(client.get("annual_member_dashboard")):
-        return True
     sub = client.get("subscription") or {}
     return _subscription_annual_package_signals(sub)
 
@@ -2435,6 +2478,10 @@ async def dashboard_quote(
     currency: str = "aed",
     booker_joins: bool = True,
     tier_index: Optional[int] = Query(None, description="Flagship duration tier index (1 month, 3 month, annual, …)"),
+    home_coming_catalog: bool = Query(
+        False,
+        description="When true, apply Home Coming catalog offer_total + HC courtesy % (Home Coming purchase page only).",
+    ),
     user: dict = Depends(get_current_student_user),
 ):
     """Portal pricing for logged-in clients (Sacred Home + Divine Cart).
@@ -2565,6 +2612,7 @@ async def dashboard_quote(
         included_in_annual_package=included,
         cohort_batch_id=batch_id,
         participant_count=qc,
+        home_coming_catalog=home_coming_catalog,
     )
 
     peer_pkg_inc = max(0, int(peer_sel) - int(imm_peer)) if id_list else 0
@@ -3243,6 +3291,12 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "bi_annual_download": sub.get("bi_annual_download", 0),
         "quarterly_releases": sub.get("quarterly_releases", 0),
     }
+    pending_start_ymd = _pending_renewal_desired_start_ymd(client)
+    if pending_start_ymd:
+        package["start_date"] = pending_start_ymd
+        pending_end_ymd = _add_months_subscription_end(pending_start_ymd, dur_months_home)
+        if pending_end_ymd:
+            package["end_date"] = pending_end_ymd[:10]
 
     last_annual_package = _last_annual_package_portal_payload(client, sub, pkg_row_home)
     if last_annual_package:
