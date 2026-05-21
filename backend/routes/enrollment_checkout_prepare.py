@@ -503,6 +503,7 @@ async def enrollment_checkout_prepare(
             from utils.home_coming_discount_scope import (
                 checkout_program_ids_from_submit,
                 filter_client_pricing_for_home_coming_checkout,
+                home_coming_catalog_checkout_from_context,
             )
 
             pin_hc = str((ss_inr or {}).get("dashboard_sacred_home_annual_program_id") or "").strip()
@@ -511,6 +512,7 @@ async def enrollment_checkout_prepare(
                 cp_doc,
                 pin_program_id=pin_hc,
                 checkout_program_ids=chk_ids,
+                home_coming_catalog_checkout=home_coming_catalog_checkout_from_context(data),
             )
             from utils.india_checkout_math import compute_india_checkout_breakdown
 
@@ -593,6 +595,16 @@ async def enrollment_checkout_prepare(
     }
     if data.item_type == "program":
         item_set.update(snapshot_chosen_tier_from_program(item, getattr(data, "tier_index", None)))
+    from utils.home_coming_discount_scope import home_coming_catalog_checkout_from_context
+
+    if home_coming_catalog_checkout_from_context(data):
+        item_set["home_coming_catalog_checkout"] = True
+    inst_raw = getattr(data, "home_coming_pay_installment_n", None)
+    if inst_raw is not None:
+        try:
+            item_set["home_coming_pay_installment_n"] = max(0, int(inst_raw))
+        except (TypeError, ValueError):
+            pass
     await db.enrollments.update_one(
         {"id": enrollment_id},
         {"$set": item_set},

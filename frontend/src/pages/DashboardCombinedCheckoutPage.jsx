@@ -1655,6 +1655,7 @@ export default function DashboardCombinedCheckoutPage() {
               home_coming_pay_installment_n: Number(homeComingAnnualOfferPlan.payInstallmentN || 1),
             }
           : {}),
+        ...(hasHomeComingCatalogPay ? { home_coming_catalog_checkout: true } : {}),
       });
       if (res.data.url === '__FREE_SUCCESS__') {
         suppressEmptyCartRedirectRef.current = true;

@@ -208,6 +208,8 @@ class EnrollmentSubmit(BaseModel):
     checkout_is_emi: Optional[bool] = None
     checkout_emi_months_covered: Optional[str] = None
     home_coming_pay_installment_n: Optional[int] = None
+    # True when paying from Sacred Home Home Coming package page (catalog bundle), not Upcoming tier checkout.
+    home_coming_catalog_checkout: Optional[bool] = None
 
 
 def _ordinal(n: int) -> str:
@@ -966,6 +968,7 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
     from utils.home_coming_discount_scope import (
         checkout_program_ids_from_submit,
         filter_client_pricing_for_home_coming_checkout,
+        home_coming_catalog_checkout_from_context,
     )
 
     pin_hc = str((ss_doc or {}).get("dashboard_sacred_home_annual_program_id") or "").strip()
@@ -974,6 +977,7 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
         client_pricing_doc,
         pin_program_id=pin_hc,
         checkout_program_ids=chk_ids,
+        home_coming_catalog_checkout=home_coming_catalog_checkout_from_context(data),
     )
 
     from utils.india_checkout_math import compute_india_checkout_breakdown
