@@ -1006,15 +1006,27 @@ def _hc_emi_tier_label_from_context(ctx: dict) -> str:
     return "HC-EMI-1st"
 
 
-def _participant_row_identity_batch_key(r: dict) -> Tuple[str, str, str, str]:
-    """Stable key: participant (email or name), booker email, tier window."""
+def _participant_row_identity_batch_key(r: dict) -> Tuple[str, str, str, str, str]:
+    """
+    Stable key: participant (name + email), booker email, tier window, catalog program.
+    Name is always part of identity so guests who share the booker's email (common on
+    family enrollments) are not dropped when the booker has a solo checkout elsewhere.
+    Program is included so a solo AWRP seat does not suppress the same person on a
+    multi-seat Unleash Her Fire enrollment.
+    """
     pem = (_clean_str(r.get("participant_email")) or "").strip().lower()
     pnm = (_clean_str(r.get("participant_name")) or "").strip().lower()
     be = (_clean_str(r.get("booker_email")) or "").strip().lower()
     cs = _clean_str(r.get("chosen_start_date"))
     ce = _clean_str(r.get("chosen_end_date"))
-    ident = pem if pem else f"name:{pnm}"
-    return (ident, be, cs, ce)
+    prog = _program_title_without_batch_suffix(_clean_str(r.get("program")) or "").lower()
+    if pnm and pem:
+        ident = f"{pnm}|{pem}"
+    elif pem:
+        ident = pem
+    else:
+        ident = f"name:{pnm}"
+    return (ident, be, cs, ce, prog)
 
 
 def _participant_row_text_has_home_coming(row: dict) -> bool:
