@@ -195,7 +195,7 @@ async def send_otp_email(to: str, otp: str, name: str = ""):
           <div style="background:#faf8f0;border:2px solid #D4AF37;border-radius:12px;padding:20px;display:inline-block">
             <span style="font-size:36px;font-weight:700;letter-spacing:8px;color:#1a1a1a;font-family:monospace">{otp}</span>
           </div>
-          <p style="color:#aaa;font-size:12px;margin:20px 0 0">This code expires in 5 minutes. Do not share it with anyone.</p>
+          <p style="color:#aaa;font-size:12px;margin:20px 0 0">This code expires in 5 minutes. Divine Iris sends verification codes by email only — not SMS. Do not use codes from text messages. Never share this code with anyone on phone or WhatsApp.</p>
         </div>
         <div style="background:#1a1a1a;padding:20px;text-align:center">
           <p style="color:#D4AF37;font-size:11px;margin:0;letter-spacing:2px">DIVINE IRIS HEALING</p>

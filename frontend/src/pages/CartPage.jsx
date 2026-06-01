@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
+import { EnrollmentOtpSecurityNotice } from '../components/enrollment/EnrollmentOtpSecurityNotice';
 import {
   computeCrossSellDiscount,
   crossSellEligibleParticipantCount,
@@ -949,9 +950,10 @@ function CartPage() {
               <h3 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
                 <Mail size={14} className="text-[#D4AF37]" /> Verify & Proceed
               </h3>
-              <p className="text-[10px] text-gray-500 mb-3">
+              <p className="text-[10px] text-gray-500 mb-2">
                 We'll send a code to <strong>{bookerEmail || 'your email'}</strong> to confirm enrollment.
               </p>
+              <EnrollmentOtpSecurityNotice className="mb-3" />
 
               {!otpSent && !emailVerified && (
                 <Button data-testid="cart-send-otp" onClick={submitAndSendOtp} disabled={loading}
