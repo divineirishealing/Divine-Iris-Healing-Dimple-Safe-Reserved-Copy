@@ -1306,14 +1306,6 @@ export default function DashboardCombinedCheckoutPage() {
     paymentSettings.india_platform_charge_percent,
   ]);
 
-  /** Dashboard Access group bands / flat India % — must show in main cart lines (not only in India settlement box). */
-  const indiaClientDiscountAmt =
-    indiaBreakdown && Number(indiaBreakdown.discountAmt) > 0
-      ? Math.round(Number(indiaBreakdown.discountAmt))
-      : 0;
-  const totalDiscountIncludingIndia =
-    totalDiscountAmount + indiaClientDiscountAmt + portalListOfferSavings;
-
   const indiaPaymentTag = clientIndiaPricing?.india_payment_method;
 
   const { list: paymentMethodsForDisplay, tagged: paymentMethodsTagged } = useMemo(
@@ -1331,18 +1323,25 @@ export default function DashboardCombinedCheckoutPage() {
   const memberIndiaTagged =
     pmLower.includes('gpay') || pmLower.includes('bank') || pmLower.includes('manual');
   /**
-   * India GST + platform apply only for manual / Exly rails. Stripe card checkout uses the taxable
-   * base (after India Client Garden discount) with no extra 18% / platform line items.
+   * CRM India % + GST + platform apply only on Razorpay / manual / Exly rails — never on Stripe card checkout.
    */
-  const showIndiaInrSettlement =
+  const useIndiaSettlementTotal =
     !!indiaBreakdown &&
-    (!hasStripe || portalPayMode === 'manual' || portalPayMode === 'exly');
+    (portalPayMode === 'manual' || portalPayMode === 'exly' || !hasStripe);
 
-  const payableTotal = indiaBreakdown
-    ? showIndiaInrSettlement
-      ? indiaBreakdown.roundedTotal
-      : Math.round(indiaBreakdown.taxableBase)
+  const showIndiaInrSettlement = useIndiaSettlementTotal;
+
+  const payableTotal = useIndiaSettlementTotal
+    ? indiaBreakdown.roundedTotal
     : totalForPayment;
+
+  /** Dashboard Access India % — shown only when paying via India settlement (not Stripe). */
+  const indiaClientDiscountAmt =
+    useIndiaSettlementTotal && indiaBreakdown && Number(indiaBreakdown.discountAmt) > 0
+      ? Math.round(Number(indiaBreakdown.discountAmt))
+      : 0;
+  const totalDiscountIncludingIndia =
+    totalDiscountAmount + indiaClientDiscountAmt + portalListOfferSavings;
   const bookerIndia = String(bookerCountry || '').trim().toUpperCase() === 'IN';
   const siteIndiaAlternatePayments =
     !!paymentSettings.india_enabled && (detectedCountry === 'IN' || bookerIndia);
@@ -2259,8 +2258,8 @@ export default function DashboardCombinedCheckoutPage() {
               className="text-[10px] text-amber-900/90 bg-amber-50/60 border border-amber-200/70 rounded-lg px-2.5 py-2 mt-2 leading-snug"
               data-testid="divine-cart-india-settlement"
             >
-              Manual / UPI proof uses the same totals as Stripe — GST and platform (if any) are included in the amount
-              above.
+              Manual / UPI / Exly uses Client Garden India discount, GST, and platform (if set). Stripe
+              card checkout charges the program total above without CRM India %.
             </p>
           ) : null}
           <div className="flex justify-between items-start gap-3 font-bold text-lg sm:text-xl border-t border-gray-200 pt-3 mt-2">
