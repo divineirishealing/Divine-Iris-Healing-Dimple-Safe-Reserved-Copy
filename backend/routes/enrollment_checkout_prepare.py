@@ -460,12 +460,13 @@ async def enrollment_checkout_prepare(
             pass
 
     # Portal Stripe (INR): charge taxable base after Client Garden CRM discount (no GST add-on), matching
-    # Divine Cart / dashboard flows when `portal_checkout_cancel` is sent. Skip for pre-mixed admin totals.
+    # Divine Cart / dashboard flows when `portal_checkout_cancel` is sent. Public website Stripe keeps
+    # catalog list price — CRM India % applies on Razorpay / India manual pay only. Skip pre-mixed totals.
     if (
         str(currency or "").lower() == "inr"
         and final_total > 0
         and enrollment.get("dashboard_mixed_total") is None
-        and _trust_client_declared_slice
+        and _portal
     ):
         try:
             ss_inr = await db.site_settings.find_one(
