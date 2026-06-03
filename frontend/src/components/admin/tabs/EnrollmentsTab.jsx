@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
-import { FileSpreadsheet, Download, Search, CreditCard, Building2, Upload, Globe, ChevronDown, ChevronUp, LayoutList, Table2, Mail, ClipboardList, Columns3 } from 'lucide-react';
+import { FileSpreadsheet, Download, Search, CreditCard, Building2, Upload, Globe, ChevronDown, ChevronUp, LayoutList, Table2, Mail, ClipboardList, Columns3, Filter } from 'lucide-react';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Switch } from '../../ui/switch';
+import { Button } from '../../ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
 import { Checkbox } from '../../ui/checkbox';
 import { cn, formatDateDMonYyyyUpper, formatDateTimeDMonYyyyUpper } from '@/lib/utils';
@@ -106,6 +107,7 @@ const PROGRAM_BATCH_COLUMN_DEFS = [
   { id: 'mode', label: 'Mode', weight: 7, headClass: 'text-left' },
   { id: 'origin', label: 'Src', weight: 6, headClass: 'text-left' },
   { id: 'status', label: 'Status', weight: 9, headClass: 'text-left leading-tight' },
+  { id: 'paidWhen', label: 'Paid when', weight: 10, headClass: 'text-left leading-tight' },
   { id: 'amt', label: 'Amt', weight: 7, headClass: 'text-right leading-tight' },
   { id: 'inr', label: 'INR', weight: 8, headClass: 'text-right leading-tight' },
   { id: 'runInr', label: 'Σ INR', weight: 9, headClass: 'text-right leading-tight' },
@@ -293,6 +295,254 @@ function originLabel(origin) {
   return 'Website';
 }
 
+const FILTER_BLANKS = '(Blanks)';
+
+const PROGRAM_BATCH_NON_FILTERABLE_COLS = new Set(['serial', 'runInr']);
+
+function programBatchBlankOr(v) {
+  const s = v == null ? '' : String(v).trim();
+  return s && s !== '—' ? s : FILTER_BLANKS;
+}
+
+function programBatchSeatLabel(row) {
+  const pTotal = Number(row.participant_total);
+  const pIdx = Number(row.participant_index);
+  if (Number.isFinite(pTotal) && pTotal > 1 && Number.isFinite(pIdx) && pIdx > 0) return `${pIdx}/${pTotal}`;
+  if (Number.isFinite(pIdx) && pIdx > 0) return String(pIdx);
+  return '—';
+}
+
+function programBatchStatusLabel(row) {
+  const st = (row.enrollment_status || row.payment_status || '—').toLowerCase();
+  const info = STATUS_MAP[st];
+  return info ? info.label : row.enrollment_status || row.payment_status || '—';
+}
+
+function programBatchAmtDisplay(row) {
+  const amt = Number(row.payment_amount) || 0;
+  if (amt <= 0) return '0';
+  const cur = (row.payment_currency || '').toLowerCase();
+  const symbols = { inr: '\u20B9', aed: 'AED ', usd: '$' };
+  const sym = symbols[cur] || (cur ? `${cur.toUpperCase()} ` : '');
+  return `${sym}${Number(amt).toLocaleString()}`;
+}
+
+function programBatchInrDisplay(row, fxRates) {
+  const inr = enrollmentAmountToInr(row.payment_amount, row.payment_currency, fxRates);
+  return `\u20B9${inr.toLocaleString('en-IN')}`;
+}
+
+/** Filter value per column — must match cell display text. */
+function getProgramBatchFilterValue(row, colId, fxRates = {}) {
+  switch (colId) {
+    case 'seat':
+      return programBatchSeatLabel(row);
+    case 'name':
+      return programBatchBlankOr(row.participant_name);
+    case 'age':
+      return row.age !== '' && row.age != null ? String(row.age) : FILTER_BLANKS;
+    case 'gender':
+      return programBatchBlankOr(row.gender);
+    case 'city':
+      return programBatchBlankOr(row.city);
+    case 'country':
+      return programBatchBlankOr(row.country);
+    case 'cohort':
+    case 'progStart':
+      return programBatchBlankOr(formatProgramYmd(row.chosen_start_date));
+    case 'progEnd':
+      return programBatchBlankOr(formatProgramYmd(row.chosen_end_date));
+    case 'tier':
+      return programBatchBlankOr(row.tier_label || row.catalog_program_title);
+    case 'mode':
+      return programBatchBlankOr(participantAttendanceLabel(row.attendance_mode));
+    case 'origin':
+      return row.enrollment_origin === 'dashboard' ? 'Dash' : 'Web';
+    case 'status':
+      return programBatchStatusLabel(row);
+    case 'paidWhen':
+      return row.paid_at ? formatEnrollReportDateTime(row.paid_at) : FILTER_BLANKS;
+    case 'amt':
+      return programBatchAmtDisplay(row);
+    case 'inr':
+      return programBatchInrDisplay(row, fxRates);
+    default:
+      return FILTER_BLANKS;
+  }
+}
+
+function programBatchPassesColumnFilters(row, filters, fxRates = {}) {
+  for (const [colId, sel] of Object.entries(filters)) {
+    if (sel == null) continue;
+    const v = getProgramBatchFilterValue(row, colId, fxRates);
+    if (!sel.has(v)) return false;
+  }
+  return true;
+}
+
+function rowsForProgramBatchFilterOptions(allRows, columnFilters, colId, fxRates = {}) {
+  return allRows.filter((row) => {
+    for (const [cid, sel] of Object.entries(columnFilters)) {
+      if (cid === colId || sel == null) continue;
+      if (!sel.has(getProgramBatchFilterValue(row, cid, fxRates))) return false;
+    }
+    return true;
+  });
+}
+
+function ProgramBatchExcelColumnFilter({ colId, title, optionRows, activeFilter, onSetFilter, fxRates }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const masterCheckboxRef = useRef(null);
+  const options = useMemo(() => {
+    const u = new Set();
+    for (const row of optionRows) {
+      u.add(getProgramBatchFilterValue(row, colId, fxRates));
+    }
+    return [...u].sort((a, b) => String(a).localeCompare(String(b), undefined, { sensitivity: 'base' }));
+  }, [optionRows, colId, fxRates]);
+
+  const filteredOpts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter((o) => String(o).toLowerCase().includes(q));
+  }, [options, search]);
+
+  const isChecked = (opt) => activeFilter === null || activeFilter.has(opt);
+
+  const toggle = (opt) => {
+    const universe = new Set(options);
+    const cur = activeFilter === null ? new Set(universe) : new Set(activeFilter);
+    if (cur.has(opt)) cur.delete(opt);
+    else cur.add(opt);
+    if (cur.size === universe.size) onSetFilter(null);
+    else onSetFilter(cur);
+  };
+
+  const selectAll = () => {
+    onSetFilter(null);
+    setSearch('');
+  };
+
+  const unselectAll = () => {
+    onSetFilter(new Set());
+    setSearch('');
+  };
+
+  const allValuesSelected = activeFilter === null;
+  const partiallySelected =
+    activeFilter !== null && activeFilter.size > 0 && activeFilter.size < options.length;
+
+  useEffect(() => {
+    const el = masterCheckboxRef.current;
+    if (el) el.indeterminate = partiallySelected;
+  }, [partiallySelected, open]);
+
+  const hasFilter = activeFilter !== null;
+
+  return (
+    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSearch(''); }}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          data-testid={`program-batch-filter-${colId}`}
+          className={`inline-flex shrink-0 rounded p-0.5 hover:bg-neutral-200/90 ${hasFilter ? 'text-[#217346]' : 'text-neutral-400'}`}
+          title={`Filter ${title}`}
+          aria-label={`Filter column ${title}`}
+        >
+          <Filter size={11} strokeWidth={2.5} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-2 text-[10px] font-lato" onClick={(e) => e.stopPropagation()}>
+        <div className="space-y-2">
+          <Input
+            placeholder="Search values…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-7 text-[10px] px-2"
+          />
+          <div className="grid grid-cols-2 gap-1">
+            <Button type="button" variant="outline" size="sm" className="h-7 text-[9px] px-1.5 py-0 w-full" onClick={selectAll}>
+              Select all
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[9px] px-1.5 py-0 w-full"
+              data-testid={`program-batch-filter-${colId}-unselect-all`}
+              onClick={unselectAll}
+            >
+              Unselect all
+            </Button>
+          </div>
+          <div className="max-h-52 overflow-y-auto border border-neutral-100 rounded-md divide-y divide-neutral-50">
+            {filteredOpts.length === 0 ? (
+              <p className="text-neutral-400 text-[9px] p-2">No values</p>
+            ) : (
+              <>
+                <label className="flex items-start gap-2 px-2 py-1.5 hover:bg-neutral-50 cursor-pointer border-b border-neutral-100 bg-neutral-50/80 font-semibold">
+                  <input
+                    ref={masterCheckboxRef}
+                    type="checkbox"
+                    checked={allValuesSelected}
+                    onChange={(e) => (e.target.checked ? selectAll() : unselectAll())}
+                    className="mt-0.5 rounded border-neutral-300 shrink-0"
+                  />
+                  <span className="text-neutral-900 leading-tight">(Select all)</span>
+                </label>
+                {filteredOpts.map((opt) => (
+                  <label
+                    key={`${colId}-${String(opt).slice(0, 64)}`}
+                    className="flex items-start gap-2 px-2 py-1 hover:bg-neutral-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked(opt)}
+                      onChange={() => toggle(opt)}
+                      className="mt-0.5 rounded border-neutral-300 shrink-0"
+                    />
+                    <span className="break-all text-neutral-800 leading-tight" title={String(opt)}>
+                      {String(opt).length > 80 ? `${String(opt).slice(0, 80)}…` : String(opt)}
+                    </span>
+                  </label>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ProgramBatchFilterableTh({ children, colId, title, className, optionRows, columnFilters, setColumnFilters, fxRates }) {
+  const activeFilter = columnFilters[colId] ?? null;
+  const setFilter = (next) => {
+    setColumnFilters((prev) => {
+      const p = { ...prev };
+      if (next === null) delete p[colId];
+      else p[colId] = next;
+      return p;
+    });
+  };
+  return (
+    <th className={className}>
+      <div className="flex items-center gap-0.5 min-w-0">
+        <span className="truncate flex-1 min-w-0">{children}</span>
+        <ProgramBatchExcelColumnFilter
+          colId={colId}
+          title={title || String(children)}
+          optionRows={optionRows}
+          activeFilter={activeFilter}
+          onSetFilter={setFilter}
+          fxRates={fxRates}
+        />
+      </div>
+    </th>
+  );
+}
+
 /** One label per enrollment from participant rows (Online / Offline / In person / Mixed / —). */
 function deriveCheckoutAttendanceLabel(participants) {
   const list = Array.isArray(participants) ? participants : [];
@@ -372,6 +622,11 @@ const EnrollmentsTab = () => {
   const [fxRates, setFxRates] = useState({});
   const [originFilter, setOriginFilter] = useState('all');
   const [columnVisibility, setColumnVisibility] = useState(loadColumnVisibility);
+  const [programBatchColumnFilters, setProgramBatchColumnFilters] = useState({});
+
+  useEffect(() => {
+    if (viewMode !== 'program_analytics') setProgramBatchColumnFilters({});
+  }, [viewMode]);
 
   useEffect(() => {
     setColumnVisibility((prev) => ({
@@ -629,9 +884,37 @@ const EnrollmentsTab = () => {
         formatProgramYmd(row.chosen_end_date),
         row.tier_label,
         row.home_coming_year,
+        row.paid_at,
+        formatEnrollReportDateTime(row.paid_at),
       ].filter(Boolean).some((f) => String(f).toLowerCase().includes(q));
     });
   }, [participantRows, selectedProgramTitles, participantSearch, originFilter, viewMode]);
+
+  const programBatchColumnFilteredRows = useMemo(() => {
+    if (viewMode !== 'program_analytics') return [];
+    return programBatchBaseRows.filter((row) =>
+      programBatchPassesColumnFilters(row, programBatchColumnFilters, fxRates),
+    );
+  }, [programBatchBaseRows, programBatchColumnFilters, fxRates, viewMode]);
+
+  const programBatchFilterOptionRowsByCol = useMemo(() => {
+    const out = {};
+    for (const def of PROGRAM_BATCH_COLUMN_DEFS) {
+      if (PROGRAM_BATCH_NON_FILTERABLE_COLS.has(def.id)) continue;
+      out[def.id] = rowsForProgramBatchFilterOptions(
+        programBatchBaseRows,
+        programBatchColumnFilters,
+        def.id,
+        fxRates,
+      );
+    }
+    return out;
+  }, [programBatchBaseRows, programBatchColumnFilters, fxRates]);
+
+  const programBatchColumnFilterActiveCount = useMemo(
+    () => Object.values(programBatchColumnFilters).filter((s) => s != null).length,
+    [programBatchColumnFilters],
+  );
 
   const programBatchFilterLabel = useMemo(() => {
     if (programBatchTitles.length === 0) return '—';
@@ -691,7 +974,7 @@ const EnrollmentsTab = () => {
   }, [threeMonthMonthlyRows]);
 
   const programBatchAnalyticsRows = useMemo(() => {
-    const sorted = [...programBatchBaseRows].sort(
+    const sorted = [...programBatchColumnFilteredRows].sort(
       (a, b) => parseReportDateMs(a.created_at) - parseReportDateMs(b.created_at),
     );
     let cumulativeInr = 0;
@@ -712,7 +995,7 @@ const EnrollmentsTab = () => {
         sourceCurrency: String(currency || '').toLowerCase() || 'inr',
       };
     });
-  }, [programBatchBaseRows, fxRates]);
+  }, [programBatchColumnFilteredRows, fxRates]);
 
   const visSummaryCols = useMemo(
     () => SUMMARY_COLUMN_DEFS.filter((d) => columnVisibility.summary[d.id] !== false),
@@ -764,6 +1047,7 @@ const EnrollmentsTab = () => {
       'Mode',
       'Origin',
       'Status',
+      'Paid when',
       'Amount',
       'Currency',
       'Amount INR',
@@ -799,6 +1083,7 @@ const EnrollmentsTab = () => {
             esc(participantAttendanceLabel(row.attendance_mode)),
             esc(originLabel(row.enrollment_origin)),
             esc(row.enrollment_status || row.payment_status),
+            esc(formatEnrollReportDateTime(row.paid_at)),
             amt > 0 ? String(amt) : '0',
             esc(cur),
             amountInr,
@@ -1300,6 +1585,16 @@ const EnrollmentsTab = () => {
               className="pl-9 text-xs h-9"
             />
           </div>
+          {viewMode === 'program_analytics' && programBatchColumnFilterActiveCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setProgramBatchColumnFilters({})}
+              className="text-[11px] font-medium text-[#1b5e20] underline-offset-2 hover:underline whitespace-nowrap"
+            >
+              Clear {programBatchColumnFilterActiveCount} column filter
+              {programBatchColumnFilterActiveCount === 1 ? '' : 's'}
+            </button>
+          )}
           {viewMode === 'program_analytics' && programBatchAnalyticsRows.length > 0 && (
             <span className="text-[11px] text-gray-500">
               {programBatchAnalyticsRows.length} row{programBatchAnalyticsRows.length !== 1 ? 's' : ''} · Last Σ{' '}
@@ -1742,11 +2037,29 @@ const EnrollmentsTab = () => {
                 </colgroup>
                 <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-100">
                   <tr>
-                    {visProgramBatchCols.map((d) => (
-                      <th key={d.id} className={cn('px-1 sm:px-2 py-2 font-semibold text-gray-700', d.headClass)}>
-                        {d.label}
-                      </th>
-                    ))}
+                    {visProgramBatchCols.map((d) => {
+                      if (PROGRAM_BATCH_NON_FILTERABLE_COLS.has(d.id)) {
+                        return (
+                          <th key={d.id} className={cn('px-1 sm:px-2 py-2 font-semibold text-gray-700', d.headClass)}>
+                            {d.label}
+                          </th>
+                        );
+                      }
+                      return (
+                        <ProgramBatchFilterableTh
+                          key={d.id}
+                          colId={d.id}
+                          title={d.label}
+                          className={cn('px-1 sm:px-2 py-2 font-semibold text-gray-700', d.headClass)}
+                          optionRows={programBatchFilterOptionRowsByCol[d.id] || []}
+                          columnFilters={programBatchColumnFilters}
+                          setColumnFilters={setProgramBatchColumnFilters}
+                          fxRates={fxRates}
+                        >
+                          {d.label}
+                        </ProgramBatchFilterableTh>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -1854,6 +2167,16 @@ const EnrollmentsTab = () => {
                               return (
                                 <td key={def.id} className={bc}>
                                   <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium max-w-full truncate ${stInfo.color}`} title={stInfo.label}>{stInfo.label}</span>
+                                </td>
+                              );
+                            case 'paidWhen':
+                              return (
+                                <td
+                                  key={def.id}
+                                  className={`${bc} text-gray-700 text-[9px] font-mono whitespace-nowrap`}
+                                  title={row.paid_at || ''}
+                                >
+                                  {formatEnrollReportDateTime(row.paid_at)}
                                 </td>
                               );
                             case 'amt':

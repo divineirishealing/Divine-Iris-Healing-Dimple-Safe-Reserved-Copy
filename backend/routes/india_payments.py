@@ -28,6 +28,21 @@ logger = logging.getLogger(__name__)
 # ─── Admin enrollment reporting: one `enrollments` collection for all flows ───
 
 
+def _paid_at_for_report(e: dict, txn: Optional[dict], *, is_done: bool) -> str:
+    """Best-effort payment/completion timestamp for admin participant reports."""
+    if txn:
+        pst = _clean_str(txn.get("payment_status")).lower()
+        for key in ("paid_at", "updated_at", "created_at"):
+            v = _clean_str(txn.get(key))
+            if not v:
+                continue
+            if key == "paid_at" or pst in ("paid", "complete", "completed"):
+                return v
+    if is_done:
+        return _clean_str(e.get("updated_at")) or _clean_str(e.get("created_at"))
+    return ""
+
+
 def _txn_sort_key(t: dict) -> float:
     v = t.get("updated_at") or t.get("created_at") or t.get("paid_at")
     if v is None:
@@ -1127,6 +1142,7 @@ def build_participant_report_rows(
         booker_phone = _clean_str(e.get("phone"))
         booker_country = _clean_str(e.get("booker_country"))
         created = _clean_str(e.get("created_at"))
+        paid_at = _paid_at_for_report(e, txn, is_done=is_done)
         origin = _enrollment_origin(e)
 
         booker_email_key = (_clean_str(e.get("booker_email")) or "").strip().lower()
@@ -1226,6 +1242,7 @@ def build_participant_report_rows(
                     "payment_currency": cur,
                     "payment_status": pay_st or _clean_str(e.get("status")),
                     "created_at": created,
+                    "paid_at": paid_at,
                 }
                 row.update(tier_fields)
                 rows.append(row)
@@ -1275,6 +1292,7 @@ def build_participant_report_rows(
                 "payment_currency": cur,
                 "payment_status": pay_st or _clean_str(e.get("status")),
                 "created_at": created,
+                "paid_at": paid_at,
             }
             row_tf = dict(tier_fields)
             if emi_ctx and _participant_seat_is_home_coming(p):
@@ -2353,6 +2371,7 @@ def _participant_report_rows_to_xlsx_bytes(rows: List[dict], *, sheet_title: str
         "Payment amount",
         "Currency",
         "Payment status",
+        "Paid when",
         "Created",
     ]
 
@@ -2382,14 +2401,21 @@ def _participant_report_rows_to_xlsx_bytes(rows: List[dict], *, sheet_title: str
 
     for r in rows:
         created = _clean_str(r.get("created_at"))
-        if created:
-            try:
-                from datetime import datetime as dt
+        paid_when = _clean_str(r.get("paid_at"))
+        for ts_key in ("created", "paid_when"):
+            val = created if ts_key == "created" else paid_when
+            if val:
+                try:
+                    from datetime import datetime as dt
 
-                d = dt.fromisoformat(created.replace("Z", "+00:00"))
-                created = d.strftime("%Y-%m-%d %H:%M")
-            except Exception:
-                pass
+                    d = dt.fromisoformat(val.replace("Z", "+00:00"))
+                    formatted = d.strftime("%Y-%m-%d %H:%M")
+                    if ts_key == "created":
+                        created = formatted
+                    else:
+                        paid_when = formatted
+                except Exception:
+                    pass
         ws.append(
             [
                 _clean_str(r.get("invoice_number")),
@@ -2435,6 +2461,7 @@ def _participant_report_rows_to_xlsx_bytes(rows: List[dict], *, sheet_title: str
                 r.get("payment_amount", 0) or 0,
                 _clean_str(r.get("payment_currency")),
                 _clean_str(r.get("payment_status")),
+                paid_when,
                 created,
             ]
         )
