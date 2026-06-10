@@ -5,8 +5,7 @@ import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import ConstellationCanvas from '../components/ConstellationCanvas';
 import { SoulfulWrittenCard, SoulfulVideoCard, SoulfulGraphicCard, SoulfulTestimonialFull } from '../components/SoulfulTestimonialCard';
-import { Search, X, Filter, Sparkles, BookOpen, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Search, X, Filter, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent } from '../components/ui/dialog';
 import { HEADING, GOLD, LABEL } from '../lib/designTokens';
 import { resolveImageUrl } from '../lib/imageUtils';
@@ -164,24 +163,6 @@ function TransformationsPage() {
             {hero.subtitle_text || 'Stories of Healing, Growth & Awakening'}
           </p>
           <div className="w-14 h-0.5" style={{ background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)' }} />
-        </div>
-      </section>
-
-      {/* Case studies CTA */}
-      <section className="py-4 px-6" style={{ background: 'linear-gradient(90deg, rgba(109,40,217,0.06), rgba(212,175,55,0.08))' }}>
-        <div className="container mx-auto max-w-5xl">
-          <Link to="/case-studies" className="flex flex-col sm:flex-row items-center justify-between gap-3 group">
-            <div className="flex items-center gap-3">
-              <BookOpen size={20} style={{ color: '#7c3aed' }} />
-              <div>
-                <p className="font-semibold text-sm" style={{ color: '#4c1d95' }}>Documented Case Studies</p>
-                <p className="text-xs text-gray-500">Month-by-month photo timelines with medical records — see progressive healing in detail</p>
-              </div>
-            </div>
-            <span className="inline-flex items-center gap-1 text-sm font-semibold group-hover:gap-2 transition-all" style={{ color: '#7c3aed' }}>
-              View case studies <ArrowRight size={14} />
-            </span>
-          </Link>
         </div>
       </section>
 
