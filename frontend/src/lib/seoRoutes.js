@@ -27,6 +27,10 @@ export const SEO_ROUTE_TABLE = {
     title: 'Transformations',
     description: 'Stories, testimonials and transformations from clients of Divine Iris Healing.',
   },
+  '/case-studies': {
+    title: 'Case Studies',
+    description: 'Documented healing journeys with month-by-month photographic timelines — real bodies, real progress, real science.',
+  },
   '/sponsor': {
     title: 'Sponsor & Support',
     description: 'Shine a light in a life — conscious support and sponsorship for collective healing.',

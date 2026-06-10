@@ -12,7 +12,7 @@ import { resolveImageUrl, rememberPublicApiBase, rememberS3VirtualHostRewrite } 
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail, Inbox,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
-  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert,   CreditCard, Search, Wallet, Sparkles, Link2, KeyRound, LineChart, IndianRupee, Flower2
+  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert,   CreditCard, Search, Wallet, Sparkles, Link2, KeyRound, LineChart, IndianRupee, Flower2, BookOpen
 } from 'lucide-react';
 
 import { getApiUrl } from '../../lib/config';
@@ -51,6 +51,7 @@ import ClientsTab from './tabs/ClientsTab';
 import BulkClientUpload from './tabs/BulkClientUpload';
 import ProfileApprovals from './tabs/ProfileApprovals';
 import TextTestimonialsTab from './tabs/TextTestimonialsTab';
+import CaseStudiesTab from './tabs/CaseStudiesTab';
 import FraudAlertsTab from './tabs/FraudAlertsTab';
 import SubscribersTab from './tabs/SubscribersTab';
 import AnnualPackageCatalogTemplate from './tabs/AnnualPackageCatalogTemplate';
@@ -382,6 +383,7 @@ const AdminPanel = () => {
       { key: 'seo', label: 'SEO', icon: Search },
       { key: 'site_analytics', label: 'Site analytics', icon: LineChart },
       { key: 'testimonials', label: 'Testimonials', icon: MessageSquare },
+      { key: 'case_studies', label: 'Case Studies', icon: BookOpen },
       { key: 'text_testimonials', label: 'Text Quotes', icon: Quote },
     ]},
     { label: 'Programs & Offers', icon: Package, tabs: [
@@ -676,6 +678,7 @@ const AdminPanel = () => {
           {activeTab === 'upcoming_hub' && <UpcomingHubTab />}
           {activeTab === 'upcoming_card_quotes' && <UpcomingCardQuotesTab programs={programs} />}
           {activeTab === 'text_testimonials' && <TextTestimonialsTab />}
+          {activeTab === 'case_studies' && <CaseStudiesTab />}
           {activeTab === 'annual_subscribers' && <AnnualSubscribersTab />}
           {activeTab === 'add_annual_subscriber' && (
             <AnnualPackageCatalogTemplate

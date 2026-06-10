@@ -23,6 +23,7 @@ STATIC_PATHS = [
     "/contact",
     "/about",
     "/transformations",
+    "/case-studies",
     "/sponsor",
     "/terms",
     "/privacy",

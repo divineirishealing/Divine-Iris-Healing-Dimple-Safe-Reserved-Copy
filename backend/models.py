@@ -861,3 +861,59 @@ class CurrencyInfo(BaseModel):
     currency: str
     symbol: str
     country: str
+
+
+class CaseStudyStep(BaseModel):
+    date_label: str = ""
+    title: str = ""
+    body: str = ""
+    image_url: str = ""
+    images: List[str] = Field(default_factory=list)
+    image_alt: str = ""
+    phase: str = "timeline"  # timeline | narrative | labs
+    order: int = 0
+
+
+class CaseStudy(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    slug: str = ""
+    title: str = ""
+    subtitle: str = ""
+    summary: str = ""
+    client_name: str = ""
+    condition: str = ""
+    hero_image: str = ""
+    intro_sections: List[Dict] = Field(default_factory=list)
+    timeline: List[CaseStudyStep] = Field(default_factory=list)
+    closing_sections: List[Dict] = Field(default_factory=list)
+    program_id: str = ""
+    program_name: str = ""
+    program_link: str = ""
+    scientific_reference: str = ""
+    disclaimer: str = ""
+    visible: bool = True
+    featured: bool = False
+    order: int = 0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: Optional[datetime] = None
+
+
+class CaseStudyCreate(BaseModel):
+    slug: Optional[str] = ""
+    title: str = ""
+    subtitle: Optional[str] = ""
+    summary: Optional[str] = ""
+    client_name: Optional[str] = ""
+    condition: Optional[str] = ""
+    hero_image: Optional[str] = ""
+    intro_sections: Optional[List[Dict]] = Field(default_factory=list)
+    timeline: Optional[List[CaseStudyStep]] = Field(default_factory=list)
+    closing_sections: Optional[List[Dict]] = Field(default_factory=list)
+    program_id: Optional[str] = ""
+    program_name: Optional[str] = ""
+    program_link: Optional[str] = ""
+    scientific_reference: Optional[str] = ""
+    disclaimer: Optional[str] = ""
+    visible: Optional[bool] = True
+    featured: Optional[bool] = False
+    order: Optional[int] = 0

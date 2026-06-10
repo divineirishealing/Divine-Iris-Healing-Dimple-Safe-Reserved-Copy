@@ -80,6 +80,7 @@ const HeaderFooterTab = ({ settings, onChange }) => {
           { label: 'About', href: '/about', position: 'left', visible: true },
           { label: 'Services', href: '/sessions', position: 'left', visible: true },
           { label: 'Transformations', href: '/transformations', position: 'left', visible: true },
+          { label: 'Case Studies', href: '/case-studies', position: 'left', visible: true },
           { label: 'Upcoming Sessions', href: '/#upcoming', position: 'left', visible: true },
           { label: 'Programs', href: '/#programs', position: 'left', visible: true },
           { label: 'Contact', href: '/contact', position: 'right', visible: true },
@@ -386,6 +387,7 @@ const HeaderFooterTab = ({ settings, onChange }) => {
           { label: 'Contact', href: '/#contact', visible: true },
           { label: 'Services', href: '/#sessions', visible: true },
           { label: 'Transformations', href: '/transformations', visible: true },
+          { label: 'Case Studies', href: '/case-studies', visible: true },
           { label: 'Upcoming Sessions', href: '/sessions', visible: true },
         ];
         const LINK_OPTIONS = [
@@ -396,6 +398,7 @@ const HeaderFooterTab = ({ settings, onChange }) => {
           { value: '/#sessions', label: 'Personal Sessions Section' },
           { value: '/sessions', label: 'Upcoming Sessions Page' },
           { value: '/transformations', label: 'Transformations Page' },
+          { value: '/case-studies', label: 'Case Studies Page' },
           { value: '/blog', label: 'Blog Page' },
           { value: '/cart', label: 'Cart Page' },
           { value: '/dashboardaccessform', label: 'Dashboard access form' },
