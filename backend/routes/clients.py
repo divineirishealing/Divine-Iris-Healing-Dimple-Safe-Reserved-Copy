@@ -794,37 +794,131 @@ async def discovery_options():
     return {"sources": list(DISCOVERY_SOURCES)}
 
 
+async def _client_ids_with_dashboard_home_coming_paid() -> set:
+    """Client ids with at least one **paid** Sacred Home / Home Coming checkout from the student dashboard."""
+    settings = await db.site_settings.find_one(
+        {"id": "site_settings"},
+        {"_id": 0, "dashboard_sacred_home_annual_program_id": 1},
+    )
+    pin_hc = str((settings or {}).get("dashboard_sacred_home_annual_program_id") or "").strip()
+
+    txs = await db.payment_transactions.find(
+        {
+            "payment_status": {"$in": ["paid", "complete", "completed"]},
+            "enrollment_id": {"$exists": True, "$nin": [None, ""]},
+        },
+        {
+            "_id": 0,
+            "enrollment_id": 1,
+            "portal_client_id": 1,
+            "item_id": 1,
+            "item_title": 1,
+            "booker_email": 1,
+        },
+    ).to_list(15000)
+    if not txs:
+        return set()
+
+    eids = list({str(t.get("enrollment_id")).strip() for t in txs if t.get("enrollment_id")})
+    enrollments = await db.enrollments.find({"id": {"$in": eids}}, {"_id": 0}).to_list(len(eids))
+    emap = {e["id"]: e for e in enrollments if e.get("id")}
+
+    from routes.india_payments import (
+        _enrollment_origin,
+        _is_home_coming_context,
+        _proof_like_from_enrollment_transaction,
+        _resolve_portal_client_id_for_home_coming_emi,
+    )
+
+    out = set()
+    for tx in txs:
+        eid = tx.get("enrollment_id")
+        e = emap.get(eid)
+        if not e or _enrollment_origin(e) != "dashboard":
+            continue
+        if e.get("home_coming_catalog_checkout") in (True, "true", 1):
+            is_hc = True
+        elif e.get("home_coming_pay_installment_n"):
+            is_hc = True
+        else:
+            proof = _proof_like_from_enrollment_transaction(e, tx)
+            iid = str(tx.get("item_id") or e.get("item_id") or "").strip()
+            is_hc = _is_home_coming_context(proof, e) or bool(pin_hc and iid == pin_hc)
+        if not is_hc:
+            continue
+        pcid = await _resolve_portal_client_id_for_home_coming_emi(tx, e)
+        if pcid:
+            out.add(pcid)
+    return out
+
+
+def annual_portal_acquisition_payload(client: dict, dashboard_paid_ids: set) -> dict:
+    """
+    ``admin`` = CRM / Excel / Client Garden (``annual_member_dashboard``).
+    ``dashboard`` = self-serve Home Coming checkout on Sacred Home (no admin HC flag).
+    """
+    cid = str(client.get("id") or "").strip()
+    admin_flag = bool(client.get("annual_member_dashboard"))
+    on_dashboard = cid in dashboard_paid_ids
+    if admin_flag:
+        return {"source": "admin", "label": "Admin / Excel"}
+    if on_dashboard:
+        return {"source": "dashboard", "label": "Dashboard checkout"}
+    return {"source": "admin", "label": "Admin / Excel"}
+
+
+def _annual_portal_subscribers_query(dashboard_paid_ids: set) -> dict:
+    ors: List[dict] = [{"annual_member_dashboard": True}]
+    ids = [i for i in dashboard_paid_ids if i]
+    if ids:
+        ors.append({"id": {"$in": ids}})
+    return {"$or": ors}
+
+
+_ANNUAL_PORTAL_SUBSCRIBERS_PROJ = {
+    "_id": 0,
+    "id": 1,
+    "name": 1,
+    "email": 1,
+    "household_key": 1,
+    "is_primary_household_contact": 1,
+    "annual_member_dashboard": 1,
+    "annual_subscription": 1,
+    "subscription": 1,
+    "portal_login_allowed": 1,
+    "annual_period_ledger": 1,
+}
+
+
 @router.get("/annual-portal-subscribers")
 async def list_annual_portal_subscribers():
     """
-    Clients with ``annual_member_dashboard`` True — same cohort as **Annual program = Yes** in the
-    main Client Garden grid. Includes rows with Google login blocked; the UI can flag those.
-    (Excel upload still skips ``portal_login_allowed`` False until sign-in is allowed.)
+    Unified Annual + dashboard roster:
 
-    **Lapsed annuals** (``annual_subscription.end_date`` in the past) stay in this list for admin
-    history; each row includes :func:`annual_portal_lifecycle_payload`. Sacred Home **effective**
-    access and package inclusions are date-gated in ``/api/student`` (see ``_annual_dashboard_access``).
+    * **Admin / Excel** — ``annual_member_dashboard`` True (Client Garden HC = Yes).
+    * **Dashboard checkout** — paid Home Coming on Sacred Home without the admin HC flag.
+
+    Each row includes ``annual_portal_acquisition`` (``admin`` | ``dashboard``) for UI color-coding.
     """
-    query = {"annual_member_dashboard": True}
-    proj = {
-        "_id": 0,
-        "id": 1,
-        "name": 1,
-        "email": 1,
-        "household_key": 1,
-        "is_primary_household_contact": 1,
-        "annual_subscription": 1,
-        "subscription": 1,
-        "portal_login_allowed": 1,
-        "annual_period_ledger": 1,
-    }
-    rows = await db.clients.find(query, proj).sort([("name", 1)]).to_list(5000)
+    dashboard_paid_ids = await _client_ids_with_dashboard_home_coming_paid()
+    query = _annual_portal_subscribers_query(dashboard_paid_ids)
+    rows = await db.clients.find(query, _ANNUAL_PORTAL_SUBSCRIBERS_PROJ).sort([("name", 1)]).to_list(5000)
     out = []
     for row in rows:
         d = dict(row)
         d["annual_portal_lifecycle"] = annual_portal_lifecycle_payload(d)
+        d["annual_portal_acquisition"] = annual_portal_acquisition_payload(d, dashboard_paid_ids)
         out.append(d)
-    return {"clients": out}
+    admin_n = sum(1 for r in out if (r.get("annual_portal_acquisition") or {}).get("source") == "admin")
+    dashboard_n = len(out) - admin_n
+    return {
+        "clients": out,
+        "roster_meta": {
+            "admin_count": admin_n,
+            "dashboard_checkout_count": dashboard_n,
+            "total": len(out),
+        },
+    }
 
 
 async def _finance_payment_rollups_for_client_ids(
@@ -1650,6 +1744,9 @@ def _append_annual_period_ledger(
     hcs = ps.get("home_coming_sessions")
     if isinstance(hcs, list) and len(hcs) > 0:
         entry["home_coming_sessions"] = list(hcs)
+    u = ps.get("usage")
+    if isinstance(u, dict) and u:
+        entry["usage"] = dict(u)
     _apply_subscription_finance_snapshot_to_ledger_entry(entry, fee_snapshot)
     existing = list((client_doc or {}).get("annual_period_ledger") or [])
     existing.append(entry)
@@ -1999,6 +2096,11 @@ async def admin_home_coming_renew(
 
     if not cl.get("annual_member_dashboard"):
         set_doc["annual_member_dashboard"] = True
+
+    prefs = dict(cl.get("annual_package_offer_prefs") or {}) if isinstance(cl.get("annual_package_offer_prefs"), dict) else {}
+    if prefs:
+        prefs["desired_start_date"] = ""
+        set_doc["annual_package_offer_prefs"] = prefs
 
     await db.clients.update_one({"id": client_id}, {"$set": set_doc})
 
@@ -2564,18 +2666,9 @@ async def download_annual_portal_subscription_export():
     from openpyxl.styles import Font, PatternFill, Alignment
     from fastapi.responses import StreamingResponse
 
-    query = {"annual_member_dashboard": True}
-    proj = {
-        "_id": 0,
-        "id": 1,
-        "name": 1,
-        "email": 1,
-        "household_key": 1,
-        "is_primary_household_contact": 1,
-        "annual_subscription": 1,
-        "portal_login_allowed": 1,
-    }
-    clients_list = await db.clients.find(query, proj).sort([("name", 1)]).to_list(5000)
+    dashboard_paid_ids = await _client_ids_with_dashboard_home_coming_paid()
+    query = _annual_portal_subscribers_query(dashboard_paid_ids)
+    clients_list = await db.clients.find(query, _ANNUAL_PORTAL_SUBSCRIBERS_PROJ).sort([("name", 1)]).to_list(5000)
 
     wb = Workbook()
     ws = wb.active

@@ -5,9 +5,10 @@ import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Switch } from '../../ui/switch';
 import { Textarea } from '../../ui/textarea';
-import { ChevronLeft, ChevronRight, Plus, Trash2, Save, Upload, Reply, Mail } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, Save, Upload, Reply, Mail, Clock } from 'lucide-react';
 import ImageUploader from '../ImageUploader';
 import { resolveImageUrl } from '../../../lib/imageUtils';
+import { formatSessionCalendarDateLabel } from '../../../lib/sessionCalendarSlots';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -15,10 +16,16 @@ const SessionCalendarManager = ({ toast }) => {
   const [calendar, setCalendar] = useState(null);
   const [month, setMonth] = useState(new Date());
   const [saving, setSaving] = useState(false);
+  const [selectedSlotDate, setSelectedSlotDate] = useState(null);
+  const [newSlotInput, setNewSlotInput] = useState('');
 
   const load = useCallback(async () => {
     const res = await axios.get(`${BACKEND_URL}/api/session-extras/calendar`);
-    setCalendar(res.data);
+    const data = { date_time_slots: {}, ...(res.data || {}) };
+    if (!data.date_time_slots || typeof data.date_time_slots !== 'object') {
+      data.date_time_slots = {};
+    }
+    setCalendar(data);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -26,27 +33,103 @@ const SessionCalendarManager = ({ toast }) => {
   if (!calendar) return <p className="text-xs text-gray-400">Loading calendar...</p>;
 
   const dates = calendar.available_dates || [];
+  const dateTimeSlots = calendar.date_time_slots && typeof calendar.date_time_slots === 'object'
+    ? calendar.date_time_slots
+    : {};
+
+  const pruneDateSlots = (map, openDates) => {
+    const open = new Set(openDates);
+    const next = {};
+    Object.entries(map || {}).forEach(([k, v]) => {
+      if (!open.has(k) || !Array.isArray(v)) return;
+      const slots = v.map((s) => String(s).trim()).filter(Boolean);
+      if (slots.length) next[k] = slots;
+    });
+    return next;
+  };
+
   const toggleDate = (dateStr) => {
-    const updated = dates.includes(dateStr) ? dates.filter(d => d !== dateStr) : [...dates, dateStr];
-    setCalendar({ ...calendar, available_dates: updated.sort() });
+    const isOpen = dates.includes(dateStr);
+    const updated = isOpen ? dates.filter((d) => d !== dateStr) : [...dates, dateStr];
+    const nextMap = pruneDateSlots(dateTimeSlots, updated);
+    setCalendar({ ...calendar, available_dates: updated.sort(), date_time_slots: nextMap });
+    if (isOpen && selectedSlotDate === dateStr) setSelectedSlotDate(null);
+    else if (!isOpen) setSelectedSlotDate(dateStr);
+  };
+
+  const selectDateForSlots = (dateStr, e) => {
+    e?.stopPropagation?.();
+    if (!dates.includes(dateStr)) return;
+    setSelectedSlotDate(dateStr);
+  };
+
+  const slotsForSelectedDate = () => {
+    if (!selectedSlotDate) return [];
+    const custom = dateTimeSlots[selectedSlotDate];
+    if (Array.isArray(custom) && custom.length > 0) return custom;
+    return [...(calendar.time_slots || [])];
+  };
+
+  const setSlotsForSelectedDate = (slots) => {
+    if (!selectedSlotDate) return;
+    const cleaned = slots.map((s) => String(s).trim()).filter(Boolean);
+    const nextMap = { ...dateTimeSlots };
+    if (cleaned.length === 0) {
+      delete nextMap[selectedSlotDate];
+    } else {
+      nextMap[selectedSlotDate] = cleaned;
+    }
+    setCalendar({ ...calendar, date_time_slots: nextMap });
+  };
+
+  const addSlotToSelectedDate = () => {
+    const slot = newSlotInput.trim();
+    if (!slot || !selectedSlotDate) return;
+    const current = slotsForSelectedDate();
+    if (current.includes(slot)) {
+      setNewSlotInput('');
+      return;
+    }
+    const defaults = calendar.time_slots || [];
+    const hadCustom = Array.isArray(dateTimeSlots[selectedSlotDate]) && dateTimeSlots[selectedSlotDate].length > 0;
+    const base = hadCustom ? dateTimeSlots[selectedSlotDate] : defaults;
+    setSlotsForSelectedDate([...base, slot]);
+    setNewSlotInput('');
+  };
+
+  const useDefaultSlotsForSelectedDate = () => {
+    if (!selectedSlotDate) return;
+    const nextMap = { ...dateTimeSlots };
+    delete nextMap[selectedSlotDate];
+    setCalendar({ ...calendar, date_time_slots: nextMap });
   };
 
   const save = async () => {
     setSaving(true);
     try {
-      await axios.put(`${BACKEND_URL}/api/session-extras/calendar`, calendar);
+      const payload = {
+        ...calendar,
+        date_time_slots: pruneDateSlots(dateTimeSlots, dates),
+      };
+      const res = await axios.put(`${BACKEND_URL}/api/session-extras/calendar`, payload);
+      setCalendar({ date_time_slots: {}, ...(res.data || {}) });
       toast({ title: 'Calendar saved!' });
     } catch { toast({ title: 'Save failed', variant: 'destructive' }); }
     setSaving(false);
   };
 
-  // Block next X weeks
   const blockWeeks = (weeks) => {
     const now = new Date();
     const end = new Date(now);
     end.setDate(end.getDate() + weeks * 7);
     const blocked = dates.filter(d => new Date(d) > end);
-    setCalendar({ ...calendar, available_dates: blocked, blocked_until: end.toISOString().split('T')[0] });
+    setCalendar({
+      ...calendar,
+      available_dates: blocked,
+      blocked_until: end.toISOString().split('T')[0],
+      date_time_slots: pruneDateSlots(dateTimeSlots, blocked),
+    });
+    if (selectedSlotDate && !blocked.includes(selectedSlotDate)) setSelectedSlotDate(null);
   };
 
   // Open all weekdays for next X months
@@ -68,6 +151,11 @@ const SessionCalendarManager = ({ toast }) => {
       if (!newDates.includes(str)) newDates.push(str);
     }
     setCalendar({ ...calendar, available_dates: newDates.sort() });
+  };
+
+  const clearAll = () => {
+    setCalendar({ ...calendar, available_dates: [], blocked_until: '', date_time_slots: {} });
+    setSelectedSlotDate(null);
   };
 
   // Calendar grid
@@ -118,23 +206,23 @@ const SessionCalendarManager = ({ toast }) => {
         <Button variant="outline" size="sm" className="text-[10px]" onClick={() => blockWeeks(3)}>Block 3 Weeks</Button>
         <Button variant="outline" size="sm" className="text-[10px] bg-green-50 text-green-700 border-green-200" onClick={() => openWeekdays(1)}>Open Weekdays +1 Month</Button>
         <Button variant="outline" size="sm" className="text-[10px] bg-green-50 text-green-700 border-green-200" onClick={() => openWeekdays(2)}>Open Weekdays +2 Months</Button>
-        <Button variant="outline" size="sm" className="text-[10px] bg-red-50 text-red-600 border-red-200" onClick={() => setCalendar({ ...calendar, available_dates: [], blocked_until: '' })}>Clear All</Button>
+        <Button variant="outline" size="sm" className="text-[10px] bg-red-50 text-red-600 border-red-200" onClick={clearAll}>Clear All</Button>
       </div>
 
-      {/* Time slots */}
+      {/* Default time slots */}
       <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-        <Label className="text-[9px] text-gray-500 mb-1 block">Time Slots (applies to all open dates)</Label>
+        <Label className="text-[9px] text-gray-500 mb-1 block">Default time slots (used when a date has no custom slots)</Label>
         <div className="flex flex-wrap gap-1">
           {(calendar.time_slots || []).map((slot, i) => (
             <span key={i} className="inline-flex items-center gap-1 bg-[#D4AF37]/10 text-[#D4AF37] text-[10px] px-2 py-0.5 rounded-full border border-[#D4AF37]/30">
               {slot}
-              <button onClick={() => { const s = [...calendar.time_slots]; s.splice(i, 1); setCalendar({ ...calendar, time_slots: s }); }} className="hover:text-red-500">&times;</button>
+              <button type="button" onClick={() => { const s = [...calendar.time_slots]; s.splice(i, 1); setCalendar({ ...calendar, time_slots: s }); }} className="hover:text-red-500">&times;</button>
             </span>
           ))}
-          <button onClick={() => {
-            const slot = prompt('Enter time slot (e.g., 10:00 AM):');
-            if (slot) setCalendar({ ...calendar, time_slots: [...(calendar.time_slots || []), slot] });
-          }} className="text-[10px] text-gray-400 hover:text-[#D4AF37] border border-dashed rounded-full px-2 py-0.5">+ Add Slot</button>
+          <button type="button" onClick={() => {
+            const slot = prompt('Enter default time slot (e.g., 10:00 AM):');
+            if (slot) setCalendar({ ...calendar, time_slots: [...(calendar.time_slots || []), slot.trim()] });
+          }} className="text-[10px] text-gray-400 hover:text-[#D4AF37] border border-dashed rounded-full px-2 py-0.5">+ Add default</button>
         </div>
       </div>
 
@@ -157,22 +245,37 @@ const SessionCalendarManager = ({ toast }) => {
             const isPast = dateStr < today;
             const isWeekend = new Date(year, mon, day).getDay() % 6 === 0;
             const isBlocked = calendar.blocked_until && dateStr <= calendar.blocked_until;
+            const isSelectedForSlots = selectedSlotDate === dateStr;
+            const customSlotCount = (dateTimeSlots[dateStr] || []).length;
             return (
-              <button
-                key={day}
-                data-testid={`cal-day-${dateStr}`}
-                onClick={() => !isPast && toggleDate(dateStr)}
-                disabled={isPast}
-                className={`h-8 text-[10px] font-medium transition-colors ${
-                  isPast ? 'bg-gray-50 text-gray-300 cursor-not-allowed' :
-                  isOpen ? 'bg-green-100 text-green-700 hover:bg-green-200' :
-                  isBlocked ? 'bg-red-50 text-red-300 hover:bg-red-100' :
-                  isWeekend ? 'bg-orange-50 text-orange-400 hover:bg-orange-100' :
-                  'bg-white text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                {day}
-              </button>
+              <div key={day} className="relative h-8">
+                <button
+                  data-testid={`cal-day-${dateStr}`}
+                  onClick={() => !isPast && toggleDate(dateStr)}
+                  disabled={isPast}
+                  className={`h-8 w-full text-[10px] font-medium transition-colors ${
+                    isPast ? 'bg-gray-50 text-gray-300 cursor-not-allowed' :
+                    isOpen ? 'bg-green-100 text-green-700 hover:bg-green-200' :
+                    isBlocked ? 'bg-red-50 text-red-300 hover:bg-red-100' :
+                    isWeekend ? 'bg-orange-50 text-orange-400 hover:bg-orange-100' :
+                    'bg-white text-gray-600 hover:bg-gray-100'
+                  } ${isSelectedForSlots ? 'ring-2 ring-[#D4AF37] ring-inset' : ''}`}
+                >
+                  {day}
+                </button>
+                {isOpen && !isPast ? (
+                  <button
+                    type="button"
+                    title="Edit time slots for this date"
+                    onClick={(e) => selectDateForSlots(dateStr, e)}
+                    className={`absolute -top-1 -right-1 w-3 h-3 rounded-full text-[7px] leading-none flex items-center justify-center ${
+                      customSlotCount ? 'bg-[#D4AF37] text-white' : 'bg-white border border-green-400 text-green-600'
+                    }`}
+                  >
+                    {customSlotCount || '·'}
+                  </button>
+                ) : null}
+              </div>
             );
           })}
         </div>
@@ -181,8 +284,82 @@ const SessionCalendarManager = ({ toast }) => {
         <span className="inline-block w-2 h-2 bg-green-200 rounded mr-1"></span>Open
         <span className="inline-block w-2 h-2 bg-red-100 rounded mx-1 ml-3"></span>Blocked
         <span className="inline-block w-2 h-2 bg-orange-100 rounded mx-1 ml-3"></span>Weekend
-        — Click any date to toggle. {dates.length} dates open.
+        — Click a date to open/close. Click the dot on an open date to set its time slots. {dates.length} dates open.
       </p>
+
+      {/* Per-date slot editor */}
+      {selectedSlotDate && dates.includes(selectedSlotDate) ? (
+        <div className="mt-4 p-3 rounded-lg border border-[#D4AF37]/40 bg-amber-50/40 space-y-3" data-testid="date-slot-editor">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Clock size={14} className="text-[#b8962e]" />
+              <span className="text-xs font-semibold text-gray-800">
+                Time slots — {formatSessionCalendarDateLabel(selectedSlotDate)}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              {dateTimeSlots[selectedSlotDate]?.length ? (
+                <Button type="button" variant="outline" size="sm" className="text-[10px] h-7" onClick={useDefaultSlotsForSelectedDate}>
+                  Use defaults
+                </Button>
+              ) : null}
+              <Button type="button" variant="ghost" size="sm" className="text-[10px] h-7" onClick={() => setSelectedSlotDate(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+          <p className="text-[10px] text-gray-500">
+            {dateTimeSlots[selectedSlotDate]?.length
+              ? 'Custom slots for this date only. Visitors see these instead of the default list.'
+              : 'Using default slots. Add a slot below to customize this date only.'}
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {slotsForSelectedDate().map((slot, i) => (
+              <span key={`${slot}-${i}`} className="inline-flex items-center gap-1 bg-white text-gray-800 text-[10px] px-2 py-0.5 rounded-full border border-gray-200">
+                {slot}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const hadCustom = Array.isArray(dateTimeSlots[selectedSlotDate]) && dateTimeSlots[selectedSlotDate].length > 0;
+                    const base = hadCustom ? [...dateTimeSlots[selectedSlotDate]] : [...(calendar.time_slots || [])];
+                    base.splice(i, 1);
+                    setSlotsForSelectedDate(base);
+                  }}
+                  className="hover:text-red-500"
+                >
+                  &times;
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2 items-center">
+            <Input
+              value={newSlotInput}
+              onChange={(e) => setNewSlotInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSlotToSelectedDate(); } }}
+              placeholder="e.g. 12:30 PM"
+              className="h-8 text-xs max-w-[10rem]"
+            />
+            <Button type="button" size="sm" className="text-[10px] h-8 bg-[#D4AF37] hover:bg-[#b8962e]" onClick={addSlotToSelectedDate}>
+              + Add slot
+            </Button>
+          </div>
+          {dates.length > 1 ? (
+            <div className="pt-2 border-t border-amber-200/60">
+              <Label className="text-[9px] text-gray-500 mb-1 block">Jump to another open date</Label>
+              <select
+                value={selectedSlotDate}
+                onChange={(e) => setSelectedSlotDate(e.target.value)}
+                className="w-full max-w-xs text-[11px] border rounded-md px-2 py-1.5 h-8 bg-white"
+              >
+                {dates.map((d) => (
+                  <option key={d} value={d}>{formatSessionCalendarDateLabel(d)}</option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 };

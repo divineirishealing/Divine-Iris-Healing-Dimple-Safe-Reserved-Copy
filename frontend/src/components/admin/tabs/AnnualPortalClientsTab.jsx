@@ -29,6 +29,7 @@ import AnnualPortalRenewDialog from '../AnnualPortalRenewDialog';
 import {
   annualPortalRowForYearOrdinal,
   buildAnnualPortalYearTabs,
+  lifecycleFromAnnualWindow,
 } from '../../../lib/annualPortalYearView';
 import {
   HOME_COMING_SKU,
@@ -104,9 +105,16 @@ const tdTabular = `${tdBase} tabular-nums text-[13px] whitespace-nowrap`;
 const rowEven = 'bg-white';
 const rowOdd = 'bg-[#fafafa]';
 
-/** Row background from API ``annual_portal_lifecycle`` (overrides zebra when set). */
+/** Row background: acquisition source (admin vs dashboard checkout), then lifecycle status. */
 function annualPortalRowTone(r) {
+  const acq = r?.annual_portal_acquisition?.source;
   const st = r?.annual_portal_lifecycle?.status;
+  if (acq === 'dashboard') {
+    if (st === 'expired') return 'bg-teal-50/45 hover:bg-teal-50/65 border-l-[3px] border-l-teal-700';
+    if (st === 'renewal_due') return 'bg-teal-50/65 hover:bg-teal-50/85 border-l-[3px] border-l-teal-600';
+    if (st === 'no_end_date') return 'bg-teal-50/55 hover:bg-teal-50/75 border-l-[3px] border-l-teal-500';
+    return 'bg-teal-50/80 hover:bg-teal-100/65 border-l-[3px] border-l-teal-600';
+  }
   if (st === 'expired') return 'bg-rose-50/95 hover:bg-rose-100/90';
   if (st === 'renewal_due') return 'bg-amber-50/95 hover:bg-amber-100/90';
   if (st === 'no_end_date') return 'bg-slate-50/95 hover:bg-slate-100/90';
@@ -657,6 +665,142 @@ function homeComingProgramSlotCells(sessions, program, maxSlots) {
   return cells;
 }
 
+function ledgerEntryForCycle(client, cycle) {
+  if (!cycle?.ledgerId) return null;
+  return (client?.annual_period_ledger || []).find((e) => e?.id === cycle.ledgerId) || null;
+}
+
+function cycleUsageLabel(client, cycle) {
+  const ent = ledgerEntryForCycle(client, cycle);
+  if (ent?.usage && Object.keys(ent.usage).length > 0) {
+    return formatHomeComingUsageSummary({ usage: ent.usage });
+  }
+  const { awrp, mmm, turbo, meta } = HOME_COMING_PROGRAM_SLOTS;
+  const todayYmd = utcCalendarYmd();
+  const stA = homeComingProgramSlotStats(cycle.sessions, 'awrp', awrp, todayYmd);
+  const stM = homeComingProgramSlotStats(cycle.sessions, 'mmm', mmm, todayYmd);
+  const stT = homeComingProgramSlotStats(cycle.sessions, 'turbo', turbo, todayYmd);
+  const stMe = homeComingProgramSlotStats(cycle.sessions, 'meta', meta, todayYmd);
+  if (
+    stA.availed + stM.availed + stT.availed + stMe.availed === 0 &&
+    !(cycle.sessions || []).length
+  ) {
+    return '—';
+  }
+  return [
+    `AWRP ${stA.availed}/${awrp}`,
+    `MMM ${stM.availed}/${mmm}`,
+    `Turbo ${stT.availed}/${turbo}`,
+    `Meta ${stMe.availed}/${meta}`,
+  ].join(' · ');
+}
+
+/** Prior Home Coming windows as indented spreadsheet sub-rows (same columns as the member row). */
+function AnnualPortalPriorYearSubRows({
+  client,
+  cycles,
+  flatColVisible,
+  tdBase,
+  tdTabular,
+  variant = 'flat',
+}) {
+  const ordered = orderHomeComingCyclesForAdminTable(cycles).filter((c) => !c.isCurrent);
+  if (ordered.length === 0) return null;
+  return ordered.map((c, pi) => {
+    const life = lifecycleFromAnnualWindow(c.start, c.end);
+    const ent = ledgerEntryForCycle(client, c);
+    const rowKey = `prior-${client?.id || 'x'}-${c.ledgerId || c.start}-${c.end}-${pi}`;
+    const yearLabel = c.yearOrdinal ? `Year ${c.yearOrdinal}` : 'Prior year';
+    const iy = ent?.iris_year_at_archive;
+    const nameCell = (
+      <>
+        <span className="text-[10px]">{yearLabel}</span>
+        {typeof iy === 'number' && iy >= 1 ? (
+          <span className="block text-[9px] font-normal text-violet-800/90 tabular-nums">
+            Iris year {iy} (archived)
+          </span>
+        ) : null}
+      </>
+    );
+    const statusCell = (
+      <>
+        <span className="font-semibold text-neutral-700">{life?.label ?? '—'}</span>
+        {life?.status === 'expired' && life.days_until_end != null ? (
+          <span className="block text-[10px] text-rose-900/80 tabular-nums">
+            ended {Math.abs(life.days_until_end)}d ago
+          </span>
+        ) : null}
+      </>
+    );
+    const pkgCell =
+      ent?.package_sku === HOME_COMING_SKU || !ent?.package_sku ? HOME_COMING_DISPLAY : ent.package_sku;
+    const usageCell = cycleUsageLabel(client, c);
+
+    if (variant === 'household') {
+      return (
+        <tr
+          key={rowKey}
+          className="bg-violet-50/70 border-t border-violet-100/90 animate-in fade-in slide-in-from-top-1 duration-300"
+          data-testid={`annual-portal-prior-year-${client?.id}-${c.yearOrdinal || pi}`}
+        >
+          <td className={`${tdBase} text-center text-neutral-400 bg-violet-50/90`}>↳</td>
+          <td className={`${tdBase} font-medium text-violet-950 pl-6`}>{nameCell}</td>
+          <td className={`${tdBase} text-neutral-400 text-[10px]`}>—</td>
+          <td className={tdTabular}>{formatPortalSubscriptionDate(c.start)}</td>
+          <td className={tdTabular}>{formatPortalSubscriptionDate(c.end)}</td>
+          <td className={`${tdBase} whitespace-nowrap`}>{statusCell}</td>
+          <td className={tdTabular}>{(c.annualDiid || ent?.annual_diid || '').trim() || '—'}</td>
+          <td className={tdBase}>{pkgCell}</td>
+          <td className={`${tdBase} text-[11px] text-neutral-700`}>{usageCell}</td>
+          <td className={`${tdBase} text-center text-neutral-400`}>—</td>
+          <td className={`${tdBase} text-neutral-400`}>—</td>
+          <td className={`${tdBase} text-center text-[9px] text-violet-800/80`}>Archived</td>
+        </tr>
+      );
+    }
+
+    return (
+      <tr
+        key={rowKey}
+        className="bg-violet-50/70 border-t border-violet-100/90 animate-in fade-in slide-in-from-top-1 duration-300"
+        data-testid={`annual-portal-prior-year-${client?.id}-${c.yearOrdinal || pi}`}
+      >
+        {flatColVisible('sn') && (
+          <td className={`${tdBase} text-center text-neutral-400 bg-violet-50/90`}>↳</td>
+        )}
+        {flatColVisible('name') && (
+          <td className={`${tdBase} font-medium text-violet-950 pl-6`}>{nameCell}</td>
+        )}
+        {flatColVisible('email') && <td className={`${tdBase} text-neutral-400 text-[10px]`}>—</td>}
+        {flatColVisible('start') && (
+          <td className={tdTabular}>{formatPortalSubscriptionDate(c.start)}</td>
+        )}
+        {flatColVisible('end') && (
+          <td className={tdTabular}>{formatPortalSubscriptionDate(c.end)}</td>
+        )}
+        {flatColVisible('status') && (
+          <td className={`${tdBase} whitespace-nowrap`}>{statusCell}</td>
+        )}
+        {flatColVisible('diid') && (
+          <td className={tdTabular}>{(c.annualDiid || ent?.annual_diid || '').trim() || '—'}</td>
+        )}
+        {flatColVisible('package') && <td className={tdBase}>{pkgCell}</td>}
+        {flatColVisible('usage') && (
+          <td className={`${tdBase} text-[11px] text-neutral-700 whitespace-normal break-words`}>
+            {usageCell}
+          </td>
+        )}
+        {flatColVisible('household') && <td className={`${tdBase} text-neutral-400`}>—</td>}
+        {flatColVisible('primary') && <td className={`${tdBase} text-center text-neutral-400`}>—</td>}
+        {flatColVisible('client_id') && <td className={`${tdBase} text-neutral-400`}>—</td>}
+        {flatColVisible('edit') && (
+          <td className={`${tdBase} text-center text-[9px] text-violet-800/80`}>Archived</td>
+        )}
+      </tr>
+    );
+  });
+}
+
 /** Expandable panel: one table row per annual window — current first, prior years below (newest prior next). */
 function HomeComingAnnualWindowsTable({ cycles }) {
   const ordered = orderHomeComingCyclesForAdminTable(cycles);
@@ -1054,12 +1198,20 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
     const householdsWithKey = keyCounts.size;
     const membersWithHouseholdKey = [...keyCounts.values()].reduce((a, b) => a + b, 0);
     const singlesNoKey = filteredRows.length - membersWithHouseholdKey;
+    let adminEntered = 0;
+    let dashboardCheckout = 0;
+    for (const r of filteredRows) {
+      if (r?.annual_portal_acquisition?.source === 'dashboard') dashboardCheckout += 1;
+      else adminEntered += 1;
+    }
     return {
       members: filteredRows.length,
       householdsWithKey,
       multiMemberHouseholds,
       primaryContacts,
       singlesNoKey,
+      adminEntered,
+      dashboardCheckout,
     };
   }, [filteredRows]);
 
@@ -1168,7 +1320,7 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
       <div className="shrink-0 min-w-0">
         <h2 className="text-base font-semibold text-gray-900 tracking-tight">Annual + dashboard (Iris Garden)</h2>
         <p className="text-xs text-gray-600 mt-0.5 max-w-3xl leading-relaxed">
-          This list matches <strong>Home Coming (HC) = Yes</strong> in the main Iris Garden grid (and Dashboard access). A <strong>Login off</strong> tag means Google sign-in is still blocked — turn it on under Dashboard access for portal login; <strong>Excel import</strong> skips blocked rows until then. When <strong>End Date</strong> passes, Sacred Home stops treating them as an <em>active</em> annual for pricing and AWRP/MMM inclusions until dates are renewed; they remain on this roster as <strong>Lapsed</strong> (rose highlight) for your records. Within the last <strong>15 days</strong> before end date they are <strong>Renewal due</strong> (amber); students see the renewal banner over the same window.
+          This list shows <strong>Admin / Excel</strong> members (Client Garden HC = Yes) and <strong>Dashboard checkout</strong> members who paid for Home Coming on Sacred Home without the admin flag — teal rows and a <strong>Portal</strong> tag mark dashboard self-serve. A <strong>Login off</strong> tag means Google sign-in is still blocked — turn it on under Dashboard access for portal login; <strong>Excel import</strong> skips blocked rows until then. When <strong>End Date</strong> passes, Sacred Home stops treating them as an <em>active</em> annual for pricing and AWRP/MMM inclusions until dates are renewed; they remain on this roster as <strong>Lapsed</strong> (rose highlight) for your records. Within the last <strong>15 days</strong> before end date they are <strong>Renewal due</strong> (amber); students see the renewal banner over the same window. Use the <strong>Renew</strong> action (↻) on the <strong>Current</strong> tab to open the next Home Coming year — the prior window slides into an archived sub-row when you expand the member (▸), and Sacred Home on the student dashboard picks up the new dates on their next visit.
           Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id.{' '}
           Use <strong>Search</strong> to find rows by name, email, id, household, dates, DIID, or usage; separate words all must match. Use the <strong>A–Z icon</strong> to sort (alphabetical, dates oldest/newest, primary first, etc.) and the <strong>funnel</strong> to filter; search, sort, and column filters work together in List and By household.{' '}
           <strong>Template</strong> is a blank sheet with sample rows; <strong>Download Excel</strong> exports the current list in the same columns so you can edit and upload.{' '}
@@ -1269,6 +1421,26 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
               {stats.singlesNoKey} no key
             </span>
           )}
+          <span className="px-1.5 py-0.5 bg-white border border-slate-300 rounded-sm" title="Client Garden / Excel (HC = Yes)">
+            {stats.adminEntered} admin
+          </span>
+          <span className="px-1.5 py-0.5 bg-teal-50 border border-teal-300/90 rounded-sm text-teal-950" title="Paid Home Coming via Sacred Home dashboard">
+            {stats.dashboardCheckout} dashboard
+          </span>
+        </div>
+      )}
+
+      {!loading && rows.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 shrink-0 text-[10px] text-neutral-700 px-0.5">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm bg-white border border-slate-300" aria-hidden />
+            Admin / Excel
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm bg-teal-50 border-l-[3px] border-l-teal-600 border border-teal-200" aria-hidden />
+            Dashboard checkout
+          </span>
+          <span className="text-neutral-500">Rose / amber = lapsed or renewal due (admin rows).</span>
         </div>
       )}
 
@@ -1389,7 +1561,13 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
         onOpenChange={(o) => !o && setRenewRow(null)}
         row={renewRow}
         toast={toast}
-        onRenewed={() => load()}
+        onRenewed={(data) => {
+          const cid = (renewRow?.id || data?.client_id || '').trim();
+          if (cid) {
+            setAnnualPortalExpanded((prev) => ({ ...prev, [cid]: true }));
+          }
+          load();
+        }}
       />
 
       {rosterYearTab !== 'current' && activeYearTabMeta?.label && (
@@ -1653,7 +1831,7 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                             <button
                               type="button"
                               className="shrink-0 rounded p-0.5 text-neutral-500 hover:bg-neutral-200/90 hover:text-neutral-800"
-                              title={expanded ? 'Hide program sessions by year' : 'Show program sessions by year'}
+                              title={expanded ? 'Hide prior years & session schedule' : 'Show prior years & session schedule'}
                               aria-expanded={expanded}
                               onClick={() => toggleAnnualPortalExpand(r.id)}
                             >
@@ -1661,6 +1839,11 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                             </button>
                           ) : null}
                           <span>{(r.name || '').trim() || '—'}</span>
+                          {r?.annual_portal_acquisition?.source === 'dashboard' && (
+                            <span className="text-[9px] font-semibold uppercase tracking-wide text-teal-950 bg-teal-100 border border-teal-300/90 px-1 py-px rounded-sm shrink-0">
+                              Portal
+                            </span>
+                          )}
                           {annualPortalGoogleLoginBlocked(r) && (
                             <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-950 bg-amber-100 border border-amber-300/90 px-1 py-px rounded-sm shrink-0">
                               Login off
@@ -1733,12 +1916,21 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="h-7 flex-1 rounded-none hover:bg-violet-50 text-violet-900"
-                              title="Renew to next Home Coming year"
+                              className={`h-7 flex-1 rounded-none hover:bg-violet-50 text-violet-900 ${
+                                life?.status === 'expired' || life?.status === 'renewal_due'
+                                  ? 'bg-violet-50/80 font-semibold'
+                                  : ''
+                              }`}
+                              title="Renew to next Home Coming year (archives current window)"
                               aria-label="Renew Home Coming year"
                               onClick={() => setRenewRow(r)}
                             >
-                              <RotateCw className="h-3.5 w-3.5" />
+                              <RotateCw className="h-3.5 w-3.5 shrink-0" />
+                              {(life?.status === 'expired' || life?.status === 'renewal_due') && (
+                                <span className="text-[8px] font-bold uppercase tracking-wide ml-0.5 hidden sm:inline">
+                                  Renew
+                                </span>
+                              )}
                             </Button>
                           ) : null}
                           {typeof onNavigateToClientFinances === 'function' && (r.id || '').trim() ? (
@@ -1758,6 +1950,15 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                       </td>
                     )}
                   </tr>
+                  {expanded && rosterYearTab === 'current' ? (
+                    <AnnualPortalPriorYearSubRows
+                      client={r}
+                      cycles={cycles}
+                      flatColVisible={flatColVisible}
+                      tdBase={tdBase}
+                      tdTabular={tdTabular}
+                    />
+                  ) : null}
                   {expanded ? (
                     <tr className="bg-slate-50/95">
                       <td colSpan={colSpanFlat} className={`${tdBase} px-2 py-2 border-t border-[#c6d7e8]`}>
@@ -1963,7 +2164,7 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                                   <button
                                     type="button"
                                     className="shrink-0 rounded p-0.5 text-neutral-500 hover:bg-neutral-200/90 hover:text-neutral-800"
-                                    title={expanded ? 'Hide program sessions by year' : 'Show program sessions by year'}
+                                    title={expanded ? 'Hide prior years & session schedule' : 'Show prior years & session schedule'}
                                     aria-expanded={expanded}
                                     onClick={() => toggleAnnualPortalExpand(r.id)}
                                   >
@@ -1971,6 +2172,11 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                                   </button>
                                 ) : null}
                                 <span>{(r.name || '').trim() || '—'}</span>
+                                {r?.annual_portal_acquisition?.source === 'dashboard' && (
+                                  <span className="text-[9px] font-semibold uppercase tracking-wide text-teal-950 bg-teal-100 border border-teal-300/90 px-1 py-px rounded-sm shrink-0">
+                                    Portal
+                                  </span>
+                                )}
                                 {annualPortalGoogleLoginBlocked(r) && (
                                   <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-950 bg-amber-100 border border-amber-300/90 px-1 py-px rounded-sm shrink-0">
                                     Login off
@@ -2021,12 +2227,21 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 flex-1 rounded-none hover:bg-violet-50 text-violet-900"
-                                    title="Renew to next Home Coming year"
+                                    className={`h-7 flex-1 rounded-none hover:bg-violet-50 text-violet-900 ${
+                                      life?.status === 'expired' || life?.status === 'renewal_due'
+                                        ? 'bg-violet-50/80 font-semibold'
+                                        : ''
+                                    }`}
+                                    title="Renew to next Home Coming year (archives current window)"
                                     aria-label="Renew Home Coming year"
                                     onClick={() => setRenewRow(r)}
                                   >
-                                    <RotateCw className="h-3.5 w-3.5" />
+                                    <RotateCw className="h-3.5 w-3.5 shrink-0" />
+                                    {(life?.status === 'expired' || life?.status === 'renewal_due') && (
+                                      <span className="text-[8px] font-bold uppercase tracking-wide ml-0.5 hidden sm:inline">
+                                        Renew
+                                      </span>
+                                    )}
                                   </Button>
                                 ) : null}
                                 {typeof onNavigateToClientFinances === 'function' && (r.id || '').trim() ? (
@@ -2045,6 +2260,15 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
                               </div>
                             </td>
                           </tr>
+                          {expanded && rosterYearTab === 'current' ? (
+                            <AnnualPortalPriorYearSubRows
+                              client={r}
+                              cycles={cycles}
+                              tdBase={tdBase}
+                              tdTabular={tdTabular}
+                              variant="household"
+                            />
+                          ) : null}
                           {expanded ? (
                             <tr className="bg-slate-50/95">
                               <td colSpan={colSpanHouseholdTable} className={`${tdBase} px-2 py-2 border-t border-[#c6d7e8]`}>

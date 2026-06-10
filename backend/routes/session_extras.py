@@ -147,6 +147,53 @@ async def delete_question(qid: str):
 
 # ========== UNIFIED CALENDAR ==========
 
+
+def _normalize_calendar_payload(data: dict) -> dict:
+    """Ensure calendar shape; drop per-date slots for dates that are no longer open."""
+    out = dict(data or {})
+    open_dates = {str(d).strip()[:10] for d in (out.get("available_dates") or []) if str(d).strip()}
+    raw_map = out.get("date_time_slots")
+    cleaned: dict = {}
+    if isinstance(raw_map, dict):
+        for raw_key, raw_slots in raw_map.items():
+            key = str(raw_key or "").strip()[:10]
+            if not key or key not in open_dates:
+                continue
+            if not isinstance(raw_slots, list):
+                continue
+            slots = [str(s).strip() for s in raw_slots if str(s).strip()]
+            if slots:
+                cleaned[key] = slots
+    out["date_time_slots"] = cleaned
+    if not isinstance(out.get("time_slots"), list):
+        out["time_slots"] = []
+    if not isinstance(out.get("available_dates"), list):
+        out["available_dates"] = sorted(open_dates)
+    else:
+        out["available_dates"] = sorted({str(d).strip()[:10] for d in out["available_dates"] if str(d).strip()})
+    return out
+
+
+def time_slots_for_calendar_date(calendar: dict, date_str: str, fallback: Optional[list] = None) -> list:
+    """Resolve bookable slots for one open date (per-date override, then global defaults)."""
+    key = str(date_str or "").strip()[:10]
+    if not key:
+        return list(fallback or [])
+    per_date = (calendar or {}).get("date_time_slots") or {}
+    if isinstance(per_date, dict):
+        custom = per_date.get(key)
+        if isinstance(custom, list):
+            slots = [str(s).strip() for s in custom if str(s).strip()]
+            if slots:
+                return slots
+    global_slots = (calendar or {}).get("time_slots") or []
+    if isinstance(global_slots, list):
+        slots = [str(s).strip() for s in global_slots if str(s).strip()]
+        if slots:
+            return slots
+    return list(fallback or [])
+
+
 @router.get("/calendar")
 async def get_calendar():
     cal = await db.session_calendar.find_one({"id": "global_calendar"})
@@ -155,6 +202,7 @@ async def get_calendar():
             "id": "global_calendar",
             "available_dates": [],
             "time_slots": ["10:00 AM", "2:00 PM", "5:00 PM"],
+            "date_time_slots": {},
             "blocked_until": "",
             "min_advance_days": 7,
             "max_future_months": 3,
@@ -163,15 +211,20 @@ async def get_calendar():
         }
         await db.session_calendar.insert_one(default)
         return {k: v for k, v in default.items() if k != '_id'}
-    return {k: v for k, v in cal.items() if k != '_id'}
+    normalized = _normalize_calendar_payload({k: v for k, v in cal.items() if k != '_id'})
+    if normalized != {k: v for k, v in cal.items() if k != '_id'}:
+        await db.session_calendar.update_one({"id": "global_calendar"}, {"$set": normalized})
+    return normalized
+
 
 @router.put("/calendar")
 async def update_calendar(data: dict):
     data.pop("_id", None)
     data.pop("id", None)
+    payload = _normalize_calendar_payload(data)
     await db.session_calendar.update_one(
         {"id": "global_calendar"},
-        {"$set": data},
+        {"$set": payload},
         upsert=True
     )
     updated = await db.session_calendar.find_one({"id": "global_calendar"})

@@ -766,6 +766,7 @@ def _portal_annual_period_ledger_safe(raw: Any) -> List[Dict[str, Any]]:
         "payment_mode",
         "annual_program",
         "num_emis",
+        "usage",
     }
     out: List[Dict[str, Any]] = []
     for e in raw:
@@ -3716,6 +3717,10 @@ async def put_membership_period(data: MembershipPeriodBody, user: dict = Depends
             if isinstance(p, dict):
                 p["start_date"] = start_s
                 p["end_date"] = end_s
+    if isinstance(emis, list) and len(emis) > 0:
+        from routes.subscribers import _regenerate_emi_schedule_inplace
+
+        _regenerate_emi_schedule_inplace(sub)
     now = datetime.now(timezone.utc).isoformat()
     merged_as = dict(client.get("annual_subscription") or {})
     merged_as["start_date"] = start_s
@@ -3730,12 +3735,7 @@ async def put_membership_period(data: MembershipPeriodBody, user: dict = Depends
             }
         },
     )
-    emi_note = None
-    if isinstance(emis, list) and len(emis) > 0:
-        emi_note = (
-            "If you have an EMI plan, due dates may still reflect the previous period until your host updates them."
-        )
-    return {"start_date": start_s, "end_date": end_s, "emi_schedule_note": emi_note}
+    return {"start_date": start_s, "end_date": end_s, "emi_schedule_note": None}
 
 
 class HouseholdPeerRowIn(BaseModel):

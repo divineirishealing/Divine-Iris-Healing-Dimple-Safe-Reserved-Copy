@@ -13,6 +13,7 @@ import { useSiteSettings } from '../context/SiteSettingsContext';
 import { useSeoPage } from '../context/SeoPageContext';
 import { HEADING, SUBTITLE } from '../lib/designTokens';
 import { resolveImageUrl } from '../lib/imageUtils';
+import { timeSlotsForCalendarDate } from '../lib/sessionCalendarSlots';
 import StarField from '../components/ui/StarField';
 import { formatDateDdMonYyyy } from '../lib/utils';
 
@@ -192,6 +193,16 @@ function SessionDetailPage() {
   const { addSessionItem } = useCart();
   const { toast } = useToast();
 
+  const timeSlots = useMemo(
+    () => timeSlotsForCalendarDate(calendar, selectedDate, session?.time_slots || []),
+    [calendar, selectedDate, session?.time_slots],
+  );
+
+  useEffect(() => {
+    if (!selectedTimeSlot) return;
+    if (!timeSlots.includes(selectedTimeSlot)) setSelectedTimeSlot(null);
+  }, [selectedDate, timeSlots, selectedTimeSlot]);
+
   useEffect(() => {
     if (settings && settings.sessions_page_visible === false) navigate('/', { replace: true });
   }, [settings, navigate]);
@@ -245,7 +256,6 @@ function SessionDetailPage() {
 
   const hero = settings?.page_heroes?.sessions || {};
   const sessionTpl = settings?.page_heroes?.session_template || {};
-  const timeSlots = calendar.time_slots || session.time_slots || [];
 
   const purpleIntensity = sessionTpl.page_purple || 'medium';
   const heroGradient = DARK_PURPLE_GRADIENTS[purpleIntensity] || DARK_PURPLE_GRADIENTS.medium;
@@ -468,8 +478,8 @@ function SessionDetailPage() {
         <StarField count={15} color={calendarAccent} />
         <div className="relative z-10 p-5">
           <p className="text-[10px] font-medium uppercase tracking-widest mb-4" style={applyStyle(sessionTpl.calendar_heading_style, { color: calendarAccent })}>Book Your Session</p>
-          <BookingCalendar calendar={calendar} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
-          {timeSlots.length > 0 && (
+          <BookingCalendar calendar={calendar} selectedDate={selectedDate} onSelectDate={(d) => { setSelectedDate(d); setSelectedTimeSlot(null); }} />
+          {selectedDate && timeSlots.length > 0 && (
             <div className="mt-4">
               <p className="text-[10px] text-white/50 font-medium mb-2 uppercase tracking-wider">Select a Time</p>
               <div className="flex flex-wrap gap-2">

@@ -1834,24 +1834,228 @@ def _calendar_date_from_tx_or_proof(tx: dict, proof_like: dict) -> Optional[date
     return None
 
 
+HOME_COMING_BUNDLE_DOM = 3
+
+
+def _anchor_home_coming_bundle_start(d: date) -> date:
+    """Sacred Home annual bundles always start on the 3rd (matches dashboard ``anchorHomeComingBundleStartYmd``)."""
+    dim = calendar.monthrange(d.year, d.month)[1]
+    return date(d.year, d.month, min(HOME_COMING_BUNDLE_DOM, dim))
+
+
+def _iso_updated_on_or_before_payment(iso_ts: Optional[str], pay_d: date) -> bool:
+    """True when a prefs timestamp was saved on or before the payment calendar day."""
+    if not isinstance(iso_ts, str) or len(iso_ts.strip()) < 10:
+        return True
+    try:
+        pud = datetime.fromisoformat(iso_ts.replace("Z", "+00:00")).date()
+    except ValueError:
+        return True
+    return pud <= pay_d
+
+
+def _resolve_home_coming_checkout_start_date(
+    cl: dict,
+    enrollment: dict,
+    pay_d: Optional[date],
+) -> Optional[date]:
+    """
+    Bundle start chosen at Sacred Home checkout: saved prefs (when set before/at payment),
+    enrollment tier dates, then 3rd of the month after payment.
+    """
+    from routes.student import _parse_ymd_loose
+
+    prefs = cl.get("annual_package_offer_prefs") if isinstance(cl.get("annual_package_offer_prefs"), dict) else {}
+    pref_sources: List[str] = []
+    if pay_d is None or _iso_updated_on_or_before_payment(prefs.get("updated_at"), pay_d):
+        pref_sources.append(str(prefs.get("desired_start_date") or "").strip()[:10])
+    pref_sources.append(str(enrollment.get("chosen_start_date") or "").strip()[:10])
+    for raw in pref_sources:
+        if len(raw) == 10:
+            d = _parse_ymd_loose(raw)
+            if d:
+                return _anchor_home_coming_bundle_start(d)
+    if pay_d:
+        m = pay_d.month + 1
+        y = pay_d.year
+        if m > 12:
+            m = 1
+            y += 1
+        dim = calendar.monthrange(y, m)[1]
+        return date(y, m, min(HOME_COMING_BUNDLE_DOM, dim))
+    return None
+
+
+def _subscription_has_paid_emi(sub: dict) -> bool:
+    emis = sub.get("emis") or []
+    return any(isinstance(e, dict) and str(e.get("status", "")).lower() == "paid" for e in emis)
+
+
+def _is_dashboard_home_coming_catalog_checkout(enrollment: dict) -> bool:
+    if enrollment.get("home_coming_catalog_checkout") in (True, "true", 1):
+        return True
+    from utils.home_coming_discount_scope import home_coming_catalog_checkout_from_context
+
+    return home_coming_catalog_checkout_from_context(enrollment)
+
+
+def _home_coming_bundle_duration_months(sub0: dict) -> int:
+    pkg_id = (sub0.get("package_id") or "").strip()
+    duration = 12
+    if not pkg_id:
+        return duration
+    # Duration lookup is async in callers; this sync helper only reads inline overrides.
+    try:
+        inline = sub0.get("duration_months")
+        if inline is not None:
+            return max(1, min(120, int(inline)))
+    except (TypeError, ValueError):
+        pass
+    return duration
+
+
+async def _home_coming_duration_from_subscription(sub0: dict) -> int:
+    pkg_id = (sub0.get("package_id") or "").strip()
+    duration = _home_coming_bundle_duration_months(sub0)
+    if pkg_id:
+        pkg_row = await db.annual_packages.find_one({"package_id": pkg_id}, {"_id": 0, "duration_months": 1})
+        if pkg_row and pkg_row.get("duration_months") is not None:
+            try:
+                duration = max(1, min(120, int(pkg_row["duration_months"])))
+            except (TypeError, ValueError):
+                pass
+    return duration
+
+
+def _anchored_starts_match(a: Optional[date], b: Optional[date]) -> bool:
+    if not a or not b:
+        return False
+    return _anchor_home_coming_bundle_start(a) == _anchor_home_coming_bundle_start(b)
+
+
+def _subscription_start_looks_unsynced(sub: dict, pay_d: Optional[date], checkout_start: date) -> bool:
+    """True when CRM dates likely predate the member's Sacred Home checkout pick."""
+    from routes.student import _parse_ymd_loose
+
+    raw = str(sub.get("start_date") or "").strip()[:10]
+    sd = _parse_ymd_loose(raw)
+    if not sd:
+        return True
+    if _anchored_starts_match(sd, checkout_start):
+        return False
+    if pay_d and abs((sd - pay_d).days) <= 14:
+        return True
+    return False
+
+
+async def _persist_home_coming_calendar_window(
+    *,
+    pcid: str,
+    cl: dict,
+    start_d: date,
+    duration: int,
+    bump_iris_year: bool,
+    ledger_source: str,
+    log_label: str,
+    pay_d: Optional[date] = None,
+    prev_end: Optional[date] = None,
+) -> None:
+    from routes.student import _add_months_subscription_end
+    from routes.clients import (
+        HOME_COMING_SKU,
+        _program_detail_row_looks_annual_bundle,
+        _append_annual_period_ledger,
+    )
+    from routes.subscribers import _regenerate_emi_schedule_inplace
+
+    start_d = _anchor_home_coming_bundle_start(start_d)
+    end_s = _add_months_subscription_end(start_d.isoformat(), duration)
+    if not end_s or len(end_s) < 10:
+        return
+
+    sub0 = cl.get("subscription") or {}
+    sub = dict(sub0) if sub0 else {}
+    prev_sub_snapshot = dict(sub0) if sub0 else {}
+    start_iso = start_d.isoformat()
+
+    sub["start_date"] = start_iso
+    sub["end_date"] = end_s[:10]
+    pd = sub.get("programs_detail")
+    if isinstance(pd, list):
+        for p in pd:
+            if isinstance(p, dict) and _program_detail_row_looks_annual_bundle(p):
+                p["start_date"] = start_iso
+                p["end_date"] = end_s[:10]
+
+    asy = dict(cl.get("annual_subscription") or {})
+    old_iris_year = None
+    try:
+        old_iris_year = int(sub0.get("iris_year") or asy.get("iris_year") or 1)
+    except (TypeError, ValueError):
+        old_iris_year = 1
+
+    if bump_iris_year and old_iris_year is not None:
+        sub["iris_year"] = max(1, min(12, old_iris_year + 1))
+        asy["iris_year"] = sub["iris_year"]
+    else:
+        if not sub.get("iris_year"):
+            sub["iris_year"] = old_iris_year or 1
+        if not asy.get("iris_year"):
+            asy["iris_year"] = sub.get("iris_year") or old_iris_year or 1
+
+    asy["start_date"] = start_iso
+    asy["end_date"] = end_s[:10]
+    if not asy.get("package_sku"):
+        asy["package_sku"] = HOME_COMING_SKU
+
+    _regenerate_emi_schedule_inplace(sub)
+
+    ledger = None
+    if bump_iris_year and prev_sub_snapshot.get("start_date") and prev_sub_snapshot.get("end_date"):
+        ledger = _append_annual_period_ledger(
+            cl,
+            prev_sub_snapshot,
+            sub,
+            source=ledger_source,
+            iris_year=old_iris_year,
+            fee_snapshot=prev_sub_snapshot,
+        )
+
+    now = datetime.now(timezone.utc).isoformat()
+    set_doc: Dict[str, Any] = {"subscription": sub, "annual_subscription": asy, "updated_at": now}
+    if ledger is not None:
+        set_doc["annual_period_ledger"] = ledger
+    if not cl.get("annual_member_dashboard"):
+        set_doc["annual_member_dashboard"] = True
+
+    await db.clients.update_one({"id": pcid}, {"$set": set_doc})
+    logger.info(
+        "Home Coming %s client=%s start=%s end=%s (paid=%s prev_end=%s)",
+        log_label,
+        pcid,
+        start_iso,
+        end_s[:10],
+        pay_d.isoformat() if pay_d else "—",
+        prev_end.isoformat() if prev_end else "—",
+    )
+
+
 async def sync_home_coming_renewal_calendar_after_paid_enrollment_tx(
     tx: dict,
     enrollment: dict,
     proof_like: dict,
 ) -> None:
     """
-    After a **paid** Dashboard Home Coming checkout, persist the renewed membership window on the client
-    when the payment date falls **after** the prior effective annual end (matches Sacred Home renewal UI).
+    After a **paid** Dashboard Home Coming checkout, persist the membership window on the client.
 
-    Writes ``subscription.start_date`` / ``end_date``, matching ``programs_detail`` annual-like rows, and
-    ``annual_subscription`` start/end so admin lifecycle and finance grids match the dashboard.
+    Handles first-time Sacred Home enrollments (no prior annual window), realigning stale CRM dates
+    to the member's chosen start before payment, and renewals when payment falls after the prior end.
+
+    Writes ``subscription.start_date`` / ``end_date``, matching ``programs_detail`` annual-like rows,
+    ``annual_subscription`` start/end, and regenerates EMI due dates when applicable.
     """
     from routes.student import _add_months_subscription_end, _parse_ymd_loose
-    from routes.clients import (
-        effective_annual_portal_dates,
-        _program_detail_row_looks_annual_bundle,
-        _append_annual_period_ledger,
-    )
+    from routes.clients import effective_annual_portal_dates
 
     if not tx or str(tx.get("payment_status") or "").lower() != "paid":
         return
@@ -1863,37 +2067,77 @@ async def sync_home_coming_renewal_calendar_after_paid_enrollment_tx(
     pay_d = _calendar_date_from_tx_or_proof(tx, proof_like or {})
     if not pay_d:
         return
-    cl = await db.clients.find_one({"id": pcid}, {"_id": 0, "subscription": 1, "annual_subscription": 1, "annual_package_offer_prefs": 1})
+    cl = await db.clients.find_one(
+        {"id": pcid},
+        {
+            "_id": 0,
+            "subscription": 1,
+            "annual_subscription": 1,
+            "annual_package_offer_prefs": 1,
+            "annual_member_dashboard": 1,
+            "annual_period_ledger": 1,
+        },
+    )
     if not cl:
         return
+
+    sub0 = cl.get("subscription") or {}
+    duration = await _home_coming_duration_from_subscription(sub0)
+    checkout_start = _resolve_home_coming_checkout_start_date(cl, enrollment or {}, pay_d)
     prev_start, prev_end, _src = effective_annual_portal_dates(cl)
+    is_catalog = _is_dashboard_home_coming_catalog_checkout(enrollment or {})
+    has_paid_emi = _subscription_has_paid_emi(sub0)
+
+    # First Sacred Home enrollment — no annual window on file yet.
     if not prev_end:
+        if not checkout_start:
+            return
+        await _persist_home_coming_calendar_window(
+            pcid=pcid,
+            cl=cl,
+            start_d=checkout_start,
+            duration=duration,
+            bump_iris_year=False,
+            ledger_source="home_coming_paid_initial",
+            log_label="initial calendar synced",
+            pay_d=pay_d,
+        )
+        return
+
+    # Dashboard checkout with dates that never matched the member's chosen start (e.g. payment-day placeholder).
+    if (
+        is_catalog
+        and checkout_start
+        and not has_paid_emi
+        and _subscription_start_looks_unsynced(sub0, pay_d, checkout_start)
+    ):
+        await _persist_home_coming_calendar_window(
+            pcid=pcid,
+            cl=cl,
+            start_d=checkout_start,
+            duration=duration,
+            bump_iris_year=False,
+            ledger_source="home_coming_paid_initial_align",
+            log_label="checkout calendar aligned",
+            pay_d=pay_d,
+            prev_end=prev_end,
+        )
         return
 
     prefs = cl.get("annual_package_offer_prefs") if isinstance(cl.get("annual_package_offer_prefs"), dict) else {}
     desired_raw = str(prefs.get("desired_start_date") or "").strip()[:10]
     desired_d = _parse_ymd_loose(desired_raw) if len(desired_raw) == 10 else None
+    if desired_d:
+        desired_d = _anchor_home_coming_bundle_start(desired_d)
     # Allow valid early renewals: if member already picked a next-cycle start date after current end,
     # do not block rollover just because payment arrived before previous window end date.
     if pay_d <= prev_end and not (desired_d and desired_d > prev_end):
         return
 
-    sub0 = cl.get("subscription") or {}
-    pkg_id = (sub0.get("package_id") or "").strip()
-    pkg_row = None
-    if pkg_id:
-        pkg_row = await db.annual_packages.find_one({"package_id": pkg_id}, {"_id": 0, "duration_months": 1})
-    duration = 12
-    if pkg_row and pkg_row.get("duration_months") is not None:
-        try:
-            duration = max(1, min(120, int(pkg_row["duration_months"])))
-        except (TypeError, ValueError):
-            duration = 12
-
     rs = prev_start or _parse_ymd_loose(str((sub0.get("start_date") or "")).strip()[:10])
 
     start_d: Optional[date] = None
-    if desired_d and desired_d > prev_end:
+    if desired_d and prev_end and desired_d > prev_end:
         start_d = desired_d
     elif rs:
         s = rs
@@ -1920,56 +2164,17 @@ async def sync_home_coming_renewal_calendar_after_paid_enrollment_tx(
 
     if not start_d:
         return
-    end_s = _add_months_subscription_end(start_d.isoformat(), duration)
-    if not end_s or len(end_s) < 10:
-        return
 
-    sub = dict(sub0)
-    prev_sub_snapshot = dict(sub0)
-    start_iso = start_d.isoformat()
-    sub["start_date"] = start_iso
-    sub["end_date"] = end_s[:10]
-    pd = sub.get("programs_detail")
-    if isinstance(pd, list):
-        for p in pd:
-            if isinstance(p, dict) and _program_detail_row_looks_annual_bundle(p):
-                p["start_date"] = start_iso
-                p["end_date"] = end_s[:10]
-    asy = dict(cl.get("annual_subscription") or {})
-    old_iris_year = None
-    try:
-        old_iris_year = int(sub0.get("iris_year") or 1)
-    except (TypeError, ValueError):
-        old_iris_year = None
-    if old_iris_year is not None:
-        sub["iris_year"] = max(1, min(12, old_iris_year + 1))
-    asy["start_date"] = start_iso
-    asy["end_date"] = end_s[:10]
-    if old_iris_year is not None:
-        asy["iris_year"] = max(1, min(12, old_iris_year + 1))
-    ledger = _append_annual_period_ledger(
-        cl,
-        prev_sub_snapshot,
-        sub,
-        source="home_coming_paid_upgrade",
-        iris_year=old_iris_year,
-        fee_snapshot=prev_sub_snapshot,
-    )
-    now = datetime.now(timezone.utc).isoformat()
-    set_doc = {"subscription": sub, "annual_subscription": asy, "updated_at": now}
-    if ledger is not None:
-        set_doc["annual_period_ledger"] = ledger
-    await db.clients.update_one(
-        {"id": pcid},
-        {"$set": set_doc},
-    )
-    logger.info(
-        "Home Coming renewal calendar synced client=%s start=%s end=%s (paid=%s prev_end=%s)",
-        pcid,
-        start_iso,
-        end_s[:10],
-        pay_d.isoformat(),
-        prev_end.isoformat(),
+    await _persist_home_coming_calendar_window(
+        pcid=pcid,
+        cl=cl,
+        start_d=start_d,
+        duration=duration,
+        bump_iris_year=True,
+        ledger_source="home_coming_paid_upgrade",
+        log_label="renewal calendar synced",
+        pay_d=pay_d,
+        prev_end=prev_end,
     )
 
 
