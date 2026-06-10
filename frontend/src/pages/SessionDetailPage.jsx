@@ -13,7 +13,8 @@ import { useSiteSettings } from '../context/SiteSettingsContext';
 import { useSeoPage } from '../context/SeoPageContext';
 import { HEADING, SUBTITLE } from '../lib/designTokens';
 import { resolveImageUrl } from '../lib/imageUtils';
-import { timeSlotsForCalendarDate } from '../lib/sessionCalendarSlots';
+import { timeSlotsForCalendarDate, bookableOpenDatesWithSlots } from '../lib/sessionCalendarSlots';
+import SessionOpenDatesSlots from '../components/SessionOpenDatesSlots';
 import StarField from '../components/ui/StarField';
 import { formatDateDdMonYyyy } from '../lib/utils';
 
@@ -52,7 +53,7 @@ const applyStyle = (styleObj, defaults = {}) => {
 };
 
 /* ---- Calendar Component ---- */
-const BookingCalendar = ({ calendar = {}, selectedDate, onSelectDate }) => {
+const BookingCalendar = ({ calendar = {}, selectedDate, onSelectDate, slotsByDate = {} }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
@@ -106,17 +107,25 @@ const BookingCalendar = ({ calendar = {}, selectedDate, onSelectDate }) => {
           const past = isPast(day);
           const weekend = isWeekend(day);
           const disabled = !day || past || weekend || !available;
+          const dateStr = day ? `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : '';
+          const slotCount = dateStr ? (slotsByDate[dateStr] || []).length : 0;
           return (
             <button key={i} disabled={disabled}
-              onClick={() => { if (day && available && !weekend && !past) { const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`; onSelectDate(selectedDate === dateStr ? null : dateStr); } }}
-              className={`h-9 w-full rounded-lg text-xs transition-all ${
+              onClick={() => { if (day && available && !weekend && !past) onSelectDate(dateStr); }}
+              title={slotCount ? `${slotCount} open slot${slotCount === 1 ? '' : 's'}` : undefined}
+              className={`h-9 w-full rounded-lg text-xs transition-all relative ${
                 !day ? '' :
                 weekend ? 'text-red-300/30 cursor-not-allowed' :
                 selected ? 'bg-[#D4AF37] text-[#1a1a1a] font-bold shadow-lg' :
                 available && !past ? 'bg-white/15 text-white hover:bg-[#D4AF37]/40 cursor-pointer font-medium' :
                 past ? 'text-white/15' : 'text-white/20'
               }`}
-            >{day || ''}</button>
+            >
+              {day || ''}
+              {slotCount > 0 && available && !past && !weekend ? (
+                <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#D4AF37]/90" />
+              ) : null}
+            </button>
           );
         })}
       </div>
@@ -197,6 +206,14 @@ function SessionDetailPage() {
     () => timeSlotsForCalendarDate(calendar, selectedDate, session?.time_slots || []),
     [calendar, selectedDate, session?.time_slots],
   );
+
+  const slotsByDate = useMemo(() => {
+    const map = {};
+    for (const row of bookableOpenDatesWithSlots(calendar, session?.time_slots || [])) {
+      map[row.date] = row.slots;
+    }
+    return map;
+  }, [calendar, session?.time_slots]);
 
   useEffect(() => {
     if (!selectedTimeSlot) return;
@@ -478,7 +495,21 @@ function SessionDetailPage() {
         <StarField count={15} color={calendarAccent} />
         <div className="relative z-10 p-5">
           <p className="text-[10px] font-medium uppercase tracking-widest mb-4" style={applyStyle(sessionTpl.calendar_heading_style, { color: calendarAccent })}>Book Your Session</p>
-          <BookingCalendar calendar={calendar} selectedDate={selectedDate} onSelectDate={(d) => { setSelectedDate(d); setSelectedTimeSlot(null); }} />
+          <BookingCalendar
+            calendar={calendar}
+            selectedDate={selectedDate}
+            slotsByDate={slotsByDate}
+            onSelectDate={(d) => { setSelectedDate(d); setSelectedTimeSlot(null); }}
+          />
+          <SessionOpenDatesSlots
+            calendar={calendar}
+            sessionFallback={session?.time_slots || []}
+            selectedDate={selectedDate}
+            selectedTimeSlot={selectedTimeSlot}
+            onSelectDate={(d) => { setSelectedDate(d); setSelectedTimeSlot(null); }}
+            onSelectTimeSlot={setSelectedTimeSlot}
+            theme="dark"
+          />
           {selectedDate && timeSlots.length > 0 && (
             <div className="mt-4">
               <p className="text-[10px] text-white/50 font-medium mb-2 uppercase tracking-wider">Select a Time</p>

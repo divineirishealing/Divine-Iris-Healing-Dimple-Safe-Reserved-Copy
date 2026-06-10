@@ -102,6 +102,8 @@ import { useSiteSettings } from '../context/SiteSettingsContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
 import { renderMarkdown } from '../lib/renderMarkdown';
+import { timeSlotsForCalendarDate } from '../lib/sessionCalendarSlots';
+import SessionOpenDatesSlots from './SessionOpenDatesSlots';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -199,6 +201,7 @@ const SessionsSection = ({ sectionConfig }) => {
   const [selectedSession, setSelectedSession] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+  const [sessionCalendar, setSessionCalendar] = useState({});
   const sessionsListRef = useRef(null);
 
   const sessionTpl = settings?.page_heroes?.session_template || {};
@@ -244,6 +247,12 @@ const SessionsSection = ({ sectionConfig }) => {
   };
 
   useEffect(() => { loadSessions(); }, []);
+
+  useEffect(() => {
+    axios.get(`${API}/session-extras/calendar`)
+      .then((res) => setSessionCalendar(res.data || {}))
+      .catch(() => setSessionCalendar({}));
+  }, []);
 
   const loadSessions = async () => {
     try {
@@ -436,13 +445,35 @@ const SessionsSection = ({ sectionConfig }) => {
                     );
                   }
                   if (key === 'calendar') return (
-                    <MiniCalendar key="cal" availableDates={selectedSession.available_dates || []} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+                    <div key="cal">
+                      <MiniCalendar
+                        availableDates={sessionCalendar.available_dates?.length ? sessionCalendar.available_dates : (selectedSession.available_dates || [])}
+                        selectedDate={selectedDate}
+                        onSelectDate={(d) => { setSelectedDate(d); setSelectedTimeSlot(null); }}
+                      />
+                      <SessionOpenDatesSlots
+                        calendar={sessionCalendar}
+                        sessionFallback={selectedSession.time_slots || []}
+                        selectedDate={selectedDate}
+                        selectedTimeSlot={selectedTimeSlot}
+                        onSelectDate={(d) => { setSelectedDate(d); setSelectedTimeSlot(null); }}
+                        onSelectTimeSlot={setSelectedTimeSlot}
+                        theme="light"
+                      />
+                    </div>
                   );
-                  if (key === 'time_slots' && selectedSession.time_slots?.length > 0) return (
+                  if (key === 'time_slots') {
+                    const slots = timeSlotsForCalendarDate(
+                      sessionCalendar,
+                      selectedDate,
+                      selectedSession.time_slots || [],
+                    );
+                    if (!selectedDate || slots.length === 0) return null;
+                    return (
                     <div key="slots">
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Select a Time</p>
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Selected time</p>
                       <div className="flex flex-wrap gap-2">
-                        {selectedSession.time_slots.map((slot, i) => (
+                        {slots.map((slot, i) => (
                           <span key={i} onClick={() => setSelectedTimeSlot(slot)}
                             className={`px-3 py-1.5 rounded-full text-xs border cursor-pointer transition-all ${
                               selectedTimeSlot === slot ? 'bg-purple-600 text-white border-purple-600' : 'bg-purple-50 text-purple-600 border-purple-100 hover:bg-purple-100'
@@ -452,9 +483,14 @@ const SessionsSection = ({ sectionConfig }) => {
                         ))}
                       </div>
                     </div>
-                  );
+                  ); }
                   if (key === 'book_button') {
-                    const hasSlots = selectedSession.time_slots?.length > 0;
+                    const slots = timeSlotsForCalendarDate(
+                      sessionCalendar,
+                      selectedDate,
+                      selectedSession.time_slots || [],
+                    );
+                    const hasSlots = slots.length > 0;
                     const canBook = selectedDate && (!hasSlots || selectedTimeSlot);
                     return (
                     <div key="book-actions" className="space-y-2">
