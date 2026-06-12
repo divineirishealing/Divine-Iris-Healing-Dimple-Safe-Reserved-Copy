@@ -15,6 +15,7 @@ import MediaPage from './pages/MediaPage';
 import TransformationsPage from './pages/TransformationsPage';
 import CaseStudiesPage from './pages/CaseStudiesPage';
 import CaseStudyDetailPage from './pages/CaseStudyDetailPage';
+import BlueprintImmersionDetailPage from './pages/BlueprintImmersionDetailPage';
 import EnrollmentPage from './pages/EnrollmentPage';
 import CartPage from './pages/CartPage';
 import CartCheckoutPage from './pages/CartCheckoutPage';
@@ -111,6 +112,7 @@ const AppContent = () => {
       <Route path="/transformations" element={<TransformationsPage />} />
       <Route path="/case-studies" element={<CaseStudiesPage />} />
       <Route path="/case-studies/:slug" element={<CaseStudyDetailPage />} />
+      <Route path="/blueprint-immersion" element={<BlueprintImmersionDetailPage />} />
       <Route path="/checkout/:type/:id" element={<CheckoutPage />} />
       <Route path="/enroll/:type/:id" element={<EnrollmentPage />} />
       <Route path="/cart" element={<CartPage />} />
