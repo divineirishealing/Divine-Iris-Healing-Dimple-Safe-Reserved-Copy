@@ -393,12 +393,14 @@ const BlueprintImmersionSection = ({ sectionConfig = {} }) => {
         </div>
       </div>
 
-      <BlueprintPackageModal
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-        config={config}
-        onBookNow={handleBookNow}
-      />
+      {detailOpen && (
+        <BlueprintPackageModal
+          open={detailOpen}
+          onOpenChange={setDetailOpen}
+          config={config}
+          onBookNow={handleBookNow}
+        />
+      )}
     </section>
   );
 };

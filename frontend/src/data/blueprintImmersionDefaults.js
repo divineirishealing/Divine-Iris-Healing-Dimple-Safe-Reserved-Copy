@@ -8,8 +8,6 @@ export const DEFAULT_HEADLINE_OPTIONS = [
 
 export const DEFAULT_INTRO_BODY = `You've tried journaling. Therapy. Meditation. Manifestation.
 
-And still — something keeps looping.
-
 The same fears. The same relationship patterns. The same invisible ceiling in your career or healing gifts.
 
 That is not a coincidence. That is your soul remembering.
