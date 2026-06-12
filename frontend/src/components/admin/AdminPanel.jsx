@@ -12,7 +12,7 @@ import { resolveImageUrl, rememberPublicApiBase, rememberS3VirtualHostRewrite } 
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail, Inbox,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
-  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert,   CreditCard, Search, Wallet, Sparkles, Link2, KeyRound, LineChart, IndianRupee, Flower2, BookOpen
+  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert,   CreditCard, Search, Wallet, Sparkles, Link2, KeyRound, LineChart, IndianRupee, Flower2, BookOpen, TrendingUp
 } from 'lucide-react';
 
 import { getApiUrl } from '../../lib/config';
@@ -29,6 +29,7 @@ import DashboardSettingsTab from './tabs/DashboardSettingsTab';
 import DashboardHomeComingTab from './tabs/DashboardHomeComingTab';
 import SanctuarySettingsTab from './tabs/SanctuarySettingsTab';
 import EnrollmentsTab from './tabs/EnrollmentsTab';
+import RevenueTab from './tabs/RevenueTab';
 import { SessionCalendarManager, SessionTestimonialsManager, SessionQuestionsManager } from './tabs/SessionManagerTabs';
 import SessionVisibilityPanel from './tabs/SessionVisibilityPanel';
 import GlobalStylesTab from './tabs/GlobalStylesTab';
@@ -400,6 +401,7 @@ const AdminPanel = () => {
       { key: 'exchange_rates', label: 'Exchange Rates', icon: Globe },
     ]},
     { label: 'Transactions', icon: CreditCard, tabs: [
+      { key: 'revenue', label: 'Revenue Analytics', icon: TrendingUp },
       { key: 'enrollments', label: 'Enrollments', icon: Users },
       { key: 'razorpay_admin_checkout', label: 'Razorpay (admin)', icon: IndianRupee },
       { key: 'payment_settings', label: 'Indian Payment', icon: Tag },
@@ -553,6 +555,7 @@ const AdminPanel = () => {
             activeTab === 'dashboard_access' ||
             activeTab === 'client_finances' ||
             activeTab === 'enrollments' ||
+            activeTab === 'revenue' ||
             activeTab === 'annual_portal_clients' ||
             activeTab === 'clients' ||
             activeTab === 'journey_insights'
@@ -638,6 +641,7 @@ const AdminPanel = () => {
 
           {activeTab === 'site_analytics' && <SiteAnalyticsTab />}
 
+          {activeTab === 'revenue' && <RevenueTab />}
           {activeTab === 'enrollments' && <EnrollmentsTab />}
           {activeTab === 'razorpay_admin_checkout' && <RazorpayAdminCheckoutTab />}
           {activeTab === 'inbox' && <InboxTab />}

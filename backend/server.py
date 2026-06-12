@@ -29,6 +29,7 @@ from routes import intake_progress as intake_progress_module
 from routes import bank_transactions as bank_transactions_module
 from routes import reminders as reminders_module
 from routes import enrollment_auto_report as enrollment_auto_report_module
+from routes import revenue as revenue_module
 import asyncio
 
 ROOT_DIR = Path(__file__).parent
@@ -289,6 +290,7 @@ app.include_router(intake_progress_module.router)
 app.include_router(intake_progress_module.student_router)
 app.include_router(bank_transactions_module.router)
 app.include_router(enrollment_auto_report_module.router)
+app.include_router(revenue_module.router)
 app.include_router(site_analytics.collect_router)
 app.include_router(site_analytics.admin_router)
 
