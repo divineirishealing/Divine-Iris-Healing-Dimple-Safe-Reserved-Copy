@@ -7,6 +7,7 @@ import { HEADING, BODY, CONTAINER, GOLD, applySectionStyle } from '../lib/design
 import { renderMarkdown } from '../lib/renderMarkdown';
 import { mergeBlueprintSection } from '../data/blueprintImmersionDefaults';
 import { Sparkles, ChevronDown, ChevronUp, Quote } from 'lucide-react';
+import { Dialog, DialogContent } from './ui/dialog';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -49,7 +50,123 @@ const SacredKeyCard = ({ keyItem }) => {
   );
 };
 
-const ServiceCard = ({ service, sessionMap, sectionConfig }) => {
+const BlueprintPackageModal = ({ open, onOpenChange, config, onBookNow }) => {
+  const visibleKeys = (config.sacred_keys || []).filter((k) => k.visible !== false);
+  const visibleTestimonials = (config.testimonials || []).filter((t) => t.visible !== false);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0 border-purple-100"
+        data-testid="blueprint-detail-modal"
+      >
+        <div className="p-6 sm:p-8">
+          {config.package_title && (
+            <h3
+              className="text-center text-xl md:text-2xl mb-2"
+              style={{ ...HEADING, color: '#5b21b6' }}
+              data-testid="blueprint-package-title"
+            >
+              {config.package_title}
+            </h3>
+          )}
+          {config.package_subtitle && (
+            <p className="text-center text-sm text-purple-700/90 italic mb-4">{config.package_subtitle}</p>
+          )}
+          {config.headline && (
+            <p
+              className="text-center text-base text-gray-700 font-medium leading-relaxed mb-6"
+              style={{ ...BODY }}
+              data-testid="blueprint-headline"
+            >
+              {config.headline}
+            </p>
+          )}
+
+          {config.intro_body && (
+            <div
+              className="text-center text-sm text-gray-600 leading-relaxed mb-8 whitespace-pre-wrap"
+              style={{ ...BODY, lineHeight: 1.85 }}
+              data-testid="blueprint-intro"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(config.intro_body) }}
+            />
+          )}
+
+          {config.show_sacred_keys !== false && visibleKeys.length > 0 && (
+            <div className="mb-8">
+              <h4
+                className="text-center mb-4"
+                style={{ ...HEADING, fontSize: '1.2rem', color: '#8B6914' }}
+              >
+                {config.sacred_keys_heading || 'The Five Sacred Keys'}
+              </h4>
+              <div className="space-y-3">
+                {visibleKeys.map((keyItem) => (
+                  <SacredKeyCard key={keyItem.id} keyItem={keyItem} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {config.show_testimonials !== false && visibleTestimonials.length > 0 && (
+            <div className="mb-6">
+              <h4
+                className="text-center mb-4"
+                style={{ ...HEADING, fontSize: '1.2rem', color: '#8B6914' }}
+              >
+                {config.testimonials_heading || 'What Clients Say'}
+              </h4>
+              <div className="space-y-3">
+                {visibleTestimonials.map((t) => (
+                  <div
+                    key={t.id}
+                    className="bg-purple-50/50 rounded-xl p-4 border border-purple-100/60 relative"
+                    data-testid={`blueprint-testimonial-${t.id}`}
+                  >
+                    <Quote size={16} className="text-purple-200 absolute top-3 left-3" />
+                    <p className="text-sm text-gray-600 italic pl-6 leading-relaxed">&ldquo;{t.quote}&rdquo;</p>
+                    {t.author && (
+                      <p className="text-xs text-purple-700 font-medium mt-2 pl-6">— {t.author}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {config.show_disclaimer !== false && config.disclaimer && (
+            <p
+              className="text-center text-[10px] text-gray-400 leading-relaxed mb-6"
+              data-testid="blueprint-disclaimer"
+            >
+              {config.disclaimer}
+            </p>
+          )}
+
+          {config.cta_text && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenChange(false);
+                  onBookNow?.();
+                }}
+                className="inline-flex items-center gap-2 px-8 py-3 rounded-full text-sm font-semibold tracking-wide uppercase shadow-lg hover:shadow-xl transition-all"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #9333ea)', color: '#fff' }}
+                data-testid="blueprint-modal-book"
+              >
+                <Sparkles size={16} />
+                {config.cta_text}
+              </button>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const ServiceCard = ({ service, sessionMap, sectionConfig, onKnowMore }) => {
   const navigate = useNavigate();
   const { getPrice, getOfferPrice, formatPrice } = useCurrency();
 
@@ -60,7 +177,6 @@ const ServiceCard = ({ service, sessionMap, sectionConfig }) => {
     service.category_label ||
     sectionConfig?.service_category_label ||
     '1:1 Session';
-  const detailPath = service.link || (session ? `/session/${session.id}` : null);
   const enrollPath =
     service.enroll_link ||
     (session ? `/enroll/session/${session.id}` : null) ||
@@ -75,20 +191,17 @@ const ServiceCard = ({ service, sessionMap, sectionConfig }) => {
     : (service.features || '').split('\n').map((s) => s.trim()).filter(Boolean);
 
   const handleKnowMore = () => {
-    if (detailPath) navigate(detailPath);
-    else {
-      const el = document.getElementById('blueprint-package-detail');
-      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (service.link) {
+      navigate(service.link);
+      return;
     }
+    onKnowMore?.();
   };
 
   const handleBookNow = () => {
     if (enrollPath && enrollPath.startsWith('/')) navigate(enrollPath);
     else if (enrollPath) window.location.href = enrollPath;
-    else {
-      const el = document.getElementById('blueprint-pricing');
-      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    else onKnowMore?.();
   };
 
   return (
@@ -194,6 +307,7 @@ const ServiceCard = ({ service, sessionMap, sectionConfig }) => {
 const BlueprintImmersionSection = ({ sectionConfig = {} }) => {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
+  const [detailOpen, setDetailOpen] = useState(false);
   const config = useMemo(() => mergeBlueprintSection(sectionConfig), [sectionConfig]);
 
   useEffect(() => {
@@ -209,8 +323,6 @@ const BlueprintImmersionSection = ({ sectionConfig = {} }) => {
   );
 
   const visibleServices = (config.services || []).filter((s) => s.visible !== false);
-  const visibleKeys = (config.sacred_keys || []).filter((k) => k.visible !== false);
-  const visibleTestimonials = (config.testimonials || []).filter((t) => t.visible !== false);
 
   const title = config.title;
   const subtitle = config.subtitle;
@@ -218,13 +330,16 @@ const BlueprintImmersionSection = ({ sectionConfig = {} }) => {
 
   if (visibleServices.length === 0 && config.show_when_empty === false) return null;
 
-  const handleCta = () => {
+  const handleBookNow = () => {
     if (config.cta_link) navigate(config.cta_link);
-    else {
-      const el = document.getElementById('blueprint-pricing');
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
   };
+
+  const cardCols =
+    visibleServices.length === 1
+      ? 'grid max-w-sm mx-auto'
+      : visibleServices.length === 2
+        ? 'grid md:grid-cols-2 max-w-2xl mx-auto'
+        : 'grid md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto';
 
   return (
     <section id="blueprint-immersion" data-testid="blueprint-immersion-section" className="py-12">
@@ -250,133 +365,40 @@ const BlueprintImmersionSection = ({ sectionConfig = {} }) => {
         )}
         {config.show_subtitle !== false && subtitle && (
           <p
-            className="text-center text-sm text-gray-500 mb-8 max-w-2xl mx-auto leading-relaxed"
+            className="text-center text-sm text-gray-500 mb-10 max-w-2xl mx-auto leading-relaxed"
             style={applySectionStyle(config.subtitle_style, { ...BODY })}
           >
             {subtitle}
           </p>
         )}
 
-        {/* Package header */}
-        <div id="blueprint-package-detail" className="max-w-3xl mx-auto text-center mb-10 scroll-mt-24">
-          {config.package_title && (
-            <h3
-              className="text-xl md:text-2xl mb-2"
-              style={{ ...HEADING, fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)', color: '#5b21b6' }}
-              data-testid="blueprint-package-title"
-            >
-              {config.package_title}
-            </h3>
-          )}
-          {config.package_subtitle && (
-            <p className="text-sm text-purple-700/90 italic mb-4">{config.package_subtitle}</p>
-          )}
-          {config.headline && (
-            <p
-              className="text-base text-gray-700 font-medium leading-relaxed px-4"
-              style={{ ...BODY, fontSize: '1rem' }}
-              data-testid="blueprint-headline"
-            >
-              {config.headline}
-            </p>
-          )}
-        </div>
-
-        {/* Intro */}
-        {config.intro_body && (
-          <div
-            className="max-w-2xl mx-auto text-center text-sm text-gray-600 leading-relaxed mb-12 whitespace-pre-wrap space-y-4"
-            style={{ ...BODY, lineHeight: 1.85 }}
-            data-testid="blueprint-intro"
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(config.intro_body) }}
-          />
-        )}
-
-        {/* Five Sacred Keys */}
-        {config.show_sacred_keys !== false && visibleKeys.length > 0 && (
-          <div className="max-w-3xl mx-auto mb-14">
-            <h3
-              className="text-center mb-6"
-              style={{ ...HEADING, fontSize: '1.35rem', color: '#8B6914' }}
-            >
-              {config.sacred_keys_heading || 'The Five Sacred Keys'}
-            </h3>
-            <div className="space-y-3">
-              {visibleKeys.map((keyItem) => (
-                <SacredKeyCard key={keyItem.id} keyItem={keyItem} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Pricing / services */}
         <div id="blueprint-pricing" className="scroll-mt-24">
           {visibleServices.length > 0 ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto mb-14">
+            <div className={`${cardCols} gap-6`}>
               {visibleServices.map((svc) => (
-                <ServiceCard key={svc.id} service={svc} sessionMap={sessionMap} sectionConfig={config} />
+                <ServiceCard
+                  key={svc.id}
+                  service={svc}
+                  sessionMap={sessionMap}
+                  sectionConfig={config}
+                  onKnowMore={() => setDetailOpen(true)}
+                />
               ))}
             </div>
           ) : (
             config.show_when_empty !== false && (
-              <p className="text-center text-gray-400 text-sm italic mb-14">Sessions coming soon.</p>
+              <p className="text-center text-gray-400 text-sm italic">Sessions coming soon.</p>
             )
           )}
         </div>
-
-        {/* Testimonials */}
-        {config.show_testimonials !== false && visibleTestimonials.length > 0 && (
-          <div className="max-w-5xl mx-auto mb-12">
-            <h3
-              className="text-center mb-6"
-              style={{ ...HEADING, fontSize: '1.35rem', color: '#8B6914' }}
-            >
-              {config.testimonials_heading || 'What Clients Say'}
-            </h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              {visibleTestimonials.map((t) => (
-                <div
-                  key={t.id}
-                  className="bg-white/80 rounded-xl p-5 border border-purple-100/60 relative"
-                  data-testid={`blueprint-testimonial-${t.id}`}
-                >
-                  <Quote size={18} className="text-purple-200 absolute top-3 left-3" />
-                  <p className="text-sm text-gray-600 italic pl-6 leading-relaxed">&ldquo;{t.quote}&rdquo;</p>
-                  {t.author && (
-                    <p className="text-xs text-purple-700 font-medium mt-2 pl-6">— {t.author}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Disclaimer */}
-        {config.show_disclaimer !== false && config.disclaimer && (
-          <p
-            className="max-w-3xl mx-auto text-center text-[10px] text-gray-400 leading-relaxed mb-8"
-            data-testid="blueprint-disclaimer"
-          >
-            {config.disclaimer}
-          </p>
-        )}
-
-        {/* CTA */}
-        {config.cta_text && (
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={handleCta}
-              className="inline-flex items-center gap-2 px-8 py-3 rounded-full text-sm font-semibold tracking-wide uppercase text-white shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]"
-              style={{ background: 'linear-gradient(135deg, #D4AF37, #f5d77a, #D4AF37)', color: '#3d2200' }}
-              data-testid="blueprint-cta"
-            >
-              <Sparkles size={16} />
-              {config.cta_text}
-            </button>
-          </div>
-        )}
       </div>
+
+      <BlueprintPackageModal
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        config={config}
+        onBookNow={handleBookNow}
+      />
     </section>
   );
 };
