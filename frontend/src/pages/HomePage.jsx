@@ -5,6 +5,7 @@ import HeroSection from '../components/HeroSection';
 import AboutSection from '../components/AboutSection';
 import UpcomingProgramsSection from '../components/UpcomingProgramsSection';
 import SponsorSection from '../components/SponsorSection';
+import BlueprintImmersionSection from '../components/BlueprintImmersionSection';
 import ProgramsSection from '../components/ProgramsSection';
 import SessionsSection from '../components/SessionsSection';
 import StatsSection from '../components/StatsSection';
@@ -21,6 +22,7 @@ const COMPONENT_MAP = {
   AboutSection,
   UpcomingProgramsSection,
   SponsorSection,
+  BlueprintImmersionSection,
   ProgramsSection,
   SessionsSection,
   StatsSection,
@@ -46,6 +48,7 @@ const DEFAULT_ORDER = [
   { id: 'text_testimonials', component: 'TextTestimonialsStrip', visible: true },
   { id: 'upcoming', component: 'UpcomingProgramsSection', visible: true },
   { id: 'sponsor', component: 'SponsorSection', visible: true },
+  { id: 'blueprint_immersion', component: 'BlueprintImmersionSection', visible: true },
   { id: 'programs', component: 'ProgramsSection', visible: true },
   { id: 'sessions', component: 'SessionsSection', visible: true },
   { id: 'stats', component: 'StatsSection', visible: true },

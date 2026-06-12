@@ -7,6 +7,7 @@ import FloatingButtons from '../components/FloatingButtons';
 import { HEADING, BODY, GOLD, CONTAINER, SECTION_PY, LABEL } from '../lib/designTokens';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { ArrowRight, BookOpen } from 'lucide-react';
+import { useSeoPage } from '../context/SeoPageContext';
 import { FALLBACK_CASE_STUDIES } from '../lib/caseStudyFallback';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;

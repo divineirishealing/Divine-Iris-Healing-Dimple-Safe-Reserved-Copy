@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Button } from '../../ui/button';
@@ -8,6 +8,8 @@ import ImageUploader from '../ImageUploader';
 import AboutSettingsTab from './AboutSettingsTab';
 import SponsorSettingsTab from './SponsorSettingsTab';
 import NewsletterSettingsTab from './NewsletterSettingsTab';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const FONT_OPTIONS = [
   { value: '', label: 'Default' },
@@ -58,6 +60,15 @@ const DEFAULT_SECTIONS = [
   { id: 'text_testimonials', title: 'Testimonial Quotes', subtitle: '', component: 'TextTestimonialsStrip', removable: false },
   { id: 'upcoming', title: 'Upcoming Programs', subtitle: '', component: 'UpcomingProgramsSection', removable: false },
   { id: 'sponsor', title: 'Shine a Light in a Life', subtitle: 'Healing flows when we support each other.', component: 'SponsorSection', removable: false },
+  {
+    id: 'blueprint_immersion',
+    title: 'The Divine Iris Blueprint Immersion',
+    subtitle: "Unfolding Your Soul's Path to Ultimate Alignment & Healing",
+    kicker: 'Exclusive Personalized Sessions',
+    component: 'BlueprintImmersionSection',
+    removable: false,
+    services: [],
+  },
   { id: 'programs', title: 'Flagship Programs', subtitle: 'Our signature healing journeys', component: 'ProgramsSection', removable: false },
   { id: 'sessions', title: 'Upcoming Sessions', subtitle: '', component: 'SessionsSection', removable: false },
   { id: 'stats', title: '', subtitle: '', component: 'StatsSection', removable: true },
@@ -77,7 +88,7 @@ const DEFAULT_PHILO = [
   { icon: 'choose', title: 'Choose Us, Choose You', description: 'Choosing Divine Iris means choosing your happiness, your transformation, your life. The moment you say yes to yourself, everything begins to shift.', show_icon: true, title_style: {}, description_style: {} },
 ];
 
-const CONTENT_SECTIONS = new Set(['about', 'sponsor', 'newsletter', 'trust']);
+const CONTENT_SECTIONS = new Set(['about', 'sponsor', 'newsletter', 'trust', 'blueprint_immersion']);
 
 const ICON_OPTIONS = [
   { value: 'google', label: 'Google' },
@@ -314,6 +325,199 @@ const TrustCardsEditor = ({ section, sectionIdx, updateSection }) => {
   );
 };
 
+const BlueprintServicesEditor = ({ section, sectionIdx, updateSection }) => {
+  const services = section.services || [];
+  const [allSessions, setAllSessions] = useState([]);
+
+  useEffect(() => {
+    fetch(`${API}/sessions`)
+      .then((r) => r.json())
+      .then((data) => setAllSessions(Array.isArray(data) ? data : []))
+      .catch(() => setAllSessions([]));
+  }, []);
+
+  const updateServices = (next) => updateSection(sectionIdx, 'services', next);
+
+  const updateService = (si, field, value) => {
+    const updated = [...services];
+    updated[si] = { ...updated[si], [field]: value };
+    updateServices(updated);
+  };
+
+  const addService = () => {
+    updateServices([
+      ...services,
+      {
+        id: `svc_${Date.now()}`,
+        title: '',
+        description: '',
+        image: '',
+        session_id: '',
+        link: '',
+        enroll_link: '',
+        cta_label: 'Know More',
+        enroll_label: 'Book Now',
+        visible: true,
+      },
+    ]);
+  };
+
+  const removeService = (si) => updateServices(services.filter((_, i) => i !== si));
+
+  const moveService = (si, dir) => {
+    const j = si + dir;
+    if (j < 0 || j >= services.length) return;
+    const updated = [...services];
+    [updated[si], updated[j]] = [updated[j], updated[si]];
+    updateServices(updated);
+  };
+
+  const applySession = (si, sessionId) => {
+    const session = allSessions.find((s) => s.id === sessionId);
+    if (!session) {
+      updateService(si, 'session_id', sessionId);
+      return;
+    }
+    const updated = [...services];
+    updated[si] = {
+      ...updated[si],
+      session_id: sessionId,
+      title: updated[si].title || session.title || '',
+      description: updated[si].description || (session.description || '').replace(/<[^>]+>/g, '').slice(0, 300),
+      image: updated[si].image || session.image || '',
+    };
+    updateServices(updated);
+  };
+
+  return (
+    <div className="space-y-4" data-testid="blueprint-services-editor">
+      <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+        <p className="text-xs font-bold text-purple-800 mb-1">Section Label (kicker)</p>
+        <Input
+          value={section.kicker || ''}
+          onChange={(e) => updateSection(sectionIdx, 'kicker', e.target.value)}
+          placeholder="Exclusive Personalized Sessions"
+          className="text-[10px] h-7"
+          data-testid="blueprint-kicker"
+        />
+        <div className="flex flex-wrap gap-4 mt-2">
+          <label className="flex items-center gap-1.5 text-[10px]">
+            <input
+              type="checkbox"
+              checked={section.show_kicker !== false}
+              onChange={(e) => updateSection(sectionIdx, 'show_kicker', e.target.checked)}
+              className="w-3 h-3"
+            />
+            Show kicker
+          </label>
+          <label className="flex items-center gap-1.5 text-[10px]">
+            <input
+              type="checkbox"
+              checked={section.show_when_empty !== false}
+              onChange={(e) => updateSection(sectionIdx, 'show_when_empty', e.target.checked)}
+              className="w-3 h-3"
+            />
+            Show section when no services (title only)
+          </label>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-bold text-gray-800">Exclusive Services</p>
+          <p className="text-[9px] text-gray-500">Add personalized sessions. Toggle each service visible for the public.</p>
+        </div>
+        <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={addService} data-testid="add-blueprint-service">
+          <Plus size={10} /> Add Service
+        </Button>
+      </div>
+
+      {services.length === 0 && (
+        <p className="text-[10px] text-gray-400 italic text-center py-4 border border-dashed rounded-lg">
+          No services yet. Click &quot;Add Service&quot; or link an existing session.
+        </p>
+      )}
+
+      {services.map((svc, si) => (
+        <div key={svc.id || si} className="bg-white rounded-lg p-3 border border-gray-200 space-y-2" data-testid={`blueprint-service-editor-${si}`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-bold text-gray-600">Service {si + 1}</span>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => moveService(si, -1)} disabled={si === 0} className="p-0.5 hover:bg-gray-100 rounded disabled:opacity-30">
+                <ChevronUp size={12} />
+              </button>
+              <button type="button" onClick={() => moveService(si, 1)} disabled={si === services.length - 1} className="p-0.5 hover:bg-gray-100 rounded disabled:opacity-30">
+                <ChevronDown size={12} />
+              </button>
+              <div className="flex items-center gap-1">
+                <Label className="text-[9px] text-gray-400">Public</Label>
+                <Switch checked={svc.visible !== false} onCheckedChange={(v) => updateService(si, 'visible', v)} />
+              </div>
+              <button type="button" onClick={() => removeService(si)} className="p-0.5 text-red-400 hover:text-red-600">
+                <Trash2 size={11} />
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-[8px] text-gray-400">Link to Session (optional)</Label>
+            <select
+              value={svc.session_id || ''}
+              onChange={(e) => applySession(si, e.target.value)}
+              className="w-full text-[10px] border rounded px-2 py-1 mt-0.5"
+              data-testid={`blueprint-session-select-${si}`}
+            >
+              <option value="">— Custom service (no session link) —</option>
+              {allSessions.map((s) => (
+                <option key={s.id} value={s.id}>{s.title}</option>
+              ))}
+            </select>
+            <p className="text-[8px] text-gray-400 mt-0.5">Selecting a session fills title, description &amp; image if empty</p>
+          </div>
+
+          <div>
+            <Label className="text-[8px] text-gray-400">Title</Label>
+            <Input value={svc.title || ''} onChange={(e) => updateService(si, 'title', e.target.value)} className="text-[10px] h-7" />
+          </div>
+          <div>
+            <Label className="text-[8px] text-gray-400">Description</Label>
+            <textarea
+              value={svc.description || ''}
+              onChange={(e) => updateService(si, 'description', e.target.value)}
+              className="w-full text-[10px] border rounded px-2 py-1 min-h-[48px] resize-y"
+              placeholder="Brief description for the card"
+            />
+          </div>
+          <div>
+            <Label className="text-[8px] text-gray-400">Image</Label>
+            <ImageUploader value={svc.image || ''} onChange={(v) => updateService(si, 'image', v)} label="" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-[8px] text-gray-400">Custom link (optional)</Label>
+              <Input value={svc.link || ''} onChange={(e) => updateService(si, 'link', e.target.value)} placeholder="/session/…" className="text-[10px] h-7" />
+            </div>
+            <div>
+              <Label className="text-[8px] text-gray-400">Book link override</Label>
+              <Input value={svc.enroll_link || ''} onChange={(e) => updateService(si, 'enroll_link', e.target.value)} placeholder="/enroll/session/…" className="text-[10px] h-7" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-[8px] text-gray-400">Know More label</Label>
+              <Input value={svc.cta_label || ''} onChange={(e) => updateService(si, 'cta_label', e.target.value)} className="text-[10px] h-7" />
+            </div>
+            <div>
+              <Label className="text-[8px] text-gray-400">Book button label</Label>
+              <Input value={svc.enroll_label || ''} onChange={(e) => updateService(si, 'enroll_label', e.target.value)} className="text-[10px] h-7" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const HomepageSectionsTab = ({ settings, onChange }) => {
   const [expandedContent, setExpandedContent] = useState(null);
   const saved = settings.homepage_sections || DEFAULT_SECTIONS;
@@ -496,6 +700,7 @@ const HomepageSectionsTab = ({ settings, onChange }) => {
                     {sec.id === 'sponsor' && <SponsorSettingsTab settings={settings} onChange={onChange} />}
                     {sec.id === 'newsletter' && <NewsletterSettingsTab settings={settings} onChange={onChange} />}
                     {sec.id === 'trust' && <TrustCardsEditor section={sec} sectionIdx={idx} updateSection={updateSection} />}
+                    {sec.id === 'blueprint_immersion' && <BlueprintServicesEditor section={sec} sectionIdx={idx} updateSection={updateSection} />}
                   </div>
                 )}
               </div>
