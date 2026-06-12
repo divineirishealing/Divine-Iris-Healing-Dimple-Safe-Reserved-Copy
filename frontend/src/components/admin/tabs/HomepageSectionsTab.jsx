@@ -8,6 +8,15 @@ import ImageUploader from '../ImageUploader';
 import AboutSettingsTab from './AboutSettingsTab';
 import SponsorSettingsTab from './SponsorSettingsTab';
 import NewsletterSettingsTab from './NewsletterSettingsTab';
+import {
+  DEFAULT_BLUEPRINT_SECTION,
+  DEFAULT_HEADLINE_OPTIONS,
+  DEFAULT_SACRED_KEYS,
+  DEFAULT_BLUEPRINT_SERVICES,
+  DEFAULT_BLUEPRINT_TESTIMONIALS,
+  DEFAULT_INTRO_BODY,
+  DEFAULT_DISCLAIMER,
+} from '../../../data/blueprintImmersionDefaults';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -61,13 +70,7 @@ const DEFAULT_SECTIONS = [
   { id: 'upcoming', title: 'Upcoming Programs', subtitle: '', component: 'UpcomingProgramsSection', removable: false },
   { id: 'sponsor', title: 'Shine a Light in a Life', subtitle: 'Healing flows when we support each other.', component: 'SponsorSection', removable: false },
   {
-    id: 'blueprint_immersion',
-    title: 'The Divine Iris Blueprint Immersion',
-    subtitle: "Unfolding Your Soul's Path to Ultimate Alignment & Healing",
-    kicker: 'Exclusive Personalized Sessions',
-    component: 'BlueprintImmersionSection',
-    removable: false,
-    services: [],
+    ...DEFAULT_BLUEPRINT_SECTION,
   },
   { id: 'programs', title: 'Flagship Programs', subtitle: 'Our signature healing journeys', component: 'ProgramsSection', removable: false },
   { id: 'sessions', title: 'Upcoming Sessions', subtitle: '', component: 'SessionsSection', removable: false },
@@ -325,8 +328,10 @@ const TrustCardsEditor = ({ section, sectionIdx, updateSection }) => {
   );
 };
 
-const BlueprintServicesEditor = ({ section, sectionIdx, updateSection }) => {
-  const services = section.services || [];
+const BlueprintServicesEditor = ({ section, sectionIdx, updateSection, patchSection }) => {
+  const services = section.services?.length ? section.services : DEFAULT_BLUEPRINT_SERVICES;
+  const sacredKeys = section.sacred_keys?.length ? section.sacred_keys : DEFAULT_SACRED_KEYS;
+  const testimonials = section.testimonials?.length ? section.testimonials : DEFAULT_BLUEPRINT_TESTIMONIALS;
   const [allSessions, setAllSessions] = useState([]);
 
   useEffect(() => {
@@ -336,7 +341,27 @@ const BlueprintServicesEditor = ({ section, sectionIdx, updateSection }) => {
       .catch(() => setAllSessions([]));
   }, []);
 
+  const loadDefaults = () => {
+    const patch = {
+      package_title: DEFAULT_BLUEPRINT_SECTION.package_title,
+      package_subtitle: DEFAULT_BLUEPRINT_SECTION.package_subtitle,
+      headline: DEFAULT_BLUEPRINT_SECTION.headline,
+      intro_body: DEFAULT_INTRO_BODY,
+      sacred_keys_heading: DEFAULT_BLUEPRINT_SECTION.sacred_keys_heading,
+      sacred_keys: DEFAULT_SACRED_KEYS,
+      services: DEFAULT_BLUEPRINT_SERVICES,
+      testimonials_heading: DEFAULT_BLUEPRINT_SECTION.testimonials_heading,
+      testimonials: DEFAULT_BLUEPRINT_TESTIMONIALS,
+      disclaimer: DEFAULT_DISCLAIMER,
+      cta_text: DEFAULT_BLUEPRINT_SECTION.cta_text,
+    };
+    if (patchSection) patchSection(patch);
+    else Object.entries(patch).forEach(([k, v]) => updateSection(sectionIdx, k, v));
+  };
+
   const updateServices = (next) => updateSection(sectionIdx, 'services', next);
+  const updateKeys = (next) => updateSection(sectionIdx, 'sacred_keys', next);
+  const updateTestimonials = (next) => updateSection(sectionIdx, 'testimonials', next);
 
   const updateService = (si, field, value) => {
     const updated = [...services];
@@ -344,32 +369,64 @@ const BlueprintServicesEditor = ({ section, sectionIdx, updateSection }) => {
     updateServices(updated);
   };
 
+  const updateKey = (ki, field, value) => {
+    const updated = [...sacredKeys];
+    updated[ki] = { ...updated[ki], [field]: value };
+    updateKeys(updated);
+  };
+
+  const updateTestimonial = (ti, field, value) => {
+    const updated = [...testimonials];
+    updated[ti] = { ...updated[ti], [field]: value };
+    updateTestimonials(updated);
+  };
+
   const addService = () => {
     updateServices([
       ...services,
       {
         id: `svc_${Date.now()}`,
+        badge: '✨',
         title: '',
         description: '',
+        price_label: '',
+        features: [],
         image: '',
         session_id: '',
         link: '',
         enroll_link: '',
         cta_label: 'Know More',
         enroll_label: 'Book Now',
+        category_label: '1:1 Session',
         visible: true,
       },
     ]);
   };
 
-  const removeService = (si) => updateServices(services.filter((_, i) => i !== si));
+  const addKey = () => {
+    updateKeys([
+      ...sacredKeys,
+      { id: `key_${Date.now()}`, emoji: '✨', title: '', tagline: '', body: '', visible: true },
+    ]);
+  };
 
-  const moveService = (si, dir) => {
-    const j = si + dir;
-    if (j < 0 || j >= services.length) return;
-    const updated = [...services];
-    [updated[si], updated[j]] = [updated[j], updated[si]];
-    updateServices(updated);
+  const addTestimonial = () => {
+    updateTestimonials([
+      ...testimonials,
+      { id: `t_${Date.now()}`, quote: '', author: '', visible: true },
+    ]);
+  };
+
+  const removeService = (si) => updateServices(services.filter((_, i) => i !== si));
+  const removeKey = (ki) => updateKeys(sacredKeys.filter((_, i) => i !== ki));
+  const removeTestimonial = (ti) => updateTestimonials(testimonials.filter((_, i) => i !== ti));
+
+  const moveItem = (list, setList, idx, dir) => {
+    const j = idx + dir;
+    if (j < 0 || j >= list.length) return;
+    const updated = [...list];
+    [updated[idx], updated[j]] = [updated[j], updated[idx]];
+    setList(updated);
   };
 
   const applySession = (si, sessionId) => {
@@ -389,10 +446,26 @@ const BlueprintServicesEditor = ({ section, sectionIdx, updateSection }) => {
     updateServices(updated);
   };
 
+  const featuresToText = (features) =>
+    Array.isArray(features) ? features.join('\n') : (features || '');
+
+  const textToFeatures = (text) =>
+    text.split('\n').map((s) => s.trim()).filter(Boolean);
+
   return (
     <div className="space-y-4" data-testid="blueprint-services-editor">
-      <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
-        <p className="text-xs font-bold text-purple-800 mb-1">Section Label (kicker)</p>
+      <div className="flex items-center justify-between bg-amber-50 rounded-lg p-3 border border-amber-200">
+        <div>
+          <p className="text-xs font-bold text-amber-900">Soul Blueprint Revelation Package</p>
+          <p className="text-[9px] text-amber-700">Edit all copy below. Use &quot;Load default content&quot; to restore the original package text.</p>
+        </div>
+        <Button variant="outline" size="sm" className="text-[10px] h-7" onClick={loadDefaults} data-testid="load-blueprint-defaults">
+          Load default content
+        </Button>
+      </div>
+
+      <div className="bg-purple-50 rounded-lg p-3 border border-purple-200 space-y-2">
+        <p className="text-xs font-bold text-purple-800">Section display</p>
         <Input
           value={section.kicker || ''}
           onChange={(e) => updateSection(sectionIdx, 'kicker', e.target.value)}
@@ -400,120 +473,199 @@ const BlueprintServicesEditor = ({ section, sectionIdx, updateSection }) => {
           className="text-[10px] h-7"
           data-testid="blueprint-kicker"
         />
+        <Label className="text-[8px] text-gray-400">Kicker (small label above section title)</Label>
+        <Input
+          value={section.service_category_label || ''}
+          onChange={(e) => updateSection(sectionIdx, 'service_category_label', e.target.value)}
+          placeholder="1:1 Session"
+          className="text-[10px] h-7 mt-1"
+          data-testid="blueprint-category-label"
+        />
+        <Label className="text-[8px] text-gray-400">Default card label (e.g. 1:1 Session)</Label>
         <div className="flex flex-wrap gap-4 mt-2">
           <label className="flex items-center gap-1.5 text-[10px]">
-            <input
-              type="checkbox"
-              checked={section.show_kicker !== false}
-              onChange={(e) => updateSection(sectionIdx, 'show_kicker', e.target.checked)}
-              className="w-3 h-3"
-            />
+            <input type="checkbox" checked={section.show_kicker !== false} onChange={(e) => updateSection(sectionIdx, 'show_kicker', e.target.checked)} className="w-3 h-3" />
             Show kicker
           </label>
           <label className="flex items-center gap-1.5 text-[10px]">
-            <input
-              type="checkbox"
-              checked={section.show_when_empty !== false}
-              onChange={(e) => updateSection(sectionIdx, 'show_when_empty', e.target.checked)}
-              className="w-3 h-3"
-            />
-            Show section when no services (title only)
+            <input type="checkbox" checked={section.show_sacred_keys !== false} onChange={(e) => updateSection(sectionIdx, 'show_sacred_keys', e.target.checked)} className="w-3 h-3" />
+            Show sacred keys
+          </label>
+          <label className="flex items-center gap-1.5 text-[10px]">
+            <input type="checkbox" checked={section.show_testimonials !== false} onChange={(e) => updateSection(sectionIdx, 'show_testimonials', e.target.checked)} className="w-3 h-3" />
+            Show testimonials
+          </label>
+          <label className="flex items-center gap-1.5 text-[10px]">
+            <input type="checkbox" checked={section.show_disclaimer !== false} onChange={(e) => updateSection(sectionIdx, 'show_disclaimer', e.target.checked)} className="w-3 h-3" />
+            Show disclaimer
           </label>
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
+      {/* Package header */}
+      <div className="bg-white rounded-lg p-3 border border-gray-200 space-y-2">
+        <p className="text-[10px] font-bold text-gray-700 uppercase tracking-wider">Package header</p>
         <div>
-          <p className="text-xs font-bold text-gray-800">Exclusive Services</p>
-          <p className="text-[9px] text-gray-500">Add personalized sessions. Toggle each service visible for the public.</p>
+          <Label className="text-[8px] text-gray-400">Package title</Label>
+          <Input value={section.package_title || ''} onChange={(e) => updateSection(sectionIdx, 'package_title', e.target.value)} className="text-[10px] h-7" placeholder="Soul Blueprint Revelation" />
         </div>
-        <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={addService} data-testid="add-blueprint-service">
-          <Plus size={10} /> Add Service
-        </Button>
+        <div>
+          <Label className="text-[8px] text-gray-400">Package subtitle</Label>
+          <Input value={section.package_subtitle || ''} onChange={(e) => updateSection(sectionIdx, 'package_subtitle', e.target.value)} className="text-[10px] h-7" placeholder="A Channeled Psychic Reading Across Lifetimes" />
+        </div>
+        <div>
+          <Label className="text-[8px] text-gray-400">Headline (hook line)</Label>
+          <select
+            value={section.headline || ''}
+            onChange={(e) => updateSection(sectionIdx, 'headline', e.target.value)}
+            className="w-full text-[10px] border rounded px-2 py-1 mb-1"
+          >
+            <option value="">— Custom below —</option>
+            {DEFAULT_HEADLINE_OPTIONS.map((h) => (
+              <option key={h} value={h}>{h}</option>
+            ))}
+          </select>
+          <Input value={section.headline || ''} onChange={(e) => updateSection(sectionIdx, 'headline', e.target.value)} className="text-[10px] h-7" />
+        </div>
+        <div>
+          <Label className="text-[8px] text-gray-400">Intro body</Label>
+          <textarea
+            value={section.intro_body || ''}
+            onChange={(e) => updateSection(sectionIdx, 'intro_body', e.target.value)}
+            className="w-full text-[10px] border rounded px-2 py-1 min-h-[100px] resize-y"
+            placeholder="Opening paragraphs..."
+          />
+        </div>
       </div>
 
-      {services.length === 0 && (
-        <p className="text-[10px] text-gray-400 italic text-center py-4 border border-dashed rounded-lg">
-          No services yet. Click &quot;Add Service&quot; or link an existing session.
-        </p>
-      )}
+      {/* Sacred keys */}
+      <div className="bg-violet-50 rounded-lg p-3 border border-violet-200 space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold text-violet-900">Five Sacred Keys</p>
+          <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={addKey}><Plus size={10} /> Add Key</Button>
+        </div>
+        <Input value={section.sacred_keys_heading || ''} onChange={(e) => updateSection(sectionIdx, 'sacred_keys_heading', e.target.value)} className="text-[10px] h-7" placeholder="The Five Sacred Keys" />
+        {sacredKeys.map((keyItem, ki) => (
+          <div key={keyItem.id || ki} className="bg-white rounded-lg p-2.5 border border-gray-200 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold">Key {ki + 1}</span>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => moveItem(sacredKeys, updateKeys, ki, -1)} disabled={ki === 0} className="p-0.5 disabled:opacity-30"><ChevronUp size={12} /></button>
+                <button type="button" onClick={() => moveItem(sacredKeys, updateKeys, ki, 1)} disabled={ki === sacredKeys.length - 1} className="p-0.5 disabled:opacity-30"><ChevronDown size={12} /></button>
+                <Switch checked={keyItem.visible !== false} onCheckedChange={(v) => updateKey(ki, 'visible', v)} />
+                <button type="button" onClick={() => removeKey(ki)} className="text-red-400"><Trash2 size={11} /></button>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              <Input value={keyItem.emoji || ''} onChange={(e) => updateKey(ki, 'emoji', e.target.value)} className="text-[10px] h-7" placeholder="🔥" />
+              <div className="col-span-3">
+                <Input value={keyItem.title || ''} onChange={(e) => updateKey(ki, 'title', e.target.value)} className="text-[10px] h-7" placeholder="Title" />
+              </div>
+            </div>
+            <Input value={keyItem.tagline || ''} onChange={(e) => updateKey(ki, 'tagline', e.target.value)} className="text-[10px] h-7" placeholder="Tagline" />
+            <textarea value={keyItem.body || ''} onChange={(e) => updateKey(ki, 'body', e.target.value)} className="w-full text-[10px] border rounded px-2 py-1 min-h-[80px] resize-y" placeholder="Full key description..." />
+          </div>
+        ))}
+      </div>
+
+      {/* Pricing tiers / services */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-bold text-gray-800">Pricing tiers</p>
+          <p className="text-[9px] text-gray-500">Whisper, Voice of Spirit, Portal Session, etc.</p>
+        </div>
+        <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={addService} data-testid="add-blueprint-service">
+          <Plus size={10} /> Add Tier
+        </Button>
+      </div>
 
       {services.map((svc, si) => (
         <div key={svc.id || si} className="bg-white rounded-lg p-3 border border-gray-200 space-y-2" data-testid={`blueprint-service-editor-${si}`}>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold text-gray-600">Service {si + 1}</span>
+            <span className="text-[10px] font-bold text-gray-600">Tier {si + 1}</span>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => moveService(si, -1)} disabled={si === 0} className="p-0.5 hover:bg-gray-100 rounded disabled:opacity-30">
-                <ChevronUp size={12} />
-              </button>
-              <button type="button" onClick={() => moveService(si, 1)} disabled={si === services.length - 1} className="p-0.5 hover:bg-gray-100 rounded disabled:opacity-30">
-                <ChevronDown size={12} />
-              </button>
+              <button type="button" onClick={() => moveItem(services, updateServices, si, -1)} disabled={si === 0} className="p-0.5 hover:bg-gray-100 rounded disabled:opacity-30"><ChevronUp size={12} /></button>
+              <button type="button" onClick={() => moveItem(services, updateServices, si, 1)} disabled={si === services.length - 1} className="p-0.5 hover:bg-gray-100 rounded disabled:opacity-30"><ChevronDown size={12} /></button>
               <div className="flex items-center gap-1">
                 <Label className="text-[9px] text-gray-400">Public</Label>
                 <Switch checked={svc.visible !== false} onCheckedChange={(v) => updateService(si, 'visible', v)} />
               </div>
-              <button type="button" onClick={() => removeService(si)} className="p-0.5 text-red-400 hover:text-red-600">
-                <Trash2 size={11} />
-              </button>
+              <button type="button" onClick={() => removeService(si)} className="p-0.5 text-red-400 hover:text-red-600"><Trash2 size={11} /></button>
             </div>
           </div>
-
-          <div>
-            <Label className="text-[8px] text-gray-400">Link to Session (optional)</Label>
-            <select
-              value={svc.session_id || ''}
-              onChange={(e) => applySession(si, e.target.value)}
-              className="w-full text-[10px] border rounded px-2 py-1 mt-0.5"
-              data-testid={`blueprint-session-select-${si}`}
-            >
-              <option value="">— Custom service (no session link) —</option>
-              {allSessions.map((s) => (
-                <option key={s.id} value={s.id}>{s.title}</option>
-              ))}
-            </select>
-            <p className="text-[8px] text-gray-400 mt-0.5">Selecting a session fills title, description &amp; image if empty</p>
+          <div className="grid grid-cols-4 gap-2">
+            <Input value={svc.badge || ''} onChange={(e) => updateService(si, 'badge', e.target.value)} className="text-[10px] h-7" placeholder="✨" />
+            <div className="col-span-2">
+              <Input value={svc.title || ''} onChange={(e) => updateService(si, 'title', e.target.value)} className="text-[10px] h-7" placeholder="Tier name" />
+            </div>
+            <Input value={svc.price_label || ''} onChange={(e) => updateService(si, 'price_label', e.target.value)} className="text-[10px] h-7" placeholder="$33" />
           </div>
-
+          <textarea value={svc.description || ''} onChange={(e) => updateService(si, 'description', e.target.value)} className="w-full text-[10px] border rounded px-2 py-1 min-h-[40px] resize-y" placeholder="Short card description" />
           <div>
-            <Label className="text-[8px] text-gray-400">Title</Label>
-            <Input value={svc.title || ''} onChange={(e) => updateService(si, 'title', e.target.value)} className="text-[10px] h-7" />
-          </div>
-          <div>
-            <Label className="text-[8px] text-gray-400">Description</Label>
+            <Label className="text-[8px] text-gray-400">Features (one per line)</Label>
             <textarea
-              value={svc.description || ''}
-              onChange={(e) => updateService(si, 'description', e.target.value)}
+              value={featuresToText(svc.features)}
+              onChange={(e) => updateService(si, 'features', textToFeatures(e.target.value))}
               className="w-full text-[10px] border rounded px-2 py-1 min-h-[48px] resize-y"
-              placeholder="Brief description for the card"
             />
           </div>
-          <div>
-            <Label className="text-[8px] text-gray-400">Image</Label>
-            <ImageUploader value={svc.image || ''} onChange={(v) => updateService(si, 'image', v)} label="" />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
+          <select value={svc.session_id || ''} onChange={(e) => applySession(si, e.target.value)} className="w-full text-[10px] border rounded px-2 py-1">
+            <option value="">— Optional: link to session for booking —</option>
+            {allSessions.map((s) => (
+              <option key={s.id} value={s.id}>{s.title}</option>
+            ))}
+          </select>
+          <ImageUploader value={svc.image || ''} onChange={(v) => updateService(si, 'image', v)} label="Card image (optional)" />
+          <div className="grid grid-cols-3 gap-2">
             <div>
-              <Label className="text-[8px] text-gray-400">Custom link (optional)</Label>
-              <Input value={svc.link || ''} onChange={(e) => updateService(si, 'link', e.target.value)} placeholder="/session/…" className="text-[10px] h-7" />
+              <Label className="text-[8px] text-gray-400">Card label</Label>
+              <Input value={svc.category_label || ''} onChange={(e) => updateService(si, 'category_label', e.target.value)} placeholder="1:1 Session" className="text-[10px] h-7" />
             </div>
-            <div>
-              <Label className="text-[8px] text-gray-400">Book link override</Label>
-              <Input value={svc.enroll_link || ''} onChange={(e) => updateService(si, 'enroll_link', e.target.value)} placeholder="/enroll/session/…" className="text-[10px] h-7" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-[8px] text-gray-400">Know More label</Label>
-              <Input value={svc.cta_label || ''} onChange={(e) => updateService(si, 'cta_label', e.target.value)} className="text-[10px] h-7" />
+              <Input value={svc.cta_label || ''} onChange={(e) => updateService(si, 'cta_label', e.target.value)} placeholder="Know More" className="text-[10px] h-7" />
             </div>
             <div>
-              <Label className="text-[8px] text-gray-400">Book button label</Label>
-              <Input value={svc.enroll_label || ''} onChange={(e) => updateService(si, 'enroll_label', e.target.value)} className="text-[10px] h-7" />
+              <Label className="text-[8px] text-gray-400">Book Now label</Label>
+              <Input value={svc.enroll_label || ''} onChange={(e) => updateService(si, 'enroll_label', e.target.value)} placeholder="Book Now" className="text-[10px] h-7" />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Input value={svc.link || ''} onChange={(e) => updateService(si, 'link', e.target.value)} placeholder="Know more link" className="text-[10px] h-7" />
+            <Input value={svc.enroll_link || ''} onChange={(e) => updateService(si, 'enroll_link', e.target.value)} placeholder="Book link" className="text-[10px] h-7" />
           </div>
         </div>
       ))}
+
+      {/* Testimonials */}
+      <div className="bg-rose-50 rounded-lg p-3 border border-rose-200 space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold text-rose-900">Testimonials</p>
+          <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={addTestimonial}><Plus size={10} /> Add</Button>
+        </div>
+        <Input value={section.testimonials_heading || ''} onChange={(e) => updateSection(sectionIdx, 'testimonials_heading', e.target.value)} className="text-[10px] h-7" placeholder="What Clients Say" />
+        {testimonials.map((t, ti) => (
+          <div key={t.id || ti} className="bg-white rounded-lg p-2.5 border space-y-1">
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] font-bold">#{ti + 1}</span>
+              <div className="flex gap-2 items-center">
+                <Switch checked={t.visible !== false} onCheckedChange={(v) => updateTestimonial(ti, 'visible', v)} />
+                <button type="button" onClick={() => removeTestimonial(ti)} className="text-red-400"><Trash2 size={11} /></button>
+              </div>
+            </div>
+            <textarea value={t.quote || ''} onChange={(e) => updateTestimonial(ti, 'quote', e.target.value)} className="w-full text-[10px] border rounded px-2 py-1 min-h-[40px]" placeholder="Quote" />
+            <Input value={t.author || ''} onChange={(e) => updateTestimonial(ti, 'author', e.target.value)} className="text-[10px] h-7" placeholder="Author name" />
+          </div>
+        ))}
+      </div>
+
+      {/* Disclaimer & CTA */}
+      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 space-y-2">
+        <p className="text-[10px] font-bold text-gray-700">Disclaimer &amp; CTA</p>
+        <textarea value={section.disclaimer || ''} onChange={(e) => updateSection(sectionIdx, 'disclaimer', e.target.value)} className="w-full text-[10px] border rounded px-2 py-1 min-h-[60px] resize-y" />
+        <Input value={section.cta_text || ''} onChange={(e) => updateSection(sectionIdx, 'cta_text', e.target.value)} className="text-[10px] h-7" placeholder="Book Your Soul Blueprint Revelation Now" />
+        <Input value={section.cta_link || ''} onChange={(e) => updateSection(sectionIdx, 'cta_link', e.target.value)} className="text-[10px] h-7" placeholder="CTA link (optional — scrolls to pricing if empty)" />
+      </div>
     </div>
   );
 };
@@ -700,7 +852,18 @@ const HomepageSectionsTab = ({ settings, onChange }) => {
                     {sec.id === 'sponsor' && <SponsorSettingsTab settings={settings} onChange={onChange} />}
                     {sec.id === 'newsletter' && <NewsletterSettingsTab settings={settings} onChange={onChange} />}
                     {sec.id === 'trust' && <TrustCardsEditor section={sec} sectionIdx={idx} updateSection={updateSection} />}
-                    {sec.id === 'blueprint_immersion' && <BlueprintServicesEditor section={sec} sectionIdx={idx} updateSection={updateSection} />}
+                    {sec.id === 'blueprint_immersion' && (
+                      <BlueprintServicesEditor
+                        section={sec}
+                        sectionIdx={idx}
+                        updateSection={updateSection}
+                        patchSection={(patch) => {
+                          const updated = [...sections];
+                          updated[idx] = { ...updated[idx], ...patch };
+                          update(updated);
+                        }}
+                      />
+                    )}
                   </div>
                 )}
               </div>
