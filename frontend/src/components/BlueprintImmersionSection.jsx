@@ -55,7 +55,6 @@ const ServiceCard = ({ service, sessionMap, sectionConfig }) => {
 
   const session = service.session_id ? sessionMap[service.session_id] : null;
   const title = service.title || session?.title || 'Exclusive Session';
-  const description = service.description || session?.description || '';
   const image = service.image || session?.image;
   const categoryLabel =
     service.category_label ||
@@ -132,11 +131,6 @@ const ServiceCard = ({ service, sessionMap, sectionConfig }) => {
         >
           {title}
         </h3>
-        {description && (
-          <p className="text-gray-500 text-xs leading-relaxed mb-2 line-clamp-3 flex-1" style={{ ...BODY, fontSize: '0.8rem' }}>
-            {description.replace(/<[^>]+>/g, '')}
-          </p>
-        )}
         {features.length > 0 && (
           <ul className="text-[11px] text-gray-500 space-y-1 mb-3">
             {features.slice(0, 3).map((f, i) => (
