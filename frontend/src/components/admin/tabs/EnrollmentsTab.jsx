@@ -694,8 +694,49 @@ const EnrollmentsTab = () => {
 
   const loadEnrollments = async () => {
     try {
-      const r = await axios.get(`${API}/india-payments/admin/enrollments`);
-      setEnrollments(r.data);
+      const [enrollRes, sponsorRes] = await Promise.all([
+        axios.get(`${API}/india-payments/admin/enrollments`),
+        axios.get(`${API}/payments/transactions?item_type=sponsor`).catch(() => ({ data: [] })),
+      ]);
+
+      // Transform paid sponsor transactions into enrollment-shaped objects
+      const sponsorRows = (sponsorRes.data || [])
+        .filter((tx) => {
+          const st = String(tx.payment_status || '').toLowerCase();
+          return st === 'paid' || st === 'complete' || st === 'completed';
+        })
+        .map((tx) => ({
+          id: tx.id || tx.stripe_session_id,
+          _isSponsor: true,
+          status: tx.payment_status || 'paid',
+          booker_name: tx.anonymous ? 'Anonymous' : (tx.donor_name || tx.customer_name || '—'),
+          booker_email: tx.anonymous ? '' : (tx.donor_email || tx.customer_email || ''),
+          item_title: tx.item_title || 'Shine a Light Contribution',
+          item_type: 'sponsor',
+          invoice_number: tx.invoice_number || '',
+          created_at: tx.paid_at || tx.created_at,
+          paid_at: tx.paid_at,
+          payment: {
+            amount: tx.amount,
+            currency: tx.currency || 'usd',
+            stripe_session_id: tx.stripe_session_id,
+          },
+          payment_method: 'stripe',
+          participant_count: 1,
+          participants: [],
+          enrollment_origin: 'web',
+          _donor_message: tx.donor_message || tx.message || '',
+          _anonymous: tx.anonymous,
+        }));
+
+      // Merge and sort by created_at descending
+      const merged = [...enrollRes.data, ...sponsorRows].sort((a, b) => {
+        const ta = new Date(a.created_at || 0).getTime();
+        const tb = new Date(b.created_at || 0).getTime();
+        return tb - ta;
+      });
+
+      setEnrollments(merged);
     } catch {
       toast({ title: 'Failed to load', variant: 'destructive' });
     } finally { setLoading(false); }
@@ -1724,10 +1765,18 @@ const EnrollmentsTab = () => {
                 const currency = e.payment?.currency || e.dashboard_mixed_currency || e.currency || '';
                 const payShort = mode ? (PAYMENT_MODE_SHORT[mode] || (modeInfo ? modeInfo.label.split(' ')[0] : mode)) : '—';
                 const tc = 'px-1 sm:px-2 py-1.5 align-top min-w-0';
+                const isSponsor = !!e._isSponsor;
 
                 return (
                   <React.Fragment key={e.id}>
-                    <tr className="cursor-pointer odd:bg-white even:bg-violet-50/30 hover:bg-amber-50/40 transition-colors" onClick={() => setExpandedId(isExpanded ? null : e.id)}>
+                    <tr
+                      className={`cursor-pointer transition-colors ${
+                        isSponsor
+                          ? 'bg-blue-50 border-l-4 border-blue-400 hover:bg-blue-100/70'
+                          : 'odd:bg-white even:bg-violet-50/30 hover:bg-amber-50/40'
+                      }`}
+                      onClick={() => setExpandedId(isExpanded ? null : e.id)}
+                    >
                       {visSummaryCols.map((def) => {
                         switch (def.id) {
                           case 'serial':
@@ -1748,8 +1797,18 @@ const EnrollmentsTab = () => {
                           case 'program':
                             return (
                               <td key={def.id} className={tc}>
-                                <p className="text-gray-800 leading-snug line-clamp-2" title={e.item_title || ''}>{e.item_title || '-'}</p>
-                                {e.item_type ? <p className="text-gray-400 capitalize text-[9px] truncate">{e.item_type}</p> : null}
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {isSponsor && (
+                                    <span className="inline-block text-[9px] px-1.5 py-0.5 rounded font-bold bg-blue-100 text-blue-700 flex-shrink-0">
+                                      SPONSOR
+                                    </span>
+                                  )}
+                                  <p className="text-gray-800 leading-snug line-clamp-2" title={e.item_title || ''}>{e.item_title || '-'}</p>
+                                </div>
+                                {isSponsor && e._anonymous && (
+                                  <p className="text-[9px] text-blue-500 mt-0.5">Anonymous</p>
+                                )}
+                                {!isSponsor && e.item_type ? <p className="text-gray-400 capitalize text-[9px] truncate">{e.item_type}</p> : null}
                               </td>
                             );
                           case 'origin':
@@ -1831,7 +1890,30 @@ const EnrollmentsTab = () => {
                     {/* Expanded details */}
                     {isExpanded && (
                       <tr>
-                        <td colSpan={Math.max(1, visSummaryCols.length)} className="bg-gray-50 px-4 py-3">
+                        <td colSpan={Math.max(1, visSummaryCols.length)} className={`px-4 py-3 ${isSponsor ? 'bg-blue-50/60' : 'bg-gray-50'}`}>
+                          {isSponsor ? (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wide">Sponsorship Details</span>
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[10px]">
+                                <div><span className="text-gray-400 block">Donor</span><span className="font-medium">{e._anonymous ? 'Anonymous' : (e.booker_name || '—')}</span></div>
+                                <div><span className="text-gray-400 block">Email</span><span>{e._anonymous ? '—' : (e.booker_email || '—')}</span></div>
+                                <div><span className="text-gray-400 block">Amount</span><span className="font-medium">{String(e.payment?.currency || '').toUpperCase()} {e.payment?.amount}</span></div>
+                                <div><span className="text-gray-400 block">INR equivalent</span>₹{amountInr.toLocaleString('en-IN')}</div>
+                                <div><span className="text-gray-400 block">Transaction ID</span><span className="font-mono truncate block max-w-[150px]">{e.payment?.stripe_session_id || e.id || '—'}</span></div>
+                                <div><span className="text-gray-400 block">Invoice</span>{e.invoice_number || '—'}</div>
+                                <div><span className="text-gray-400 block">Date</span>{e.paid_at ? formatDateTimeDMonYyyyUpper(e.paid_at) : '—'}</div>
+                                <div><span className="text-gray-400 block">Anonymous</span>{e._anonymous ? 'Yes' : 'No'}</div>
+                              </div>
+                              {e._donor_message && (
+                                <div className="mt-2 bg-blue-100/60 border border-blue-200 rounded-lg px-3 py-2 text-[10px]">
+                                  <span className="text-blue-600 font-semibold block mb-0.5">Message from donor:</span>
+                                  <span className="text-gray-700 italic">"{e._donor_message}"</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[10px]">
                             <div><span className="text-gray-400 block">Enrollment ID</span><span className="font-mono">{e.id}</span></div>
                             <div><span className="text-gray-400 block">Origin</span>{e.enrollment_origin === 'dashboard' ? 'Dashboard' : 'Website'}</div>
@@ -1847,8 +1929,9 @@ const EnrollmentsTab = () => {
                             <div><span className="text-gray-400 block">Stripe Session</span><span className="font-mono truncate block max-w-[150px]">{e.stripe_session_id || '-'}</span></div>
                             <div><span className="text-gray-400 block">Updated</span>{e.updated_at ? formatDateTimeDMonYyyyUpper(e.updated_at) : '-'}</div>
                           </div>
-                          {/* Participants */}
-                          {e.participants?.length > 0 && (
+                          )}
+                          {/* Participants — only for non-sponsor */}
+                          {!isSponsor && e.participants?.length > 0 && (
                             <div className="mt-3">
                               <span className="text-[10px] text-gray-400 font-semibold">Participants:</span>
                               <div className="mt-1 space-y-1">

@@ -1098,8 +1098,11 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
 
 
 @router.get("/transactions")
-async def get_transactions():
+async def get_transactions(item_type: str = None):
+    query = {}
+    if item_type:
+        query["item_type"] = item_type
     transactions = await db.payment_transactions.find(
-        {}, {"_id": 0}
-    ).sort("created_at", -1).to_list(100)
+        query, {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
     return transactions
