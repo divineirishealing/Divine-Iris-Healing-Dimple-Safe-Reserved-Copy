@@ -114,6 +114,124 @@ def _record(monthly, cat_totals, top_programs, currency_totals,
     top_programs[title]["currencies"][cur] += amount
 
 
+@router.get("/transactions")
+async def get_currency_transactions(currency: str = "USD", months: int = 12):
+    """
+    Return individual paid transactions for a specific currency.
+    Used for the drill-down modal when clicking a currency card.
+    """
+    rates = {}
+    try:
+        settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0})
+        rates = (settings or {}).get("exchange_rates", {}) or {}
+    except Exception:
+        pass
+
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=months * 31)
+    cutoff_str = cutoff.strftime("%Y-%m")
+    cur_filter = str(currency).lower()
+
+    rows = []
+
+    # payment_transactions
+    try:
+        cursor = db.payment_transactions.find(
+            {"payment_status": {"$in": list(PAID_STATUSES)}},
+            {"_id": 0, "amount": 1, "currency": 1, "item_type": 1, "item_title": 1,
+             "paid_at": 1, "created_at": 1, "customer_name": 1, "customer_email": 1,
+             "booker_name": 1, "booker_email": 1, "invoice_number": 1, "payment_status": 1,
+             "enrollment_id": 1},
+        )
+        async for tx in cursor:
+            if str(tx.get("payment_status") or "").lower() not in PAID_STATUSES:
+                continue
+            if str(tx.get("currency") or "").lower() != cur_filter:
+                continue
+            ts = tx.get("paid_at") or tx.get("created_at")
+            month = _month_key(ts)
+            if not month or month < cutoff_str:
+                continue
+            amount = float(tx.get("amount") or 0)
+            inr = _to_inr(amount, cur_filter, rates)
+            name = tx.get("customer_name") or tx.get("booker_name") or "—"
+            email = tx.get("customer_email") or tx.get("booker_email") or ""
+            rows.append({
+                "name": name,
+                "email": email,
+                "program": tx.get("item_title") or "—",
+                "item_type": tx.get("item_type") or "",
+                "amount": round(amount, 2),
+                "inr": round(inr, 2),
+                "currency": str(tx.get("currency") or currency).upper(),
+                "paid_at": str(ts or ""),
+                "invoice": tx.get("invoice_number") or "",
+                "source": "card",
+            })
+    except Exception:
+        pass
+
+    # India-approved enrollments (for INR filter)
+    if cur_filter == "inr":
+        try:
+            already_counted: set = set()
+            async for ptx in db.payment_transactions.find(
+                {"payment_status": {"$in": list(PAID_STATUSES)}},
+                {"_id": 0, "enrollment_id": 1}
+            ):
+                eid = ptx.get("enrollment_id")
+                if eid:
+                    already_counted.add(str(eid))
+
+            cursor2 = db.enrollments.find(
+                {"status": {"$in": ["india_payment_approved", "completed"]},
+                 "dashboard_mixed_currency": {"$regex": "^inr$", "$options": "i"}},
+                {"_id": 1, "paid_at": 1, "created_at": 1, "item_type": 1, "item_title": 1,
+                 "dashboard_mixed_total": 1, "booker_name": 1, "booker_email": 1,
+                 "invoice_number": 1},
+            )
+            async for enr in cursor2:
+                if str(enr.get("_id") or "") in already_counted:
+                    continue
+                ts = enr.get("paid_at") or enr.get("created_at")
+                month = _month_key(ts)
+                if not month or month < cutoff_str:
+                    continue
+                amount = float(enr.get("dashboard_mixed_total") or 0)
+                if amount <= 0:
+                    continue
+                rows.append({
+                    "name": enr.get("booker_name") or "—",
+                    "email": enr.get("booker_email") or "",
+                    "program": enr.get("item_title") or "—",
+                    "item_type": enr.get("item_type") or "",
+                    "amount": round(amount, 2),
+                    "inr": round(amount, 2),
+                    "currency": "INR",
+                    "paid_at": str(ts or ""),
+                    "invoice": enr.get("invoice_number") or "",
+                    "source": "india",
+                })
+        except Exception:
+            pass
+
+    # Sort newest first
+    def _sort_key(r):
+        s = r.get("paid_at") or ""
+        return s
+
+    rows.sort(key=_sort_key, reverse=True)
+    symbol = CURRENCY_SYMBOLS.get(cur_filter, currency.upper() + " ")
+    return {
+        "currency": currency.upper(),
+        "symbol": symbol,
+        "transactions": rows,
+        "total_amount": round(sum(r["amount"] for r in rows), 2),
+        "total_inr": round(sum(r["inr"] for r in rows), 2),
+        "count": len(rows),
+    }
+
+
 @router.get("")
 async def get_revenue_summary(months: int = 12):
     # --- exchange rates ---

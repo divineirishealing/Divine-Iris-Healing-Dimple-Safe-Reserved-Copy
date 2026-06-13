@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line,
 } from 'recharts';
-import { TrendingUp, DollarSign, RefreshCw, ChevronDown, Info } from 'lucide-react';
+import { TrendingUp, DollarSign, RefreshCw, ChevronDown, Info, X, User, Calendar, Tag } from 'lucide-react';
 import { Button } from '../../ui/button';
 
 const API = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
@@ -66,12 +66,155 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
+const ITEM_TYPE_LABEL = { program: 'Program', session: '1:1 Session', sponsor: 'Sponsor', '': '' };
+
+function fmtDate(s) {
+  if (!s) return '—';
+  try {
+    return new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch { return s; }
+}
+
+/** Drill-down modal: list of transactions for one currency */
+function CurrencyDrillModal({ cur, symbol, months, onClose }) {
+  const [txns, setTxns] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    axios.get(`${API}/admin/revenue/transactions?currency=${cur}&months=${months}`)
+      .then((r) => { if (!cancelled) { setTxns(r.data); setLoading(false); } })
+      .catch((e) => { if (!cancelled) { setError(e?.response?.data?.detail || 'Failed to load.'); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, [cur, months]);
+
+  const filtered = txns?.transactions?.filter((t) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      (t.name || '').toLowerCase().includes(q) ||
+      (t.email || '').toLowerCase().includes(q) ||
+      (t.program || '').toLowerCase().includes(q) ||
+      (t.invoice || '').toLowerCase().includes(q)
+    );
+  }) || [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h3 className="text-base font-semibold text-gray-800">
+              {cur} Payments
+            </h3>
+            {txns && (
+              <p className="text-sm text-gray-500 mt-0.5">
+                {txns.count} transaction{txns.count !== 1 ? 's' : ''} ·{' '}
+                <span className="font-medium">{symbol}{Number(txns.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                {cur !== 'INR' && (
+                  <span className="text-[#b8962e] ml-1">≈ {fmtINR(txns.total_inr)}</span>
+                )}
+              </p>
+            )}
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="px-6 py-3 border-b border-gray-50">
+          <input
+            type="text"
+            placeholder="Search by name, email, program…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40"
+          />
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          {loading && (
+            <div className="flex items-center justify-center py-16 text-gray-400 text-sm">Loading…</div>
+          )}
+          {error && (
+            <div className="m-6 bg-red-50 border border-red-200 text-red-600 rounded-lg px-4 py-3 text-sm">{error}</div>
+          )}
+          {!loading && !error && filtered.length === 0 && (
+            <div className="flex items-center justify-center py-16 text-gray-400 text-sm">No transactions found.</div>
+          )}
+          {!loading && !error && filtered.length > 0 && (
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-gray-50 z-10">
+                <tr className="text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  <th className="px-5 py-3">Who</th>
+                  <th className="px-4 py-3">Program / Session</th>
+                  <th className="px-4 py-3 text-right">Amount</th>
+                  {cur !== 'INR' && <th className="px-4 py-3 text-right">≈ INR</th>}
+                  <th className="px-4 py-3 text-right">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filtered.map((t, i) => (
+                  <tr key={i} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-[#D4AF37]/15 flex items-center justify-center flex-shrink-0">
+                          <User size={13} className="text-[#b8962e]" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-800 truncate max-w-[140px]">{t.name || '—'}</p>
+                          {t.email && <p className="text-xs text-gray-400 truncate max-w-[140px]">{t.email}</p>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-gray-700 leading-snug">{t.program || '—'}</p>
+                      {t.item_type && (
+                        <span className="text-xs text-gray-400 bg-gray-100 rounded px-1.5 py-0.5 mt-0.5 inline-block">
+                          {ITEM_TYPE_LABEL[t.item_type] || t.item_type}
+                        </span>
+                      )}
+                      {t.invoice && <p className="text-xs text-gray-400 mt-0.5">{t.invoice}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-800 whitespace-nowrap">
+                      {symbol}{Number(t.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </td>
+                    {cur !== 'INR' && (
+                      <td className="px-4 py-3 text-right text-[#b8962e] whitespace-nowrap">
+                        {fmtINR(t.inr, true)}
+                      </td>
+                    )}
+                    <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">
+                      {fmtDate(t.paid_at)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RevenueTab() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [months, setMonths] = useState(12);
   const [chartType, setChartType] = useState('stacked');
+  const [drill, setDrill] = useState(null); // {cur, symbol}
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -110,6 +253,15 @@ export default function RevenueTab() {
 
   return (
     <div className="space-y-6">
+      {/* Drill-down modal */}
+      {drill && (
+        <CurrencyDrillModal
+          cur={drill.cur}
+          symbol={drill.symbol}
+          months={months}
+          onClose={() => setDrill(null)}
+        />
+      )}
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -179,7 +331,11 @@ export default function RevenueTab() {
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {Object.entries(curBreakdown).map(([cur, v]) => (
-                  <div key={cur} className="flex items-start justify-between gap-2 bg-gray-50 rounded-lg p-3">
+                  <button
+                    key={cur}
+                    onClick={() => setDrill({ cur, symbol: v.symbol })}
+                    className="flex items-start justify-between gap-2 bg-gray-50 rounded-lg p-3 text-left hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/40 border border-transparent transition-all cursor-pointer group"
+                  >
                     <div>
                       <div className="flex items-center gap-1.5 mb-0.5">
                         <span
@@ -196,8 +352,9 @@ export default function RevenueTab() {
                     <div className="text-right">
                       <p className="text-xs text-gray-400">≈ INR</p>
                       <p className="text-sm font-semibold text-[#b8962e]">{fmtINR(v.inr, true)}</p>
+                      <p className="text-xs text-[#D4AF37] opacity-0 group-hover:opacity-100 transition-opacity mt-1">View details →</p>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
               {(rates.usd_to_inr || rates.aed_to_inr) && (
