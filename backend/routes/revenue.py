@@ -1,6 +1,6 @@
 """
 Revenue analytics endpoint.
-Aggregates payment_transactions by month, program category, and currency.
+Shows amounts in original payment currencies with INR equivalents.
 """
 import os
 from pathlib import Path
@@ -22,25 +22,36 @@ db = _client[os.environ["DB_NAME"]]
 
 PAID_STATUSES = {"paid", "complete", "completed", "approved"}
 
+CURRENCY_SYMBOLS = {
+    "inr": "₹", "usd": "$", "aed": "AED ", "gbp": "£", "eur": "€",
+    "cad": "CAD ", "aud": "AUD ", "sgd": "SGD ", "myr": "MYR ",
+}
 
-def _to_usd(amount: float, currency: str, rates: dict) -> float:
-    """Convert any currency amount to USD for normalisation."""
+
+def _to_inr(amount: float, currency: str, rates: dict) -> float:
+    """Convert any currency amount to INR."""
     if not amount or amount <= 0:
         return 0.0
     c = str(currency).lower().strip()
-    if c == "usd":
-        return amount
-    if c == "aed":
-        rate = rates.get("aed_to_usd") or (1 / rates.get("usd_to_aed", 3.67))
-        return amount * rate
     if c == "inr":
-        rate = rates.get("inr_to_usd") or (1 / rates.get("usd_to_inr", 84))
-        return amount * rate
-    # Generic: try usd_to_X and invert
+        return amount
+    # Direct rate: X_to_inr
+    direct = rates.get(f"{c}_to_inr")
+    if direct and direct > 0:
+        return amount * direct
+    # Via USD: c → USD → INR
+    usd_to_inr = rates.get("usd_to_inr") or 84.0
+    if c == "usd":
+        return amount * usd_to_inr
+    if c == "aed":
+        aed_to_usd = rates.get("aed_to_usd") or (1 / rates.get("usd_to_aed", 3.67))
+        return amount * aed_to_usd * usd_to_inr
+    # Generic: try usd_to_X, invert to get X in USD, then multiply by usd_to_inr
     fwd = rates.get(f"usd_to_{c}")
     if fwd and fwd > 0:
-        return amount / fwd
-    return amount  # fallback: assume USD
+        return (amount / fwd) * usd_to_inr
+    # Fallback: treat as USD
+    return amount * usd_to_inr
 
 
 def _month_key(dt_val) -> Optional[str]:
@@ -55,10 +66,6 @@ def _month_key(dt_val) -> Optional[str]:
 
 
 def _program_category(item_type: str, item_title: str, program_flags: dict) -> str:
-    """
-    Map a transaction to a display category.
-    program_flags: dict of item_id -> {is_flagship, is_upcoming, is_group_program}
-    """
     t = str(item_type or "").lower()
     if t == "session":
         return "1:1 Sessions"
@@ -70,7 +77,6 @@ def _program_category(item_type: str, item_title: str, program_flags: dict) -> s
             return "Workshops"
         if flags.get("is_flagship"):
             return "Flagship Programs"
-        # Fallback: heuristic on title
         title_lower = str(item_title or "").lower()
         workshop_keywords = ["multiplier", "heal the heart", "dna detox", "musculoskeletal",
                              "soulmate", "neuro", "harmonics", "upcoming", "workshop",
@@ -81,13 +87,36 @@ def _program_category(item_type: str, item_title: str, program_flags: dict) -> s
     return "Other"
 
 
+def _record(monthly, cat_totals, top_programs, currency_totals,
+            month, category, amount, currency, inr, title):
+    """Accumulate one transaction into all running totals."""
+    cur = str(currency).upper()
+    if month in monthly:
+        monthly[month][category]["inr"] += inr
+        monthly[month][category]["count"] += 1
+        monthly[month][category].setdefault("currencies", {})
+        monthly[month][category]["currencies"].setdefault(cur, 0.0)
+        monthly[month][category]["currencies"][cur] += amount
+
+    cat_totals[category]["inr"] += inr
+    cat_totals[category]["count"] += 1
+    cat_totals[category].setdefault("currencies", {})
+    cat_totals[category]["currencies"].setdefault(cur, 0.0)
+    cat_totals[category]["currencies"][cur] += amount
+
+    currency_totals[cur]["original"] += amount
+    currency_totals[cur]["inr"] += inr
+    currency_totals[cur]["count"] += 1
+
+    top_programs[title]["inr"] += inr
+    top_programs[title].setdefault("currencies", {})
+    top_programs[title]["currencies"].setdefault(cur, 0.0)
+    top_programs[title]["currencies"][cur] += amount
+
+
 @router.get("")
 async def get_revenue_summary(months: int = 12):
-    """
-    Return monthly revenue broken down by category.
-    months: how many past months to include (default 12).
-    """
-    # --- fetch exchange rates ---
+    # --- exchange rates ---
     rates = {}
     try:
         settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0})
@@ -95,10 +124,10 @@ async def get_revenue_summary(months: int = 12):
     except Exception:
         pass
 
-    # --- build program flag lookup (title → flags) ---
+    # --- program flags ---
     program_flags: dict = {}
     try:
-        async for prog in db.programs.find({}, {"_id": 0, "id": 1, "title": 1,
+        async for prog in db.programs.find({}, {"_id": 0, "title": 1,
                                                 "is_flagship": 1, "is_upcoming": 1,
                                                 "is_group_program": 1}):
             key = "__title__" + str(prog.get("title") or "").lower()
@@ -115,7 +144,6 @@ async def get_revenue_summary(months: int = 12):
     cutoff = now - timedelta(days=months * 31)
     cutoff_str = cutoff.strftime("%Y-%m")
 
-    # --- generate ordered month labels ---
     all_months = []
     d = datetime(cutoff.year, cutoff.month, 1, tzinfo=timezone.utc)
     while d <= now:
@@ -127,58 +155,42 @@ async def get_revenue_summary(months: int = 12):
 
     CATEGORIES = ["Workshops", "Flagship Programs", "1:1 Sessions", "Sponsor", "Other"]
 
-    # month → category → {usd_total, count, orig_amounts}
-    monthly: dict = {m: {c: {"usd": 0.0, "count": 0} for c in CATEGORIES} for m in all_months}
-    # totals per category
-    cat_totals: dict = {c: 0.0 for c in CATEGORIES}
-    # top earners: program_title → usd_total
-    top_programs: dict = defaultdict(float)
+    monthly: dict = {
+        m: {c: {"inr": 0.0, "count": 0, "currencies": {}} for c in CATEGORIES}
+        for m in all_months
+    }
+    cat_totals: dict = {c: {"inr": 0.0, "count": 0, "currencies": {}} for c in CATEGORIES}
+    top_programs: dict = defaultdict(lambda: {"inr": 0.0, "currencies": {}})
+    currency_totals: dict = defaultdict(lambda: {"original": 0.0, "inr": 0.0, "count": 0})
 
-    # --- payment_transactions (Stripe / Razorpay) ---
+    # --- payment_transactions ---
     try:
-        query = {
-            "payment_status": {"$in": list(PAID_STATUSES)},
-        }
-        cursor = db.payment_transactions.find(query, {
-            "_id": 0, "amount": 1, "currency": 1, "item_type": 1,
-            "item_title": 1, "paid_at": 1, "created_at": 1,
-            "payment_status": 1,
-        })
+        cursor = db.payment_transactions.find(
+            {"payment_status": {"$in": list(PAID_STATUSES)}},
+            {"_id": 0, "amount": 1, "currency": 1, "item_type": 1,
+             "item_title": 1, "paid_at": 1, "created_at": 1, "payment_status": 1},
+        )
         async for tx in cursor:
-            status = str(tx.get("payment_status") or "").lower()
-            if status not in PAID_STATUSES:
+            if str(tx.get("payment_status") or "").lower() not in PAID_STATUSES:
                 continue
             ts = tx.get("paid_at") or tx.get("created_at")
             month = _month_key(ts)
             if not month or month < cutoff_str:
                 continue
             amount = float(tx.get("amount") or 0)
-            currency = str(tx.get("currency") or "usd")
-            usd = _to_usd(amount, currency, rates)
-            category = _program_category(
-                tx.get("item_type", ""),
-                tx.get("item_title", ""),
-                program_flags,
-            )
-            if month in monthly:
-                monthly[month][category]["usd"] += usd
-                monthly[month][category]["count"] += 1
-            cat_totals[category] += usd
+            currency = str(tx.get("currency") or "usd").lower()
+            if amount <= 0:
+                continue
+            inr = _to_inr(amount, currency, rates)
+            category = _program_category(tx.get("item_type", ""), tx.get("item_title", ""), program_flags)
             title = str(tx.get("item_title") or "Unknown")
-            top_programs[title] += usd
+            _record(monthly, cat_totals, top_programs, currency_totals,
+                    month, category, amount, currency, inr, title)
     except Exception:
         pass
 
-    # --- india payment approved enrollments (not already in payment_transactions) ---
+    # --- india-approved enrollments (dedup against payment_transactions) ---
     try:
-        india_statuses = {"india_payment_approved", "completed"}
-        cursor2 = db.enrollments.find(
-            {"status": {"$in": list(india_statuses)}},
-            {"_id": 0, "paid_at": 1, "created_at": 1, "item_type": 1, "item_title": 1,
-             "dashboard_mixed_total": 1, "dashboard_mixed_currency": 1,
-             "stripe_session_id": 1},
-        )
-        # Track stripe sessions already counted above to avoid double counting
         already_counted: set = set()
         async for ptx in db.payment_transactions.find(
             {"payment_status": {"$in": list(PAID_STATUSES)}},
@@ -188,61 +200,89 @@ async def get_revenue_summary(months: int = 12):
             if eid:
                 already_counted.add(str(eid))
 
+        cursor2 = db.enrollments.find(
+            {"status": {"$in": ["india_payment_approved", "completed"]}},
+            {"_id": 1, "paid_at": 1, "created_at": 1, "item_type": 1, "item_title": 1,
+             "dashboard_mixed_total": 1, "dashboard_mixed_currency": 1},
+        )
         async for enr in cursor2:
-            enr_id = str(enr.get("_id") or "")
-            if enr_id in already_counted:
+            if str(enr.get("_id") or "") in already_counted:
                 continue
             ts = enr.get("paid_at") or enr.get("created_at")
             month = _month_key(ts)
             if not month or month < cutoff_str:
                 continue
             amount = float(enr.get("dashboard_mixed_total") or 0)
-            currency = str(enr.get("dashboard_mixed_currency") or "inr")
+            currency = str(enr.get("dashboard_mixed_currency") or "inr").lower()
             if amount <= 0:
                 continue
-            usd = _to_usd(amount, currency, rates)
-            category = _program_category(
-                enr.get("item_type", ""),
-                enr.get("item_title", ""),
-                program_flags,
-            )
-            if month in monthly:
-                monthly[month][category]["usd"] += usd
-                monthly[month][category]["count"] += 1
-            cat_totals[category] += usd
+            inr = _to_inr(amount, currency, rates)
+            category = _program_category(enr.get("item_type", ""), enr.get("item_title", ""), program_flags)
             title = str(enr.get("item_title") or "Unknown")
-            top_programs[title] += usd
+            _record(monthly, cat_totals, top_programs, currency_totals,
+                    month, category, amount, currency, inr, title)
     except Exception:
         pass
 
-    # --- build chart data ---
-    chart_months = all_months  # ordered oldest → newest
-    series = {c: [] for c in CATEGORIES}
-    month_totals = []
+    # --- build output ---
     month_labels = []
-    for m in chart_months:
-        label = datetime.strptime(m, "%Y-%m").strftime("%b %Y")
-        month_labels.append(label)
+    month_totals_inr = []
+    series: dict = {c: [] for c in CATEGORIES}
+
+    for m in all_months:
+        month_labels.append(datetime.strptime(m, "%Y-%m").strftime("%b %Y"))
         total = 0.0
         for c in CATEGORIES:
-            v = round(monthly[m][c]["usd"], 2)
+            v = round(monthly[m][c]["inr"], 2)
             series[c].append(v)
             total += v
-        month_totals.append(round(total, 2))
+        month_totals_inr.append(round(total, 2))
 
-    # top programs (top 10)
-    top_list = sorted(top_programs.items(), key=lambda x: x[1], reverse=True)[:10]
+    grand_total_inr = sum(d["inr"] for d in cat_totals.values())
 
-    grand_total = sum(cat_totals.values())
+    top_list = sorted(top_programs.items(), key=lambda x: x[1]["inr"], reverse=True)[:10]
+
+    # currency breakdown sorted by INR desc
+    cur_breakdown = {
+        cur: {
+            "original": round(v["original"], 2),
+            "inr": round(v["inr"], 2),
+            "count": v["count"],
+            "symbol": CURRENCY_SYMBOLS.get(cur.lower(), cur + " "),
+        }
+        for cur, v in sorted(currency_totals.items(), key=lambda x: x[1]["inr"], reverse=True)
+    }
 
     return {
         "months": month_labels,
-        "month_keys": chart_months,
+        "month_keys": all_months,
         "categories": CATEGORIES,
-        "series": series,            # {category: [usd_per_month]}
-        "month_totals": month_totals,
-        "category_totals": {c: round(v, 2) for c, v in cat_totals.items()},
-        "grand_total_usd": round(grand_total, 2),
-        "top_programs": [{"title": t, "usd": round(v, 2)} for t, v in top_list],
+        "series": series,
+        "month_totals_inr": month_totals_inr,
+        "category_totals": {
+            c: {
+                "inr": round(d["inr"], 2),
+                "count": d["count"],
+                "currencies": {k: round(v, 2) for k, v in d["currencies"].items()},
+            }
+            for c, d in cat_totals.items()
+        },
+        "grand_total_inr": round(grand_total_inr, 2),
+        "currency_breakdown": cur_breakdown,
+        "top_programs": [
+            {
+                "title": t,
+                "inr": round(v["inr"], 2),
+                "currencies": {k: round(cv, 2) for k, cv in v["currencies"].items()},
+            }
+            for t, v in top_list
+        ],
         "window_months": months,
+        "rates_used": {
+            "usd_to_inr": rates.get("usd_to_inr", 84.0),
+            "aed_to_inr": rates.get("aed_to_inr") or (
+                (rates.get("aed_to_usd") or (1 / rates.get("usd_to_aed", 3.67)))
+                * rates.get("usd_to_inr", 84.0)
+            ),
+        },
     }
