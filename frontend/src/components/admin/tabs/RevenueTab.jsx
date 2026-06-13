@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line,
 } from 'recharts';
-import { TrendingUp, DollarSign, RefreshCw, ChevronDown, Info, X, User, Calendar, Tag } from 'lucide-react';
+import { TrendingUp, DollarSign, RefreshCw, ChevronDown, Info, X, User } from 'lucide-react';
 import { Button } from '../../ui/button';
 
 const API = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
@@ -19,7 +19,6 @@ const COLORS = {
 
 const CUR_COLOR = { INR: '#D4AF37', USD: '#3B82F6', AED: '#10B981' };
 
-/** Format INR with ₹ symbol, compact for large values */
 const fmtINR = (n, compact = false) => {
   const v = Number(n || 0);
   if (compact) {
@@ -31,7 +30,6 @@ const fmtINR = (n, compact = false) => {
   return `₹${v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
-/** Format original amount in its own currency */
 const fmtOrig = (symbol, amount) =>
   `${symbol}${Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -41,6 +39,15 @@ const WINDOW_OPTIONS = [
   { label: '12 months', value: 12 },
   { label: '24 months', value: 24 },
 ];
+
+const ITEM_TYPE_LABEL = { program: 'Program', session: '1:1 Session', sponsor: 'Sponsor', '': '' };
+
+function fmtDate(s) {
+  if (!s) return '—';
+  try {
+    return new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch { return s; }
+}
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
@@ -66,17 +73,11 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-const ITEM_TYPE_LABEL = { program: 'Program', session: '1:1 Session', sponsor: 'Sponsor', '': '' };
-
-function fmtDate(s) {
-  if (!s) return '—';
-  try {
-    return new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  } catch { return s; }
-}
-
-/** Drill-down modal: list of transactions for one currency */
-function CurrencyDrillModal({ cur, symbol, months, onClose }) {
+/**
+ * Unified drill-down modal.
+ * Pass either { currency, symbol } OR { category } (or both).
+ */
+function DrillModal({ currency, symbol, category, months, onClose }) {
   const [txns, setTxns] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -85,13 +86,16 @@ function CurrencyDrillModal({ cur, symbol, months, onClose }) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    axios.get(`${API}/admin/revenue/transactions?currency=${cur}&months=${months}`)
+    const params = new URLSearchParams({ months });
+    if (currency) params.set('currency', currency);
+    if (category) params.set('category', category);
+    axios.get(`${API}/admin/revenue/transactions?${params}`)
       .then((r) => { if (!cancelled) { setTxns(r.data); setLoading(false); } })
       .catch((e) => { if (!cancelled) { setError(e?.response?.data?.detail || 'Failed to load.'); setLoading(false); } });
     return () => { cancelled = true; };
-  }, [cur, months]);
+  }, [currency, category, months]);
 
-  const filtered = txns?.transactions?.filter((t) => {
+  const filtered = (txns?.transactions || []).filter((t) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -100,7 +104,15 @@ function CurrencyDrillModal({ cur, symbol, months, onClose }) {
       (t.program || '').toLowerCase().includes(q) ||
       (t.invoice || '').toLowerCase().includes(q)
     );
-  }) || [];
+  });
+
+  // Whether multiple currencies are mixed (category view)
+  const isMixed = !currency && category;
+  const accentColor = category ? (COLORS[category] || '#D4AF37') : (CUR_COLOR[currency] || '#D4AF37');
+
+  const title = category
+    ? `${category} — Payments`
+    : `${currency} Payments`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -112,20 +124,30 @@ function CurrencyDrillModal({ cur, symbol, months, onClose }) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
-            <h3 className="text-base font-semibold text-gray-800">
-              {cur} Payments
-            </h3>
+            <div className="flex items-center gap-2">
+              {category && (
+                <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: accentColor }} />
+              )}
+              <h3 className="text-base font-semibold text-gray-800">{title}</h3>
+            </div>
             {txns && (
-              <p className="text-sm text-gray-500 mt-0.5">
-                {txns.count} transaction{txns.count !== 1 ? 's' : ''} ·{' '}
-                <span className="font-medium">{symbol}{Number(txns.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                {cur !== 'INR' && (
-                  <span className="text-[#b8962e] ml-1">≈ {fmtINR(txns.total_inr)}</span>
-                )}
-              </p>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                <span className="text-sm text-gray-500">
+                  {txns.count} transaction{txns.count !== 1 ? 's' : ''}
+                </span>
+                <span className="text-sm font-semibold text-[#b8962e]">
+                  {fmtINR(txns.total_inr)} total
+                </span>
+                {/* per-currency sub-totals for category view */}
+                {isMixed && txns.currency_totals && Object.entries(txns.currency_totals).map(([c, v]) => (
+                  <span key={c} className="text-xs text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">
+                    {v.symbol}{Number(v.original).toLocaleString('en-IN', { maximumFractionDigits: 0 })} {c}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1 ml-4">
             <X size={18} />
           </button>
         </div>
@@ -134,7 +156,7 @@ function CurrencyDrillModal({ cur, symbol, months, onClose }) {
         <div className="px-6 py-3 border-b border-gray-50">
           <input
             type="text"
-            placeholder="Search by name, email, program…"
+            placeholder="Search by name, email, program, invoice…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40"
@@ -158,8 +180,9 @@ function CurrencyDrillModal({ cur, symbol, months, onClose }) {
                 <tr className="text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
                   <th className="px-5 py-3">Who</th>
                   <th className="px-4 py-3">Program / Session</th>
+                  {isMixed && <th className="px-4 py-3 text-right">Currency</th>}
                   <th className="px-4 py-3 text-right">Amount</th>
-                  {cur !== 'INR' && <th className="px-4 py-3 text-right">≈ INR</th>}
+                  <th className="px-4 py-3 text-right">≈ INR</th>
                   <th className="px-4 py-3 text-right">Date</th>
                 </tr>
               </thead>
@@ -168,12 +191,13 @@ function CurrencyDrillModal({ cur, symbol, months, onClose }) {
                   <tr key={i} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-[#D4AF37]/15 flex items-center justify-center flex-shrink-0">
-                          <User size={13} className="text-[#b8962e]" />
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ background: `${accentColor}22` }}>
+                          <User size={13} style={{ color: accentColor }} />
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium text-gray-800 truncate max-w-[140px]">{t.name || '—'}</p>
-                          {t.email && <p className="text-xs text-gray-400 truncate max-w-[140px]">{t.email}</p>}
+                          <p className="font-medium text-gray-800 truncate max-w-[130px]">{t.name || '—'}</p>
+                          {t.email && <p className="text-xs text-gray-400 truncate max-w-[130px]">{t.email}</p>}
                         </div>
                       </div>
                     </td>
@@ -186,14 +210,23 @@ function CurrencyDrillModal({ cur, symbol, months, onClose }) {
                       )}
                       {t.invoice && <p className="text-xs text-gray-400 mt-0.5">{t.invoice}</p>}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-gray-800 whitespace-nowrap">
-                      {symbol}{Number(t.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </td>
-                    {cur !== 'INR' && (
-                      <td className="px-4 py-3 text-right text-[#b8962e] whitespace-nowrap">
-                        {fmtINR(t.inr, true)}
+                    {isMixed && (
+                      <td className="px-4 py-3 text-right">
+                        <span className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                          style={{ background: `${CUR_COLOR[t.currency] || '#9CA3AF'}22`,
+                                   color: CUR_COLOR[t.currency] || '#6B7280' }}>
+                          {t.currency}
+                        </span>
                       </td>
                     )}
+                    <td className="px-4 py-3 text-right font-semibold text-gray-800 whitespace-nowrap">
+                      {t.currency === 'INR'
+                        ? fmtINR(t.amount)
+                        : `${CUR_COLOR[t.currency] ? '' : ''}${t.currency === 'USD' ? '$' : t.currency === 'AED' ? 'AED ' : (t.currency + ' ')}${Number(t.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[#b8962e] whitespace-nowrap">
+                      {t.currency === 'INR' ? '—' : fmtINR(t.inr, true)}
+                    </td>
                     <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">
                       {fmtDate(t.paid_at)}
                     </td>
@@ -214,7 +247,8 @@ export default function RevenueTab() {
   const [error, setError] = useState('');
   const [months, setMonths] = useState(12);
   const [chartType, setChartType] = useState('stacked');
-  const [drill, setDrill] = useState(null); // {cur, symbol}
+  // drill: { currency?, symbol?, category? }
+  const [drill, setDrill] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -234,9 +268,7 @@ export default function RevenueTab() {
   const chartData = data
     ? data.months.map((label, i) => {
         const row = { month: label };
-        (data.categories || []).forEach((cat) => {
-          row[cat] = data.series?.[cat]?.[i] || 0;
-        });
+        (data.categories || []).forEach((cat) => { row[cat] = data.series?.[cat]?.[i] || 0; });
         row.total = data.month_totals_inr?.[i] || 0;
         return row;
       })
@@ -255,13 +287,15 @@ export default function RevenueTab() {
     <div className="space-y-6">
       {/* Drill-down modal */}
       {drill && (
-        <CurrencyDrillModal
-          cur={drill.cur}
+        <DrillModal
+          currency={drill.currency}
           symbol={drill.symbol}
+          category={drill.category}
           months={months}
           onClose={() => setDrill(null)}
         />
       )}
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -270,7 +304,7 @@ export default function RevenueTab() {
             Revenue Analytics
           </h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            Chart &amp; totals in INR equivalent · original currency shown separately
+            Chart &amp; totals in INR equivalent · click any card to see individual payments
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -306,7 +340,6 @@ export default function RevenueTab() {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">{error}</div>
       )}
-
       {loading && !data && (
         <div className="flex items-center justify-center py-20 text-gray-400 text-sm">Loading revenue data…</div>
       )}
@@ -315,7 +348,6 @@ export default function RevenueTab() {
         <>
           {/* KPI row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {/* Grand total */}
             <div className="lg:col-span-1 bg-gradient-to-br from-[#D4AF37]/10 to-amber-50 border border-[#D4AF37]/30 rounded-xl p-5">
               <p className="text-xs text-amber-700 font-semibold uppercase tracking-wide">
                 Total Revenue ({months}mo)
@@ -324,35 +356,29 @@ export default function RevenueTab() {
               <p className="text-xs text-gray-500 mt-1">INR equivalent of all paid transactions</p>
             </div>
 
-            {/* Currency breakdown */}
             <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
-                By Original Currency
+                By Original Currency <span className="normal-case font-normal text-gray-400 ml-1">— click to see who paid</span>
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {Object.entries(curBreakdown).map(([cur, v]) => (
                   <button
                     key={cur}
-                    onClick={() => setDrill({ cur, symbol: v.symbol })}
-                    className="flex items-start justify-between gap-2 bg-gray-50 rounded-lg p-3 text-left hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/40 border border-transparent transition-all cursor-pointer group"
+                    onClick={() => setDrill({ currency: cur, symbol: v.symbol })}
+                    className="flex items-start justify-between gap-2 bg-gray-50 rounded-lg p-3 text-left hover:bg-[#D4AF37]/10 border border-transparent hover:border-[#D4AF37]/40 transition-all cursor-pointer group"
                   >
                     <div>
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        <span
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ background: CUR_COLOR[cur] || '#9CA3AF' }}
-                        />
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: CUR_COLOR[cur] || '#9CA3AF' }} />
                         <span className="text-xs font-semibold text-gray-600">{cur}</span>
                         <span className="text-xs text-gray-400">({v.count} txn{v.count !== 1 ? 's' : ''})</span>
                       </div>
-                      <p className="text-base font-bold text-gray-800">
-                        {fmtOrig(v.symbol, v.original)}
-                      </p>
+                      <p className="text-base font-bold text-gray-800">{fmtOrig(v.symbol, v.original)}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-gray-400">≈ INR</p>
                       <p className="text-sm font-semibold text-[#b8962e]">{fmtINR(v.inr, true)}</p>
-                      <p className="text-xs text-[#D4AF37] opacity-0 group-hover:opacity-100 transition-opacity mt-1">View details →</p>
+                      <p className="text-xs text-[#D4AF37] opacity-0 group-hover:opacity-100 transition-opacity mt-1">View →</p>
                     </div>
                   </button>
                 ))}
@@ -360,20 +386,24 @@ export default function RevenueTab() {
               {(rates.usd_to_inr || rates.aed_to_inr) && (
                 <p className="text-xs text-gray-400 mt-3 flex items-center gap-1">
                   <Info size={11} />
-                  Rates used: 1 USD = ₹{Number(rates.usd_to_inr || 84).toFixed(2)}
+                  Rates: 1 USD = ₹{Number(rates.usd_to_inr || 84).toFixed(2)}
                   {rates.aed_to_inr ? ` · 1 AED = ₹${Number(rates.aed_to_inr).toFixed(2)}` : ''}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Category KPIs */}
+          {/* Category KPIs — clickable */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {(data.categories || []).map((cat) => {
               const ct = data.category_totals?.[cat] || {};
               if (!ct.inr) return null;
               return (
-                <div key={cat} className="bg-white border border-gray-200 rounded-xl p-4">
+                <button
+                  key={cat}
+                  onClick={() => setDrill({ category: cat })}
+                  className="bg-white border border-gray-200 rounded-xl p-4 text-left hover:border-gray-300 hover:shadow-sm transition-all group cursor-pointer"
+                >
                   <div className="flex items-center gap-1.5 mb-1">
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: COLORS[cat] }} />
                     <p className="text-xs text-gray-500 font-medium leading-tight">{cat}</p>
@@ -393,7 +423,11 @@ export default function RevenueTab() {
                       ? `${((ct.inr / data.grand_total_inr) * 100).toFixed(1)}%`
                       : '—'}
                   </p>
-                </div>
+                  <p className="text-xs mt-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ color: COLORS[cat] }}>
+                    View {ct.count} payment{ct.count !== 1 ? 's' : ''} →
+                  </p>
+                </button>
               );
             })}
           </div>
@@ -401,9 +435,7 @@ export default function RevenueTab() {
           {/* Chart */}
           <div className="bg-white border border-gray-200 rounded-xl p-5">
             <h3 className="text-sm font-semibold text-gray-700 mb-1">Monthly Revenue (₹ INR equivalent)</h3>
-            <p className="text-xs text-gray-400 mb-4">
-              Foreign currency amounts converted to INR using stored exchange rates
-            </p>
+            <p className="text-xs text-gray-400 mb-4">Foreign currency amounts converted to INR using stored exchange rates</p>
 
             {chartType === 'stacked' && (
               <ResponsiveContainer width="100%" height={300}>
@@ -414,13 +446,8 @@ export default function RevenueTab() {
                   <Tooltip content={<CustomTooltip />} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   {(data.categories || []).map((cat, i, arr) => (
-                    <Bar
-                      key={cat}
-                      dataKey={cat}
-                      stackId="a"
-                      fill={COLORS[cat] || '#9CA3AF'}
-                      radius={i === arr.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
-                    />
+                    <Bar key={cat} dataKey={cat} stackId="a" fill={COLORS[cat] || '#9CA3AF'}
+                      radius={i === arr.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
                   ))}
                 </BarChart>
               </ResponsiveContainer>
@@ -447,20 +474,22 @@ export default function RevenueTab() {
                 <ResponsiveContainer width={260} height={260}>
                   <PieChart>
                     <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={110} paddingAngle={3} dataKey="value">
-                      {pieData.map((entry) => (
-                        <Cell key={entry.name} fill={COLORS[entry.name] || '#9CA3AF'} />
-                      ))}
+                      {pieData.map((entry) => <Cell key={entry.name} fill={COLORS[entry.name] || '#9CA3AF'} />)}
                     </Pie>
                     <Tooltip formatter={(v) => fmtINR(v)} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="flex flex-col gap-2 text-sm">
                   {pieData.map((d) => (
-                    <div key={d.name} className="flex items-center gap-2">
+                    <button
+                      key={d.name}
+                      onClick={() => setDrill({ category: d.name })}
+                      className="flex items-center gap-2 hover:bg-gray-50 rounded px-2 py-1 transition-colors text-left"
+                    >
                       <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: COLORS[d.name] }} />
                       <span className="text-gray-600 flex-1">{d.name}</span>
                       <span className="font-semibold text-gray-800 ml-4">{fmtINR(d.value, true)}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>

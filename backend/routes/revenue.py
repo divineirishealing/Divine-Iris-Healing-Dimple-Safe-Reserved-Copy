@@ -35,27 +35,22 @@ def _to_inr(amount: float, currency: str, rates: dict) -> float:
     c = str(currency).lower().strip()
     if c == "inr":
         return amount
-    # Direct rate: X_to_inr
     direct = rates.get(f"{c}_to_inr")
     if direct and direct > 0:
         return amount * direct
-    # Via USD: c → USD → INR
     usd_to_inr = rates.get("usd_to_inr") or 84.0
     if c == "usd":
         return amount * usd_to_inr
     if c == "aed":
         aed_to_usd = rates.get("aed_to_usd") or (1 / rates.get("usd_to_aed", 3.67))
         return amount * aed_to_usd * usd_to_inr
-    # Generic: try usd_to_X, invert to get X in USD, then multiply by usd_to_inr
     fwd = rates.get(f"usd_to_{c}")
     if fwd and fwd > 0:
         return (amount / fwd) * usd_to_inr
-    # Fallback: treat as USD
     return amount * usd_to_inr
 
 
 def _month_key(dt_val) -> Optional[str]:
-    """Return 'YYYY-MM' from a datetime or ISO string."""
     if not dt_val:
         return None
     if isinstance(dt_val, datetime):
@@ -87,9 +82,33 @@ def _program_category(item_type: str, item_title: str, program_flags: dict) -> s
     return "Other"
 
 
+async def _load_rates() -> dict:
+    try:
+        settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0})
+        return (settings or {}).get("exchange_rates", {}) or {}
+    except Exception:
+        return {}
+
+
+async def _load_program_flags() -> dict:
+    flags: dict = {}
+    try:
+        async for prog in db.programs.find({}, {"_id": 0, "title": 1,
+                                                "is_flagship": 1, "is_upcoming": 1,
+                                                "is_group_program": 1}):
+            key = "__title__" + str(prog.get("title") or "").lower()
+            flags[key] = {
+                "is_flagship": bool(prog.get("is_flagship")),
+                "is_upcoming": bool(prog.get("is_upcoming")),
+                "is_group_program": bool(prog.get("is_group_program")),
+            }
+    except Exception:
+        pass
+    return flags
+
+
 def _record(monthly, cat_totals, top_programs, currency_totals,
             month, category, amount, currency, inr, title):
-    """Accumulate one transaction into all running totals."""
     cur = str(currency).upper()
     if month in monthly:
         monthly[month][category]["inr"] += inr
@@ -115,64 +134,71 @@ def _record(monthly, cat_totals, top_programs, currency_totals,
 
 
 @router.get("/transactions")
-async def get_currency_transactions(currency: str = "USD", months: int = 12):
+async def get_transactions(currency: str = "", category: str = "", months: int = 12):
     """
-    Return individual paid transactions for a specific currency.
-    Used for the drill-down modal when clicking a currency card.
+    Individual paid transactions filtered by currency and/or category.
+    Used for drill-down modals on both currency cards and category cards.
     """
-    rates = {}
-    try:
-        settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0})
-        rates = (settings or {}).get("exchange_rates", {}) or {}
-    except Exception:
-        pass
+    rates = await _load_rates()
+    program_flags = await _load_program_flags()
 
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=months * 31)
     cutoff_str = cutoff.strftime("%Y-%m")
-    cur_filter = str(currency).lower()
+    cur_filter = str(currency).lower().strip()
+    cat_filter = str(category).strip()
+
+    def _matches(tx_currency, tx_item_type, tx_item_title) -> bool:
+        if cur_filter and str(tx_currency or "").lower() != cur_filter:
+            return False
+        if cat_filter:
+            txcat = _program_category(tx_item_type or "", tx_item_title or "", program_flags)
+            if txcat != cat_filter:
+                return False
+        return True
 
     rows = []
 
-    # payment_transactions
+    # --- payment_transactions (Stripe / Razorpay) ---
     try:
         cursor = db.payment_transactions.find(
             {"payment_status": {"$in": list(PAID_STATUSES)}},
             {"_id": 0, "amount": 1, "currency": 1, "item_type": 1, "item_title": 1,
              "paid_at": 1, "created_at": 1, "customer_name": 1, "customer_email": 1,
-             "booker_name": 1, "booker_email": 1, "invoice_number": 1, "payment_status": 1,
-             "enrollment_id": 1},
+             "booker_name": 1, "booker_email": 1, "invoice_number": 1,
+             "payment_status": 1, "enrollment_id": 1},
         )
         async for tx in cursor:
             if str(tx.get("payment_status") or "").lower() not in PAID_STATUSES:
                 continue
-            if str(tx.get("currency") or "").lower() != cur_filter:
+            if not _matches(tx.get("currency"), tx.get("item_type"), tx.get("item_title")):
                 continue
             ts = tx.get("paid_at") or tx.get("created_at")
             month = _month_key(ts)
             if not month or month < cutoff_str:
                 continue
             amount = float(tx.get("amount") or 0)
-            inr = _to_inr(amount, cur_filter, rates)
-            name = tx.get("customer_name") or tx.get("booker_name") or "—"
-            email = tx.get("customer_email") or tx.get("booker_email") or ""
+            tx_cur = str(tx.get("currency") or "usd").lower()
+            inr = _to_inr(amount, tx_cur, rates)
             rows.append({
-                "name": name,
-                "email": email,
+                "name": tx.get("customer_name") or tx.get("booker_name") or "—",
+                "email": tx.get("customer_email") or tx.get("booker_email") or "",
                 "program": tx.get("item_title") or "—",
                 "item_type": tx.get("item_type") or "",
+                "category": _program_category(tx.get("item_type", ""), tx.get("item_title", ""), program_flags),
                 "amount": round(amount, 2),
                 "inr": round(inr, 2),
-                "currency": str(tx.get("currency") or currency).upper(),
+                "currency": str(tx.get("currency") or "USD").upper(),
                 "paid_at": str(ts or ""),
                 "invoice": tx.get("invoice_number") or "",
-                "source": "card",
             })
     except Exception:
         pass
 
-    # India-approved enrollments (for INR filter)
-    if cur_filter == "inr":
+    # --- India-approved enrollments ---
+    # Include when: no currency filter, or currency filter is INR/inr
+    include_india = not cur_filter or cur_filter == "inr"
+    if include_india:
         try:
             already_counted: set = set()
             async for ptx in db.payment_transactions.find(
@@ -184,14 +210,16 @@ async def get_currency_transactions(currency: str = "USD", months: int = 12):
                     already_counted.add(str(eid))
 
             cursor2 = db.enrollments.find(
-                {"status": {"$in": ["india_payment_approved", "completed"]},
-                 "dashboard_mixed_currency": {"$regex": "^inr$", "$options": "i"}},
+                {"status": {"$in": ["india_payment_approved", "completed"]}},
                 {"_id": 1, "paid_at": 1, "created_at": 1, "item_type": 1, "item_title": 1,
-                 "dashboard_mixed_total": 1, "booker_name": 1, "booker_email": 1,
-                 "invoice_number": 1},
+                 "dashboard_mixed_total": 1, "dashboard_mixed_currency": 1,
+                 "booker_name": 1, "booker_email": 1, "invoice_number": 1},
             )
             async for enr in cursor2:
                 if str(enr.get("_id") or "") in already_counted:
+                    continue
+                enr_cur = str(enr.get("dashboard_mixed_currency") or "inr").lower()
+                if not _matches(enr_cur, enr.get("item_type"), enr.get("item_title")):
                     continue
                 ts = enr.get("paid_at") or enr.get("created_at")
                 month = _month_key(ts)
@@ -205,59 +233,51 @@ async def get_currency_transactions(currency: str = "USD", months: int = 12):
                     "email": enr.get("booker_email") or "",
                     "program": enr.get("item_title") or "—",
                     "item_type": enr.get("item_type") or "",
+                    "category": _program_category(enr.get("item_type", ""), enr.get("item_title", ""), program_flags),
                     "amount": round(amount, 2),
                     "inr": round(amount, 2),
-                    "currency": "INR",
+                    "currency": enr_cur.upper(),
                     "paid_at": str(ts or ""),
                     "invoice": enr.get("invoice_number") or "",
-                    "source": "india",
                 })
         except Exception:
             pass
 
-    # Sort newest first
-    def _sort_key(r):
-        s = r.get("paid_at") or ""
-        return s
+    rows.sort(key=lambda r: r.get("paid_at") or "", reverse=True)
 
-    rows.sort(key=_sort_key, reverse=True)
-    symbol = CURRENCY_SYMBOLS.get(cur_filter, currency.upper() + " ")
+    # per-currency sub-totals for the modal header
+    cur_totals: dict = {}
+    for r in rows:
+        c = r["currency"]
+        cur_totals.setdefault(c, {"original": 0.0, "inr": 0.0, "count": 0})
+        cur_totals[c]["original"] += r["amount"]
+        cur_totals[c]["inr"] += r["inr"]
+        cur_totals[c]["count"] += 1
+
     return {
         "currency": currency.upper(),
-        "symbol": symbol,
+        "category": category,
+        "symbol": CURRENCY_SYMBOLS.get(cur_filter, (currency.upper() + " ") if currency else ""),
         "transactions": rows,
-        "total_amount": round(sum(r["amount"] for r in rows), 2),
         "total_inr": round(sum(r["inr"] for r in rows), 2),
         "count": len(rows),
+        "currency_totals": {
+            c: {
+                "original": round(v["original"], 2),
+                "inr": round(v["inr"], 2),
+                "count": v["count"],
+                "symbol": CURRENCY_SYMBOLS.get(c.lower(), c + " "),
+            }
+            for c, v in sorted(cur_totals.items(), key=lambda x: x[1]["inr"], reverse=True)
+        },
     }
 
 
 @router.get("")
 async def get_revenue_summary(months: int = 12):
-    # --- exchange rates ---
-    rates = {}
-    try:
-        settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0})
-        rates = (settings or {}).get("exchange_rates", {}) or {}
-    except Exception:
-        pass
+    rates = await _load_rates()
+    program_flags = await _load_program_flags()
 
-    # --- program flags ---
-    program_flags: dict = {}
-    try:
-        async for prog in db.programs.find({}, {"_id": 0, "title": 1,
-                                                "is_flagship": 1, "is_upcoming": 1,
-                                                "is_group_program": 1}):
-            key = "__title__" + str(prog.get("title") or "").lower()
-            program_flags[key] = {
-                "is_flagship": bool(prog.get("is_flagship")),
-                "is_upcoming": bool(prog.get("is_upcoming")),
-                "is_group_program": bool(prog.get("is_group_program")),
-            }
-    except Exception:
-        pass
-
-    # --- date window ---
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=months * 31)
     cutoff_str = cutoff.strftime("%Y-%m")
@@ -281,7 +301,6 @@ async def get_revenue_summary(months: int = 12):
     top_programs: dict = defaultdict(lambda: {"inr": 0.0, "currencies": {}})
     currency_totals: dict = defaultdict(lambda: {"original": 0.0, "inr": 0.0, "count": 0})
 
-    # --- payment_transactions ---
     try:
         cursor = db.payment_transactions.find(
             {"payment_status": {"$in": list(PAID_STATUSES)}},
@@ -307,7 +326,6 @@ async def get_revenue_summary(months: int = 12):
     except Exception:
         pass
 
-    # --- india-approved enrollments (dedup against payment_transactions) ---
     try:
         already_counted: set = set()
         async for ptx in db.payment_transactions.find(
@@ -342,7 +360,6 @@ async def get_revenue_summary(months: int = 12):
     except Exception:
         pass
 
-    # --- build output ---
     month_labels = []
     month_totals_inr = []
     series: dict = {c: [] for c in CATEGORIES}
@@ -357,10 +374,8 @@ async def get_revenue_summary(months: int = 12):
         month_totals_inr.append(round(total, 2))
 
     grand_total_inr = sum(d["inr"] for d in cat_totals.values())
-
     top_list = sorted(top_programs.items(), key=lambda x: x[1]["inr"], reverse=True)[:10]
 
-    # currency breakdown sorted by INR desc
     cur_breakdown = {
         cur: {
             "original": round(v["original"], 2),
