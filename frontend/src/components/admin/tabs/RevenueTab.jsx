@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -75,13 +75,15 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 /**
  * Unified drill-down modal.
- * Pass either { currency, symbol } OR { category } (or both).
+ * Pass either { currency, symbol }, { category }, { program } or combinations.
  */
-function DrillModal({ currency, symbol, category, months, onClose }) {
+function DrillModal({ currency, symbol, category, program, months, onClose }) {
   const [txns, setTxns] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [sortCol, setSortCol] = useState('paid_at'); // 'paid_at' | 'amount' | 'inr' | 'name'
+  const [sortDir, setSortDir] = useState('desc');
 
   useEffect(() => {
     let cancelled = false;
@@ -89,30 +91,55 @@ function DrillModal({ currency, symbol, category, months, onClose }) {
     const params = new URLSearchParams({ months });
     if (currency) params.set('currency', currency);
     if (category) params.set('category', category);
+    if (program) params.set('program', program);
     axios.get(`${API}/admin/revenue/transactions?${params}`)
       .then((r) => { if (!cancelled) { setTxns(r.data); setLoading(false); } })
       .catch((e) => { if (!cancelled) { setError(e?.response?.data?.detail || 'Failed to load.'); setLoading(false); } });
     return () => { cancelled = true; };
-  }, [currency, category, months]);
+  }, [currency, category, program, months]);
 
-  const filtered = (txns?.transactions || []).filter((t) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      (t.name || '').toLowerCase().includes(q) ||
-      (t.email || '').toLowerCase().includes(q) ||
-      (t.program || '').toLowerCase().includes(q) ||
-      (t.invoice || '').toLowerCase().includes(q)
-    );
-  });
+  const toggleSort = (col) => {
+    if (sortCol === col) setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
+    else { setSortCol(col); setSortDir('desc'); }
+  };
 
-  // Whether multiple currencies are mixed (category view)
-  const isMixed = !currency && category;
-  const accentColor = category ? (COLORS[category] || '#D4AF37') : (CUR_COLOR[currency] || '#D4AF37');
+  const sortedFiltered = useMemo(() => {
+    let rows = (txns?.transactions || []).filter((t) => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (
+        (t.name || '').toLowerCase().includes(q) ||
+        (t.email || '').toLowerCase().includes(q) ||
+        (t.program || '').toLowerCase().includes(q) ||
+        (t.invoice || '').toLowerCase().includes(q)
+      );
+    });
+    rows = [...rows].sort((a, b) => {
+      let va, vb;
+      if (sortCol === 'paid_at') { va = a.paid_at || ''; vb = b.paid_at || ''; }
+      else if (sortCol === 'inr') { va = a.inr || 0; vb = b.inr || 0; }
+      else if (sortCol === 'amount') { va = a.amount || 0; vb = b.amount || 0; }
+      else { va = (a.name || '').toLowerCase(); vb = (b.name || '').toLowerCase(); }
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return rows;
+  }, [txns, search, sortCol, sortDir]);
 
-  const title = category
-    ? `${category} — Payments`
-    : `${currency} Payments`;
+  const isMixed = !currency;
+  const accentColor = program ? '#6366F1' : (category ? (COLORS[category] || '#D4AF37') : (CUR_COLOR[currency] || '#D4AF37'));
+
+  const title = program
+    ? program
+    : category
+      ? `${category} — Payments`
+      : `${currency} Payments`;
+
+  const SortIcon = ({ col }) => {
+    if (sortCol !== col) return <span className="text-gray-300 ml-0.5">↕</span>;
+    return <span className="ml-0.5">{sortDir === 'asc' ? '↑' : '↓'}</span>;
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -123,23 +150,22 @@ function DrillModal({ currency, symbol, category, months, onClose }) {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              {category && (
+              {(category || program) && (
                 <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: accentColor }} />
               )}
-              <h3 className="text-base font-semibold text-gray-800">{title}</h3>
+              <h3 className="text-base font-semibold text-gray-800 truncate">{title}</h3>
             </div>
             {txns && (
               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
                 <span className="text-sm text-gray-500">
-                  {txns.count} transaction{txns.count !== 1 ? 's' : ''}
+                  {txns.count} enrollment{txns.count !== 1 ? 's' : ''}
                 </span>
                 <span className="text-sm font-semibold text-[#b8962e]">
                   {fmtINR(txns.total_inr)} total
                 </span>
-                {/* per-currency sub-totals for category view */}
-                {isMixed && txns.currency_totals && Object.entries(txns.currency_totals).map(([c, v]) => (
+                {txns.currency_totals && Object.entries(txns.currency_totals).map(([c, v]) => (
                   <span key={c} className="text-xs text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">
                     {v.symbol}{Number(v.original).toLocaleString('en-IN', { maximumFractionDigits: 0 })} {c}
                   </span>
@@ -147,7 +173,7 @@ function DrillModal({ currency, symbol, category, months, onClose }) {
               </div>
             )}
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1 ml-4">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1 ml-4 flex-shrink-0">
             <X size={18} />
           </button>
         </div>
@@ -171,68 +197,107 @@ function DrillModal({ currency, symbol, category, months, onClose }) {
           {error && (
             <div className="m-6 bg-red-50 border border-red-200 text-red-600 rounded-lg px-4 py-3 text-sm">{error}</div>
           )}
-          {!loading && !error && filtered.length === 0 && (
+          {!loading && !error && sortedFiltered.length === 0 && (
             <div className="flex items-center justify-center py-16 text-gray-400 text-sm">No transactions found.</div>
           )}
-          {!loading && !error && filtered.length > 0 && (
+          {!loading && !error && sortedFiltered.length > 0 && (
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-gray-50 z-10">
                 <tr className="text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  <th className="px-5 py-3">Who</th>
-                  <th className="px-4 py-3">Program / Session</th>
+                  <th className="px-5 py-3 cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('name')}>
+                    Who <SortIcon col="name" />
+                  </th>
+                  {!program && <th className="px-4 py-3">Program / Session</th>}
                   {isMixed && <th className="px-4 py-3 text-right">Currency</th>}
-                  <th className="px-4 py-3 text-right">Amount</th>
-                  <th className="px-4 py-3 text-right">≈ INR</th>
-                  <th className="px-4 py-3 text-right">Date</th>
+                  <th className="px-4 py-3 text-right cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('amount')}>
+                    Paid <SortIcon col="amount" />
+                  </th>
+                  <th className="px-4 py-3 text-right cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('inr')}>
+                    ≈ INR <SortIcon col="inr" />
+                  </th>
+                  <th className="px-4 py-3 text-right cursor-pointer hover:text-gray-700 select-none" onClick={() => toggleSort('paid_at')}>
+                    Date <SortIcon col="paid_at" />
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filtered.map((t, i) => (
-                  <tr key={i} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ background: `${accentColor}22` }}>
-                          <User size={13} style={{ color: accentColor }} />
+                {sortedFiltered.map((t, i) => {
+                  const curSym = txns?.currency_totals?.[t.currency]?.symbol || (t.currency + ' ');
+                  return (
+                    <tr key={i} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                            style={{ background: `${accentColor}22` }}>
+                            <User size={13} style={{ color: accentColor }} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-800 truncate max-w-[130px]">{t.name || '—'}</p>
+                            {t.email && <p className="text-xs text-gray-400 truncate max-w-[130px]">{t.email}</p>}
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-gray-800 truncate max-w-[130px]">{t.name || '—'}</p>
-                          {t.email && <p className="text-xs text-gray-400 truncate max-w-[130px]">{t.email}</p>}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-gray-700 leading-snug">{t.program || '—'}</p>
-                      {t.item_type && (
-                        <span className="text-xs text-gray-400 bg-gray-100 rounded px-1.5 py-0.5 mt-0.5 inline-block">
-                          {ITEM_TYPE_LABEL[t.item_type] || t.item_type}
-                        </span>
-                      )}
-                      {t.invoice && <p className="text-xs text-gray-400 mt-0.5">{t.invoice}</p>}
-                    </td>
-                    {isMixed && (
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-xs font-semibold px-1.5 py-0.5 rounded"
-                          style={{ background: `${CUR_COLOR[t.currency] || '#9CA3AF'}22`,
-                                   color: CUR_COLOR[t.currency] || '#6B7280' }}>
-                          {t.currency}
-                        </span>
                       </td>
-                    )}
-                    <td className="px-4 py-3 text-right font-semibold text-gray-800 whitespace-nowrap">
-                      {t.currency === 'INR'
-                        ? fmtINR(t.amount)
-                        : `${CUR_COLOR[t.currency] ? '' : ''}${t.currency === 'USD' ? '$' : t.currency === 'AED' ? 'AED ' : (t.currency + ' ')}${Number(t.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
-                    </td>
-                    <td className="px-4 py-3 text-right text-[#b8962e] whitespace-nowrap">
-                      {t.currency === 'INR' ? '—' : fmtINR(t.inr, true)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">
-                      {fmtDate(t.paid_at)}
-                    </td>
-                  </tr>
-                ))}
+                      {!program && (
+                        <td className="px-4 py-3">
+                          <p className="text-gray-700 leading-snug">{t.program || '—'}</p>
+                          {t.item_type && (
+                            <span className="text-xs text-gray-400 bg-gray-100 rounded px-1.5 py-0.5 mt-0.5 inline-block">
+                              {ITEM_TYPE_LABEL[t.item_type] || t.item_type}
+                            </span>
+                          )}
+                          {t.invoice && <p className="text-xs text-gray-400 mt-0.5">{t.invoice}</p>}
+                        </td>
+                      )}
+                      {program && t.invoice && (
+                        <td className="hidden" />
+                      )}
+                      {isMixed && (
+                        <td className="px-4 py-3 text-right">
+                          <span className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                            style={{ background: `${CUR_COLOR[t.currency] || '#9CA3AF'}22`,
+                                     color: CUR_COLOR[t.currency] || '#6B7280' }}>
+                            {t.currency}
+                          </span>
+                        </td>
+                      )}
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <p className="font-semibold text-gray-800">
+                          {curSym}{Number(t.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </p>
+                        {t.currency !== 'INR' && (
+                          <p className="text-xs text-gray-400">{t.currency}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right text-[#b8962e] whitespace-nowrap font-medium">
+                        {fmtINR(t.inr)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">
+                        {fmtDate(t.paid_at)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
+              {/* Summary footer */}
+              {sortedFiltered.length > 1 && (
+                <tfoot>
+                  <tr className="bg-[#D4AF37]/10 border-t border-[#D4AF37]/30 font-bold text-xs text-gray-700">
+                    <td className="px-5 py-2.5" colSpan={!program ? 2 : 1}>
+                      {sortedFiltered.length} enrollment{sortedFiltered.length !== 1 ? 's' : ''}
+                    </td>
+                    {isMixed && <td />}
+                    <td className="px-4 py-2.5 text-right text-gray-500">
+                      {txns?.currency_totals && Object.entries(txns.currency_totals).map(([c, v]) => (
+                        <span key={c} className="block">
+                          {v.symbol}{Number(v.original).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                        </span>
+                      ))}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-[#b8962e]">{fmtINR(txns?.total_inr)}</td>
+                    <td />
+                  </tr>
+                </tfoot>
+              )}
             </table>
           )}
         </div>
@@ -291,6 +356,7 @@ export default function RevenueTab() {
           currency={drill.currency}
           symbol={drill.symbol}
           category={drill.category}
+          program={drill.program}
           months={months}
           onClose={() => setDrill(null)}
         />
@@ -551,14 +617,19 @@ export default function RevenueTab() {
                 <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <DollarSign size={15} className="text-[#D4AF37]" />
                   Top Programs by Revenue
+                  <span className="text-xs text-gray-400 font-normal ml-1">— click to see who enrolled</span>
                 </h3>
               </div>
               <div className="divide-y divide-gray-100">
                 {data.top_programs.map((p, i) => (
-                  <div key={p.title} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
+                  <button
+                    key={p.title}
+                    onClick={() => setDrill({ program: p.title })}
+                    className="w-full flex items-center justify-between gap-3 px-5 py-3 hover:bg-indigo-50/60 transition-colors text-left group"
+                  >
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="text-xs font-bold text-gray-400 w-5 text-right flex-shrink-0">{i + 1}</span>
-                      <span className="text-sm text-gray-700 truncate">{p.title || 'Unknown'}</span>
+                      <span className="text-sm text-gray-700 group-hover:text-indigo-700 transition-colors">{p.title || 'Unknown'}</span>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="text-sm font-bold text-gray-800">{fmtINR(p.inr, true)}</p>
@@ -569,8 +640,9 @@ export default function RevenueTab() {
                             .join(' + ')}
                         </p>
                       )}
+                      <p className="text-xs text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">View enrollments →</p>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>

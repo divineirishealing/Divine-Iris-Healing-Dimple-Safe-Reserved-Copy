@@ -134,10 +134,10 @@ def _record(monthly, cat_totals, top_programs, currency_totals,
 
 
 @router.get("/transactions")
-async def get_transactions(currency: str = "", category: str = "", months: int = 12):
+async def get_transactions(currency: str = "", category: str = "", program: str = "", months: int = 12):
     """
-    Individual paid transactions filtered by currency and/or category.
-    Used for drill-down modals on both currency cards and category cards.
+    Individual paid transactions filtered by currency, category, and/or program title.
+    Used for drill-down modals.
     """
     rates = await _load_rates()
     program_flags = await _load_program_flags()
@@ -147,6 +147,7 @@ async def get_transactions(currency: str = "", category: str = "", months: int =
     cutoff_str = cutoff.strftime("%Y-%m")
     cur_filter = str(currency).lower().strip()
     cat_filter = str(category).strip()
+    prog_filter = str(program).strip().lower()
 
     def _matches(tx_currency, tx_item_type, tx_item_title) -> bool:
         if cur_filter and str(tx_currency or "").lower() != cur_filter:
@@ -155,6 +156,8 @@ async def get_transactions(currency: str = "", category: str = "", months: int =
             txcat = _program_category(tx_item_type or "", tx_item_title or "", program_flags)
             if txcat != cat_filter:
                 return False
+        if prog_filter and str(tx_item_title or "").strip().lower() != prog_filter:
+            return False
         return True
 
     rows = []
@@ -257,6 +260,7 @@ async def get_transactions(currency: str = "", category: str = "", months: int =
     return {
         "currency": currency.upper(),
         "category": category,
+        "program": program,
         "symbol": CURRENCY_SYMBOLS.get(cur_filter, (currency.upper() + " ") if currency else ""),
         "transactions": rows,
         "total_inr": round(sum(r["inr"] for r in rows), 2),
