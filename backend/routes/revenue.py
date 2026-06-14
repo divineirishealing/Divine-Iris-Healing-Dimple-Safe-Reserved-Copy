@@ -60,6 +60,11 @@ def _month_key(dt_val) -> Optional[str]:
     return m.group(1) if m else None
 
 
+HOMECOMING_KEYWORDS = [
+    "home coming", "homecoming", "home_coming",
+    "hc annual", "annual program", "annual package",
+]
+
 FLAGSHIP_KEYWORDS = [
     "money magic multiplier",
     "atomic weight release", "awrp",
@@ -71,10 +76,9 @@ FLAGSHIP_KEYWORDS = [
 ]
 
 WORKSHOP_KEYWORDS = [
-    "multiplier", "heal the heart", "dna detox", "musculoskeletal",
+    "heal the heart", "dna detox", "musculoskeletal",
     "soulmate", "neuro", "harmonics", "upcoming", "workshop",
-    "group", "healing migrain", "headache", "home coming",
-    "homecoming", "stress detox", "cortisol", "inflammation",
+    "group", "healing migrain", "headache", "stress detox", "cortisol", "inflammation",
     "unleash her fire",
 ]
 
@@ -87,7 +91,10 @@ def _program_category(item_type: str, item_title: str, program_flags: dict) -> s
         return "Sponsor"
     if t == "program":
         title_lower = str(item_title or "").strip().lower()
-        # Explicit flagship list (user-defined)
+        # Home Coming / Annual Program — check first (most specific)
+        if any(k in title_lower for k in HOMECOMING_KEYWORDS):
+            return "Home Coming"
+        # Explicit flagship list
         if any(k in title_lower for k in FLAGSHIP_KEYWORDS):
             return "Flagship Programs"
         # DB flags (secondary)
@@ -96,8 +103,10 @@ def _program_category(item_type: str, item_title: str, program_flags: dict) -> s
             return "Flagship Programs"
         if flags.get("is_upcoming") or flags.get("is_group_program"):
             return "Workshops"
-        # Default: everything else is a Workshop
-        return "Workshops"
+        # Keyword workshops
+        if any(k in title_lower for k in WORKSHOP_KEYWORDS):
+            return "Workshops"
+        return "Flagship Programs"
     return "Other"
 
 
@@ -314,7 +323,7 @@ async def get_revenue_summary(months: int = 12):
         else:
             d = d.replace(month=d.month + 1)
 
-    CATEGORIES = ["Workshops", "Flagship Programs", "1:1 Sessions", "Sponsor", "Other"]
+    CATEGORIES = ["Workshops", "Flagship Programs", "Home Coming", "1:1 Sessions", "Sponsor", "Other"]
 
     monthly: dict = {
         m: {c: {"inr": 0.0, "count": 0, "currencies": {}} for c in CATEGORIES}

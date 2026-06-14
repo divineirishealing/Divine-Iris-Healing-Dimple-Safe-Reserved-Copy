@@ -12,6 +12,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
 const COLORS = {
   'Workshops': '#8B5CF6',
   'Flagship Programs': '#D4AF37',
+  'Home Coming': '#F97316',
   '1:1 Sessions': '#10B981',
   'Sponsor': '#3B82F6',
   'Other': '#9CA3AF',
