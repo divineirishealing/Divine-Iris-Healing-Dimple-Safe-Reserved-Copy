@@ -60,6 +60,25 @@ def _month_key(dt_val) -> Optional[str]:
     return m.group(1) if m else None
 
 
+FLAGSHIP_KEYWORDS = [
+    "money magic multiplier",
+    "atomic weight release", "awrp",
+    "atomic muscle release", "amrp",
+    "soul sync",
+    "quad layer",
+    "divinity of twinity",
+    "sacred walk",
+]
+
+WORKSHOP_KEYWORDS = [
+    "multiplier", "heal the heart", "dna detox", "musculoskeletal",
+    "soulmate", "neuro", "harmonics", "upcoming", "workshop",
+    "group", "healing migrain", "headache", "home coming",
+    "homecoming", "stress detox", "cortisol", "inflammation",
+    "unleash her fire",
+]
+
+
 def _program_category(item_type: str, item_title: str, program_flags: dict) -> str:
     t = str(item_type or "").lower()
     if t == "session":
@@ -67,18 +86,18 @@ def _program_category(item_type: str, item_title: str, program_flags: dict) -> s
     if t == "sponsor":
         return "Sponsor"
     if t == "program":
-        flags = program_flags.get("__title__" + str(item_title or "").lower(), {})
-        if flags.get("is_upcoming") or flags.get("is_group_program"):
-            return "Workshops"
+        title_lower = str(item_title or "").strip().lower()
+        # Explicit flagship list (user-defined)
+        if any(k in title_lower for k in FLAGSHIP_KEYWORDS):
+            return "Flagship Programs"
+        # DB flags (secondary)
+        flags = program_flags.get("__title__" + title_lower, {})
         if flags.get("is_flagship"):
             return "Flagship Programs"
-        title_lower = str(item_title or "").lower()
-        workshop_keywords = ["multiplier", "heal the heart", "dna detox", "musculoskeletal",
-                             "soulmate", "neuro", "harmonics", "upcoming", "workshop",
-                             "immersion", "group"]
-        if any(k in title_lower for k in workshop_keywords):
+        if flags.get("is_upcoming") or flags.get("is_group_program"):
             return "Workshops"
-        return "Flagship Programs"
+        # Default: everything else is a Workshop
+        return "Workshops"
     return "Other"
 
 
