@@ -74,6 +74,95 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
+/** Home Coming group section (Full Pay or EMI) */
+function HCGroup({ label, badge, badgeColor, rows, totals, curLookup, accentColor }) {
+  if (rows.length === 0) return (
+    <div className="px-5 py-4 border-b border-gray-100">
+      <div className="flex items-center gap-2 mb-1">
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${badgeColor}`}>{badge}</span>
+        <span className="text-sm font-semibold text-gray-600">{label}</span>
+        <span className="text-xs text-gray-400">— no payments</span>
+      </div>
+    </div>
+  );
+
+  const curEntries = Object.entries(totals.currencies || {});
+
+  return (
+    <div className="border-b border-gray-100">
+      {/* Section header */}
+      <div className="flex items-center justify-between px-5 py-3 bg-gray-50/70 sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${badgeColor}`}>{badge}</span>
+          <span className="text-sm font-semibold text-gray-700">{label}</span>
+          <span className="text-xs text-gray-400">{totals.count} person{totals.count !== 1 ? 's' : ''}</span>
+        </div>
+        <div className="text-right">
+          <p className="text-sm font-bold text-[#b8962e]">{fmtINR(totals.inr, true)}</p>
+          {curEntries.length > 0 && (
+            <p className="text-xs text-gray-400">
+              {curEntries.map(([c, a]) => {
+                const sym = curLookup[c]?.symbol || (c + ' ');
+                return `${sym}${Number(a).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+              }).join(' · ')}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Rows */}
+      <table className="w-full text-sm">
+        <thead className="bg-gray-50">
+          <tr className="text-left text-xs font-medium text-gray-400 uppercase tracking-wide">
+            <th className="px-5 py-2">Who</th>
+            <th className="px-4 py-2">Program</th>
+            <th className="px-4 py-2 text-right">Paid</th>
+            <th className="px-4 py-2 text-right">≈ INR</th>
+            <th className="px-4 py-2 text-right">Date</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {rows.map((t, i) => {
+            const sym = curLookup[t.currency]?.symbol || (t.currency + ' ');
+            return (
+              <tr key={i} className="hover:bg-gray-50/60 transition-colors">
+                <td className="px-5 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ background: `${accentColor}22` }}>
+                      <User size={11} style={{ color: accentColor }} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-800 truncate max-w-[120px]">{t.name || '—'}</p>
+                      {t.email && <p className="text-[10px] text-gray-400 truncate max-w-[120px]">{t.email}</p>}
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-2.5">
+                  <p className="text-gray-600 text-xs leading-snug">{t.program || '—'}</p>
+                  {t.invoice && <p className="text-[10px] text-gray-400">{t.invoice}</p>}
+                </td>
+                <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                  <p className="font-semibold text-gray-800 text-xs">
+                    {sym}{Number(t.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </p>
+                  {t.currency !== 'INR' && <p className="text-[10px] text-gray-400">{t.currency}</p>}
+                </td>
+                <td className="px-4 py-2.5 text-right text-[#b8962e] whitespace-nowrap text-xs font-medium">
+                  {fmtINR(t.inr)}
+                </td>
+                <td className="px-4 py-2.5 text-right text-gray-400 whitespace-nowrap text-xs">
+                  {fmtDate(t.paid_at)}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /**
  * Unified drill-down modal.
  * Pass either { currency, symbol }, { category }, { program } or combinations.
@@ -129,7 +218,28 @@ function DrillModal({ currency, symbol, category, program, months, onClose }) {
   }, [txns, search, sortCol, sortDir]);
 
   const isMixed = !currency;
+  const isHomeComing = category === 'Home Coming' || (program && /home.?coming|annual.?program|annual.?package/i.test(program));
   const accentColor = program ? '#6366F1' : (category ? (COLORS[category] || '#D4AF37') : (CUR_COLOR[currency] || '#D4AF37'));
+
+  // For Home Coming: split into full-pay vs EMI groups
+  const hcGroups = useMemo(() => {
+    if (!isHomeComing) return null;
+    const full = [], emi = [];
+    sortedFiltered.forEach((t) => {
+      if (/\bemi\b/i.test(t.program || '')) emi.push(t);
+      else full.push(t);
+    });
+    const grpTotals = (rows) => ({
+      count: rows.length,
+      inr: rows.reduce((s, r) => s + (r.inr || 0), 0),
+      currencies: rows.reduce((acc, r) => {
+        const c = r.currency;
+        acc[c] = (acc[c] || 0) + r.amount;
+        return acc;
+      }, {}),
+    });
+    return { full, emi, fullTotals: grpTotals(full), emiTotals: grpTotals(emi) };
+  }, [isHomeComing, sortedFiltered]);
 
   const title = program
     ? program
@@ -202,6 +312,29 @@ function DrillModal({ currency, symbol, category, program, months, onClose }) {
             <div className="flex items-center justify-center py-16 text-gray-400 text-sm">No transactions found.</div>
           )}
           {!loading && !error && sortedFiltered.length > 0 && (
+            isHomeComing && hcGroups ? (
+              /* ── Home Coming: split into Full Pay + EMI ── */
+              <div>
+                <HCGroup
+                  label="Paid in Full"
+                  badge="ONE-TIME"
+                  badgeColor="bg-emerald-100 text-emerald-700"
+                  rows={hcGroups.full}
+                  totals={hcGroups.fullTotals}
+                  curLookup={txns?.currency_totals || {}}
+                  accentColor="#10B981"
+                />
+                <HCGroup
+                  label="EMI / Instalment"
+                  badge="EMI"
+                  badgeColor="bg-orange-100 text-orange-700"
+                  rows={hcGroups.emi}
+                  totals={hcGroups.emiTotals}
+                  curLookup={txns?.currency_totals || {}}
+                  accentColor="#F97316"
+                />
+              </div>
+            ) : (
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-gray-50 z-10">
                 <tr className="text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
@@ -248,9 +381,6 @@ function DrillModal({ currency, symbol, category, program, months, onClose }) {
                           )}
                           {t.invoice && <p className="text-xs text-gray-400 mt-0.5">{t.invoice}</p>}
                         </td>
-                      )}
-                      {program && t.invoice && (
-                        <td className="hidden" />
                       )}
                       {isMixed && (
                         <td className="px-4 py-3 text-right">
@@ -300,6 +430,7 @@ function DrillModal({ currency, symbol, category, program, months, onClose }) {
                 </tfoot>
               )}
             </table>
+            )
           )}
         </div>
       </div>
