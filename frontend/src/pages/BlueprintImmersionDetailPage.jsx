@@ -1,13 +1,17 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import { mergeBlueprintSection } from '../data/blueprintImmersionDefaults';
-import { HEADING, BODY, LABEL } from '../lib/designTokens';
+import { HEADING, BODY, LABEL, CONTAINER } from '../lib/designTokens';
+import { UpcomingCard } from '../components/UpcomingProgramsSection';
 import { ChevronDown, ChevronUp, Quote, Sparkles, ArrowLeft } from 'lucide-react';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 /* ─── Accent colours ─────────────────────────────────────────── */
 const PURPLE      = '#7c3aed';
@@ -64,6 +68,8 @@ const GoldLine = ({ className = 'mb-8' }) => (
 const BlueprintImmersionDetailPage = () => {
   const navigate  = useNavigate();
   const { settings } = useSiteSettings();
+  const [programs, setPrograms]             = useState([]);
+  const [cardQuotesByProgram, setCardQuotes] = useState({});
 
   const rawSection = useMemo(() => {
     const sections = settings?.homepage_sections || [];
@@ -74,6 +80,35 @@ const BlueprintImmersionDetailPage = () => {
 
   const visibleKeys         = (config.sacred_keys  || []).filter((k) => k.visible !== false);
   const visibleTestimonials = (config.testimonials  || []).filter((t) => t.visible !== false);
+
+  /* Fetch programs for the "Explore Workshops & Programs" section */
+  useEffect(() => {
+    axios.get(`${API}/programs?visible_only=true`)
+      .then((r) => {
+        const all = Array.isArray(r.data) ? r.data : [];
+        /* prefer upcoming workshops first; fall back to any visible program */
+        const upcoming = all.filter((p) => p.is_upcoming);
+        setPrograms(upcoming.length > 0 ? upcoming : all.slice(0, 6));
+      })
+      .catch(() => {});
+    axios.get(`${API}/upcoming-card-quotes?visible_only=true`)
+      .then((r) => {
+        const rows = Array.isArray(r.data) ? r.data : [];
+        const by = {};
+        rows.forEach((q) => {
+          const pid = String(q.program_id || '').trim();
+          const text = String(q.text || '').trim();
+          if (!pid || !text) return;
+          if (!by[pid]) by[pid] = [];
+          const author = String(q.author || '').trim();
+          const role   = String(q.role   || '').trim();
+          const tail   = [author, role].filter(Boolean).join(', ');
+          by[pid].push(tail ? `"${text}" — ${tail}` : `"${text}"`);
+        });
+        setCardQuotes(by);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleBookNow = () => {
     if (config.cta_link) navigate(config.cta_link);
@@ -240,6 +275,35 @@ const BlueprintImmersionDetailPage = () => {
                     <p className="text-xs font-semibold mt-3 pl-6" style={{ color: PURPLE }}>— {t.author}</p>
                   )}
                 </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════
+          WORKSHOPS & PROGRAMS CARDS
+      ══════════════════════════════════════════════════════════ */}
+      {programs.length > 0 && (
+        <section className="py-20 px-5 bg-white">
+          <div className={CONTAINER}>
+            <p className="text-center text-xs uppercase tracking-[0.25em] mb-3 font-medium" style={{ color: PURPLE }}>
+              Explore More
+            </p>
+            <h2
+              className="text-center mb-4"
+              style={{ ...HEADING, fontSize: 'clamp(1.4rem, 3vw, 2rem)', color: PURPLE_DARK }}
+            >
+              Workshops &amp; Programs
+            </h2>
+            <GoldLine className="mb-10" />
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              {programs.map((p) => (
+                <UpcomingCard
+                  key={p.id}
+                  program={p}
+                  cardQuoteMessages={cardQuotesByProgram[String(p.id)] || []}
+                />
               ))}
             </div>
           </div>
