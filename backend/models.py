@@ -67,6 +67,7 @@ class Program(BaseModel):
     offer_text: str = ""
     is_upcoming: bool = False
     is_flagship: bool = False
+    is_blueprint_immersion: bool = False
     start_date: str = ""
     end_date: str = ""
     deadline_date: str = ""
@@ -132,6 +133,7 @@ class ProgramCreate(BaseModel):
     offer_text: Optional[str] = ""
     is_upcoming: Optional[bool] = False
     is_flagship: Optional[bool] = False
+    is_blueprint_immersion: Optional[bool] = False
     start_date: Optional[str] = ""
     end_date: Optional[str] = ""
     deadline_date: Optional[str] = ""

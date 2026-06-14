@@ -86,9 +86,14 @@ const BlueprintImmersionDetailPage = () => {
     axios.get(`${API}/programs?visible_only=true`)
       .then((r) => {
         const all = Array.isArray(r.data) ? r.data : [];
-        /* prefer upcoming workshops first; fall back to any visible program */
-        const upcoming = all.filter((p) => p.is_upcoming);
-        setPrograms(upcoming.length > 0 ? upcoming : all.slice(0, 6));
+        /* prefer programs tagged for Blueprint Immersion; fall back to upcoming */
+        const bp = all.filter((p) => p.is_blueprint_immersion);
+        if (bp.length > 0) {
+          setPrograms(bp);
+        } else {
+          const upcoming = all.filter((p) => p.is_upcoming);
+          setPrograms(upcoming.length > 0 ? upcoming : all.slice(0, 6));
+        }
       })
       .catch(() => {});
     axios.get(`${API}/upcoming-card-quotes?visible_only=true`)

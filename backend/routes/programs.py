@@ -83,6 +83,7 @@ async def fetch_programs_with_deadline_sync(
     db_ref,
     visible_only: Optional[bool] = None,
     upcoming_only: Optional[bool] = None,
+    blueprint_only: Optional[bool] = None,
 ) -> List[Program]:
     """Load programs from Mongo, apply the same deadline auto-close as the public API, optionally persist."""
     query = {}
@@ -90,6 +91,8 @@ async def fetch_programs_with_deadline_sync(
         query["visible"] = True
     if upcoming_only:
         query["is_upcoming"] = True
+    if blueprint_only:
+        query["is_blueprint_immersion"] = True
     raw_list = await db_ref.programs.find(query).sort("order", 1).to_list(100)
     now = datetime.now(timezone.utc)
     result: List[Program] = []
@@ -113,8 +116,8 @@ async def fetch_programs_with_deadline_sync(
 
 
 @router.get("", response_model=List[Program])
-async def get_programs(visible_only: Optional[bool] = None, upcoming_only: Optional[bool] = None):
-    return await fetch_programs_with_deadline_sync(db, visible_only, upcoming_only)
+async def get_programs(visible_only: Optional[bool] = None, upcoming_only: Optional[bool] = None, blueprint_only: Optional[bool] = None):
+    return await fetch_programs_with_deadline_sync(db, visible_only, upcoming_only, blueprint_only)
 
 @router.get("/{program_id}", response_model=Program)
 async def get_program(program_id: str):

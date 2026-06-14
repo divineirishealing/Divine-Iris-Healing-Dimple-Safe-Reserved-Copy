@@ -46,6 +46,7 @@ import BankTransactionsTab from './tabs/BankTransactionsTab';
 import ReceiptTemplateTab from './tabs/ReceiptTemplateTab';
 import PricingHubTab from './tabs/PricingHubTab';
 import UpcomingHubTab from './tabs/UpcomingHubTab';
+import BlueprintProgramsTab from './tabs/BlueprintProgramsTab';
 import UpcomingCardQuotesTab from './tabs/UpcomingCardQuotesTab';
 import InboxTab from './tabs/InboxTab';
 import ClientsTab from './tabs/ClientsTab';
@@ -389,6 +390,7 @@ const AdminPanel = () => {
     ]},
     { label: 'Programs & Offers', icon: Package, tabs: [
       { key: 'programs', label: 'Programs', icon: Package },
+      { key: 'blueprint_programs', label: 'Blueprint Immersion', icon: Sparkles },
       { key: 'pricing_hub', label: 'Pricing Hub', icon: DollarSign },
       { key: 'upcoming_hub', label: 'Upcoming Hub', icon: Calendar },
       { key: 'upcoming_card_quotes', label: 'Upcoming Card Quotes', icon: Sparkles },
@@ -679,6 +681,7 @@ const AdminPanel = () => {
           {activeTab === 'fraud_alerts' && <FraudAlertsTab />}
           {activeTab === 'receipt_template' && <ReceiptTemplateTab />}
           {activeTab === 'pricing_hub' && <PricingHubTab />}
+          {activeTab === 'blueprint_programs' && <BlueprintProgramsTab />}
           {activeTab === 'upcoming_hub' && <UpcomingHubTab />}
           {activeTab === 'upcoming_card_quotes' && <UpcomingCardQuotesTab programs={programs} />}
           {activeTab === 'text_testimonials' && <TextTestimonialsTab />}
