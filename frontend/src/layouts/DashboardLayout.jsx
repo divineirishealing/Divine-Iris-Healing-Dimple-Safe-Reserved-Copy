@@ -61,6 +61,8 @@ const DashboardLayout = () => {
     [dv]
   );
   const location = useLocation();
+  const hideAnnualRenewalBannerOnHomeComingPage =
+    location.pathname === '/dashboard/home-coming-package';
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bgVideo, setBgVideo] = useState('');
   const [sacredHomeCheckDone, setSacredHomeCheckDone] = useState(false);
@@ -394,7 +396,9 @@ const DashboardLayout = () => {
       {/* ═══ MAIN CONTENT ═══ */}
       <main className={cn('relative z-20 min-h-screen', user?.impersonating && 'pt-[52px]')}>
         <div className="p-4 md:p-8 pb-24 md:pb-28">
-          {annualRenewalReminder && typeof annualRenewalReminder.message === 'string' && (
+          {annualRenewalReminder &&
+            typeof annualRenewalReminder.message === 'string' &&
+            !hideAnnualRenewalBannerOnHomeComingPage && (
             <div
               role="status"
               data-testid="annual-renewal-reminder"
