@@ -9,6 +9,7 @@ import AllSessionsPage from './pages/AllSessionsPage';
 import CheckoutPage from './pages/CheckoutPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import PaymentCancelPage from './pages/PaymentCancelPage';
+import PaymentRequestPage from './pages/PaymentRequestPage';
 import ContactPage from './pages/ContactPage';
 import ServicesPage from './pages/ServicesPage';
 import MediaPage from './pages/MediaPage';
@@ -118,6 +119,8 @@ const AppContent = () => {
       <Route path="/cart" element={<CartPage />} />
       <Route path="/cart/checkout" element={<CartCheckoutPage />} />
       <Route path="/payment/success" element={<PaymentSuccessPage />} />
+      <Route path="/pay/:id" element={<PaymentRequestPage />} />
+      <Route path="/pay/:id/success" element={<PaymentRequestPage />} />
       <Route path="/payment/cancel" element={<PaymentCancelPage />} />
       <Route path="/india-payment/:enrollmentId" element={<IndiaPaymentPage />} />
       <Route path="/manual-payment/:enrollmentId" element={<ManualPaymentPage />} />

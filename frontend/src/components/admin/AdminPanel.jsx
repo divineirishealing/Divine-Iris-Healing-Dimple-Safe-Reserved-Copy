@@ -66,6 +66,7 @@ import AnnualPortalClientsTab from './tabs/AnnualPortalClientsTab';
 import ClientFinancesTab from './tabs/ClientFinancesTab';
 import DashboardAccessTab from './tabs/DashboardAccessTab';
 import RazorpayAdminCheckoutTab from './tabs/RazorpayAdminCheckoutTab';
+import PaymentRequestsTab from './tabs/PaymentRequestsTab';
 
 const API = getApiUrl();
 
@@ -404,6 +405,7 @@ const AdminPanel = () => {
     ]},
     { label: 'Transactions', icon: CreditCard, tabs: [
       { key: 'revenue', label: 'Revenue Analytics', icon: TrendingUp },
+      { key: 'payment_requests', label: 'Payment Links', icon: Link2 },
       { key: 'enrollments', label: 'Enrollments', icon: Users },
       { key: 'razorpay_admin_checkout', label: 'Razorpay (admin)', icon: IndianRupee },
       { key: 'payment_settings', label: 'Indian Payment', icon: Tag },
@@ -558,6 +560,7 @@ const AdminPanel = () => {
             activeTab === 'client_finances' ||
             activeTab === 'enrollments' ||
             activeTab === 'revenue' ||
+            activeTab === 'payment_requests' ||
             activeTab === 'annual_portal_clients' ||
             activeTab === 'clients' ||
             activeTab === 'journey_insights'
@@ -682,6 +685,7 @@ const AdminPanel = () => {
           {activeTab === 'receipt_template' && <ReceiptTemplateTab />}
           {activeTab === 'pricing_hub' && <PricingHubTab />}
           {activeTab === 'blueprint_programs' && <BlueprintProgramsTab />}
+          {activeTab === 'payment_requests' && <PaymentRequestsTab />}
           {activeTab === 'upcoming_hub' && <UpcomingHubTab />}
           {activeTab === 'upcoming_card_quotes' && <UpcomingCardQuotesTab programs={programs} />}
           {activeTab === 'text_testimonials' && <TextTestimonialsTab />}
