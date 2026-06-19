@@ -784,6 +784,33 @@ const HomepageSectionsTab = ({ settings, onChange }) => {
             </div>
             )}
 
+            {/* Testimonials display mode — switch between videos and before/after */}
+            {sec.id === 'testimonials' && (
+              <div className="mt-2 bg-purple-50 rounded-lg p-2.5 border border-purple-200">
+                <p className="text-[9px] font-bold text-purple-700 uppercase tracking-wider mb-1.5">Display Mode</p>
+                <p className="text-[8px] text-purple-500 mb-2">Choose what to show in the Transformations section.</p>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'videos',          label: '▶ Video carousel' },
+                    { value: 'transformations', label: '✦ Before / After cards' },
+                    { value: 'all',             label: '◈ Both' },
+                  ].map(opt => (
+                    <label key={opt.value} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] cursor-pointer transition-colors ${(sec.display_mode || 'videos') === opt.value ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-600 border-gray-200 hover:border-purple-400'}`}>
+                      <input
+                        type="radio"
+                        name={`display_mode_${idx}`}
+                        value={opt.value}
+                        checked={(sec.display_mode || 'videos') === opt.value}
+                        onChange={() => updateSection(idx, 'display_mode', opt.value)}
+                        className="sr-only"
+                      />
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* FOMO Rotating Subtitles — for Upcoming Programs section */}
             {sec.id === 'upcoming' && (
               <div className="mt-2 bg-amber-50 rounded-lg p-2.5 border border-amber-200" data-testid="fomo-subtitles-editor">
