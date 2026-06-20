@@ -845,14 +845,25 @@ function ProgramDetailPage() {
                     {!registrationClosed ? (
                       <div className="flex gap-3 justify-center mb-6">
                         {program.duration_tiers.map((tier, tIdx) => (
-                          <span key={tIdx} className="px-4 py-2 border border-gray-200 rounded-full text-sm text-gray-600">{tier.label}</span>
+                          <button
+                            key={tIdx}
+                            type="button"
+                            onClick={() => setHeroTierIdx(tIdx)}
+                            className="px-4 py-2 border rounded-full text-sm transition-all duration-200"
+                            style={heroTierIdx === tIdx
+                              ? { background: heroAccent, color: '#fff', borderColor: heroAccent, fontWeight: 600 }
+                              : { background: '#fff', color: '#444', borderColor: '#d1d5db' }
+                            }
+                          >
+                            {tier.label}
+                          </button>
                         ))}
                       </div>
                     ) : null}
                     {detailEnrollStatus === 'open' ? (
                       <button
                         data-testid="enroll-btn-no-price"
-                        onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery()}`)}
+                        onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery(heroTierIdx)}`)}
                         className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90"
                         style={{ background: heroAccent }}
                       >
