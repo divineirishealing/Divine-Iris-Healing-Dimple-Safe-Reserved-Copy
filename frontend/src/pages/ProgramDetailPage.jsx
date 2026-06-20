@@ -840,7 +840,7 @@ function ProgramDetailPage() {
                     })}
                   </div>
                 ) : (
-                  /* Pricing invisible — tier labels only when enrollment still open but prices hidden in admin */
+                  /* Pricing invisible — show tier labels + Enroll/Interest based on status */
                   <div className="text-center">
                     {!registrationClosed ? (
                       <div className="flex gap-3 justify-center mb-6">
@@ -849,7 +849,18 @@ function ProgramDetailPage() {
                         ))}
                       </div>
                     ) : null}
-                    <ExpressInterestInline programId={program.id} programTitle={program.title} accent={heroAccent} />
+                    {detailEnrollStatus === 'open' ? (
+                      <button
+                        data-testid="enroll-btn-no-price"
+                        onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery()}`)}
+                        className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90"
+                        style={{ background: heroAccent }}
+                      >
+                        Book Now
+                      </button>
+                    ) : (
+                      <ExpressInterestInline programId={program.id} programTitle={program.title} accent={heroAccent} />
+                    )}
                   </div>
                 )}
               </div>
@@ -883,9 +894,20 @@ function ProgramDetailPage() {
               {(() => {
                 const hasTiers = program.duration_tiers?.length > 0;
 
-                // No purchase pricing on page (admin off, or enrollment closed, etc.) → Express Your Interest
-                // Avoid duplicate: if tiers block already renders the Express Interest widget, skip here
+                // No purchase pricing on page — still show Enroll Now if enrollment is open
                 if (!showHeroPrice) {
+                  if (detailEnrollStatus === 'open') {
+                    return hasTiers ? null : ( // tiers block above already shows the button
+                      <button
+                        data-testid="enroll-btn-no-price-solo"
+                        onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery()}`)}
+                        className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90"
+                        style={{ background: heroAccent }}
+                      >
+                        Book Now
+                      </button>
+                    );
+                  }
                   return hasTiers ? null : <ExpressInterestInline programId={program.id} programTitle={program.title} accent={heroAccent} />;
                 }
 
