@@ -108,8 +108,9 @@ Our program does the heavy lifting at the energetic, subconscious and soul level
 ];
 
 // Identifies which program IDs have pre-built document drafts
-const SEEDED_PROGRAM_IDS = {
-  'fee1a9ee-fe0c-48fd-8593-834a77418a3': SOULSYNC_DRAFT,
+// (kept as a map so more docs can be added later)
+const SEEDED_DRAFTS = {
+  soulsync: SOULSYNC_DRAFT,
 };
 
 // ---------------------------------------------------------------------------
@@ -121,7 +122,6 @@ export default function DraftContentPanel({ editingId, programForm, setProgramFo
   const [publishing, setPublishing] = useState(false);
 
   const draft = programForm.draft_content_sections || [];
-  const hasSeed = !!SEEDED_PROGRAM_IDS[editingId];
   const hasDraft = draft.length > 0;
 
   const secTemplate = siteSettings?.program_section_template || [];
@@ -152,10 +152,9 @@ export default function DraftContentPanel({ editingId, programForm, setProgramFo
   };
 
   const importFromDoc = () => {
-    const seed = SEEDED_PROGRAM_IDS[editingId];
-    if (!seed) return;
+    const seed = SEEDED_DRAFTS.soulsync;
     setProgramForm(f => ({ ...f, draft_content_sections: JSON.parse(JSON.stringify(seed)) }));
-    toast({ title: 'Document content imported into draft', description: 'Review and edit, then Save Draft.' });
+    toast({ title: 'Document content imported into draft', description: 'Review and edit below, then Save Draft.' });
   };
 
   const saveDraft = async () => {
@@ -232,31 +231,27 @@ export default function DraftContentPanel({ editingId, programForm, setProgramFo
             </p>
           </div>
 
-          {/* Import button for seeded programs */}
-          {hasSeed && (
-            <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <Upload size={14} className="text-blue-500 shrink-0" />
-              <div className="flex-1">
-                <p className="text-[11px] font-semibold text-blue-700">Content available from document</p>
-                <p className="text-[10px] text-blue-500">SoulSync_Neuro_Harmonics_Program.docx — pre-structured and ready to import</p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                onClick={importFromDoc}
-                className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white shrink-0"
-              >
-                Import from Doc
-              </Button>
+          {/* Import button — always visible */}
+          <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <Upload size={14} className="text-blue-500 shrink-0" />
+            <div className="flex-1">
+              <p className="text-[11px] font-semibold text-blue-700">Import from document</p>
+              <p className="text-[10px] text-blue-500">SoulSync_Neuro_Harmonics_Program.docx — pre-structured and ready to import</p>
             </div>
-          )}
+            <Button
+              type="button"
+              size="sm"
+              onClick={importFromDoc}
+              className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+            >
+              Import from Doc
+            </Button>
+          </div>
 
           {/* Section editors */}
           {sectionsToEdit.length === 0 && (
             <p className="text-xs text-gray-400 text-center py-4 border border-dashed rounded">
-              {hasSeed
-                ? 'Click "Import from Doc" to pre-fill from the document, or add sections manually.'
-                : 'No sections yet. Import content or add from the section template.'}
+              Click "Import from Doc" to pre-fill from the document, or start typing in the sections below.
             </p>
           )}
 
