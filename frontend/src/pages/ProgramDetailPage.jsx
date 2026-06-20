@@ -262,8 +262,12 @@ function ProgramDetailPage() {
 
   const sections = (() => {
     if (sectionTemplate.length > 0) {
-      // Template-driven: merge template structure with per-program content
-      return sectionTemplate
+      const templateIds = new Set(sectionTemplate.map(t => t.id));
+      const templateTypes = new Set(sectionTemplate.map(t => t.section_type));
+
+      // Template-driven: merge template structure with per-program content.
+      // Use null-check (not falsy) so an explicit empty string suppresses the template default.
+      const templateSections = sectionTemplate
         .filter(t => t.is_enabled !== false)
         .sort((a, b) => (a.order || 0) - (b.order || 0))
         .map(tpl => {
@@ -271,8 +275,8 @@ function ProgramDetailPage() {
           return {
             id: tpl.id,
             section_type: tpl.section_type,
-            title: match.title || tpl.default_title || '',
-            subtitle: match.subtitle || tpl.default_subtitle || '',
+            title:    (match.title    != null) ? match.title    : (tpl.default_title    || ''),
+            subtitle: (match.subtitle != null) ? match.subtitle : (tpl.default_subtitle || ''),
             body: match.body || '',
             image_url: match.image_url || '',
             image_fit: match.image_fit || 'contain',
@@ -281,6 +285,13 @@ function ProgramDetailPage() {
             order: tpl.order,
           };
         });
+
+      // Include any extra custom sections from content_sections not covered by the template
+      const extraSections = programSections
+        .filter(s => s.is_enabled !== false && !templateIds.has(s.id) && !templateTypes.has(s.section_type))
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+      return [...templateSections, ...extraSections].sort((a, b) => (a.order || 0) - (b.order || 0));
     }
     // Fallback: use program's own sections or defaults
     return (programSections.length > 0)
@@ -375,8 +386,7 @@ function ProgramDetailPage() {
       return (
         <section key={section.id || idx} data-testid={`section-${idx}`} className={`${SECTION_PY} bg-[#f8f8f8]`}>
           <div className={CONTAINER}><div className={NARROW}>
-            <SectionTitle style={section.title_style}>{section.title || 'Who It Is For?'}</SectionTitle>
-            <GoldLine />
+            {section.title && <><SectionTitle style={section.title_style}>{section.title}</SectionTitle><GoldLine /></>}
             {section.subtitle && <SubtitleText style={section.subtitle_style}>{section.subtitle}</SubtitleText>}
             {lines.length > 0 && (
               <div className="grid md:grid-cols-2 gap-x-16 gap-y-5 max-w-3xl mx-auto">
@@ -399,10 +409,14 @@ function ProgramDetailPage() {
       return (
         <section key={section.id || idx} data-testid={`section-${idx}`} className={SECTION_PY} style={{ background: '#1a1a1a' }}>
           <div className={CONTAINER}><div className={WIDE}>
-            <h2 className="text-center mb-4" style={applyStyle(template.exp_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>
-              {section.title || 'Your Experience'}
-            </h2>
-            <GoldLine type="exp" />
+            {section.title && (
+              <>
+                <h2 className="text-center mb-4" style={applyStyle(template.exp_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>
+                  {section.title}
+                </h2>
+                <GoldLine type="exp" />
+              </>
+            )}
             {section.subtitle && <p className="text-center mb-8" style={applyStyle(template.exp_subtitle_style, { ...SUBTITLE, color: '#ccc' })}>{section.subtitle}</p>}
             <div className="grid md:grid-cols-12 gap-12 items-center">
               <div className="md:col-span-5 overflow-hidden rounded-md">
