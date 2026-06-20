@@ -369,6 +369,9 @@ function ProgramDetailPage() {
   const renderSection = (section, idx) => {
     const sType = section.section_type || 'custom';
 
+    // Skip sections with no content at all — avoids empty padded blocks
+    if (!section.title && !section.subtitle && !section.body && !section.image_url) return null;
+
     if (sType === 'journey' || (sType === 'custom' && !section.image_url)) {
       return (
         <section key={section.id || idx} data-testid={`section-${idx}`} className={`${SECTION_PY} bg-white`}>
