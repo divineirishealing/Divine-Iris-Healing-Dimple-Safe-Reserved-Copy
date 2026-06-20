@@ -91,6 +91,16 @@ This program is also designed for the families, caregivers and loved ones who ho
     section_type: 'experience',
     title: '',
     subtitle: '',
+    body: `"What if the answers to your most complex neurological challenges were not found in a prescription bottle, but encoded within the deepest layers of your own soul, your DNA, and the quantum field that surrounds every cell of your being?"`,
+    image_url: '',
+    is_enabled: true,
+    order: 2,
+  },
+  {
+    id: 'why_now',
+    section_type: 'why_now',
+    title: '',
+    subtitle: '',
     body: `**The Healing Modalities — A Multi-Dimensional Approach**
 
 What makes SoulSync Neuro∞Harmonics truly extraordinary is the depth and breadth of healing wisdom it draws upon. Each modality has been carefully chosen for its ability to work at a specific layer of the human system, creating a wholistic, synergistic healing effect that no single modality can achieve alone.
@@ -111,17 +121,9 @@ Theta Healing accesses the theta brainwave state — the bridge between the cons
 Some neurological patterns have roots that extend beyond this lifetime. As a certified Past Life Regression Therapist, our practitioner works to identify and resolve karmic imprints, soul-level contracts and unresolved experiences from previous lifetimes that may be contributing to present-day neurological challenges. This is gentle, compassionate, deeply transformative work.
 
 **6. Akashic Records Reading & Healing**
-The Akashic Records are the energetic archive of every soul's journey — past, present and potential futures. By accessing a client's Akashic Records, we can understand the soul's blueprint, identify the deeper purpose behind a neurological challenge, and clear energetic blocks that have accumulated across lifetimes. This is healing with context, compassion and cosmic clarity.`,
-    image_url: '',
-    is_enabled: true,
-    order: 2,
-  },
-  {
-    id: 'why_now',
-    section_type: 'why_now',
-    title: '',
-    subtitle: '',
-    body: `**How The Program Works**
+The Akashic Records are the energetic archive of every soul's journey — past, present and potential futures. By accessing a client's Akashic Records, we can understand the soul's blueprint, identify the deeper purpose behind a neurological challenge, and clear energetic blocks that have accumulated across lifetimes. This is healing with context, compassion and cosmic clarity.
+
+**How The Program Works**
 
 SoulSync Neuro∞Harmonics is delivered as an intimate online group healing program, available in two formats to suit different needs and timelines:
 
