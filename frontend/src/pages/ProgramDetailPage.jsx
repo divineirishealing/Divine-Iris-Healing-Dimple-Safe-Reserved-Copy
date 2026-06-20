@@ -366,11 +366,124 @@ function ProgramDetailPage() {
     <p className={`whitespace-pre-wrap ${cls}`} style={applyStyle(extra || template.body_style, { ...BODY })} dangerouslySetInnerHTML={{ __html: renderMarkdown(children || '') }} />
   );
 
+  /**
+   * DocumentBody — renders freeform body text with document-like typography.
+   * Supports:
+   *   **Heading**           → centred gold heading + gold rule (standalone paragraph)
+   *   **Sub-heading**       → bold dark inline heading (line within a paragraph)
+   *   ✦ / • / - line       → gold bullet
+   *   "quote" / *quote*    → centred italic quote block
+   *   plain text           → justified body paragraph
+   */
+  const DocumentBody = ({ body }) => {
+    if (!body) return null;
+    const paragraphs = body.split(/\n{2,}/);
+    const nodes = [];
+
+    paragraphs.forEach((para, pi) => {
+      const trimmed = para.trim();
+      if (!trimmed) return;
+
+      // Standalone **Heading** paragraph
+      const headingFull = trimmed.match(/^\*\*(.+)\*\*$/s);
+      if (headingFull) {
+        nodes.push(
+          <div key={`h-${pi}`} className="text-center mt-10 mb-2">
+            <h2 style={{ ...HEADING, color: heroAccent, fontSize: '1.45rem', letterSpacing: '0.04em' }}>
+              {headingFull[1]}
+            </h2>
+            <div className="w-10 h-0.5 mx-auto mt-3" style={{ background: heroAccent }} />
+          </div>
+        );
+        return;
+      }
+
+      // Centred italic quote: *text* spanning whole paragraph
+      const italicFull = trimmed.match(/^\*([^*].+[^*])\*$/s);
+      if (italicFull) {
+        nodes.push(
+          <p key={`q-${pi}`} className="text-center italic my-6 px-6 md:px-16"
+            style={{ ...BODY, fontSize: '1.05rem', color: '#555', lineHeight: 1.8 }}>
+            {italicFull[1]}
+          </p>
+        );
+        return;
+      }
+
+      // "quoted string" paragraph
+      if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+        nodes.push(
+          <p key={`dq-${pi}`} className="text-center italic my-6 px-6 md:px-16"
+            style={{ ...BODY, fontSize: '1.05rem', color: '#555', lineHeight: 1.8 }}>
+            {trimmed}
+          </p>
+        );
+        return;
+      }
+
+      // Mixed paragraph: split by lines
+      const lines = trimmed.split('\n');
+      const lineNodes = [];
+      lines.forEach((line, li) => {
+        const t = line.trim();
+        if (!t) { lineNodes.push(<div key={`sp-${li}`} className="h-1" />); return; }
+
+        // Inline **Sub-heading** line
+        const subH = t.match(/^\*\*(.+)\*\*$/);
+        if (subH) {
+          lineNodes.push(
+            <p key={`sh-${li}`} className="mt-5 mb-1"
+              style={{ ...HEADING, fontSize: '0.95rem', fontWeight: '700', color: '#1a1a1a', letterSpacing: '0.03em' }}>
+              {subH[1]}
+            </p>
+          );
+          return;
+        }
+
+        // Bullet line
+        if (/^[✦•\-]/.test(t)) {
+          const content = t.replace(/^[✦•\-]\s*/, '');
+          lineNodes.push(
+            <div key={`bl-${li}`} className="flex items-start gap-3 ml-2">
+              <span className="mt-0.5 flex-shrink-0 text-sm" style={{ color: heroAccent }}>✦</span>
+              <p style={{ ...BODY }} dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />
+            </div>
+          );
+          return;
+        }
+
+        // Plain line
+        lineNodes.push(
+          <p key={`pl-${li}`} className="text-justify leading-relaxed"
+            style={{ ...BODY }}
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(t) }} />
+        );
+      });
+
+      nodes.push(<div key={`p-${pi}`} className="space-y-1.5">{lineNodes}</div>);
+    });
+
+    return <div className="space-y-4">{nodes}</div>;
+  };
+
   const renderSection = (section, idx) => {
     const sType = section.section_type || 'custom';
 
     // Skip sections with no content at all — avoids empty padded blocks
     if (!section.title && !section.subtitle && !section.body && !section.image_url) return null;
+
+    // Document-mode section: rich typographic rendering, no coloured backgrounds
+    if (sType === 'document') {
+      return (
+        <section key={section.id || idx} data-testid={`section-${idx}`} className={`${SECTION_PY} bg-white`}>
+          <div className={CONTAINER}>
+            <div className={NARROW}>
+              <DocumentBody body={section.body} />
+            </div>
+          </div>
+        </section>
+      );
+    }
 
     if (sType === 'journey' || (sType === 'custom' && !section.image_url)) {
       return (

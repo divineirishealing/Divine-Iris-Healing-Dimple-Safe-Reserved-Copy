@@ -13,17 +13,41 @@ const API = getApiUrl();
 // ---------------------------------------------------------------------------
 // Pre-built content from SoulSync_Neuro_Harmonics_Program.docx
 //
-// Layout: white intro section → dark section with image → white body section
+// Layout produced on the live page:
+//   1. doc_intro  (document type, white, order -1) — flows before template sections
+//   2. journey / who_for / why_now → all blank → skipped (no gap rendered)
+//   3. experience  (dark section, order 2)  — your photo + quote
+//   4. doc_body   (document type, white, order 4) — all remaining doc content
 //
-// • journey   (white)  — everything up to and including "Who Is This Program For?"
-// • who_for   (empty)  — intentionally blank so it is skipped (no gap rendered)
-// • experience (dark)  — The Healing Modalities (keep image placeholder)
-// • why_now   (white)  — all remaining document content in one flowing block
+// The "document" section type uses rich typographic rendering:
+//   **Heading**  → centred gold heading + gold rule
+//   **Sub**      → inline bold dark sub-heading
+//   ✦ line       → gold bullet
+//   *quote*      → centred italic quote
+//   plain text   → justified body
 // ---------------------------------------------------------------------------
 const SOULSYNC_DRAFT = [
+  // ── Blank template placeholders (all skipped by the empty-section guard) ──
+  { id: 'journey',  section_type: 'journey',  title: '', subtitle: '', body: '', image_url: '', is_enabled: true, order: 0 },
+  { id: 'who_for',  section_type: 'who_for',  title: '', subtitle: '', body: '', image_url: '', is_enabled: true, order: 1 },
+  { id: 'why_now',  section_type: 'why_now',  title: '', subtitle: '', body: '', image_url: '', is_enabled: true, order: 3 },
+
+  // ── Dark section: your photo + opening quote ──
   {
-    id: 'journey',
-    section_type: 'journey',
+    id: 'experience',
+    section_type: 'experience',
+    title: '',
+    subtitle: '',
+    body: `"What if the answers to your most complex neurological challenges were not found in a prescription bottle, but encoded within the deepest layers of your own soul, your DNA, and the quantum field that surrounds every cell of your being?"`,
+    image_url: '',
+    is_enabled: true,
+    order: 2,
+  },
+
+  // ── Document section BEFORE the dark block ──
+  {
+    id: 'doc_intro',
+    section_type: 'document',
     title: '',
     subtitle: '',
     body: `At Divine Iris Healing, we believe that neurological conditions — whether Parkinson's, Autism, ADHD, Dementia, or any other neuro-divergent expression — are not life sentences. They are invitations. Invitations to heal at a level so deep, so fundamental, that modern medicine has yet to fully map it.
@@ -73,32 +97,13 @@ SoulSync Neuro∞Harmonics is designed for individuals and families navigating a
 This program is also designed for the families, caregivers and loved ones who hold the space — because when a caregiver is depleted, healing slows. SoulSync Neuro∞Harmonics lightens the load for everyone in the healing journey.`,
     image_url: '',
     is_enabled: true,
-    order: 0,
+    order: -1,
   },
+
+  // ── Document section AFTER the dark block ──
   {
-    // Intentionally empty — skipped by the page renderer, no visual gap
-    id: 'who_for',
-    section_type: 'who_for',
-    title: '',
-    subtitle: '',
-    body: '',
-    image_url: '',
-    is_enabled: true,
-    order: 1,
-  },
-  {
-    id: 'experience',
-    section_type: 'experience',
-    title: '',
-    subtitle: '',
-    body: `"What if the answers to your most complex neurological challenges were not found in a prescription bottle, but encoded within the deepest layers of your own soul, your DNA, and the quantum field that surrounds every cell of your being?"`,
-    image_url: '',
-    is_enabled: true,
-    order: 2,
-  },
-  {
-    id: 'why_now',
-    section_type: 'why_now',
+    id: 'doc_body',
+    section_type: 'document',
     title: '',
     subtitle: '',
     body: `**The Healing Modalities — A Multi-Dimensional Approach**
@@ -133,7 +138,7 @@ Designed for those seeking rapid stabilisation and a powerful initial shift.
 ✦ Targeted healing across the atomic, DNA, theta and quantum layers
 ✦ Community support and shared healing field amplification
 ✦ Recording access for all sessions
-Ideal for: Initial assessment, crisis stabilisation, caregivers seeking relief
+*Ideal for: Initial assessment, crisis stabilisation, caregivers seeking relief*
 
 **The 3-Month Transformation**
 Designed for deep, lasting, multi-layered neurological transformation.
@@ -141,25 +146,23 @@ Designed for deep, lasting, multi-layered neurological transformation.
 ✦ Past Life Regression and Akashic Records work included
 ✦ Sustained community healing field — the group energy amplifies individual results
 ✦ Direct messaging support between sessions
-Ideal for: Long-term conditions, complex cases, families seeking sustained improvement
+*Ideal for: Long-term conditions, complex cases, families seeking sustained improvement*
 
 The group healing format is intentional and powerful. When individuals heal together, the collective field creates an amplification effect — each participant's healing accelerates the healing of others. Families often join together, and the shared experience becomes its own medicine.
 
 **Why SoulSync Neuro∞Harmonics Is Unlike Anything Else**
 
-One of the most overlooked aspects of neurological care is the immense burden it places on caregivers — parents of autistic children running from therapy to therapy, spouses managing a partner's Parkinson's alone, adult children watching a parent disappear into dementia. The conventional model of neurological care is exhausting for everyone involved.
+One of the most overlooked aspects of neurological care is the immense burden it places on caregivers. SoulSync Neuro∞Harmonics was built with a radical belief: healing should not add to the exhaustion. It should relieve it.
 
-SoulSync Neuro∞Harmonics was built with a radical belief: healing should not add to the exhaustion. It should relieve it.
-
-Our program does the heavy lifting at the energetic, subconscious and soul level — so that clients and caregivers do not have to fight, force or push. The healing works through them, not just for them. We create the conditions for transformation to unfold naturally — so that progress is experienced as ease, not effort.
+Our program does the heavy lifting at the energetic, subconscious and soul level — so that clients and caregivers do not have to fight, force or push. The healing works through them, not just for them.
 
 *"The greatest gift we give our clients is this: they do not have to try harder. They simply have to be present. The healing finds them."*
 
 ✦ **Root cause, not symptom management** — we work at the atomic, genetic and soul level
 ✦ **No medication, no procedures** — completely natural, non-invasive and safe for all ages
-✦ **Caregiver relief is built in** — the program intentionally reduces the burden on those who care
-✦ **Effortless healing model** — clients do not need to push or perform; the healing field does the work
-✦ **Multi-dimensional approach** — six powerful modalities working in concert, not in isolation
+✦ **Caregiver relief is built in** — reduces the burden on those who care
+✦ **Effortless healing model** — clients do not need to push or perform
+✦ **Multi-dimensional approach** — six powerful modalities working in concert
 ✦ **Online group format** — accessible from Dubai, India, or anywhere in the world
 ✦ **Amplified by collective healing** — group energy accelerates individual results
 ✦ **Soul-level precision** — Akashic and Past Life work provides context no medical scan can offer
@@ -200,7 +203,7 @@ These are not isolated incidents. They are the consistent, recurring outcomes of
 
 The SoulSync Neuro∞Harmonics program is led by the founder of Divine Iris Healing — a certified Quantum Healer, Theta Healer, Past Life Regression Therapist and Akashic Records Reader with a deep commitment to making profound healing accessible to every family, in every corner of the world.
 
-With training across multiple healing disciplines and years of experience working with complex neurological cases, our founder brings both the technical precision of a trained healer and the compassionate presence of someone who understands — truly understands — what families navigating these journeys carry.
+With training across multiple healing disciplines and years of experience working with complex neurological cases, our founder brings both the technical precision of a trained healer and the compassionate presence of someone who truly understands what families navigating these journeys carry.
 
 *"I created SoulSync Neuro∞Harmonics because I witnessed what was possible when we stopped trying to manage conditions and started healing them at their root. The results I have seen have changed my understanding of what healing is capable of — and I want every family to know that this possibility exists for them."*
 
@@ -219,125 +222,10 @@ Who Can Join:
 ✦ Individuals with any neurological or neurodevelopmental condition
 ✦ Parents and caregivers joining alongside or on behalf of a loved one
 ✦ Families seeking a different path — natural, holistic and profound
-✦ Anyone who has tried conventional approaches and is ready for something deeper
-
-**Ready to Begin?**
-
-Your healing journey — and your family's relief — begins with one conversation. WhatsApp us today to learn which program is right for you.`,
+✦ Anyone who has tried conventional approaches and is ready for something deeper`,
     image_url: '',
     is_enabled: true,
-    order: 3,
-  },
-];
-  {
-    id: 'journey',
-    section_type: 'journey',
-    title: '',
-    subtitle: '',
-    body: `At Divine Iris Healing, we believe that neurological conditions — whether Parkinson's, Autism, ADHD, Dementia, or any other neuro-divergent expression — are not life sentences. They are invitations. Invitations to heal at a level so deep, so fundamental, that modern medicine has yet to fully map it.
-
-SoulSync Neuro∞Harmonics is our flagship group healing program, born from years of dedicated practice, profound client transformations, and an unwavering belief that every human being — regardless of diagnosis — carries within them an infinite capacity to heal.
-
-**What Is SoulSync Neuro∞Harmonics?**
-
-SoulSync Neuro∞Harmonics is a first-of-its-kind, multi-dimensional healing program that works simultaneously at the atomic, cellular, genetic, subconscious, and soul levels to restore neurological harmony — naturally, gently, and profoundly.
-
-Unlike conventional approaches that manage symptoms, SoulSync Neuro∞Harmonics seeks and resolves the root cause — whether it lives in this lifetime, in ancestral memory, in your DNA, or in the energetic blueprint of your soul.
-
-This is not a program that asks you to fight your condition. It is a program that dissolves the very foundation upon which the condition was built.
-
-SoulSync Neuro∞Harmonics meets every client — caregiver and care receiver alike — exactly where they are, and gently does the heavy lifting for them.`,
-    image_url: '',
-    is_enabled: true,
-    order: 0,
-  },
-  {
-    id: 'who_for',
-    section_type: 'who_for',
-    title: '',
-    subtitle: 'SoulSync Neuro∞Harmonics is designed for individuals and families navigating any neurological or neurodevelopmental challenge, including:',
-    body: `Autism Spectrum Disorder (ASD) — communication, sensory, social and behavioural support
-ADHD & ADD — focus, impulse regulation, emotional dysregulation
-Dyslexia & Dyspraxia — learning and coordination challenges
-Sensory Processing Disorder (SPD) — overwhelm from touch, sound, light and environment
-Parkinson's Disease — tremor reduction, motor control, emotional wellbeing
-Multiple Sclerosis (MS) — nervous system support and quality of life
-Essential Tremor — calming the nervous system at its root
-Dystonia & Tourette Syndrome
-Dementia — cognitive clarity, emotional calm, caregiver relief
-Alzheimer's Disease — memory support, presence, dignity
-Mild Cognitive Impairment (MCI) & Brain Fog
-Stroke Recovery — neurological regeneration and emotional resilience
-Traumatic Brain Injury (TBI)
-PTSD & Complex Trauma — releasing what the nervous system holds
-Anxiety & Panic Disorders — rooted in neurological dysregulation
-OCD — compulsive neurological loops addressed at their source
-Burnout & Chronic Fatigue Syndrome
-Fibromyalgia & Chronic Pain with neurological origin
-Families, caregivers and loved ones who hold the space`,
-    image_url: '',
-    is_enabled: true,
-    order: 1,
-  },
-  {
-    id: 'experience',
-    section_type: 'experience',
-    title: '',
-    subtitle: '',
-    body: `**The Healing Modalities — A Multi-Dimensional Approach**
-
-What makes SoulSync Neuro∞Harmonics truly extraordinary is the depth and breadth of healing wisdom it draws upon. Each modality has been carefully chosen for its ability to work at a specific layer of the human system, creating a wholistic, synergistic healing effect that no single modality can achieve alone.
-
-**1. Atomic Healing**
-Every physical condition has its deepest origin at the atomic and subatomic level, where energy precedes matter. Atomic Healing works directly at this quantum foundation, dissolving energetic distortions that manifest as neurological dysfunction.
-
-**2. DNA Healing**
-Our DNA carries not only our biological inheritance but also the emotional imprints and traumas passed down through generations. DNA Healing clears ancestral imprints, rewrites limiting genetic expressions, and activates the highest healing potential encoded within every strand.
-
-**3. Quantum Healing**
-Quantum Healing operates within the understanding that all possibilities exist simultaneously. We work with the field of infinite potential to support the nervous system's return to coherence, harmony and optimal function.
-
-**4. Theta Healing**
-Theta Healing accesses the theta brainwave state — the bridge between the conscious and subconscious mind. We identify and rewrite the core beliefs that keep neurological patterns locked in place, creating profound and lasting shifts.
-
-**5. Past Life Regression Therapy**
-Some neurological patterns have roots that extend beyond this lifetime. We work to identify and resolve karmic imprints, soul-level contracts and unresolved experiences from previous lifetimes contributing to present-day neurological challenges.
-
-**6. Akashic Records Reading & Healing**
-By accessing a client's Akashic Records, we understand the soul's blueprint, identify the deeper purpose behind a neurological challenge, and clear energetic blocks accumulated across lifetimes.`,
-    image_url: '',
-    is_enabled: true,
-    order: 2,
-  },
-  {
-    id: 'why_now',
-    section_type: 'why_now',
-    title: '',
-    subtitle: '',
-    body: `**How The Program Works**
-
-SoulSync Neuro∞Harmonics is delivered as an intimate online group healing program, available in two formats to suit different needs and timelines:
-
-**The 1-Month Intensive**
-Designed for those seeking rapid stabilisation and a powerful initial shift.
-✦ Weekly live group healing sessions with direct energy transmission
-✦ Targeted healing across the atomic, DNA, theta and quantum layers
-✦ Community support and shared healing field amplification
-✦ Recording access for all sessions
-Ideal for: Initial assessment, crisis stabilisation, caregivers seeking relief
-
-**The 3-Month Transformation**
-Designed for deep, lasting, multi-layered neurological transformation.
-✦ Progressive healing that builds momentum week by week
-✦ Past Life Regression and Akashic Records work included
-✦ Sustained community healing field — the group energy amplifies individual results
-✦ Direct messaging support between sessions
-Ideal for: Long-term conditions, complex cases, families seeking sustained improvement
-
-The group healing format is intentional and powerful. When individuals heal together, the collective field creates an amplification effect — each participant's healing accelerates the healing of others. Families often join together, and the shared experience becomes its own medicine.`,
-    image_url: '',
-    is_enabled: true,
-    order: 3,
+    order: 4,
   },
 ];
 
