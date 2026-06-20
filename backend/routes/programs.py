@@ -151,6 +151,28 @@ async def update_program(program_id: str, program: ProgramCreate):
     updated = await db.programs.find_one({"id": program_id})
     return Program(**updated)
 
+@router.patch("/{program_id}/draft-content")
+async def save_draft_content(program_id: str, data: dict):
+    """Save draft content sections without touching the live content_sections."""
+    existing = await db.programs.find_one({"id": program_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Program not found")
+    sections = data.get("draft_content_sections", [])
+    await db.programs.update_one({"id": program_id}, {"$set": {"draft_content_sections": sections}})
+    return {"message": "Draft saved", "draft_content_sections": sections}
+
+@router.post("/{program_id}/publish-draft")
+async def publish_draft_content(program_id: str):
+    """Copy draft_content_sections → content_sections (goes live on the website)."""
+    existing = await db.programs.find_one({"id": program_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Program not found")
+    draft = existing.get("draft_content_sections", [])
+    if not draft:
+        raise HTTPException(status_code=400, detail="No draft content to publish")
+    await db.programs.update_one({"id": program_id}, {"$set": {"content_sections": draft}})
+    return {"message": "Draft published to live", "content_sections": draft}
+
 @router.patch("/{program_id}/visibility")
 async def toggle_visibility(program_id: str, data: dict):
     existing = await db.programs.find_one({"id": program_id})

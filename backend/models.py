@@ -95,6 +95,7 @@ class Program(BaseModel):
     exclusive_offer_text: str = "Limited Time Offer"
     closure_text: str = "Registration Closed"
     content_sections: List[Dict] = []  # List of ContentSection dicts
+    draft_content_sections: List[Dict] = []  # staged draft — not shown on live site until published
     highlight_label: str = ""  # e.g. "Highly Recommended", "Most Awaited"
     highlight_style: str = "gradient"  # "gradient", "ribbon", "glow"
     show_whatsapp_link_2: bool = False
@@ -161,6 +162,7 @@ class ProgramCreate(BaseModel):
     exclusive_offer_text: Optional[str] = "Limited Time Offer"
     closure_text: Optional[str] = "Registration Closed"
     content_sections: Optional[List[Dict]] = []
+    draft_content_sections: Optional[List[Dict]] = []
     highlight_label: Optional[str] = ""
     highlight_style: Optional[str] = "gradient"
     show_whatsapp_link_2: Optional[bool] = False
