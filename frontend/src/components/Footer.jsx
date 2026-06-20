@@ -197,7 +197,11 @@ const Footer = () => {
     { key: 'tiktok', url: s.social_tiktok, show: s.show_tiktok === true },
     { key: 'apple_music', url: s.social_apple_music, show: s.show_apple_music === true },
     { key: 'soundcloud', url: s.social_soundcloud, show: s.show_soundcloud === true },
-  ].filter(l => l.show && l.url);
+  ].filter(l => l.show && l.url).map(l => ({
+    ...l,
+    // Ensure URL has a protocol — prevents browser treating it as a relative path
+    url: l.url && !l.url.match(/^https?:\/\//) ? `https://${l.url}` : l.url,
+  }));
 
   return (
     <>

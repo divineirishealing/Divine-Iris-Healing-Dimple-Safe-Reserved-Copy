@@ -88,7 +88,10 @@ const Header = () => {
     { key: 'linkedin', url: settings.social_linkedin, show: settings.show_linkedin !== false },
     { key: 'spotify', url: settings.social_spotify, show: settings.show_spotify === true },
     { key: 'pinterest', url: settings.social_pinterest, show: settings.show_pinterest === true },
-  ].filter(s => s.show && s.url) : [];
+  ].filter(s => s.show && s.url).map(s => ({
+    ...s,
+    url: s.url && !s.url.match(/^https?:\/\//) ? `https://${s.url}` : s.url,
+  })) : [];
 
   const DEFAULT_NAV = [
     { label: 'Home', href: '/', position: 'left', visible: true },

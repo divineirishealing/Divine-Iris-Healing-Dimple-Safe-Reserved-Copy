@@ -151,6 +151,16 @@ async def put_inr_whitelist_emails(body: InrWhitelistEmailsBody):
 @router.put("")
 async def update_settings(payload: Dict[str, Any]):
     """Accept raw JSON so inr_whitelist_emails is persisted whenever the key is present (axios/FastAPI/Pydantic can omit model_fields_set)."""
+    # Auto-prepend https:// to social URLs saved without a protocol
+    _SOCIAL_URL_KEYS = [
+        'social_facebook', 'social_instagram', 'social_youtube',
+        'social_linkedin', 'social_spotify', 'social_pinterest',
+        'social_tiktok', 'social_apple_music', 'social_soundcloud',
+    ]
+    for key in _SOCIAL_URL_KEYS:
+        val = payload.get(key)
+        if val and isinstance(val, str) and val.strip() and not val.strip().startswith(('http://', 'https://')):
+            payload[key] = f'https://{val.strip()}'
     try:
         settings = SiteSettingsUpdate.model_validate(payload)
     except Exception as e:
