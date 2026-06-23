@@ -21,6 +21,11 @@ import { formatDateDMonYyyyUpper } from '@/lib/utils';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const SITE_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
 
+function adminHeaders() {
+  const t = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_token') : '';
+  return t ? { 'X-Admin-Session': t } : {};
+}
+
 const CUR_SYMBOL  = { aed: 'AED ', usd: '$', inr: '₹', eur: '€', gbp: '£' };
 const CURRENCIES  = ['aed', 'inr', 'usd', 'eur', 'gbp'];
 const STATUS_META = {
@@ -314,7 +319,7 @@ export default function PaymentRequestsTab() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await axios.get(`${API}/payment-requests`);
+      const r = await axios.get(`${API}/payment-requests`, { headers: adminHeaders() });
       setRequests(Array.isArray(r.data) ? r.data : []);
     } catch {
       toast({ title: 'Failed to load payment requests', variant: 'destructive' });
@@ -446,13 +451,17 @@ export default function PaymentRequestsTab() {
         payload.item_title = selectedSession.title || '';
         payload.session_date = form.session_date || '';
       }
-      await axios.post(`${API}/payment-requests`, payload);
+      await axios.post(`${API}/payment-requests`, payload, { headers: adminHeaders() });
       toast({ title: 'Payment link created!' });
       setForm({ ...BLANK });
       setShowForm(false);
       await load();
     } catch (e) {
-      toast({ title: 'Failed to create', description: e?.response?.data?.detail || e.message, variant: 'destructive' });
+      const detail = e?.response?.data?.detail;
+      const msg = e?.response?.status === 401
+        ? (detail || 'Admin session expired — sign out and sign in to admin again.')
+        : (detail || e.message);
+      toast({ title: 'Failed to create', description: msg, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -461,7 +470,7 @@ export default function PaymentRequestsTab() {
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this payment request permanently?')) return;
     try {
-      await axios.delete(`${API}/payment-requests/${id}`);
+      await axios.delete(`${API}/payment-requests/${id}`, { headers: adminHeaders() });
       setRequests(r => r.filter(x => x.id !== id));
       toast({ title: 'Deleted' });
     } catch {
@@ -471,7 +480,7 @@ export default function PaymentRequestsTab() {
 
   const handleCancel = async (id) => {
     try {
-      await axios.patch(`${API}/payment-requests/${id}`, { status: 'cancelled' });
+      await axios.patch(`${API}/payment-requests/${id}`, { status: 'cancelled' }, { headers: adminHeaders() });
       setRequests(r => r.map(x => x.id === id ? { ...x, status: 'cancelled' } : x));
       toast({ title: 'Link cancelled' });
     } catch {

@@ -18,11 +18,11 @@ from typing import Optional
 import httpx
 import stripe as stripe_lib
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr
 
-from routes.auth import get_current_user
+from routes.auth import assert_admin_session_or_password
 from utils.uid_generator import generate_uid
 
 ROOT_DIR = Path(__file__).parent.parent
@@ -120,8 +120,9 @@ class RazorpayVerifyBody(BaseModel):
 # ── CRUD ─────────────────────────────────────────────────────────────────────
 
 @router.post("")
-async def create_payment_request(body: CreatePaymentRequestBody, _=Depends(get_current_user)):
+async def create_payment_request(body: CreatePaymentRequestBody, request: Request):
     """Admin: create a new payment request link."""
+    await assert_admin_session_or_password(request, None)
     if body.amount <= 0:
         raise HTTPException(400, "Amount must be > 0")
     item_type = (body.item_type or "").strip().lower()
@@ -159,8 +160,9 @@ async def create_payment_request(body: CreatePaymentRequestBody, _=Depends(get_c
 
 
 @router.get("")
-async def list_payment_requests(_=Depends(get_current_user)):
+async def list_payment_requests(request: Request):
     """Admin: list all payment requests (newest first)."""
+    await assert_admin_session_or_password(request, None)
     rows = await db.payment_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
     return rows
 
@@ -177,8 +179,9 @@ async def get_payment_request(req_id: str):
 
 
 @router.patch("/{req_id}")
-async def update_payment_request(req_id: str, body: UpdatePaymentRequestBody, _=Depends(get_current_user)):
+async def update_payment_request(req_id: str, body: UpdatePaymentRequestBody, request: Request):
     """Admin: update title, description, amount, currency, status, etc."""
+    await assert_admin_session_or_password(request, None)
     patch: dict = {}
     for k, v in body.model_dump(exclude_unset=True).items():
         if v is not None:
@@ -193,8 +196,9 @@ async def update_payment_request(req_id: str, body: UpdatePaymentRequestBody, _=
 
 
 @router.delete("/{req_id}")
-async def delete_payment_request(req_id: str, _=Depends(get_current_user)):
+async def delete_payment_request(req_id: str, request: Request):
     """Admin: delete a payment request."""
+    await assert_admin_session_or_password(request, None)
     result = await db.payment_requests.delete_one({"id": req_id})
     if result.deleted_count == 0:
         raise HTTPException(404, "Payment request not found")
