@@ -30,6 +30,7 @@ const CUR_SYMBOL  = { aed: 'AED ', usd: '$', inr: '₹', eur: '€', gbp: '£' }
 const CURRENCIES  = ['aed', 'inr', 'usd', 'eur', 'gbp'];
 const STATUS_META = {
   active:    { label: 'Active',    color: 'bg-blue-100 text-blue-700' },
+  partially_paid: { label: 'Part paid', color: 'bg-amber-100 text-amber-800' },
   paid:      { label: 'Paid',      color: 'bg-emerald-100 text-emerald-700' },
   cancelled: { label: 'Cancelled', color: 'bg-gray-100 text-gray-500' },
 };
@@ -38,7 +39,25 @@ const BLANK = {
   title: '', description: '', amount: '', currency: 'aed',
   recipient_name: '', recipient_email: '', note: '',
   link_kind: '', item_id: '', tier_index: '', session_date: '',
+  installments_enabled: false, num_installments: '3',
 };
+
+function splitInstallmentAmounts(total, n) {
+  const count = Math.max(2, Math.min(12, parseInt(n, 10) || 2));
+  const centsTotal = Math.round((parseFloat(total) || 0) * 100);
+  if (centsTotal <= 0) return [];
+  const base = Math.floor(centsTotal / count);
+  const extra = centsTotal % count;
+  return Array.from({ length: count }, (_, i) => (base + (i < extra ? 1 : 0)) / 100);
+}
+
+function installmentSummary(req) {
+  if (!req?.installments_enabled) return '';
+  const paid = req.installments_paid ?? (req.installment_payments?.length || 0);
+  const total = req.num_installments || req.installment_amounts?.length || 0;
+  if (!total) return '';
+  return `${paid}/${total} installments`;
+}
 
 function formatProgramYmd(iso) {
   if (!iso) return '—';
@@ -199,6 +218,7 @@ const StatusBadge = ({ status }) => {
     <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${m.color}`}>
       {status === 'paid'      && <CheckCircle2 size={10} />}
       {status === 'active'    && <Clock size={10} />}
+      {status === 'partially_paid' && <Clock size={10} />}
       {status === 'cancelled' && <XCircle size={10} />}
       {m.label}
     </span>
@@ -211,10 +231,10 @@ const RequestRow = ({ req, onDelete, onCancel }) => {
   const sym = CUR_SYMBOL[req.currency?.toLowerCase()] || req.currency?.toUpperCase() + ' ';
 
   return (
-    <div className={`border rounded-xl overflow-hidden transition-shadow hover:shadow-sm ${req.status === 'paid' ? 'border-emerald-200' : req.status === 'cancelled' ? 'border-gray-200 opacity-60' : 'border-purple-100'}`}>
+    <div className={`border rounded-xl overflow-hidden transition-shadow hover:shadow-sm ${req.status === 'paid' ? 'border-emerald-200' : req.status === 'cancelled' ? 'border-gray-200 opacity-60' : req.status === 'partially_paid' ? 'border-amber-200' : 'border-purple-100'}`}>
       {/* Row header */}
       <div
-        className={`flex items-center gap-3 px-4 py-3 cursor-pointer select-none ${req.status === 'paid' ? 'bg-emerald-50/50' : 'bg-white'}`}
+        className={`flex items-center gap-3 px-4 py-3 cursor-pointer select-none ${req.status === 'paid' ? 'bg-emerald-50/50' : req.status === 'partially_paid' ? 'bg-amber-50/40' : 'bg-white'}`}
         onClick={() => setOpen(o => !o)}
       >
         {open ? <ChevronUp size={14} className="text-gray-400 flex-shrink-0" /> : <ChevronDown size={14} className="text-gray-400 flex-shrink-0" />}
@@ -226,10 +246,14 @@ const RequestRow = ({ req, onDelete, onCancel }) => {
           <p className="text-[10px] text-gray-400 mt-0.5">
             Created {new Date(req.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
             {req.paid_at && ` · Paid ${new Date(req.paid_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`}
+            {installmentSummary(req) && ` · ${installmentSummary(req)}`}
           </p>
         </div>
-        <span className="text-base font-bold text-gray-900 flex-shrink-0 mr-2">
+        <span className="text-base font-bold text-gray-900 flex-shrink-0 mr-2" title={req.installments_enabled ? 'Total contract amount' : ''}>
           {sym}{parseFloat(req.amount).toLocaleString()}
+          {req.installments_enabled && (
+            <span className="block text-[9px] font-normal text-amber-700 text-right">installments</span>
+          )}
         </span>
         <StatusBadge status={req.status} />
       </div>
@@ -260,16 +284,30 @@ const RequestRow = ({ req, onDelete, onCancel }) => {
           )}
 
           {/* Payer (after payment) */}
-          {req.status === 'paid' && (req.payer_name || req.payer_email) && (
-            <div className="bg-emerald-50 rounded-lg p-3 text-xs">
-              <p className="font-semibold text-emerald-700 mb-1">Payment received from</p>
+          {(req.status === 'paid' || req.status === 'partially_paid') && (req.payer_name || req.payer_email) && (
+            <div className={`rounded-lg p-3 text-xs ${req.status === 'paid' ? 'bg-emerald-50' : 'bg-amber-50'}`}>
+              <p className={`font-semibold mb-1 ${req.status === 'paid' ? 'text-emerald-700' : 'text-amber-800'}`}>
+                {req.status === 'paid' ? 'Payment received from' : 'Latest installment from'}
+              </p>
               {req.payer_name  && <p className="text-gray-700">{req.payer_name}</p>}
               {req.payer_email && <p className="text-gray-500">{req.payer_email}</p>}
             </div>
           )}
 
+          {req.installments_enabled && Array.isArray(req.installment_payments) && req.installment_payments.length > 0 && (
+            <div className="text-xs text-gray-600 space-y-1">
+              <p className="font-medium text-gray-700">Installments received</p>
+              {req.installment_payments.map((p) => (
+                <p key={p.stripe_session_id || p.number} className="font-mono text-[10px]">
+                  #{p.number}: {sym}{Number(p.amount || 0).toLocaleString()}
+                  {p.paid_at ? ` · ${new Date(p.paid_at).toLocaleDateString('en-GB')}` : ''}
+                </p>
+              ))}
+            </div>
+          )}
+
           {/* Payment link */}
-          {req.status === 'active' && (
+          {(req.status === 'active' || req.status === 'partially_paid') && (
             <div className="flex items-center gap-2 bg-purple-50 rounded-lg px-3 py-2">
               <Link2 size={13} className="text-purple-600 flex-shrink-0" />
               <span className="text-xs text-gray-600 flex-1 truncate">{SITE_URL}/pay/{req.id}</span>
@@ -279,7 +317,7 @@ const RequestRow = ({ req, onDelete, onCancel }) => {
 
           {/* Actions */}
           <div className="flex gap-2 pt-1">
-            {req.status === 'active' && (
+            {req.status === 'active' || req.status === 'partially_paid' ? (
               <button
                 type="button"
                 onClick={() => onCancel(req.id)}
@@ -287,7 +325,7 @@ const RequestRow = ({ req, onDelete, onCancel }) => {
               >
                 <XCircle size={12} /> Cancel link
               </button>
-            )}
+            ) : null}
             <button
               type="button"
               onClick={() => onDelete(req.id)}
@@ -451,6 +489,10 @@ export default function PaymentRequestsTab() {
         payload.item_title = selectedSession.title || '';
         payload.session_date = form.session_date || '';
       }
+      payload.installments_enabled = !!form.installments_enabled;
+      if (form.installments_enabled) {
+        payload.num_installments = parseInt(form.num_installments, 10) || 3;
+      }
       await axios.post(`${API}/payment-requests`, payload, { headers: adminHeaders() });
       toast({ title: 'Payment link created!' });
       setForm({ ...BLANK });
@@ -490,7 +532,7 @@ export default function PaymentRequestsTab() {
 
   /* Stats */
   const totalPaid = requests.filter(r => r.status === 'paid').length;
-  const totalActive = requests.filter(r => r.status === 'active').length;
+  const totalActive = requests.filter(r => r.status === 'active' || r.status === 'partially_paid').length;
   const totalRevenue = requests
     .filter(r => r.status === 'paid')
     .reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
@@ -500,9 +542,15 @@ export default function PaymentRequestsTab() {
     const matchSearch = !search || r.title.toLowerCase().includes(search.toLowerCase())
       || (r.recipient_name || '').toLowerCase().includes(search.toLowerCase())
       || (r.recipient_email || '').toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === 'all' || r.status === filterStatus;
+    const matchStatus = filterStatus === 'all'
+      || r.status === filterStatus
+      || (filterStatus === 'active' && r.status === 'partially_paid');
     return matchSearch && matchStatus;
   });
+
+  const installmentPreviewParts = form.installments_enabled && form.amount
+    ? splitInstallmentAmounts(form.amount, form.num_installments)
+    : [];
 
   return (
     <div className="space-y-6">
@@ -735,6 +783,52 @@ export default function PaymentRequestsTab() {
                   ))}
                 </select>
               </div>
+
+              {/* Installments */}
+              <div className="md:col-span-2 border border-amber-100 rounded-xl p-4 bg-amber-50/50 space-y-3">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!form.installments_enabled}
+                    onChange={(e) => set('installments_enabled', e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="text-xs font-semibold text-amber-900 block">Allow payment in installments (Stripe)</span>
+                    <span className="text-[10px] text-gray-500">Same link — client pays one installment at a time until the total is complete.</span>
+                  </span>
+                </label>
+                {form.installments_enabled && (
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Number of installments</Label>
+                      <select
+                        value={form.num_installments}
+                        onChange={(e) => set('num_installments', e.target.value)}
+                        className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                      >
+                        {[2, 3, 4, 5, 6, 8, 10, 12].map((n) => (
+                          <option key={n} value={String(n)}>{n} payments</option>
+                        ))}
+                      </select>
+                    </div>
+                    {installmentPreviewParts.length > 0 && (
+                      <div className="text-[10px] text-amber-900">
+                        <p className="font-medium mb-1">Each installment (approx.)</p>
+                        <p className="font-mono">
+                          {installmentPreviewParts.map((a, i) => (
+                            <span key={i}>
+                              {i > 0 ? ' · ' : ''}
+                              #{i + 1} {CUR_SYMBOL[form.currency]}{a.toLocaleString()}
+                            </span>
+                          ))}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Description */}
               <div className="md:col-span-2">
                 <Label className="text-xs">Description (shown to client)</Label>
@@ -771,6 +865,11 @@ export default function PaymentRequestsTab() {
                 <span className="font-medium">{form.title}</span>
                 {' · '}
                 <span className="font-bold">{CUR_SYMBOL[form.currency]}{parseFloat(form.amount || 0).toLocaleString()}</span>
+                {form.installments_enabled && installmentPreviewParts.length > 0 && (
+                  <span className="block mt-1 text-amber-800">
+                    {form.num_installments} installments via Stripe · first payment {CUR_SYMBOL[form.currency]}{installmentPreviewParts[0].toLocaleString()}
+                  </span>
+                )}
                 {form.link_kind === 'program' && selectedTier?.start_date && (
                   <span className="block mt-1 text-teal-700">
                     Batch: {formatProgramYmd(selectedTier.start_date)}

@@ -39,11 +39,47 @@ const SuccessView = ({ req }) => (
     <p className="text-gray-500 text-sm mb-1">Thank you for your payment.</p>
     <p className="text-gray-700 font-medium mt-1">{req?.title}</p>
     <p className="text-emerald-700 text-xl font-bold mt-3">
-      {CUR_SYMBOL[req?.currency?.toLowerCase()] || ''}{(req?.amount || 0).toLocaleString()}
+      {CUR_SYMBOL[req?.currency?.toLowerCase()] || ''}{(req?.total_amount ?? req?.amount ?? 0).toLocaleString()}
     </p>
     <p className="text-xs text-gray-400 mt-6">A confirmation will be sent to your email.</p>
   </div>
 );
+
+const PartialInstallmentView = ({ req, payId, onContinue }) => {
+  const symbol = CUR_SYMBOL[req?.currency?.toLowerCase()] || '';
+  const paid = req?.installments_paid ?? 0;
+  const total = req?.num_installments ?? 0;
+  const remaining = req?.installments_remaining ?? Math.max(0, total - paid);
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center bg-gradient-to-b from-amber-50 to-white">
+      <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-6">
+        <ShieldCheck size={32} className="text-amber-600" />
+      </div>
+      <h1 className="text-2xl font-bold text-gray-900 mb-2">Installment received</h1>
+      <p className="text-gray-600 text-sm mb-1">{req?.title}</p>
+      <p className="text-amber-800 font-semibold mt-2">
+        {paid} of {total} installments paid
+      </p>
+      <p className="text-gray-500 text-xs mt-2">
+        Total {symbol}{(req?.total_amount ?? req?.amount ?? 0).toLocaleString()}
+        {remaining > 0 ? ` · ${remaining} remaining` : ''}
+      </p>
+      {remaining > 0 && (
+        <button
+          type="button"
+          onClick={onContinue}
+          className="mt-6 px-6 py-3 rounded-xl font-semibold text-sm text-white"
+          style={{ background: 'linear-gradient(135deg, #635bff, #4c47d1)' }}
+        >
+          Pay next installment ({symbol}{(req?.checkout_amount ?? 0).toLocaleString()})
+        </button>
+      )}
+      <p className="text-xs text-gray-400 mt-6 max-w-sm">
+        Bookmark this page or use the same link from your email when the next installment is due.
+      </p>
+    </div>
+  );
+};
 
 /* ─── Main pay page ────────────────────────────────────────────── */
 export default function PaymentRequestPage() {
@@ -56,6 +92,7 @@ export default function PaymentRequestPage() {
   const [paying, setPaying]     = useState(false);
   const [payError, setPayError] = useState('');
   const [success, setSuccess]   = useState(false);
+  const [partialSuccess, setPartialSuccess] = useState(false);
 
   const [name, setName]   = useState('');
   const [email, setEmail] = useState('');
@@ -79,7 +116,13 @@ export default function PaymentRequestPage() {
     const poll = async () => {
       try {
         const r = await axios.get(`${API}/payment-requests/${id}/status?session_id=${encodeURIComponent(sid)}`);
-        if (r.data.status === 'paid') setSuccess(true);
+        if (r.data.status === 'paid') {
+          setSuccess(true);
+          setPartialSuccess(false);
+        } else if (r.data.status === 'partially_paid') {
+          setReq((prev) => ({ ...prev, ...r.data }));
+          setPartialSuccess(true);
+        }
       } catch {}
     };
     poll();
@@ -133,6 +176,19 @@ export default function PaymentRequestPage() {
     return <SuccessView req={req} />;
   }
 
+  if (partialSuccess && req?.installments_remaining > 0) {
+    return (
+      <PartialInstallmentView
+        req={req}
+        payId={id}
+        onContinue={() => {
+          setPartialSuccess(false);
+          window.history.replaceState({}, '', `/pay/${id}`);
+        }}
+      />
+    );
+  }
+
   if (req?.status === 'cancelled') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
@@ -144,6 +200,11 @@ export default function PaymentRequestPage() {
   }
 
   const symbol = CUR_SYMBOL[req.currency?.toLowerCase()] || `${req.currency?.toUpperCase()} `;
+  const checkoutAmount = req.checkout_amount ?? req.amount;
+  const showInstallments = req.installments_enabled && (req.num_installments || 0) > 1;
+  const instCurrent = req.installment_current || 1;
+  const instTotal = req.num_installments || 1;
+  const instPaid = req.installments_paid || 0;
 
   return (
     <>
@@ -169,7 +230,20 @@ export default function PaymentRequestPage() {
                 <p className="text-white/70 text-sm leading-relaxed">{req.description}</p>
               )}
               <div className="mt-4 text-3xl font-bold" style={{ color: '#D4AF37' }}>
-                {symbol}{req.amount.toLocaleString()}
+                {showInstallments ? (
+                  <>
+                    {symbol}{Number(checkoutAmount).toLocaleString()}
+                    <span className="block text-sm font-medium text-white/70 mt-1">
+                      Installment {instCurrent} of {instTotal}
+                    </span>
+                    <span className="block text-[10px] font-normal text-white/50 mt-0.5">
+                      Total {symbol}{Number(req.total_amount ?? req.amount).toLocaleString()}
+                      {instPaid > 0 ? ` · ${instPaid} paid` : ''}
+                    </span>
+                  </>
+                ) : (
+                  <>{symbol}{req.amount.toLocaleString()}</>
+                )}
               </div>
               <p className="text-white/40 text-[10px] mt-1 uppercase tracking-wider">{req.currency?.toUpperCase()}</p>
             </div>
@@ -211,7 +285,14 @@ export default function PaymentRequestPage() {
               >
                 {paying
                   ? <><Loader2 size={16} className="animate-spin" /> Redirecting to Stripe…</>
-                  : <><CreditCard size={16} /> Pay with Stripe · {symbol}{req.amount.toLocaleString()}</>}
+                  : (
+                    <>
+                      <CreditCard size={16} />
+                      {showInstallments
+                        ? `Pay installment ${instCurrent} of ${instTotal} · ${symbol}${Number(checkoutAmount).toLocaleString()}`
+                        : `Pay with Stripe · ${symbol}${Number(checkoutAmount).toLocaleString()}`}
+                    </>
+                  )}
               </button>
 
               <p className="text-center text-[10px] text-gray-400 flex items-center justify-center gap-1">

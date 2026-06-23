@@ -13,7 +13,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 import stripe as stripe_lib
@@ -69,6 +69,88 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _split_installment_amounts(total: float, n: int) -> List[float]:
+    """Split total into *n* installments (remainder cents on earliest payments)."""
+    n = max(2, min(12, int(n)))
+    cents_total = int(round(float(total) * 100))
+    if cents_total <= 0:
+        return [0.0] * n
+    base = cents_total // n
+    extra = cents_total % n
+    return [round((base + (1 if i < extra else 0)) / 100.0, 2) for i in range(n)]
+
+
+def _installment_amounts_for_row(row: dict) -> List[float]:
+    stored = row.get("installment_amounts") or []
+    if isinstance(stored, list) and len(stored) >= 2:
+        return [round(float(x), 2) for x in stored]
+    if row.get("installments_enabled"):
+        n = int(row.get("num_installments") or 2)
+        return _split_installment_amounts(float(row.get("amount") or 0), n)
+    return [round(float(row.get("amount") or 0), 2)]
+
+
+def _installments_paid_count(row: dict) -> int:
+    payments = row.get("installment_payments") or []
+    if isinstance(payments, list) and payments:
+        return len(payments)
+    return int(row.get("installments_paid") or 0)
+
+
+def _checkout_state_for_row(row: dict) -> Dict[str, Any]:
+    """Derive what the client pays next on a payment link."""
+    total = round(float(row.get("amount") or 0), 2)
+    if not row.get("installments_enabled"):
+        return {
+            "installments_enabled": False,
+            "total_amount": total,
+            "checkout_amount": total,
+            "installment_current": 1,
+            "num_installments": 1,
+            "installments_paid": 0,
+            "installments_remaining": 0,
+            "installment_amounts": [total],
+        }
+    amounts = _installment_amounts_for_row(row)
+    n = len(amounts)
+    paid = _installments_paid_count(row)
+    remaining = max(0, n - paid)
+    current = paid + 1 if remaining > 0 else n
+    checkout = amounts[paid] if paid < n else 0.0
+    return {
+        "installments_enabled": True,
+        "total_amount": total,
+        "checkout_amount": checkout,
+        "installment_current": current,
+        "num_installments": n,
+        "installments_paid": paid,
+        "installments_remaining": remaining,
+        "installment_amounts": amounts,
+    }
+
+
+def _can_checkout_payment_request(row: dict) -> bool:
+    st = (row.get("status") or "").lower()
+    if st in ("paid", "cancelled"):
+        return False
+    if row.get("installments_enabled"):
+        state = _checkout_state_for_row(row)
+        return state["installments_remaining"] > 0 and state["checkout_amount"] > 0
+    return st == "active"
+
+
+def _public_payment_request_view(row: dict) -> dict:
+    """Public API shape for /pay/:id (never includes admin note)."""
+    out = {k: v for k, v in row.items() if k != "note"}
+    out.update(_checkout_state_for_row(row))
+    payments = out.get("installment_payments") or []
+    if isinstance(payments, list):
+        out["installment_payments"] = [
+            {k: v for k, v in p.items() if k != "_id"} for p in payments if isinstance(p, dict)
+        ]
+    return out
+
+
 # ── Pydantic models ──────────────────────────────────────────────────────────
 
 class CreatePaymentRequestBody(BaseModel):
@@ -88,6 +170,8 @@ class CreatePaymentRequestBody(BaseModel):
     chosen_end_date: Optional[str] = ""
     chosen_tier_label: Optional[str] = ""
     session_date: Optional[str] = ""
+    installments_enabled: Optional[bool] = False
+    num_installments: Optional[int] = None
 
 
 class UpdatePaymentRequestBody(BaseModel):
@@ -107,6 +191,8 @@ class UpdatePaymentRequestBody(BaseModel):
     chosen_end_date: Optional[str] = None
     chosen_tier_label: Optional[str] = None
     session_date: Optional[str] = None
+    installments_enabled: Optional[bool] = None
+    num_installments: Optional[int] = None
 
 
 class RazorpayVerifyBody(BaseModel):
@@ -133,6 +219,16 @@ async def create_payment_request(body: CreatePaymentRequestBody, request: Reques
     item_type = (body.item_type or "").strip().lower()
     if item_type not in ("program", "session", ""):
         item_type = ""
+    installments_enabled = bool(body.installments_enabled)
+    num_installments = int(body.num_installments or 2) if installments_enabled else 1
+    if installments_enabled:
+        if num_installments < 2 or num_installments > 12:
+            raise HTTPException(400, "Installments must be between 2 and 12")
+    installment_amounts = (
+        _split_installment_amounts(round(body.amount, 2), num_installments)
+        if installments_enabled
+        else []
+    )
     req = {
         "id": str(uuid.uuid4()),
         "title": body.title.strip(),
@@ -150,7 +246,12 @@ async def create_payment_request(body: CreatePaymentRequestBody, request: Reques
         "chosen_end_date": (body.chosen_end_date or "").strip()[:10],
         "chosen_tier_label": (body.chosen_tier_label or "").strip(),
         "session_date": (body.session_date or "").strip()[:10],
-        "status": "active",          # active | paid | cancelled
+        "installments_enabled": installments_enabled,
+        "num_installments": num_installments if installments_enabled else 1,
+        "installment_amounts": installment_amounts,
+        "installments_paid": 0,
+        "installment_payments": [],
+        "status": "active",          # active | partially_paid | paid | cancelled
         "created_at": _now_iso(),
         "paid_at": None,
         "stripe_session_id": None,
@@ -178,9 +279,7 @@ async def get_payment_request(req_id: str):
     row = await db.payment_requests.find_one({"id": req_id}, {"_id": 0})
     if not row:
         raise HTTPException(404, "Payment request not found")
-    # Never expose admin note to public
-    row.pop("note", None)
-    return row
+    return _public_payment_request_view(row)
 
 
 @router.patch("/{req_id}")
@@ -222,11 +321,16 @@ async def create_stripe_checkout(
     row = await db.payment_requests.find_one({"id": req_id}, {"_id": 0})
     if not row:
         raise HTTPException(404, "Payment request not found")
-    if row["status"] != "active":
-        raise HTTPException(400, f"This payment link is {row['status']}")
+    if not _can_checkout_payment_request(row):
+        raise HTTPException(400, f"This payment link is {row.get('status')}")
 
     payer_name = (body.payer_name or "").strip() or (row.get("recipient_name") or "").strip()
     payer_email = (body.payer_email or "").strip().lower() or (row.get("recipient_email") or "").strip().lower()
+
+    checkout = _checkout_state_for_row(row)
+    charge_amount = round(float(checkout["checkout_amount"]), 2)
+    inst_n = int(checkout["installment_current"])
+    inst_total = int(checkout["num_installments"])
 
     api_key = await _stripe_key()
     if not api_key:
@@ -234,13 +338,19 @@ async def create_stripe_checkout(
 
     stripe_lib.api_key = api_key
     currency = row["currency"].lower()
-    amount_cents = int(round(row["amount"] * 100))
+    amount_cents = int(round(charge_amount * 100))
+    if amount_cents <= 0:
+        raise HTTPException(400, "Nothing left to pay on this link")
+
+    line_name = row["title"]
+    if row.get("installments_enabled") and inst_total > 1:
+        line_name = f"{row['title']} · Installment {inst_n} of {inst_total}"
 
     session_params: dict = {
         "line_items": [{
             "price_data": {
                 "currency": currency,
-                "product_data": {"name": row["title"]},
+                "product_data": {"name": line_name[:500]},
                 "unit_amount": amount_cents,
             },
             "quantity": 1,
@@ -258,6 +368,9 @@ async def create_stripe_checkout(
             "session_date": row.get("session_date") or "",
             "payer_name": payer_name[:200],
             "payer_email": payer_email[:200],
+            "installment_number": str(inst_n),
+            "num_installments": str(inst_total),
+            "total_amount": str(round(float(row.get("amount") or 0), 2)),
         },
         "billing_address_collection": "required",
     }
@@ -281,12 +394,15 @@ async def create_stripe_checkout(
         "item_type": "payment_request",
         "item_id": req_id,
         "item_title": row["title"],
-        "amount": row["amount"],
+        "amount": charge_amount,
         "currency": currency,
         "booker_name": payer_name or row.get("recipient_name", ""),
         "booker_email": payer_email or row.get("recipient_email", ""),
         "payment_request_id": req_id,
         "created_via": "payment_request",
+        "installment_number": inst_n,
+        "num_installments": inst_total,
+        "payment_request_total": round(float(row.get("amount") or 0), 2),
         "catalog_item_type": row.get("item_type") or "",
         "catalog_item_id": row.get("item_id") or "",
         "catalog_item_title": row.get("item_title") or "",
@@ -355,17 +471,55 @@ async def mark_payment_request_paid_by_session(session_id: str, payer_name: str 
         )
 
     req = await db.payment_requests.find_one({"id": req_id})
-    if req and req.get("status") == "active":
+    if not req:
+        return
+    st = (req.get("status") or "").lower()
+    if st in ("paid", "cancelled"):
+        return
+
+    payments = list(req.get("installment_payments") or [])
+    if any(isinstance(p, dict) and p.get("stripe_session_id") == session_id for p in payments):
+        return
+
+    now = _now_iso()
+    inst_n = int(tx.get("installment_number") or 0) or (_installments_paid_count(req) + 1)
+
+    if req.get("installments_enabled"):
+        payments.append({
+            "number": inst_n,
+            "amount": round(float(tx.get("amount") or 0), 2),
+            "paid_at": now,
+            "transaction_id": tx.get("id"),
+            "stripe_session_id": session_id,
+        })
+        paid_count = len(payments)
+        n_total = int(req.get("num_installments") or len(_installment_amounts_for_row(req)))
+        new_status = "paid" if paid_count >= n_total else "partially_paid"
+        patch: Dict[str, Any] = {
+            "installments_paid": paid_count,
+            "installment_payments": payments,
+            "status": new_status,
+            "payer_name": payer_name or req.get("recipient_name", ""),
+            "payer_email": payer_email or req.get("recipient_email", ""),
+            "payment_transaction_id": tx.get("id"),
+            "stripe_session_id": session_id,
+        }
+        if new_status == "paid":
+            patch["paid_at"] = now
+        await db.payment_requests.update_one({"id": req_id}, {"$set": patch})
+        return
+
+    if st == "active":
         await db.payment_requests.update_one(
-            {"id": req["id"]},
+            {"id": req_id},
             {"$set": {
                 "status": "paid",
-                "paid_at": _now_iso(),
+                "paid_at": now,
                 "payer_name": payer_name or req.get("recipient_name", ""),
                 "payer_email": payer_email or req.get("recipient_email", ""),
                 "payment_transaction_id": tx.get("id"),
                 "stripe_session_id": session_id,
-            }}
+            }},
         )
 
 
@@ -391,30 +545,22 @@ async def get_payment_request_status(req_id: str, session_id: str = ""):
                 stripe_lib.api_key = api_key
                 sess = stripe_lib.checkout.Session.retrieve(check_id)
                 if sess.payment_status == "paid":
-                    payer_email = (sess.customer_details or {}).get("email", "") if hasattr(sess, "customer_details") else ""
-                    payer_name = (sess.customer_details or {}).get("name", "") if hasattr(sess, "customer_details") else ""
                     now = _now_iso()
-                    # Mark payment_transactions paid
                     await db.payment_transactions.update_one(
                         {"stripe_session_id": check_id},
                         {"$set": {"payment_status": "paid", "paid_at": now, "updated_at": now}}
                     )
-                    tx = await db.payment_transactions.find_one({"stripe_session_id": check_id}, {"_id": 0})
-                    await db.payment_requests.update_one(
-                        {"id": req_id},
-                        {"$set": {
-                            "status": "paid",
-                            "paid_at": now,
-                            "payer_name": payer_name,
-                            "payer_email": payer_email,
-                            "payment_transaction_id": tx["id"] if tx else None,
-                        }}
-                    )
-                    return {"status": "paid", "paid_at": now}
+                    await mark_payment_request_paid_by_session(check_id)
+                    row = await db.payment_requests.find_one({"id": req_id}, {"_id": 0}) or row
+                    out = {"status": row.get("status"), "paid_at": row.get("paid_at")}
+                    out.update(_checkout_state_for_row(row))
+                    return out
             except Exception as e:
                 logger.warning("Status check error: %s", e)
 
-    return {"status": row["status"]}
+    out = {"status": row["status"]}
+    out.update(_checkout_state_for_row(row))
+    return out
 
 
 # ── Razorpay checkout (INR) ───────────────────────────────────────────────────
