@@ -18,7 +18,7 @@ from typing import Optional
 import httpx
 import stripe as stripe_lib
 from dotenv import load_dotenv
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Body, HTTPException, Request
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr
 
@@ -117,6 +117,11 @@ class RazorpayVerifyBody(BaseModel):
     payer_email: Optional[str] = ""
 
 
+class StripeCheckoutBody(BaseModel):
+    payer_name: Optional[str] = ""
+    payer_email: Optional[str] = ""
+
+
 # ── CRUD ─────────────────────────────────────────────────────────────────────
 
 @router.post("")
@@ -208,13 +213,20 @@ async def delete_payment_request(req_id: str, request: Request):
 # ── Stripe checkout ───────────────────────────────────────────────────────────
 
 @router.post("/{req_id}/checkout")
-async def create_stripe_checkout(req_id: str, request: Request):
+async def create_stripe_checkout(
+    req_id: str,
+    request: Request,
+    body: StripeCheckoutBody = Body(default_factory=StripeCheckoutBody),
+):
     """Public: create a Stripe Checkout Session for this payment request."""
     row = await db.payment_requests.find_one({"id": req_id}, {"_id": 0})
     if not row:
         raise HTTPException(404, "Payment request not found")
     if row["status"] != "active":
         raise HTTPException(400, f"This payment link is {row['status']}")
+
+    payer_name = (body.payer_name or "").strip() or (row.get("recipient_name") or "").strip()
+    payer_email = (body.payer_email or "").strip().lower() or (row.get("recipient_email") or "").strip().lower()
 
     api_key = await _stripe_key()
     if not api_key:
@@ -244,11 +256,13 @@ async def create_stripe_checkout(req_id: str, request: Request):
             "catalog_item_id": row.get("item_id") or "",
             "chosen_start_date": row.get("chosen_start_date") or "",
             "session_date": row.get("session_date") or "",
+            "payer_name": payer_name[:200],
+            "payer_email": payer_email[:200],
         },
         "billing_address_collection": "required",
     }
-    if row.get("recipient_email"):
-        session_params["customer_email"] = row["recipient_email"]
+    if payer_email:
+        session_params["customer_email"] = payer_email
 
     try:
         session = stripe_lib.checkout.Session.create(**session_params)
@@ -269,8 +283,8 @@ async def create_stripe_checkout(req_id: str, request: Request):
         "item_title": row["title"],
         "amount": row["amount"],
         "currency": currency,
-        "booker_name": row.get("recipient_name", ""),
-        "booker_email": row.get("recipient_email", ""),
+        "booker_name": payer_name or row.get("recipient_name", ""),
+        "booker_email": payer_email or row.get("recipient_email", ""),
         "payment_request_id": req_id,
         "created_via": "payment_request",
         "catalog_item_type": row.get("item_type") or "",
@@ -301,9 +315,47 @@ async def create_stripe_checkout(req_id: str, request: Request):
 
 async def mark_payment_request_paid_by_session(session_id: str, payer_name: str = "", payer_email: str = "") -> None:
     """Called by the Stripe webhook after verifying a payment_request checkout."""
-    req = await db.payment_requests.find_one({"stripe_session_id": session_id})
+    tx = await db.payment_transactions.find_one({"stripe_session_id": session_id}, {"_id": 0})
+    if not tx:
+        return
+    is_pr = (
+        (tx.get("item_type") or "").lower() == "payment_request"
+        or tx.get("created_via") == "payment_request"
+        or tx.get("payment_request_id")
+    )
+    if not is_pr:
+        return
+    req_id = (tx.get("payment_request_id") or tx.get("item_id") or "").strip()
+    if not req_id:
+        return
+
+    if not payer_email or not payer_name:
+        api_key = await _stripe_key()
+        if api_key:
+            try:
+                stripe_lib.api_key = api_key
+                sess = stripe_lib.checkout.Session.retrieve(session_id)
+                cd = sess.customer_details or {}
+                payer_email = payer_email or (getattr(cd, "email", None) or (cd.get("email") if isinstance(cd, dict) else "") or "")
+                payer_name = payer_name or (getattr(cd, "name", None) or (cd.get("name") if isinstance(cd, dict) else "") or "")
+            except Exception as e:
+                logger.warning("Could not load Stripe session for payment request: %s", e)
+
+    payer_email = (payer_email or tx.get("booker_email") or "").strip().lower()
+    payer_name = (payer_name or tx.get("booker_name") or "").strip()
+
+    if payer_email or payer_name:
+        await db.payment_transactions.update_one(
+            {"stripe_session_id": session_id},
+            {"$set": {
+                "booker_email": payer_email or tx.get("booker_email", ""),
+                "booker_name": payer_name or tx.get("booker_name", ""),
+                "updated_at": _now_iso(),
+            }},
+        )
+
+    req = await db.payment_requests.find_one({"id": req_id})
     if req and req.get("status") == "active":
-        tx = await db.payment_transactions.find_one({"stripe_session_id": session_id}, {"_id": 0})
         await db.payment_requests.update_one(
             {"id": req["id"]},
             {"$set": {
@@ -311,7 +363,8 @@ async def mark_payment_request_paid_by_session(session_id: str, payer_name: str 
                 "paid_at": _now_iso(),
                 "payer_name": payer_name or req.get("recipient_name", ""),
                 "payer_email": payer_email or req.get("recipient_email", ""),
-                "payment_transaction_id": tx["id"] if tx else None,
+                "payment_transaction_id": tx.get("id"),
+                "stripe_session_id": session_id,
             }}
         )
 

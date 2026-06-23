@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { formatDateDMonYyyyUpper } from '@/lib/utils';
-import { Sparkles, ShieldCheck, AlertTriangle, Loader2, CreditCard, IndianRupee, Calendar } from 'lucide-react';
+import { Sparkles, ShieldCheck, AlertTriangle, Loader2, CreditCard, Calendar } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const SITE_NAME = 'Divine Iris Healing';
@@ -29,17 +29,6 @@ function paymentCatalogLine(req) {
   return parts.filter(Boolean).join(' · ');
 }
 
-function loadRazorpayScript() {
-  return new Promise((resolve, reject) => {
-    if (window.Razorpay) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    s.onload = resolve;
-    s.onerror = () => reject(new Error('Could not load Razorpay'));
-    document.body.appendChild(s);
-  });
-}
-
 /* ─── Success sub-page ─────────────────────────────────────────── */
 const SuccessView = ({ req }) => (
   <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center bg-gradient-to-b from-emerald-50 to-white">
@@ -60,7 +49,6 @@ const SuccessView = ({ req }) => (
 export default function PaymentRequestPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   const [req, setReq]           = useState(null);
   const [loading, setLoading]   = useState(true);
@@ -69,12 +57,8 @@ export default function PaymentRequestPage() {
   const [payError, setPayError] = useState('');
   const [success, setSuccess]   = useState(false);
 
-  /* payer info (pre-filled from link if set) */
   const [name, setName]   = useState('');
   const [email, setEmail] = useState('');
-
-  /* razorpay config */
-  const [rzConfig, setRzConfig] = useState({ enabled: false, key_id: null });
 
   useEffect(() => {
     axios.get(`${API}/payment-requests/${id}`)
@@ -86,10 +70,6 @@ export default function PaymentRequestPage() {
       })
       .catch(() => setError('This payment link is invalid or has expired.'))
       .finally(() => setLoading(false));
-
-    axios.get(`${API}/payments/razorpay/config`)
-      .then(r => setRzConfig(r.data || {}))
-      .catch(() => {});
   }, [id]);
 
   /* poll after Stripe redirect back */
@@ -106,6 +86,30 @@ export default function PaymentRequestPage() {
     const t = setInterval(poll, 3000);
     return () => clearInterval(t);
   }, [id, searchParams]);
+
+  const handleStripe = async () => {
+    if (!name.trim() || !email.trim()) {
+      setPayError('Please enter your name and email.');
+      return;
+    }
+    setPayError('');
+    setPaying(true);
+    try {
+      const r = await axios.post(`${API}/payment-requests/${id}/checkout`, {
+        payer_name: name.trim(),
+        payer_email: email.trim(),
+      });
+      if (r.data?.url) {
+        window.location.href = r.data.url;
+        return;
+      }
+      setPayError('Could not open Stripe checkout. Please try again.');
+      setPaying(false);
+    } catch (e) {
+      setPayError(e?.response?.data?.detail || 'Could not initiate Stripe payment. Please try again.');
+      setPaying(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -139,85 +143,14 @@ export default function PaymentRequestPage() {
     );
   }
 
-  const symbol = CUR_SYMBOL[req.currency?.toLowerCase()] || req.currency?.toUpperCase() + ' ';
-  const isINR  = req.currency?.toLowerCase() === 'inr';
-  const showRazorpay = isINR && rzConfig?.enabled;
-
-  /* ── Stripe pay ── */
-  const handleStripe = async () => {
-    if (!name.trim() || !email.trim()) {
-      setPayError('Please enter your name and email.');
-      return;
-    }
-    setPayError('');
-    setPaying(true);
-    try {
-      const r = await axios.post(`${API}/payment-requests/${id}/checkout`, { payer_name: name, payer_email: email });
-      window.location.href = r.data.url;
-    } catch (e) {
-      setPayError(e?.response?.data?.detail || 'Could not initiate payment. Please try again.');
-      setPaying(false);
-    }
-  };
-
-  /* ── Razorpay pay ── */
-  const handleRazorpay = async () => {
-    if (!name.trim() || !email.trim()) {
-      setPayError('Please enter your name and email.');
-      return;
-    }
-    setPayError('');
-    setPaying(true);
-    try {
-      await loadRazorpayScript();
-      const { data: co } = await axios.post(`${API}/payment-requests/${id}/checkout-razorpay`);
-      const options = {
-        key: co.key_id,
-        amount: co.amount,
-        currency: co.currency,
-        order_id: co.order_id,
-        name: SITE_NAME,
-        description: co.title,
-        method: { upi: true, card: true, netbanking: true, wallet: true },
-        prefill: { name, email },
-        handler: async (response) => {
-          try {
-            await axios.post(`${API}/payment-requests/${id}/razorpay-verify`, {
-              razorpay_order_id:   response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature:  response.razorpay_signature,
-              payer_name:  name,
-              payer_email: email,
-            });
-            setSuccess(true);
-          } catch (err) {
-            setPayError(err?.response?.data?.detail || 'Payment verification failed. Contact support.');
-          } finally {
-            setPaying(false);
-          }
-        },
-        modal: { ondismiss: () => setPaying(false) },
-      };
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', () => {
-        setPayError('Payment did not complete. Please try again.');
-        setPaying(false);
-      });
-      rzp.open();
-    } catch (err) {
-      setPayError(err?.response?.data?.detail || err.message || 'Could not start payment.');
-      setPaying(false);
-    }
-  };
+  const symbol = CUR_SYMBOL[req.currency?.toLowerCase()] || `${req.currency?.toUpperCase()} `;
 
   return (
     <>
       <Header />
       <main className="min-h-screen bg-gradient-to-b from-[#f3edff] to-white flex items-start justify-center px-4 py-16 pt-28">
         <div className="w-full max-w-md">
-          {/* Card */}
           <div className="bg-white rounded-2xl shadow-xl border border-purple-100 overflow-hidden">
-            {/* Header band */}
             <div
               className="px-6 py-7 text-center"
               style={{ background: 'linear-gradient(135deg, #1e1230 0%, #2d1458 100%)' }}
@@ -241,7 +174,6 @@ export default function PaymentRequestPage() {
               <p className="text-white/40 text-[10px] mt-1 uppercase tracking-wider">{req.currency?.toUpperCase()}</p>
             </div>
 
-            {/* Form */}
             <div className="px-6 py-6 space-y-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Your Name</label>
@@ -270,47 +202,20 @@ export default function PaymentRequestPage() {
                 </p>
               )}
 
-              {/* Pay buttons */}
-              {showRazorpay ? (
-                /* INR: offer both Razorpay (preferred) and Stripe */
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={handleRazorpay}
-                    disabled={paying}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm text-white transition-all hover:opacity-90 disabled:opacity-60"
-                    style={{ background: 'linear-gradient(135deg, #3395ff, #0066cc)' }}
-                  >
-                    {paying ? <Loader2 size={16} className="animate-spin" /> : <IndianRupee size={16} />}
-                    Pay with UPI / Card (India)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleStripe}
-                    disabled={paying}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm text-white transition-all hover:opacity-90 disabled:opacity-60"
-                    style={{ background: 'linear-gradient(135deg, #635bff, #4c47d1)' }}
-                  >
-                    {paying ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
-                    Pay with Card (International)
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleStripe}
-                  disabled={paying}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm text-white transition-all hover:scale-[1.02] hover:shadow-lg disabled:opacity-60"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #9333ea)' }}
-                >
-                  {paying
-                    ? <><Loader2 size={16} className="animate-spin" /> Processing…</>
-                    : <><CreditCard size={16} /> Pay {symbol}{req.amount.toLocaleString()}</>}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleStripe}
+                disabled={paying}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm text-white transition-all hover:scale-[1.02] hover:shadow-lg disabled:opacity-60"
+                style={{ background: 'linear-gradient(135deg, #635bff, #4c47d1)' }}
+              >
+                {paying
+                  ? <><Loader2 size={16} className="animate-spin" /> Redirecting to Stripe…</>
+                  : <><CreditCard size={16} /> Pay with Stripe · {symbol}{req.amount.toLocaleString()}</>}
+              </button>
 
               <p className="text-center text-[10px] text-gray-400 flex items-center justify-center gap-1">
-                <ShieldCheck size={11} /> Secured by Stripe · SSL encrypted
+                <ShieldCheck size={11} /> Secured by Stripe · card, UPI &amp; international payments
               </p>
             </div>
           </div>

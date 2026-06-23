@@ -61,6 +61,22 @@ async def stripe_webhook(request: Request):
                 logger.warning(f"No transaction found for session: {session_id}")
                 return {"status": "ok", "note": "no matching transaction"}
 
+            txn_clean = {k: v for k, v in txn.items() if k != "_id"}
+            is_payment_request = (
+                (txn_clean.get("item_type") or "").lower() == "payment_request"
+                or txn_clean.get("created_via") == "payment_request"
+                or txn_clean.get("payment_request_id")
+            )
+            if is_payment_request:
+                try:
+                    from routes.payment_requests import mark_payment_request_paid_by_session
+
+                    await mark_payment_request_paid_by_session(session_id)
+                    logger.info("Payment request marked paid for session %s", session_id)
+                except Exception as e:
+                    logger.warning("Payment request webhook mark paid: %s", e)
+                return {"status": "ok"}
+
             enrollment_id = txn.get("enrollment_id")
             from routes.payments import backfill_transaction_portal_ids
 
