@@ -13,9 +13,10 @@ import { Textarea } from '../../ui/textarea';
 import { Label } from '../../ui/label';
 import {
   Plus, Copy, Check, Trash2, Link2, ExternalLink,
-  IndianRupee, DollarSign, Clock, CheckCircle2, XCircle,
-  RefreshCw, Search, ChevronDown, ChevronUp, Filter,
+  Clock, CheckCircle2, XCircle,
+  RefreshCw, Search, ChevronDown, ChevronUp, Calendar,
 } from 'lucide-react';
+import { formatDateDMonYyyyUpper } from '@/lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const SITE_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
@@ -31,7 +32,125 @@ const STATUS_META = {
 const BLANK = {
   title: '', description: '', amount: '', currency: 'aed',
   recipient_name: '', recipient_email: '', note: '',
+  link_kind: '', item_id: '', tier_index: '', session_date: '',
 };
+
+function formatProgramYmd(iso) {
+  if (!iso) return '—';
+  const s = formatDateDMonYyyyUpper(iso);
+  return s || '—';
+}
+
+function parseYmd(s) {
+  if (!s) return null;
+  const d = new Date(String(s).slice(0, 10) + 'T12:00:00');
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function programLatestStart(p) {
+  const tiers = p?.duration_tiers || [];
+  let best = parseYmd(p?.start_date);
+  tiers.forEach((t) => {
+    const d = parseYmd(t.start_date);
+    if (d && (!best || d > best)) best = d;
+  });
+  return best;
+}
+
+function groupProgramsForPicker(programs) {
+  const flagship = [];
+  const upcoming = [];
+  const past = [];
+  const other = [];
+  const now = new Date();
+  (programs || []).forEach((p) => {
+    if (p.is_group_program) return;
+    if (p.is_flagship) {
+      flagship.push(p);
+      return;
+    }
+    if (p.is_upcoming) {
+      upcoming.push(p);
+      return;
+    }
+    const latest = programLatestStart(p);
+    if (latest && latest < now) {
+      past.push(p);
+      return;
+    }
+    other.push(p);
+  });
+  const byTitle = (a, b) => (a.title || '').localeCompare(b.title || '');
+  const byLatestDesc = (a, b) => {
+    const da = programLatestStart(a);
+    const db = programLatestStart(b);
+    if (da && db) return db - da;
+    return byTitle(a, b);
+  };
+  return {
+    flagship: flagship.sort(byTitle),
+    upcoming: upcoming.sort(byLatestDesc),
+    past: past.sort(byLatestDesc),
+    other: other.sort(byTitle),
+  };
+}
+
+function buildTierOptions(program) {
+  const tiers = program?.duration_tiers || [];
+  if (tiers.length) {
+    return tiers
+      .map((t, i) => ({ ...t, tier_index: i }))
+      .sort((a, b) => String(b.start_date || '').localeCompare(String(a.start_date || '')));
+  }
+  if (program?.start_date) {
+    return [{
+      tier_index: 0,
+      label: program.duration || 'Standard',
+      start_date: program.start_date,
+      end_date: program.end_date || '',
+    }];
+  }
+  return [{ tier_index: 0, label: 'Standard', start_date: '', end_date: '' }];
+}
+
+function formatTierOption(t) {
+  const parts = [t.label || 'Tier'];
+  if (t.start_date) parts.push(formatProgramYmd(t.start_date));
+  if (t.end_date) parts.push(`→ ${formatProgramYmd(t.end_date)}`);
+  return parts.join(' · ');
+}
+
+function tierPrice(tier, program, currency) {
+  const c = (currency || 'aed').toLowerCase();
+  const offer = Number(tier?.[`offer_price_${c}`] || 0);
+  const price = Number(tier?.[`price_${c}`] || 0);
+  if (offer > 0) return offer;
+  if (price > 0) return price;
+  const progOffer = Number(program?.[`offer_price_${c}`] || 0);
+  const progPrice = Number(program?.[`price_${c}`] || 0);
+  if (progOffer > 0) return progOffer;
+  return progPrice > 0 ? progPrice : 0;
+}
+
+function sessionPrice(session, currency) {
+  const c = (currency || 'aed').toLowerCase();
+  const offer = Number(session?.[`offer_price_${c}`] || 0);
+  const price = Number(session?.[`price_${c}`] || 0);
+  if (offer > 0) return offer;
+  return price > 0 ? price : 0;
+}
+
+function catalogSummary(req) {
+  if (!req?.item_type || !req?.item_id) return '';
+  const parts = [req.item_title || req.item_type];
+  if (req.chosen_tier_label) parts.push(req.chosen_tier_label);
+  if (req.chosen_start_date) {
+    parts.push(formatProgramYmd(req.chosen_start_date));
+    if (req.chosen_end_date) parts.push(`→ ${formatProgramYmd(req.chosen_end_date)}`);
+  }
+  if (req.session_date) parts.push(formatProgramYmd(req.session_date));
+  return parts.filter(Boolean).join(' · ');
+}
 
 /* ─── Copy-link pill ────────────────────────────────────────────── */
 const CopyLink = ({ id }) => {
@@ -96,6 +215,9 @@ const RequestRow = ({ req, onDelete, onCancel }) => {
         {open ? <ChevronUp size={14} className="text-gray-400 flex-shrink-0" /> : <ChevronDown size={14} className="text-gray-400 flex-shrink-0" />}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-gray-800 truncate">{req.title}</p>
+          {catalogSummary(req) && (
+            <p className="text-[10px] text-teal-700 truncate mt-0.5">{catalogSummary(req)}</p>
+          )}
           <p className="text-[10px] text-gray-400 mt-0.5">
             Created {new Date(req.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
             {req.paid_at && ` · Paid ${new Date(req.paid_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`}
@@ -112,6 +234,16 @@ const RequestRow = ({ req, onDelete, onCancel }) => {
         <div className="border-t border-gray-100 px-5 py-4 bg-white space-y-3">
           {req.description && (
             <p className="text-sm text-gray-600">{req.description}</p>
+          )}
+
+          {catalogSummary(req) && (
+            <div className="flex items-start gap-2 text-xs text-teal-800 bg-teal-50 rounded-lg px-3 py-2">
+              <Calendar size={13} className="mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium">Program / batch</p>
+                <p>{catalogSummary(req)}</p>
+              </div>
+            </div>
           )}
 
           {/* Recipient */}
@@ -175,6 +307,9 @@ export default function PaymentRequestsTab() {
   const [saving, setSaving]       = useState(false);
   const [search, setSearch]       = useState('');
   const [filterStatus, setFilter] = useState('all');
+  const [programs, setPrograms]   = useState([]);
+  const [sessions, setSessions]   = useState([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -190,17 +325,128 @@ export default function PaymentRequestsTab() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (!showForm) return;
+    setCatalogLoading(true);
+    Promise.all([
+      axios.get(`${API}/programs`),
+      axios.get(`${API}/sessions`),
+    ])
+      .then(([pRes, sRes]) => {
+        setPrograms(Array.isArray(pRes.data) ? pRes.data : []);
+        setSessions(Array.isArray(sRes.data) ? sRes.data : []);
+      })
+      .catch(() => {
+        toast({ title: 'Could not load programs/sessions', variant: 'destructive' });
+      })
+      .finally(() => setCatalogLoading(false));
+  }, [showForm, toast]);
+
+  const programGroups = groupProgramsForPicker(programs);
+  const selectedProgram = form.link_kind === 'program'
+    ? programs.find((p) => String(p.id) === String(form.item_id))
+    : null;
+  const tierOptions = selectedProgram ? buildTierOptions(selectedProgram) : [];
+  const selectedTier = tierOptions.find((t) => String(t.tier_index) === String(form.tier_index))
+    || tierOptions[0]
+    || null;
+  const selectedSession = form.link_kind === 'session'
+    ? sessions.find((s) => String(s.id) === String(form.item_id))
+    : null;
+  const sessionDates = (selectedSession?.available_dates || []).slice().sort((a, b) => String(b).localeCompare(String(a)));
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleLinkKindChange = (kind) => {
+    setForm((f) => ({
+      ...f,
+      link_kind: kind,
+      item_id: '',
+      tier_index: '',
+      session_date: '',
+    }));
+  };
+
+  const handleProgramChange = (programId) => {
+    const prog = programs.find((p) => String(p.id) === String(programId));
+    const tiers = prog ? buildTierOptions(prog) : [];
+    const tier = tiers[0] || null;
+    const price = tier && prog ? tierPrice(tier, prog, form.currency) : 0;
+    setForm((f) => ({
+      ...f,
+      item_id: programId,
+      tier_index: tier != null ? String(tier.tier_index) : '',
+      title: f.title.trim() || (prog && tier ? `${prog.title} — ${formatTierOption(tier)}` : f.title),
+      amount: price > 0 ? String(price) : f.amount,
+    }));
+  };
+
+  const handleTierChange = (tierIndex) => {
+    const tier = tierOptions.find((t) => String(t.tier_index) === String(tierIndex));
+    if (!selectedProgram || !tier) {
+      set('tier_index', tierIndex);
+      return;
+    }
+    const price = tierPrice(tier, selectedProgram, form.currency);
+    setForm((f) => ({
+      ...f,
+      tier_index: tierIndex,
+      amount: price > 0 ? String(price) : f.amount,
+      title: f.title.trim() || `${selectedProgram.title} — ${formatTierOption(tier)}`,
+    }));
+  };
+
+  const handleSessionChange = (sessionId) => {
+    const sess = sessions.find((s) => String(s.id) === String(sessionId));
+    const dates = (sess?.available_dates || []).slice().sort((a, b) => String(b).localeCompare(String(a)));
+    const firstDate = dates[0] || '';
+    const price = sess ? sessionPrice(sess, form.currency) : 0;
+    setForm((f) => ({
+      ...f,
+      item_id: sessionId,
+      session_date: firstDate,
+      title: f.title.trim() || (sess ? `${sess.title}${firstDate ? ` — ${formatProgramYmd(firstDate)}` : ''}` : f.title),
+      amount: price > 0 ? String(price) : f.amount,
+    }));
+  };
 
   const handleCreate = async () => {
     if (!form.title.trim())   { toast({ title: 'Title is required', variant: 'destructive' }); return; }
     if (!form.amount || parseFloat(form.amount) <= 0) { toast({ title: 'Enter a valid amount', variant: 'destructive' }); return; }
+    if (form.link_kind === 'program' && !form.item_id) {
+      toast({ title: 'Select a program', variant: 'destructive' });
+      return;
+    }
+    if (form.link_kind === 'session' && !form.item_id) {
+      toast({ title: 'Select a workshop/session', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     try {
-      await axios.post(`${API}/payment-requests`, {
-        ...form,
+      const payload = {
+        title: form.title,
+        description: form.description,
         amount: parseFloat(form.amount),
-      });
+        currency: form.currency,
+        recipient_name: form.recipient_name,
+        recipient_email: form.recipient_email,
+        note: form.note,
+      };
+      if (form.link_kind === 'program' && selectedProgram) {
+        payload.item_type = 'program';
+        payload.item_id = String(selectedProgram.id);
+        payload.item_title = selectedProgram.title || '';
+        payload.tier_index = selectedTier ? Number(selectedTier.tier_index) : undefined;
+        payload.chosen_start_date = selectedTier?.start_date || '';
+        payload.chosen_end_date = selectedTier?.end_date || '';
+        payload.chosen_tier_label = selectedTier?.label || '';
+      } else if (form.link_kind === 'session' && selectedSession) {
+        payload.item_type = 'session';
+        payload.item_id = String(selectedSession.id);
+        payload.item_title = selectedSession.title || '';
+        payload.session_date = form.session_date || '';
+      }
+      await axios.post(`${API}/payment-requests`, payload);
       toast({ title: 'Payment link created!' });
       setForm({ ...BLANK });
       setShowForm(false);
@@ -308,6 +554,136 @@ export default function PaymentRequestsTab() {
                   className="mt-1"
                 />
               </div>
+
+              {/* Program / workshop link (optional) */}
+              <div className="md:col-span-2 border border-purple-100 rounded-xl p-4 bg-purple-50/40 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Calendar size={14} className="text-purple-700" />
+                  <Label className="text-xs font-semibold text-purple-900">Link to program or workshop (optional)</Label>
+                </div>
+                <p className="text-[10px] text-gray-500">
+                  Pick flagship, upcoming, or past program batches — or a workshop date. Amount can auto-fill from catalog pricing.
+                </p>
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Type</Label>
+                    <select
+                      value={form.link_kind}
+                      onChange={(e) => handleLinkKindChange(e.target.value)}
+                      className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                    >
+                      <option value="">Custom amount only</option>
+                      <option value="program">Program (flagship / batch)</option>
+                      <option value="session">Workshop / healing session</option>
+                    </select>
+                  </div>
+                  {form.link_kind === 'program' && (
+                    <div>
+                      <Label className="text-xs">Program *</Label>
+                      <select
+                        value={form.item_id}
+                        onChange={(e) => handleProgramChange(e.target.value)}
+                        disabled={catalogLoading}
+                        className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                      >
+                        <option value="">{catalogLoading ? 'Loading…' : '— Select program —'}</option>
+                        {programGroups.flagship.length > 0 && (
+                          <optgroup label="Flagship program">
+                            {programGroups.flagship.map((p) => (
+                              <option key={p.id} value={p.id}>{p.title}</option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {programGroups.upcoming.length > 0 && (
+                          <optgroup label="Upcoming programs">
+                            {programGroups.upcoming.map((p) => (
+                              <option key={p.id} value={p.id}>{p.title}</option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {programGroups.past.length > 0 && (
+                          <optgroup label="Past / closed batches">
+                            {programGroups.past.map((p) => (
+                              <option key={p.id} value={p.id}>{p.title}</option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {programGroups.other.length > 0 && (
+                          <optgroup label="All other programs">
+                            {programGroups.other.map((p) => (
+                              <option key={p.id} value={p.id}>{p.title}</option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </select>
+                    </div>
+                  )}
+                  {form.link_kind === 'session' && (
+                    <div>
+                      <Label className="text-xs">Workshop / session *</Label>
+                      <select
+                        value={form.item_id}
+                        onChange={(e) => handleSessionChange(e.target.value)}
+                        disabled={catalogLoading}
+                        className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                      >
+                        <option value="">{catalogLoading ? 'Loading…' : '— Select session —'}</option>
+                        {sessions.map((s) => (
+                          <option key={s.id} value={s.id}>{s.title || s.id}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                {form.link_kind === 'program' && selectedProgram && (
+                  <div>
+                    <Label className="text-xs">Batch / tier / dates *</Label>
+                    <select
+                      value={form.tier_index !== '' ? form.tier_index : String(tierOptions[0]?.tier_index ?? '')}
+                      onChange={(e) => handleTierChange(e.target.value)}
+                      className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                    >
+                      {tierOptions.map((t) => (
+                        <option key={t.tier_index} value={t.tier_index}>
+                          {formatTierOption(t)}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedTier?.start_date && (
+                      <p className="text-[10px] text-teal-700 mt-1 font-mono">
+                        Batch {formatProgramYmd(selectedTier.start_date)}
+                        {selectedTier.end_date ? ` → ${formatProgramYmd(selectedTier.end_date)}` : ''}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {form.link_kind === 'session' && selectedSession && (
+                  <div>
+                    <Label className="text-xs">Session date</Label>
+                    {sessionDates.length > 0 ? (
+                      <select
+                        value={form.session_date}
+                        onChange={(e) => set('session_date', e.target.value)}
+                        className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                      >
+                        {sessionDates.map((d) => (
+                          <option key={d} value={d}>{formatProgramYmd(d)}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <Input
+                        type="date"
+                        value={form.session_date}
+                        onChange={(e) => set('session_date', e.target.value)}
+                        className="mt-1"
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Amount + Currency */}
               <div>
                 <Label className="text-xs">Amount *</Label>
@@ -325,7 +701,24 @@ export default function PaymentRequestsTab() {
                 <Label className="text-xs">Currency</Label>
                 <select
                   value={form.currency}
-                  onChange={e => set('currency', e.target.value)}
+                  onChange={(e) => {
+                    const cur = e.target.value;
+                    setForm((f) => {
+                      const next = { ...f, currency: cur };
+                      if (f.link_kind === 'program' && f.item_id) {
+                        const prog = programs.find((p) => String(p.id) === String(f.item_id));
+                        const tiers = prog ? buildTierOptions(prog) : [];
+                        const tier = tiers.find((t) => String(t.tier_index) === String(f.tier_index)) || tiers[0];
+                        const p = tier && prog ? tierPrice(tier, prog, cur) : 0;
+                        if (p > 0) next.amount = String(p);
+                      } else if (f.link_kind === 'session' && f.item_id) {
+                        const sess = sessions.find((s) => String(s.id) === String(f.item_id));
+                        const p = sess ? sessionPrice(sess, cur) : 0;
+                        if (p > 0) next.amount = String(p);
+                      }
+                      return next;
+                    });
+                  }}
                   className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
                 >
                   {CURRENCIES.map(c => (
@@ -369,6 +762,15 @@ export default function PaymentRequestsTab() {
                 <span className="font-medium">{form.title}</span>
                 {' · '}
                 <span className="font-bold">{CUR_SYMBOL[form.currency]}{parseFloat(form.amount || 0).toLocaleString()}</span>
+                {form.link_kind === 'program' && selectedTier?.start_date && (
+                  <span className="block mt-1 text-teal-700">
+                    Batch: {formatProgramYmd(selectedTier.start_date)}
+                    {selectedTier.end_date ? ` → ${formatProgramYmd(selectedTier.end_date)}` : ''}
+                  </span>
+                )}
+                {form.link_kind === 'session' && form.session_date && (
+                  <span className="block mt-1 text-teal-700">Date: {formatProgramYmd(form.session_date)}</span>
+                )}
               </div>
             )}
 

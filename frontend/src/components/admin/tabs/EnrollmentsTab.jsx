@@ -273,6 +273,22 @@ function formatProgramYmd(iso) {
   return s || '—';
 }
 
+const TIER_DATES_SOURCE_LABELS = {
+  enrollment_snapshot: 'Original checkout dates',
+  payment_window_match: 'Matched to payment window',
+  payment_window_corrected: 'Corrected from payment window',
+  portal_cohort_batch: 'Portal cohort batch',
+  payment_cohort_inferred: 'Inferred from payment date',
+  enrollment_snapshot_stale: 'Stale snapshot (catalog overwritten)',
+  catalog_current: 'Live catalog tier',
+};
+
+function tierDatesSourceTip(row) {
+  const src = row?.tier_dates_source;
+  if (!src) return '';
+  return TIER_DATES_SOURCE_LABELS[src] || src;
+}
+
 /** Program batch filter: show catalog name only; batch window is in Start / End columns. */
 function programTitleWithoutBatchSuffix(raw) {
   const s = String(raw || '').trim();
@@ -2188,7 +2204,11 @@ const EnrollmentsTab = () => {
                             case 'country':
                               return <td key={def.id} className={`${bc} text-gray-700`} title={row.country}>{row.country || '—'}</td>;
                             case 'cohort': {
-                              const cohortTip = [row.portal_cohort && `Cohort: ${row.portal_cohort}`, row.chosen_start_date && `ISO: ${row.chosen_start_date}`]
+                              const cohortTip = [
+                                tierDatesSourceTip(row),
+                                row.portal_cohort && `Cohort: ${row.portal_cohort}`,
+                                row.chosen_start_date && `ISO: ${row.chosen_start_date}`,
+                              ]
                                 .filter(Boolean)
                                 .join(' · ');
                               return (
@@ -2217,7 +2237,7 @@ const EnrollmentsTab = () => {
                                 <td
                                   key={def.id}
                                   className={`${bc} text-gray-700 text-[9px] font-mono`}
-                                  title={[row.catalog_program_title, row.chosen_start_date].filter(Boolean).join(' · ')}
+                                  title={[tierDatesSourceTip(row), row.catalog_program_title, row.chosen_start_date].filter(Boolean).join(' · ')}
                                 >
                                   {formatProgramYmd(row.chosen_start_date)}
                                 </td>
@@ -2381,7 +2401,7 @@ const EnrollmentsTab = () => {
                                 <td
                                   key={def.id}
                                   className={`${bc} text-gray-700 text-[9px] font-mono`}
-                                  title={[row.catalog_program_title, row.chosen_start_date].filter(Boolean).join(' · ')}
+                                  title={[tierDatesSourceTip(row), row.catalog_program_title, row.chosen_start_date].filter(Boolean).join(' · ')}
                                 >
                                   {formatProgramYmd(row.chosen_start_date)}
                                 </td>

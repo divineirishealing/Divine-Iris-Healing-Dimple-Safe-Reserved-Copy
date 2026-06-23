@@ -3,12 +3,31 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { Sparkles, ShieldCheck, AlertTriangle, Loader2, CreditCard, IndianRupee } from 'lucide-react';
+import { formatDateDMonYyyyUpper } from '@/lib/utils';
+import { Sparkles, ShieldCheck, AlertTriangle, Loader2, CreditCard, IndianRupee, Calendar } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const SITE_NAME = 'Divine Iris Healing';
 
 const CUR_SYMBOL = { aed: 'AED ', usd: '$', inr: '₹', eur: '€', gbp: '£' };
+
+function formatBatchYmd(iso) {
+  if (!iso) return '';
+  return formatDateDMonYyyyUpper(iso) || '';
+}
+
+function paymentCatalogLine(req) {
+  if (!req?.item_type) return '';
+  const parts = [];
+  if (req.item_title) parts.push(req.item_title);
+  if (req.chosen_tier_label) parts.push(req.chosen_tier_label);
+  if (req.chosen_start_date) {
+    parts.push(formatBatchYmd(req.chosen_start_date));
+    if (req.chosen_end_date) parts.push(`→ ${formatBatchYmd(req.chosen_end_date)}`);
+  }
+  if (req.session_date) parts.push(formatBatchYmd(req.session_date));
+  return parts.filter(Boolean).join(' · ');
+}
 
 function loadRazorpayScript() {
   return new Promise((resolve, reject) => {
@@ -207,6 +226,12 @@ export default function PaymentRequestPage() {
                 <Sparkles size={11} /> {SITE_NAME}
               </div>
               <h1 className="text-white text-xl font-bold leading-snug mb-3">{req.title}</h1>
+              {paymentCatalogLine(req) && (
+                <p className="text-[#D4AF37]/90 text-xs font-medium flex items-center justify-center gap-1.5 mb-2">
+                  <Calendar size={12} />
+                  {paymentCatalogLine(req)}
+                </p>
+              )}
               {req.description && (
                 <p className="text-white/70 text-sm leading-relaxed">{req.description}</p>
               )}

@@ -7,7 +7,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
 import calendar
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 import re
 import mimetypes
 
@@ -649,6 +649,7 @@ def _tier_fields_for_non_hc_participant_seat(
     enrollment_tier_idx: Optional[int],
     programs_by_id: Optional[Dict[str, dict]],
     base_tier_fields: dict,
+    is_done: bool,
 ) -> dict:
     """Catalog tier row for a participant seat that is not Home Coming (e.g. one-month AWRP add-on)."""
     ppid = _clean_str(_scalar_field(p, "program_id", "programId"))
@@ -661,13 +662,16 @@ def _tier_fields_for_non_hc_participant_seat(
         tix_alt = _infer_tier_index_from_inr_list_prices(enrollment, txn, prog_doc, 1)
     if tix_alt is None:
         tix_alt = 0
-    out = _program_tier_fields_for_report(item_type, alt_pid, tix_alt, programs_by_id)
-    out["portal_cohort"] = base_tier_fields.get("portal_cohort", "")
-    if base_tier_fields.get("chosen_start_date"):
-        out["chosen_start_date"] = base_tier_fields["chosen_start_date"]
-    if base_tier_fields.get("chosen_end_date"):
-        out["chosen_end_date"] = base_tier_fields["chosen_end_date"]
-    return out
+    return _resolve_chosen_tier_fields_for_report(
+        enrollment,
+        txn,
+        item_type=item_type,
+        catalog_pid=alt_pid,
+        tier_index=tix_alt,
+        programs_by_id=programs_by_id,
+        is_done=is_done,
+        portal_cohort=base_tier_fields.get("portal_cohort", ""),
+    )
 
 
 def _infer_tier_index_from_inr_list_prices(
@@ -810,6 +814,240 @@ def _program_tier_fields_for_report(
     base["chosen_end_date"] = _clean_str(tier.get("end_date"))
     base["is_three_month_tier"] = bool(_is_three_month_duration_tier(tier))
     return base
+
+
+def _parse_iso_date_only(s: Optional[str]) -> Optional[date]:
+    raw = _clean_str(s)[:10]
+    if len(raw) < 10:
+        return None
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _report_anchor_date(enrollment: dict, txn: Optional[dict], *, is_done: bool) -> Optional[date]:
+    """Calendar day to match historical catalog tiers (prefer payment, then enrollment created)."""
+    paid_raw = _paid_at_for_report(enrollment, txn, is_done=is_done)
+    for raw in (paid_raw, enrollment.get("created_at"), enrollment.get("updated_at")):
+        d = _parse_iso_date_only(str(raw) if raw else "")
+        if d:
+            return d
+    return None
+
+
+def _enrollment_snapshot_dates_look_stale(enrollment: dict, anchor: Optional[date]) -> bool:
+    """True when saved tier dates are far after payment (live catalog overwritten checkout snapshot)."""
+    cs_d = _parse_iso_date_only(enrollment.get("chosen_start_date"))
+    if not cs_d or not anchor:
+        return False
+    return (cs_d - anchor).days > 45
+
+
+def _match_duration_tier_by_anchor(
+    program: Optional[dict],
+    anchor: Optional[date],
+    *,
+    tier_index_hint: Optional[int] = None,
+    tier_label_hint: str = "",
+) -> Optional[dict]:
+    """Pick the catalog ``duration_tiers`` row whose window best matches when the member paid."""
+    if not isinstance(program, dict) or not anchor:
+        return None
+    tiers = program.get("duration_tiers") or []
+    if not tiers:
+        return None
+
+    best_t: Optional[dict] = None
+    best_rank: Optional[tuple] = None
+    label_hint = (tier_label_hint or "").strip().lower()
+
+    for i, t in enumerate(tiers):
+        if not isinstance(t, dict):
+            continue
+        sd = _parse_iso_date_only(_clean_str(t.get("start_date")))
+        ed = _parse_iso_date_only(_clean_str(t.get("end_date")))
+        if not sd:
+            continue
+        label = _clean_str(t.get("label")).lower()
+
+        rank: Optional[tuple] = None
+        if ed and sd <= anchor <= ed:
+            rank = (0, 0)
+        elif anchor < sd and (sd - anchor).days <= 180:
+            rank = (1, (sd - anchor).days)
+        elif ed and sd < anchor <= ed + timedelta(days=28):
+            rank = (2, (anchor - ed).days)
+        elif sd <= anchor and not ed:
+            rank = (3, (anchor - sd).days)
+
+        if rank is None:
+            continue
+        boost = 0
+        if tier_index_hint is not None and i == tier_index_hint:
+            boost -= 2
+        if label_hint and label_hint in label:
+            boost -= 1
+        rank_key = (rank[0], rank[1] + boost, i)
+        if best_rank is None or rank_key < best_rank:
+            best_rank = rank_key
+            best_t = t
+
+    return best_t
+
+
+def _one_month_batch_window_for_year_month(y: int, mo: int) -> Tuple[str, str]:
+    """Typical 1-month MMM batch: opens ~22nd, ends ~12th of the following month."""
+    if mo < 1 or mo > 12:
+        return "", ""
+    dim = calendar.monthrange(y, mo)[1]
+    start = date(y, mo, min(22, dim))
+    if mo == 12:
+        ny, nm = y + 1, 1
+    else:
+        ny, nm = y, mo + 1
+    end_dim = calendar.monthrange(ny, nm)[1]
+    end = date(ny, nm, min(12, end_dim))
+    if end <= start:
+        end = start + timedelta(days=20)
+    return start.isoformat(), end.isoformat()
+
+
+def _payment_cohort_year_month_from_anchor(anchor: date) -> Tuple[int, int]:
+    """Batch month for a payment/enrollment day (after the 15th rolls to next month)."""
+    y, m = anchor.year, anchor.month
+    if anchor.day > 15:
+        m += 1
+        if m > 12:
+            return y + 1, 1
+    return y, m
+
+
+def _infer_one_month_batch_window_from_anchor(anchor: date) -> Tuple[str, str]:
+    y, m = _payment_cohort_year_month_from_anchor(anchor)
+    return _one_month_batch_window_for_year_month(y, m)
+
+
+def _tier_label_is_one_month(label: str) -> bool:
+    s = (label or "").lower()
+    return bool(re.search(r"\b1\s*[- ]?\s*months?\b", s))
+
+
+def _matched_tier_start_ok_for_anchor(matched: dict, anchor: Optional[date]) -> bool:
+    """Reject catalog tiers whose start is far in the future vs when the member paid."""
+    if not anchor:
+        return True
+    sd = _parse_iso_date_only(_clean_str(matched.get("start_date")))
+    if not sd:
+        return False
+    if anchor <= sd:
+        return (sd - anchor).days <= 45
+    ed = _parse_iso_date_only(_clean_str(matched.get("end_date")))
+    if ed and sd <= anchor <= ed:
+        return True
+    if ed and anchor <= ed + timedelta(days=28):
+        return True
+    return (anchor - sd).days <= 28
+
+
+def _dates_from_awrp_batch_id(batch_id: str) -> Tuple[str, str]:
+    """
+    Derive a batch window from cohort ids like ``2026-04`` (Admin → AWRP cohorts).
+    Start anchors on the 22nd when possible; end is ~20 days later (typical 1-month MMM row).
+    """
+    bid = _clean_str(batch_id)
+    if not bid:
+        return "", ""
+    m = re.match(r"^(\d{4})[-_](\d{1,2})$", bid)
+    if not m:
+        return "", ""
+    y, mo = int(m.group(1)), int(m.group(2))
+    return _one_month_batch_window_for_year_month(y, mo)
+
+
+def _resolve_chosen_tier_fields_for_report(
+    enrollment: dict,
+    txn: Optional[dict],
+    *,
+    item_type: str,
+    catalog_pid: str,
+    tier_index: Optional[int],
+    programs_by_id: Optional[Dict[str, dict]],
+    is_done: bool,
+    portal_cohort: str = "",
+) -> Dict[str, Any]:
+    """
+    Tier label + start/end for admin enrollment grids.
+
+    Prefers checkout snapshot on the enrollment, then payment-window catalog tier match,
+    then AWRP cohort batch id, then corrects stale snapshots that post-date payment by months.
+    """
+    tier_fields = _program_tier_fields_for_report(item_type, catalog_pid, tier_index, programs_by_id)
+    prog = (programs_by_id or {}).get(catalog_pid) if catalog_pid else None
+    anchor = _report_anchor_date(enrollment, txn, is_done=is_done)
+
+    p_cs = _clean_str(enrollment.get("chosen_start_date"))
+    p_ce = _clean_str(enrollment.get("chosen_end_date"))
+    p_cl = _clean_str(enrollment.get("chosen_tier_label"))
+    stale = bool(p_cs) and _enrollment_snapshot_dates_look_stale(enrollment, anchor)
+
+    if p_cs and not stale:
+        tier_fields["chosen_start_date"] = p_cs
+        if p_ce:
+            tier_fields["chosen_end_date"] = p_ce
+        if p_cl:
+            tier_fields["tier_label"] = p_cl
+        tier_fields["tier_dates_source"] = "enrollment_snapshot"
+        return tier_fields
+
+    matched = _match_duration_tier_by_anchor(
+        prog,
+        anchor,
+        tier_index_hint=tier_index,
+        tier_label_hint=tier_fields.get("tier_label") or p_cl,
+    )
+    if matched and _matched_tier_start_ok_for_anchor(matched, anchor):
+        cs = _clean_str(matched.get("start_date"))
+        ce = _clean_str(matched.get("end_date"))
+        if cs:
+            tier_fields["chosen_start_date"] = cs
+            if ce:
+                tier_fields["chosen_end_date"] = ce
+            lab = _clean_str(matched.get("label"))
+            if lab:
+                tier_fields["tier_label"] = lab
+            tier_fields["tier_dates_source"] = "payment_window_match" if not stale else "payment_window_corrected"
+            return tier_fields
+
+    cohort_cs, cohort_ce = _dates_from_awrp_batch_id(portal_cohort)
+    if cohort_cs:
+        tier_fields["chosen_start_date"] = cohort_cs
+        if cohort_ce:
+            tier_fields["chosen_end_date"] = cohort_ce
+        tier_fields["tier_dates_source"] = "portal_cohort_batch"
+        return tier_fields
+
+    label_for_infer = p_cl or tier_fields.get("tier_label") or ""
+    if anchor and _tier_label_is_one_month(label_for_infer) and not tier_fields.get("is_three_month_tier"):
+        inf_cs, inf_ce = _infer_one_month_batch_window_from_anchor(anchor)
+        if inf_cs:
+            tier_fields["chosen_start_date"] = inf_cs
+            if inf_ce:
+                tier_fields["chosen_end_date"] = inf_ce
+            tier_fields["tier_dates_source"] = "payment_cohort_inferred"
+            return tier_fields
+
+    if p_cs:
+        tier_fields["chosen_start_date"] = p_cs
+        if p_ce:
+            tier_fields["chosen_end_date"] = p_ce
+        if p_cl:
+            tier_fields["tier_label"] = p_cl
+        tier_fields["tier_dates_source"] = "enrollment_snapshot_stale"
+        return tier_fields
+
+    tier_fields["tier_dates_source"] = "catalog_current"
+    return tier_fields
 
 
 def _annual_emi_cadence_word(prefs: dict, subscription: dict) -> str:
@@ -1168,16 +1406,16 @@ def build_participant_report_rows(
                 inferred = _infer_tier_index_from_inr_list_prices(e, txn, prog_doc, total_slots)
                 if inferred is not None:
                     tier_idx = inferred
-        tier_fields = _program_tier_fields_for_report(item_type, catalog_pid, tier_idx, programs_by_id)
-        p_cs = _clean_str(e.get("chosen_start_date"))
-        p_ce = _clean_str(e.get("chosen_end_date"))
-        p_cl = _clean_str(e.get("chosen_tier_label"))
-        if p_cs:
-            tier_fields["chosen_start_date"] = p_cs
-        if p_ce:
-            tier_fields["chosen_end_date"] = p_ce
-        if p_cl:
-            tier_fields["tier_label"] = p_cl
+        tier_fields = _resolve_chosen_tier_fields_for_report(
+            e,
+            txn,
+            item_type=item_type,
+            catalog_pid=catalog_pid,
+            tier_index=tier_idx,
+            programs_by_id=programs_by_id,
+            is_done=is_done,
+            portal_cohort=portal_cohort,
+        )
         tier_fields["portal_cohort"] = portal_cohort
         pcid_emi = cid_key or _norm_cmp_id(e.get("client_id")) or ""
         txn_list = txns_by_eid.get(eid) or []
@@ -1307,6 +1545,7 @@ def build_participant_report_rows(
                     enrollment_tier_idx=tier_idx,
                     programs_by_id=programs_by_id,
                     base_tier_fields=tier_fields,
+                    is_done=is_done,
                 )
             elif (
                 not emi_ctx
@@ -2426,7 +2665,12 @@ async def approve_payment_proof(proof_id: str):
                 tix_snap = int(proof["tier_index"])
             except (TypeError, ValueError):
                 tix_snap = None
-        enrollment_complete.update(snapshot_chosen_tier_from_program(prog_for_snap, tix_snap))
+        snap = snapshot_chosen_tier_from_program(prog_for_snap, tix_snap)
+        for snap_key, snap_val in snap.items():
+            if snap_key in ("chosen_start_date", "chosen_end_date", "chosen_tier_label"):
+                if _clean_str(full_enrollment.get(snap_key)):
+                    continue
+            enrollment_complete[snap_key] = snap_val
         if (booker_email_resolved or "").strip():
             enrollment_complete["booker_email"] = be_norm or (booker_email_resolved or "").strip().lower()
         if (booker_name_resolved or "").strip():

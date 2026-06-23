@@ -79,6 +79,15 @@ class CreatePaymentRequestBody(BaseModel):
     recipient_name: Optional[str] = ""
     recipient_email: Optional[str] = ""
     note: Optional[str] = ""       # internal admin note
+    # Optional catalog link (program batch or workshop date)
+    item_type: Optional[str] = ""  # program | session | ""
+    item_id: Optional[str] = ""
+    item_title: Optional[str] = ""
+    tier_index: Optional[int] = None
+    chosen_start_date: Optional[str] = ""
+    chosen_end_date: Optional[str] = ""
+    chosen_tier_label: Optional[str] = ""
+    session_date: Optional[str] = ""
 
 
 class UpdatePaymentRequestBody(BaseModel):
@@ -90,6 +99,14 @@ class UpdatePaymentRequestBody(BaseModel):
     recipient_email: Optional[str] = None
     note: Optional[str] = None
     status: Optional[str] = None   # active | cancelled
+    item_type: Optional[str] = None
+    item_id: Optional[str] = None
+    item_title: Optional[str] = None
+    tier_index: Optional[int] = None
+    chosen_start_date: Optional[str] = None
+    chosen_end_date: Optional[str] = None
+    chosen_tier_label: Optional[str] = None
+    session_date: Optional[str] = None
 
 
 class RazorpayVerifyBody(BaseModel):
@@ -107,6 +124,9 @@ async def create_payment_request(body: CreatePaymentRequestBody, _=Depends(get_c
     """Admin: create a new payment request link."""
     if body.amount <= 0:
         raise HTTPException(400, "Amount must be > 0")
+    item_type = (body.item_type or "").strip().lower()
+    if item_type not in ("program", "session", ""):
+        item_type = ""
     req = {
         "id": str(uuid.uuid4()),
         "title": body.title.strip(),
@@ -116,6 +136,14 @@ async def create_payment_request(body: CreatePaymentRequestBody, _=Depends(get_c
         "recipient_name": (body.recipient_name or "").strip(),
         "recipient_email": (body.recipient_email or "").strip().lower(),
         "note": (body.note or "").strip(),
+        "item_type": item_type,
+        "item_id": (body.item_id or "").strip(),
+        "item_title": (body.item_title or "").strip(),
+        "tier_index": body.tier_index,
+        "chosen_start_date": (body.chosen_start_date or "").strip()[:10],
+        "chosen_end_date": (body.chosen_end_date or "").strip()[:10],
+        "chosen_tier_label": (body.chosen_tier_label or "").strip(),
+        "session_date": (body.session_date or "").strip()[:10],
         "status": "active",          # active | paid | cancelled
         "created_at": _now_iso(),
         "paid_at": None,
@@ -208,6 +236,10 @@ async def create_stripe_checkout(req_id: str, request: Request):
             "payment_request_id": req_id,
             "item_type": "payment_request",
             "item_title": row["title"],
+            "catalog_item_type": row.get("item_type") or "",
+            "catalog_item_id": row.get("item_id") or "",
+            "chosen_start_date": row.get("chosen_start_date") or "",
+            "session_date": row.get("session_date") or "",
         },
         "billing_address_collection": "required",
     }
@@ -237,6 +269,14 @@ async def create_stripe_checkout(req_id: str, request: Request):
         "booker_email": row.get("recipient_email", ""),
         "payment_request_id": req_id,
         "created_via": "payment_request",
+        "catalog_item_type": row.get("item_type") or "",
+        "catalog_item_id": row.get("item_id") or "",
+        "catalog_item_title": row.get("item_title") or "",
+        "tier_index": row.get("tier_index"),
+        "chosen_start_date": row.get("chosen_start_date") or "",
+        "chosen_end_date": row.get("chosen_end_date") or "",
+        "chosen_tier_label": row.get("chosen_tier_label") or "",
+        "session_date": row.get("session_date") or "",
         "created_at": now,
         "updated_at": now,
     })
@@ -381,6 +421,14 @@ async def create_razorpay_checkout(req_id: str, request: Request):
         "booker_email": row.get("recipient_email", ""),
         "payment_request_id": req_id,
         "created_via": "payment_request",
+        "catalog_item_type": row.get("item_type") or "",
+        "catalog_item_id": row.get("item_id") or "",
+        "catalog_item_title": row.get("item_title") or "",
+        "tier_index": row.get("tier_index"),
+        "chosen_start_date": row.get("chosen_start_date") or "",
+        "chosen_end_date": row.get("chosen_end_date") or "",
+        "chosen_tier_label": row.get("chosen_tier_label") or "",
+        "session_date": row.get("session_date") or "",
         "created_at": now,
         "updated_at": now,
     })
