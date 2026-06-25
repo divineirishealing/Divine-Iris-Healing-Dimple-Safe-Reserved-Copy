@@ -5,7 +5,7 @@ import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
 import { useToast } from '../../hooks/use-toast';
-import { getApiUrl } from '../../lib/config';
+import { getApiUrl, isUploadApiReachable } from '../../lib/config';
 import { ChevronDown, ChevronRight, FileText, Upload, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 const API = getApiUrl();
@@ -272,29 +272,64 @@ function countContentSections(sections) {
   return (sections || []).filter(sectionHasContent).length;
 }
 
+function importErrorMessage(error) {
+  if (!isUploadApiReachable()) {
+    return 'API not configured. Set REACT_APP_BACKEND_URL on the frontend host and redeploy.';
+  }
+  const detail = error?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (error?.response?.status === 404) {
+    return 'Import endpoint not found — redeploy the backend (needs POST /programs/{id}/import-docx).';
+  }
+  if (error?.code === 'ERR_NETWORK' || error?.message === 'Network Error') {
+    return 'Could not reach the API. Check your connection and try again.';
+  }
+  return error?.message || 'Could not read the document';
+}
+
 // ---------------------------------------------------------------------------
 
-export default function DraftContentPanel({ editingId, programForm, setProgramForm, siteSettings }) {
+export default function DraftContentPanel({
+  editingId,
+  programTitle,
+  programForm,
+  setProgramForm,
+  siteSettings,
+  onDraftUpdated,
+}) {
   const { toast } = useToast();
   const fileRef = useRef(null);
   const [open, setOpen] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [lastImportedFile, setLastImportedFile] = useState('');
 
   const draft = programForm.draft_content_sections || [];
   const hasDraft = draft.length > 0;
   const displayDraft = sortDraftForDisplay(draft);
   const contentCount = countContentSections(draft);
 
-  const applyDraftSections = async (sections, { filename, autoSave = true } = {}) => {
+  const persistDraft = async (sections, { filename } = {}) => {
     setProgramForm((f) => ({ ...f, draft_content_sections: sections }));
+    if (!editingId) return false;
+    await axios.patch(`${API}/programs/${editingId}/draft-content`, {
+      draft_content_sections: sections,
+    });
+    onDraftUpdated?.(editingId, sections);
+    if (filename) setLastImportedFile(filename);
+    return true;
+  };
+
+  const applyDraftSections = async (sections, { filename, autoSave = true } = {}) => {
     setOpen(true);
     const n = countContentSections(sections);
     if (!editingId) {
+      setProgramForm((f) => ({ ...f, draft_content_sections: sections }));
       toast({
-        title: 'Content imported into draft',
-        description: `${n} section(s) with content loaded. Save the program first, then click Save Draft.`,
+        title: 'Content loaded into draft',
+        description: `${n} section(s) with content. Save this program first, then Save Draft.`,
         duration: 8000,
       });
       return;
@@ -302,23 +337,23 @@ export default function DraftContentPanel({ editingId, programForm, setProgramFo
     if (autoSave) {
       setSaving(true);
       try {
-        await axios.patch(`${API}/programs/${editingId}/draft-content`, {
-          draft_content_sections: sections,
-        });
+        await persistDraft(sections, { filename });
         toast({
-          title: filename ? `Imported ${filename}` : 'Document imported',
-          description: `${n} section(s) with content — draft saved. Review below, then Publish when ready.`,
+          title: filename ? `Imported for ${programTitle || 'this program'}` : 'Document imported',
+          description: `"${filename || 'Document'}" — ${n} section(s) saved to this program's draft only.`,
         });
       } catch (e) {
+        setProgramForm((f) => ({ ...f, draft_content_sections: sections }));
         toast({
           title: 'Imported locally — save failed',
-          description: e.response?.data?.detail || e.message,
+          description: importErrorMessage(e),
           variant: 'destructive',
         });
       } finally {
         setSaving(false);
       }
     } else {
+      setProgramForm((f) => ({ ...f, draft_content_sections: sections }));
       toast({
         title: filename ? `Imported ${filename}` : 'Document imported',
         description: `${n} section(s) with content. Click Save Draft to persist.`,
@@ -332,27 +367,61 @@ export default function DraftContentPanel({ editingId, programForm, setProgramFo
 
   const handleDocxFile = async (file) => {
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith('.docx')) {
+    if (!isUploadApiReachable()) {
+      toast({ title: 'Upload not available', description: importErrorMessage(null), variant: 'destructive' });
+      return;
+    }
+    if (!editingId) {
+      toast({
+        title: 'Save the program first',
+        description: 'Create or save this program, then upload a document for it.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith('.doc') && !lower.endsWith('.docx')) {
+      toast({
+        title: 'Use .docx format',
+        description: 'Old .doc files are not supported. In Word: File → Save As → Word Document (.docx).',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!lower.endsWith('.docx')) {
       toast({ title: 'Please choose a .docx file', variant: 'destructive' });
       return;
+    }
+    if (hasDraft && contentCount > 0) {
+      const label = programTitle ? `"${programTitle}"` : 'this program';
+      const ok = window.confirm(
+        `Replace the existing draft on ${label} with "${file.name}"?\n\nOther programs are not affected.`
+      );
+      if (!ok) return;
     }
     setImporting(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const r = await axios.post(`${API}/programs/import-docx`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 60000,
+      const r = await axios.post(`${API}/programs/${editingId}/import-docx`, formData, {
+        timeout: 120000,
       });
       const sections = r.data?.draft_content_sections || [];
       if (!sections.length) {
         throw new Error('No sections returned from document');
       }
-      await applyDraftSections(sections, { filename: file.name });
+      setProgramForm((f) => ({ ...f, draft_content_sections: sections }));
+      onDraftUpdated?.(editingId, sections);
+      setLastImportedFile(file.name);
+      const n = r.data?.content_section_count ?? countContentSections(sections);
+      toast({
+        title: `Imported for ${programTitle || 'program'}`,
+        description: `"${file.name}" — ${n} section(s) saved to this program only.`,
+      });
     } catch (e) {
       toast({
         title: 'Import failed',
-        description: e.response?.data?.detail || e.message || 'Could not read the document',
+        description: importErrorMessage(e),
         variant: 'destructive',
       });
     } finally {
@@ -381,9 +450,7 @@ export default function DraftContentPanel({ editingId, programForm, setProgramFo
     }
     setSaving(true);
     try {
-      await axios.patch(`${API}/programs/${editingId}/draft-content`, {
-        draft_content_sections: programForm.draft_content_sections || [],
-      });
+      await persistDraft(programForm.draft_content_sections || []);
       toast({ title: 'Draft saved', description: 'Live website is unchanged.' });
     } catch (e) {
       toast({ title: 'Save failed', description: e.message, variant: 'destructive' });
@@ -420,7 +487,9 @@ export default function DraftContentPanel({ editingId, programForm, setProgramFo
         {open ? <ChevronDown size={14} className="text-purple-500" /> : <ChevronRight size={14} className="text-purple-500" />}
         <FileText size={14} className="text-purple-500" />
         <span className="text-[11px] font-bold text-purple-700 flex-1 text-left">
-          DRAFT CONTENT {hasDraft ? `(${contentCount} with content · ${draft.length} total)` : '— not live yet'}
+          DRAFT CONTENT
+          {programTitle ? ` — ${programTitle}` : ''}
+          {hasDraft ? ` (${contentCount} with content · ${draft.length} total)` : ' — not live yet'}
         </span>
         {hasDraft && (
           <span className="text-[9px] bg-purple-200 text-purple-700 px-2 py-0.5 rounded-full font-semibold">STAGED</span>
@@ -437,16 +506,30 @@ export default function DraftContentPanel({ editingId, programForm, setProgramFo
             </p>
           </div>
 
-          {/* Import */}
-          <div className="space-y-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+          {/* Import — per program; drag a .docx or choose file */}
+          <div
+            className={`space-y-2 rounded-lg p-3 border-2 border-dashed transition-colors ${
+              dragOver ? 'bg-blue-100 border-blue-400' : 'bg-blue-50 border-blue-200'
+            }`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              handleDocxFile(e.dataTransfer.files?.[0]);
+            }}
+          >
             <div className="flex items-start gap-3">
               <Upload size={14} className="text-blue-500 shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-semibold text-blue-700">Import from document</p>
+                <p className="text-[11px] font-semibold text-blue-700">Import document for this program</p>
                 <p className="text-[10px] text-blue-600 mt-0.5 leading-relaxed">
-                  Upload a <strong>.docx</strong> file, or use the pre-built SoulSync template.
-                  Content lands in <strong>Document Block</strong> sections — blank template slots stay empty on the live page.
+                  Each program has its <strong>own draft</strong>. Upload a <strong>.docx</strong> file (drag here or choose file).
+                  {lastImportedFile ? ` Last import: ${lastImportedFile}.` : ''}
                 </p>
+                {!editingId && (
+                  <p className="text-[10px] text-amber-700 mt-1 font-medium">Save this program before importing.</p>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -460,7 +543,7 @@ export default function DraftContentPanel({ editingId, programForm, setProgramFo
               <Button
                 type="button"
                 size="sm"
-                disabled={importing}
+                disabled={importing || !editingId}
                 onClick={() => fileRef.current?.click()}
                 className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white shrink-0"
               >
@@ -470,11 +553,11 @@ export default function DraftContentPanel({ editingId, programForm, setProgramFo
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={importing}
+                disabled={importing || !editingId}
                 onClick={importSoulSyncTemplate}
                 className="text-[10px] border-blue-300 text-blue-700 shrink-0"
               >
-                Import SoulSync template
+                SoulSync sample template
               </Button>
             </div>
           </div>

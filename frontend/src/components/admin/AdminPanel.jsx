@@ -233,6 +233,71 @@ const AdminPanel = () => {
   // Wait, I am overwriting the file. I need to include them.
 
   // ===== PROGRAMS =====
+  const buildProgramForm = (p) => ({
+    title: p.title,
+    category: p.category || '',
+    description: p.description,
+    image: p.image,
+    price_usd: p.price_usd || 0,
+    price_inr: p.price_inr || 0,
+    price_eur: p.price_eur || 0,
+    price_gbp: p.price_gbp || 0,
+    price_aed: p.price_aed || 0,
+    visible: p.visible !== false,
+    order: p.order || 0,
+    program_type: p.program_type || 'online',
+    session_mode: p.session_mode || 'online',
+    enable_online: p.enable_online !== false,
+    enable_offline: p.enable_offline !== false,
+    enable_in_person: p.enable_in_person || false,
+    offer_price_aed: p.offer_price_aed || 0,
+    offer_price_usd: p.offer_price_usd || 0,
+    offer_price_inr: p.offer_price_inr || 0,
+    offer_text: p.offer_text || '',
+    is_upcoming: p.is_upcoming || false,
+    is_flagship: p.is_flagship || false,
+    is_group_program: p.is_group_program || false,
+    replicate_to_flagship: p.replicate_to_flagship || false,
+    start_date: p.start_date || '',
+    end_date: p.end_date || '',
+    deadline_date: p.deadline_date || '',
+    enrollment_open: p.enrollment_open !== false,
+    enrollment_status: p.enrollment_status || (p.enrollment_open !== false ? 'open' : 'closed'),
+    duration_tiers: p.duration_tiers || [],
+    whatsapp_group_link: p.whatsapp_group_link || '',
+    zoom_link: p.zoom_link || '',
+    custom_link: p.custom_link || '',
+    custom_link_label: p.custom_link_label || '',
+    show_whatsapp_link: p.show_whatsapp_link !== false,
+    show_zoom_link: p.show_zoom_link !== false,
+    show_custom_link: p.show_custom_link !== false,
+    show_whatsapp_link_2: p.show_whatsapp_link_2 || false,
+    whatsapp_group_link_2: p.whatsapp_group_link_2 || '',
+    content_sections: p.content_sections || [],
+    draft_content_sections: p.draft_content_sections || [],
+    timing: p.timing || '',
+    time_zone: p.time_zone || '',
+    show_duration_on_page: p.show_duration_on_page || false,
+    show_start_date_on_page: p.show_start_date_on_page || false,
+    show_timing_on_page: p.show_timing_on_page || false,
+    show_duration_on_card: p.show_duration_on_card !== false,
+    exclusive_offer_enabled: p.exclusive_offer_enabled || false,
+    exclusive_offer_text: p.exclusive_offer_text || 'Limited Time Offer',
+    closure_text: p.closure_text || 'Registration Closed',
+    show_pricing_on_card: p.show_pricing_on_card !== false,
+    show_tiers_on_card: p.show_tiers_on_card !== false,
+    india_tax_enabled: p.india_tax_enabled || false,
+    india_tax_percent: p.india_tax_percent ?? 18.0,
+    india_tax_label: p.india_tax_label || 'GST',
+    india_tax_visible_on_dashboard: p.india_tax_visible_on_dashboard !== false,
+  });
+
+  const handleProgramDraftUpdated = (programId, sections) => {
+    setPrograms((prev) => prev.map((prog) => (
+      prog.id === programId ? { ...prog, draft_content_sections: sections } : prog
+    )));
+  };
+
   const saveProgram = async () => {
     try {
       if (editingId) { await axios.put(`${API}/programs/${editingId}`, programForm); toast({ title: 'Program updated!' }); }
@@ -240,10 +305,16 @@ const AdminPanel = () => {
       resetProgramForm(); loadAll();
     } catch (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); }
   };
-  const editProgram = (p) => {
+  const editProgram = async (p) => {
     setEditingId(p.id);
-    setProgramForm({ title: p.title, category: p.category || '', description: p.description, image: p.image, price_usd: p.price_usd || 0, price_inr: p.price_inr || 0, price_eur: p.price_eur || 0, price_gbp: p.price_gbp || 0, price_aed: p.price_aed || 0, visible: p.visible !== false, order: p.order || 0, program_type: p.program_type || 'online', session_mode: p.session_mode || 'online', enable_online: p.enable_online !== false, enable_offline: p.enable_offline !== false, enable_in_person: p.enable_in_person || false, offer_price_aed: p.offer_price_aed || 0, offer_price_usd: p.offer_price_usd || 0, offer_price_inr: p.offer_price_inr || 0, offer_text: p.offer_text || '', is_upcoming: p.is_upcoming || false, is_flagship: p.is_flagship || false, is_group_program: p.is_group_program || false, replicate_to_flagship: p.replicate_to_flagship || false, start_date: p.start_date || '', end_date: p.end_date || '', deadline_date: p.deadline_date || '', enrollment_open: p.enrollment_open !== false, enrollment_status: p.enrollment_status || (p.enrollment_open !== false ? 'open' : 'closed'), duration_tiers: p.duration_tiers || [], whatsapp_group_link: p.whatsapp_group_link || '', zoom_link: p.zoom_link || '', custom_link: p.custom_link || '', custom_link_label: p.custom_link_label || '', show_whatsapp_link: p.show_whatsapp_link !== false, show_zoom_link: p.show_zoom_link !== false, show_custom_link: p.show_custom_link !== false, show_whatsapp_link_2: p.show_whatsapp_link_2 || false, whatsapp_group_link_2: p.whatsapp_group_link_2 || '', content_sections: p.content_sections || [], draft_content_sections: p.draft_content_sections || [], timing: p.timing || '', time_zone: p.time_zone || '', show_duration_on_page: p.show_duration_on_page || false, show_start_date_on_page: p.show_start_date_on_page || false, show_timing_on_page: p.show_timing_on_page || false, show_duration_on_card: p.show_duration_on_card !== false, exclusive_offer_enabled: p.exclusive_offer_enabled || false, exclusive_offer_text: p.exclusive_offer_text || 'Limited Time Offer', closure_text: p.closure_text || 'Registration Closed', show_pricing_on_card: p.show_pricing_on_card !== false, show_tiers_on_card: p.show_tiers_on_card !== false, india_tax_enabled: p.india_tax_enabled || false, india_tax_percent: p.india_tax_percent ?? 18.0, india_tax_label: p.india_tax_label || 'GST', india_tax_visible_on_dashboard: p.india_tax_visible_on_dashboard !== false });
     setShowProgramForm(true);
+    setProgramForm(buildProgramForm(p));
+    try {
+      const r = await axios.get(`${API}/programs/${p.id}`);
+      setProgramForm(buildProgramForm(r.data));
+    } catch {
+      /* keep list cache */
+    }
   };
   const deleteProgram = async (id) => { if (!window.confirm('Delete this program?')) return; await axios.delete(`${API}/programs/${id}`); toast({ title: 'Program deleted' }); loadAll(); };
   const toggleProgramVisibility = async (p) => { await axios.patch(`${API}/programs/${p.id}/visibility`, { visible: !p.visible }); loadAll(); };
@@ -902,10 +973,13 @@ const AdminPanel = () => {
                         </div>
 
                         <DraftContentPanel
+                          key={editingId}
                           editingId={editingId}
+                          programTitle={programForm.title}
                           programForm={programForm}
                           setProgramForm={setProgramForm}
                           siteSettings={siteSettings}
+                          onDraftUpdated={handleProgramDraftUpdated}
                         />
 
                         <div className="mt-4 flex gap-2">

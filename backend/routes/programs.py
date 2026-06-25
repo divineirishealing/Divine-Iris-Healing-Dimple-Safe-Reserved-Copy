@@ -153,9 +153,44 @@ async def update_program(program_id: str, program: ProgramCreate):
     updated = await db.programs.find_one({"id": program_id})
     return Program(**updated)
 
+@router.post("/{program_id}/import-docx")
+async def import_docx_for_program(program_id: str, file: UploadFile = File(...)):
+    """Parse a .docx and save draft_content_sections on this program only."""
+    existing = await db.programs.find_one({"id": program_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Program not found")
+    name = (file.filename or "").lower()
+    if not name.endswith(".docx"):
+        raise HTTPException(status_code=400, detail="Please upload a .docx file (Word: Save As → Word Document .docx)")
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="File is empty")
+    if len(raw) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 15 MB)")
+    try:
+        text = docx_bytes_to_text(raw)
+        sections = build_draft_sections_from_text(text)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not read document: {exc}") from exc
+    await db.programs.update_one(
+        {"id": program_id},
+        {"$set": {"draft_content_sections": sections}},
+    )
+    content_count = sum(1 for s in sections if (s.get("body") or "").strip())
+    return {
+        "program_id": program_id,
+        "draft_content_sections": sections,
+        "section_count": len(sections),
+        "content_section_count": content_count,
+        "filename": file.filename,
+    }
+
+
 @router.post("/import-docx")
 async def import_docx_draft(file: UploadFile = File(...)):
-    """Parse a .docx file into draft_content_sections for the admin draft panel."""
+    """Parse a .docx file into draft_content_sections (preview only — prefer /{program_id}/import-docx)."""
     name = (file.filename or "").lower()
     if not name.endswith(".docx"):
         raise HTTPException(status_code=400, detail="Please upload a .docx file")
