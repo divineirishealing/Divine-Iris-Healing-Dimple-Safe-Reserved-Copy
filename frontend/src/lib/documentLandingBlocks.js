@@ -1,13 +1,6 @@
 /**
- * Split imported program document into highlighted landing-page sections.
- * Word Heading 1 (# prefix) starts a gold title band; content follows in alternating bands.
+ * Resolve imported program document section from live content.
  */
-import {
-  prepareFaithfulDocumentBody,
-  parseHeadingPrefix,
-  isImportedBoldLine,
-} from './faithfulDocument';
-
 const LEGACY_CONTENT_TYPES = ['journey', 'who_for', 'why_now'];
 
 function sectionBody(s) {
@@ -34,99 +27,4 @@ export function resolveProgramDocument(program, mergedSections = []) {
   }
 
   return null;
-}
-
-function stripMarkup(s) {
-  return (s || '').replace(/\*+/g, '').trim();
-}
-
-function majorSectionTitle(para) {
-  const trimmed = para.trim();
-  const prefixed = parseHeadingPrefix(trimmed);
-  if (prefixed?.level === 1) {
-    return stripMarkup(prefixed.content);
-  }
-  if (isImportedBoldLine(trimmed)) {
-    const inner = trimmed.match(/^\*\*(.+)\*\*$/s)?.[1];
-    if (inner && stripMarkup(inner).length < 100) {
-      return stripMarkup(inner);
-    }
-  }
-  return null;
-}
-
-export function parseDocumentLandingBlocks(body) {
-  if (!body?.trim()) return [];
-
-  const prepared = prepareFaithfulDocumentBody(body);
-  const paragraphs = prepared.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-
-  const blocks = [];
-  let current = null;
-
-  const pushCurrent = () => {
-    if (current?.paragraphs?.length) {
-      blocks.push({
-        ...current,
-        body: current.paragraphs.join('\n\n'),
-      });
-    }
-    current = null;
-  };
-
-  for (const para of paragraphs) {
-    const title = majorSectionTitle(para);
-    if (title) {
-      pushCurrent();
-      blocks.push({
-        type: 'section',
-        title,
-        body: '',
-        paragraphs: [],
-      });
-      current = { type: 'section-content', title, paragraphs: [] };
-      continue;
-    }
-
-    if (!current) {
-      current = { type: 'intro', title: '', paragraphs: [] };
-    }
-    current.paragraphs.push(para);
-  }
-
-  pushCurrent();
-  return blocks;
-}
-
-/**
- * Split blocks so the black Experience section sits after intro + first topic.
- */
-export function splitBlocksForExperience(blocks, sectionCountBefore = 1) {
-  if (!blocks.length) return { before: [], after: [] };
-
-  let seenSections = 0;
-  let splitAt = blocks.length;
-
-  for (let i = 0; i < blocks.length; i += 1) {
-    if (blocks[i].type === 'section') {
-      seenSections += 1;
-      if (seenSections >= sectionCountBefore) {
-        let end = i + 1;
-        while (end < blocks.length && blocks[end].type === 'section-content') {
-          end += 1;
-        }
-        splitAt = end;
-        break;
-      }
-    }
-  }
-
-  if (seenSections === 0 && blocks.length > 1) {
-    splitAt = 1;
-  }
-
-  return {
-    before: blocks.slice(0, splitAt),
-    after: blocks.slice(splitAt),
-  };
 }

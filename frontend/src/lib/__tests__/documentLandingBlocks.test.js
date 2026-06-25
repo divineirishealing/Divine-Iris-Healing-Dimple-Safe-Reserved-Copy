@@ -1,8 +1,9 @@
+import { resolveProgramDocument } from '../documentLandingBlocks';
 import {
-  resolveProgramDocument,
-  parseDocumentLandingBlocks,
-  splitBlocksForExperience,
-} from '../documentLandingBlocks';
+  prepareFaithfulDocumentBody,
+  isImportedBoldLine,
+  parseHeadingPrefix,
+} from '../faithfulDocument';
 
 describe('resolveProgramDocument', () => {
   it('prefers live document section over legacy blocks', () => {
@@ -28,8 +29,6 @@ describe('resolveProgramDocument', () => {
 });
 
 describe('faithfulDocument', () => {
-  const { prepareFaithfulDocumentBody, isImportedBoldLine } = require('../faithfulDocument');
-
   it('preserves bold lines and only normalises bullets', () => {
     const out = prepareFaithfulDocumentBody('**Real Heading**\n\n• First point');
     expect(out).toContain('**Real Heading**');
@@ -42,35 +41,14 @@ describe('faithfulDocument', () => {
     expect(isImportedBoldLine('Plain question?')).toBe(false);
   });
 
-});
-
-describe('parseDocumentLandingBlocks', () => {
-  it('splits on Word Heading 1 (# prefix) into highlighted sections', () => {
-    const body = [
-      'Opening intro paragraph here with enough text.',
-      '',
-      '# **What Is AMRP?**',
-      '',
-      'Details about the program.',
-      '',
-      '# **Who Is AMRP For?**',
-      '',
-      'Audience details.',
-    ].join('\n');
-    const blocks = parseDocumentLandingBlocks(body);
-    expect(blocks.some((b) => b.type === 'intro')).toBe(true);
-    expect(blocks.filter((b) => b.type === 'section').map((b) => b.title)).toEqual([
-      'What Is AMRP?',
-      'Who Is AMRP For?',
-    ]);
-  });
-
-  it('splitBlocksForExperience places experience after first topic', () => {
-    const blocks = parseDocumentLandingBlocks(
-      '# **First Topic**\n\nContent.\n\n# **Second Topic**\n\nMore.',
-    );
-    const { before, after } = splitBlocksForExperience(blocks, 1);
-    expect(before.some((b) => b.title === 'First Topic')).toBe(true);
-    expect(after.some((b) => b.title === 'Second Topic')).toBe(true);
+  it('parses Word heading level prefixes', () => {
+    expect(parseHeadingPrefix('# **Section Title**')).toEqual({
+      level: 1,
+      content: '**Section Title**',
+    });
+    expect(parseHeadingPrefix('## **Sub section**')).toEqual({
+      level: 2,
+      content: '**Sub section**',
+    });
   });
 });
