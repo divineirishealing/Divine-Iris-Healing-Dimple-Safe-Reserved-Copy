@@ -1,6 +1,6 @@
 import React from 'react';
 import { renderMarkdown } from '../lib/renderMarkdown';
-import { parseExperienceMoment } from '../lib/parseExperienceMoment';
+import { experienceMomentHasContent, parseExperienceMoment } from '../lib/parseExperienceMoment';
 import { HEADING, BODY, CONTAINER, WIDE, SECTION_PY } from '../lib/designTokens';
 
 /**
@@ -10,11 +10,12 @@ export default function ProgramExperienceMoment({
   section,
   accent,
   portraitUrl,
-  template = {},
 }) {
   const { quote, heading, message } = parseExperienceMoment(section);
 
-  if (!quote && !message && !portraitUrl) return null;
+  if (!experienceMomentHasContent(section, portraitUrl)) return null;
+
+  const displayHeading = heading || (message ? 'How It Can Be Life-Changing' : '');
 
   return (
     <section
@@ -75,17 +76,19 @@ export default function ProgramExperienceMoment({
                 style={{ background: accent, opacity: 0.85 }}
               />
 
-              <h2
-                className="mb-4 font-bold uppercase tracking-[0.18em]"
-                style={{
-                  ...HEADING,
-                  color: accent,
-                  fontSize: '0.72rem',
-                  letterSpacing: '0.22em',
-                }}
-              >
-                {heading}
-              </h2>
+              {displayHeading ? (
+                <h2
+                  className="mb-4 font-bold uppercase tracking-[0.18em]"
+                  style={{
+                    ...HEADING,
+                    color: accent,
+                    fontSize: '0.72rem',
+                    letterSpacing: '0.22em',
+                  }}
+                >
+                  {displayHeading}
+                </h2>
+              ) : null}
 
               {message ? (
                 <p
