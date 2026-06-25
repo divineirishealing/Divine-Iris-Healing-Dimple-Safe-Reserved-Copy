@@ -89,7 +89,8 @@ def test_quote_extracted_to_experience_only_once():
     exp = next((s for s in sections if s.get("section_type") == "experience"), None)
     doc = next(s for s in sections if s.get("id") == "doc_main")
     assert exp is not None
-    assert "What if healing" in exp["body"]
+    assert "What if healing" in (exp.get("title") or exp.get("body") or "")
+    assert exp.get("subtitle") == "How It Can Be Life-Changing"
     assert "What if healing" not in doc["body"]
 
 

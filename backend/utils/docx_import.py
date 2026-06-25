@@ -248,6 +248,41 @@ def _dedupe_paragraphs(paragraphs: List[ParsedParagraph]) -> List[ParsedParagrap
     return out
 
 
+def _pick_experience_moment(
+    paragraphs: List[ParsedParagraph],
+) -> Tuple[Optional[ParsedParagraph], Optional[ParsedParagraph], List[ParsedParagraph]]:
+    """
+    Pull a short quote + life-changing line for the dark Experience block.
+    Bullets and condition lists stay in the main document.
+    """
+    quote_para: Optional[ParsedParagraph] = None
+    message_para: Optional[ParsedParagraph] = None
+    rest: List[ParsedParagraph] = []
+
+    for p in paragraphs:
+        plain = p.plain.strip()
+        if not plain:
+            continue
+        if p.kind in ("bullet", "subheading"):
+            rest.append(p)
+            continue
+        if p.kind == "quote" and not quote_para:
+            quote_para = p
+            continue
+        if p.kind == "heading":
+            rest.append(p)
+            continue
+        if not quote_para and p.kind == "body" and 40 <= len(plain) <= 320 and "." in plain:
+            quote_para = p
+            continue
+        if quote_para and not message_para and p.kind == "body" and len(plain) >= 30:
+            message_para = p
+            continue
+        rest.append(p)
+
+    return quote_para, message_para, rest
+
+
 def _pick_experience_quote(paragraphs: List[ParsedParagraph]) -> Tuple[Optional[ParsedParagraph], List[ParsedParagraph]]:
     """
     If the doc has one clear pull-quote, use it for the dark Experience block
@@ -358,17 +393,17 @@ def build_draft_sections_from_paragraphs(paragraphs: List[ParsedParagraph]) -> L
     """Build minimal draft sections: suppressors + optional quote + one document block."""
     cleaned = _dedupe_paragraphs(paragraphs)
     cleaned = _polish_paragraphs_for_display(cleaned)
-    quote, main = _pick_experience_quote(cleaned)
+    quote_para, message_para, main = _pick_experience_moment(cleaned)
 
     sections = _blank_template_suppressors()
 
-    if quote:
+    if quote_para or message_para:
         sections.append({
             "id": "experience",
             "section_type": "experience",
-            "title": "",
-            "subtitle": "",
-            "body": quote.formatted,
+            "title": _plain_text(quote_para.formatted) if quote_para else "",
+            "subtitle": "How It Can Be Life-Changing",
+            "body": _plain_text(message_para.formatted) if message_para else "",
             "image_url": "",
             "is_enabled": True,
             "order": 2,

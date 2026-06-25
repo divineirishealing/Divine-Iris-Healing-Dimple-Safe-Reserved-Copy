@@ -8,6 +8,7 @@ import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import { parseDocumentLandingBlocks, splitBlocksForExperience, resolveProgramDocument } from '../lib/documentLandingBlocks';
 import ProgramDocumentLanding from '../components/ProgramDocumentLanding';
+import ProgramExperienceMoment from '../components/ProgramExperienceMoment';
 import { useCurrency } from '../context/CurrencyContext';
 import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, NARROW, WIDE, SECTION_PY } from '../lib/designTokens';
 import {
@@ -368,8 +369,12 @@ function ProgramDetailPage() {
     <p className={`whitespace-pre-wrap ${cls}`} style={applyStyle(extra || template.body_style, { ...BODY })} dangerouslySetInnerHTML={{ __html: renderMarkdown(children || '') }} />
   );
 
-  const renderSection = (section, idx) => {
+  const renderSection = (section, idx, { hideLegacyIntro = false } = {}) => {
     const sType = section.section_type || 'custom';
+
+    if (hideLegacyIntro && (sType === 'journey' || sType === 'who_for' || sType === 'why_now')) {
+      return null;
+    }
 
     // Skip sections with no content at all — avoids empty padded blocks
     if (!section.title && !section.subtitle && !section.body && !section.image_url) return null;
@@ -413,33 +418,18 @@ function ProgramDetailPage() {
 
     if (sType === 'experience') {
       const globalExpImg = template.experience_image ? resolveImageUrl(template.experience_image) : '';
-      const sectionImg = section.image_url ? resolveImageUrl(section.image_url) : globalExpImg;
+      const aboutPortrait = settings?.about_image ? resolveImageUrl(settings.about_image) : '';
+      const sectionImg = section.image_url
+        ? resolveImageUrl(section.image_url)
+        : (globalExpImg || aboutPortrait);
       return (
-        <section key={section.id || idx} data-testid={`section-${idx}`} className={SECTION_PY} style={{ background: '#1a1a1a' }}>
-          <div className={CONTAINER}><div className={WIDE}>
-            {section.title && (
-              <>
-                <h2 className="text-center mb-4" style={applyStyle(template.exp_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>
-                  {section.title}
-                </h2>
-                <GoldLine type="exp" />
-              </>
-            )}
-            {section.subtitle && <p className="text-center mb-8" style={applyStyle(template.exp_subtitle_style, { ...SUBTITLE, color: '#ccc' })}>{section.subtitle}</p>}
-            <div className="grid md:grid-cols-12 gap-12 items-center">
-              <div className="md:col-span-5 overflow-hidden rounded-md">
-                {sectionImg && <img src={sectionImg} alt="Experience" className="w-full" style={{ objectFit: section.image_fit || 'contain', objectPosition: section.image_position || 'center top', maxHeight: '520px' }} onError={(e) => { e.target.style.display = 'none'; }} />}
-              </div>
-              <div className="md:col-span-7">
-                {section.body && (
-                  <div className="border-l-2 pl-6" style={{ borderColor: heroAccent }}>
-                    <p className="whitespace-pre-wrap italic" style={applyStyle(template.exp_body_style, { ...BODY, color: '#ddd' })} dangerouslySetInnerHTML={{ __html: renderMarkdown(section.body || '') }} />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div></div>
-        </section>
+        <ProgramExperienceMoment
+          key={section.id || idx}
+          section={section}
+          accent={heroAccent}
+          portraitUrl={sectionImg}
+          template={template}
+        />
       );
     }
 
@@ -499,11 +489,20 @@ function ProgramDetailPage() {
   const docMeta = resolveProgramDocument(program, sections);
   const documentSection = docMeta?.section || null;
   const skipLandingTypes = new Set(docMeta?.skipTypes || []);
+  const hasDocMain = (program.content_sections || []).some(
+    (s) => (s.id === 'doc_main' || s.section_type === 'document') && String(s.body || '').trim(),
+  );
   const experienceSection = sections.find((s) => {
     if (s.section_type !== 'experience') return false;
     const globalExpImg = template.experience_image ? resolveImageUrl(template.experience_image) : '';
-    return !!(s.body?.trim() || s.title?.trim() || s.image_url?.trim() || globalExpImg);
+    const aboutPortrait = settings?.about_image ? resolveImageUrl(settings.about_image) : '';
+    return !!(s.body?.trim() || s.title?.trim() || s.image_url?.trim() || globalExpImg || aboutPortrait);
   });
+  const hideLegacyIntro = !!(
+    documentSection ||
+    hasDocMain ||
+    (experienceSection?.body?.trim()?.length > 0)
+  );
   const legacySections = sections.filter(
     (s) =>
       s.section_type !== 'document' &&
@@ -721,12 +720,12 @@ function ProgramDetailPage() {
       {documentSection ? (
         <>
           <ProgramDocumentLanding blocks={docBefore} accent={heroAccent} />
-          {experienceSection ? renderSection(experienceSection, 'experience') : null}
+          {experienceSection ? renderSection(experienceSection, 'experience', { hideLegacyIntro }) : null}
           <ProgramDocumentLanding blocks={docAfter} accent={heroAccent} startIndex={docBefore.length} />
-          {legacySections.map((section, idx) => renderSection(section, idx))}
+          {legacySections.map((section, idx) => renderSection(section, idx, { hideLegacyIntro }))}
         </>
       ) : (
-        sections.map((section, idx) => renderSection(section, idx))
+        sections.map((section, idx) => renderSection(section, idx, { hideLegacyIntro }))
       )}
 
       {/* CTA */}

@@ -6,6 +6,8 @@ import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
 import { useToast } from '../../hooks/use-toast';
 import { getApiUrl, isUploadApiReachable } from '../../lib/config';
+import { resolveImageUrl } from '../../lib/imageUtils';
+import ImageUploader from './ImageUploader';
 import { ChevronDown, ChevronRight, FileText, Upload, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 const API = getApiUrl();
@@ -401,29 +403,65 @@ export default function DraftContentPanel({
                       )}
                       <div className="grid md:grid-cols-2 gap-3 mb-3">
                         <div>
-                          <Label className="text-[10px]">Title <span className="text-gray-400 font-normal">(leave blank = no heading on page)</span></Label>
+                          <Label className="text-[10px]">
+                            {sec.section_type === 'experience'
+                              ? 'Powerful quote'
+                              : 'Title'}{' '}
+                            <span className="text-gray-400 font-normal">(leave blank = no heading on page)</span>
+                          </Label>
                           <Input
                             value={sec.title || ''}
                             onChange={e => updateDraftSection(idx, 'title', e.target.value)}
-                            placeholder="Leave blank for no heading..."
+                            placeholder={
+                              sec.section_type === 'experience'
+                                ? 'A single powerful sentence…'
+                                : 'Leave blank for no heading...'
+                            }
                             className="text-xs"
                           />
                         </div>
                         <div>
-                          <Label className="text-[10px]">Subtitle</Label>
+                          <Label className="text-[10px]">
+                            {sec.section_type === 'experience' ? 'Life-changing heading' : 'Subtitle'}
+                          </Label>
                           <Input
                             value={sec.subtitle || ''}
                             onChange={e => updateDraftSection(idx, 'subtitle', e.target.value)}
-                            placeholder="Optional..."
+                            placeholder={
+                              sec.section_type === 'experience'
+                                ? 'How It Can Be Life-Changing'
+                                : 'Optional...'
+                            }
                             className="text-xs"
                           />
                         </div>
                       </div>
+                      {sec.section_type === 'experience' && (
+                        <div className="mb-3">
+                          <Label className="text-[10px]">Black &amp; white portrait (optional)</Label>
+                          <p className="text-[9px] text-gray-400 mb-2">
+                            Upload your photo here, or set a global portrait under Program Page → Your Experience.
+                          </p>
+                          <ImageUploader
+                            value={sec.image_url || ''}
+                            onChange={(url) => updateDraftSection(idx, 'image_url', url)}
+                          />
+                          {sec.image_url && (
+                            <img
+                              src={resolveImageUrl(sec.image_url)}
+                              alt="Experience portrait preview"
+                              className="mt-2 h-24 w-20 rounded object-cover grayscale border"
+                            />
+                          )}
+                        </div>
+                      )}
                       <div>
                         <Label className="text-[10px]">
-                          Body Content
+                          {sec.section_type === 'experience' ? 'Life-changing message' : 'Body Content'}
                           {sec.section_type === 'who_for' && ' (one condition per line for bullet grid)'}
-                          {' '}<span className="text-gray-400 font-normal">— use **bold** for headings within text</span>
+                          {sec.section_type !== 'experience' && (
+                            <> <span className="text-gray-400 font-normal">— use **bold** for headings within text</span></>
+                          )}
                         </Label>
                         <Textarea
                           value={sec.body || ''}

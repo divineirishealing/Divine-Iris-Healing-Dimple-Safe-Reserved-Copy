@@ -33,34 +33,7 @@ export function resolveProgramDocument(program, mergedSections = []) {
     };
   }
 
-  const legacyParts = programSections
-    .filter(
-      (s) =>
-        s.is_enabled !== false &&
-        LEGACY_CONTENT_TYPES.includes(s.section_type) &&
-        (sectionBody(s) || String(s.title || '').trim()),
-    )
-    .sort((a, b) => (a.order || 0) - (b.order || 0));
-
-  if (!legacyParts.length) return null;
-
-  const body = legacyParts
-    .map((s) => {
-      const chunks = [];
-      if (String(s.title || '').trim()) chunks.push(`**${String(s.title).trim()}**`);
-      if (String(s.subtitle || '').trim()) chunks.push(String(s.subtitle).trim());
-      if (sectionBody(s)) chunks.push(sectionBody(s));
-      return chunks.join('\n\n');
-    })
-    .filter(Boolean)
-    .join('\n\n');
-
-  if (!body.trim()) return null;
-
-  return {
-    section: { id: 'legacy_doc', section_type: 'document', body },
-    skipTypes: LEGACY_CONTENT_TYPES,
-  };
+  return null;
 }
 
 export function parseDocumentLandingBlocks(body) {
