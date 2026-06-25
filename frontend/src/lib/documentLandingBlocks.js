@@ -108,9 +108,10 @@ export function splitDocumentBodyForExperience(body, sectionCountBefore = 1) {
   if (isDocxHtmlBody(body)) {
     const html = extractDocxHtml(body);
     const { before, after } = splitDocxHtmlForExperience(html, sectionCountBefore);
+    const marker = String(body).startsWith(DOCX_HTML_MARKER) ? DOCX_HTML_MARKER : '';
     return {
-      before: before ? `${DOCX_HTML_MARKER}${before}` : '',
-      after: after ? `${DOCX_HTML_MARKER}${after}` : '',
+      before: before ? `${marker}${before}` : '',
+      after: after ? `${marker}${after}` : '',
     };
   }
   const prepared = prepareFaithfulDocumentBody(body);

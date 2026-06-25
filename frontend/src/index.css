@@ -701,14 +701,19 @@ html {
 .docx-html-shell .docx-mirror h1,
 .docx-html-shell .docx-mirror h2,
 .docx-html-shell .docx-mirror h3,
-.docx-html-shell .docx-mirror p {
+.docx-html-shell .docx-mirror p,
+.docx-html-shell .docx-h1,
+.docx-html-shell .docx-h2,
+.docx-html-shell .docx-h3,
+.docx-html-shell .docx-p {
   font-weight: inherit;
   letter-spacing: normal;
   text-transform: none;
   max-width: none;
 }
 
-.docx-html-shell .docx-mirror hr.docx-rule {
+.docx-html-shell .docx-mirror hr.docx-rule,
+.docx-html-shell hr.docx-rule {
   display: block;
   height: 0;
   overflow: visible;

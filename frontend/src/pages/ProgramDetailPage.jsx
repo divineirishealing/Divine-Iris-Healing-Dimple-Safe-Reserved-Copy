@@ -729,7 +729,11 @@ function ProgramDetailPage() {
 
       {documentSection ? (
         <>
-          <ProgramDocumentMirror body={docBefore} accent={heroAccent} />
+          <ProgramDocumentMirror
+            body={docBefore}
+            subtitle={documentSection?.subtitle}
+            accent={heroAccent}
+          />
           {showExperienceMoment ? (
             <ProgramExperienceMoment
               section={experienceSection}
@@ -737,7 +741,12 @@ function ProgramDetailPage() {
               portraitUrl={experiencePortraitUrl}
             />
           ) : null}
-          <ProgramDocumentMirror body={docAfter} accent={heroAccent} continuation />
+          <ProgramDocumentMirror
+            body={docAfter}
+            subtitle={documentSection?.subtitle}
+            accent={heroAccent}
+            continuation
+          />
           {legacySections.map((section, idx) => renderSection(section, idx, { hideLegacyIntro }))}
         </>
       ) : (

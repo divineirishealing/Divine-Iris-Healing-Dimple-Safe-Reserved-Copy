@@ -1,17 +1,47 @@
 import React from 'react';
 import DocxHtmlMirror from './DocxHtmlMirror';
+import ProgramDocumentLanding from './ProgramDocumentLanding';
 import FaithfulDocumentParagraphs from './FaithfulDocumentParagraphs';
-import { isDocxHtmlBody, extractDocxHtml } from '../lib/docxHtml';
+import { isDocxHtmlBody, extractDocxHtml, wrapDocxHtmlFragment } from '../lib/docxHtml';
+import { parseDocumentLandingBlocks } from '../lib/documentLandingBlocks';
 import { CONTAINER, NARROW, SECTION_PY } from '../lib/designTokens';
 
 /**
- * Program landing content — exact Word layout between hero and Experience sections.
+ * Program landing content — Word HTML mirror or highlighted landing bands for markdown.
  */
-export default function ProgramDocumentMirror({ body, accent, continuation = false }) {
-  if (!body?.trim()) return null;
+export default function ProgramDocumentMirror({
+  body,
+  blocks,
+  subtitle,
+  accent,
+  continuation = false,
+  startIndex = 0,
+}) {
+  if (!body?.trim() && !blocks?.length) return null;
 
-  if (isDocxHtmlBody(body)) {
-    return <DocxHtmlMirror html={extractDocxHtml(body)} accent={accent || '#C9962A'} continuation={continuation} />;
+  if (body?.trim() && isDocxHtmlBody(body, subtitle)) {
+    const html = wrapDocxHtmlFragment(extractDocxHtml(body));
+    return (
+      <DocxHtmlMirror
+        html={html}
+        accent={accent || '#C9962A'}
+        continuation={continuation}
+      />
+    );
+  }
+
+  const landingBlocks = blocks?.length
+    ? blocks
+    : (body?.trim() ? parseDocumentLandingBlocks(body) : []);
+
+  if (landingBlocks.length) {
+    return (
+      <ProgramDocumentLanding
+        blocks={landingBlocks}
+        accent={accent}
+        startIndex={startIndex}
+      />
+    );
   }
 
   return (
