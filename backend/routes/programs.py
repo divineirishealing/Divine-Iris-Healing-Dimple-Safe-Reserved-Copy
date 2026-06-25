@@ -174,9 +174,14 @@ async def import_docx_for_program(program_id: str, file: UploadFile = File(...))
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Could not read document: {exc}") from exc
+    now = datetime.now(timezone.utc).isoformat()
     await db.programs.update_one(
         {"id": program_id},
-        {"$set": {"draft_content_sections": sections}},
+        {"$set": {
+            "draft_content_sections": sections,
+            "draft_import_filename": file.filename or "",
+            "draft_import_at": now,
+        }},
     )
     content_count = sum(1 for s in sections if (s.get("body") or "").strip())
     return {
@@ -185,6 +190,8 @@ async def import_docx_for_program(program_id: str, file: UploadFile = File(...))
         "section_count": len(sections),
         "content_section_count": content_count,
         "filename": file.filename,
+        "draft_import_filename": file.filename or "",
+        "draft_import_at": now,
     }
 
 
@@ -222,8 +229,30 @@ async def save_draft_content(program_id: str, data: dict):
     if not existing:
         raise HTTPException(status_code=404, detail="Program not found")
     sections = data.get("draft_content_sections", [])
-    await db.programs.update_one({"id": program_id}, {"$set": {"draft_content_sections": sections}})
+    patch: dict = {"draft_content_sections": sections}
+    if "draft_import_filename" in data:
+        patch["draft_import_filename"] = data.get("draft_import_filename") or ""
+    if "draft_import_at" in data:
+        patch["draft_import_at"] = data.get("draft_import_at") or ""
+    await db.programs.update_one({"id": program_id}, {"$set": patch})
     return {"message": "Draft saved", "draft_content_sections": sections}
+
+
+@router.delete("/{program_id}/draft-content")
+async def clear_draft_content(program_id: str):
+    """Remove staged draft for one program (live content_sections unchanged)."""
+    existing = await db.programs.find_one({"id": program_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Program not found")
+    await db.programs.update_one(
+        {"id": program_id},
+        {"$set": {
+            "draft_content_sections": [],
+            "draft_import_filename": "",
+            "draft_import_at": "",
+        }},
+    )
+    return {"message": "Draft cleared", "program_id": program_id}
 
 @router.post("/{program_id}/publish-draft")
 async def publish_draft_content(program_id: str):

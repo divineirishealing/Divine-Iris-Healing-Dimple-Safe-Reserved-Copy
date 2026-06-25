@@ -159,6 +159,8 @@ const AdminPanel = () => {
   const [showTestimonialForm, setShowTestimonialForm] = useState(false);
   const [showStatForm, setShowStatForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [programDraftLoading, setProgramDraftLoading] = useState(false);
+  const editProgramRequestRef = useRef(0);
 
   const [programForm, setProgramForm] = useState({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', session_mode: 'online', enable_online: true, enable_offline: true, enable_in_person: false, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, is_flagship: false, is_group_program: false, replicate_to_flagship: false, start_date: '', end_date: '', deadline_date: '', enrollment_open: true, enrollment_status: 'open', duration_tiers: [], whatsapp_group_link: '', zoom_link: '', custom_link: '', custom_link_label: '', show_whatsapp_link: true, show_zoom_link: true, show_custom_link: true, show_whatsapp_link_2: false, whatsapp_group_link_2: '', content_sections: [], draft_content_sections: [], timing: '', time_zone: '', show_duration_on_page: false, show_start_date_on_page: false, show_timing_on_page: false, show_duration_on_card: true, exclusive_offer_enabled: false, exclusive_offer_text: 'Limited Time Offer', closure_text: 'Registration Closed', show_pricing_on_card: true, show_tiers_on_card: true, india_tax_enabled: false, india_tax_percent: 18.0, india_tax_label: 'GST', india_tax_visible_on_dashboard: true });
   const [sessionForm, setSessionForm] = useState({ title: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', offer_expiry: '', duration: '60-90 minutes', session_mode: 'online', available_dates: [], time_slots: [], testimonial_text: '', title_style: null, description_style: null, visible: true, order: 0 });
@@ -275,6 +277,8 @@ const AdminPanel = () => {
     whatsapp_group_link_2: p.whatsapp_group_link_2 || '',
     content_sections: p.content_sections || [],
     draft_content_sections: p.draft_content_sections || [],
+    draft_import_filename: p.draft_import_filename || '',
+    draft_import_at: p.draft_import_at || '',
     timing: p.timing || '',
     time_zone: p.time_zone || '',
     show_duration_on_page: p.show_duration_on_page || false,
@@ -292,9 +296,16 @@ const AdminPanel = () => {
     india_tax_visible_on_dashboard: p.india_tax_visible_on_dashboard !== false,
   });
 
-  const handleProgramDraftUpdated = (programId, sections) => {
+  const handleProgramDraftUpdated = (programId, sections, meta = {}) => {
     setPrograms((prev) => prev.map((prog) => (
-      prog.id === programId ? { ...prog, draft_content_sections: sections } : prog
+      prog.id === programId
+        ? {
+            ...prog,
+            draft_content_sections: sections,
+            draft_import_filename: meta.draft_import_filename ?? prog.draft_import_filename,
+            draft_import_at: meta.draft_import_at ?? prog.draft_import_at,
+          }
+        : prog
     )));
   };
 
@@ -306,20 +317,31 @@ const AdminPanel = () => {
     } catch (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); }
   };
   const editProgram = async (p) => {
+    const reqId = ++editProgramRequestRef.current;
     setEditingId(p.id);
     setShowProgramForm(true);
+    setProgramDraftLoading(true);
     setProgramForm(buildProgramForm(p));
     try {
       const r = await axios.get(`${API}/programs/${p.id}`);
+      if (reqId !== editProgramRequestRef.current) return;
       setProgramForm(buildProgramForm(r.data));
     } catch {
       /* keep list cache */
+    } finally {
+      if (reqId === editProgramRequestRef.current) setProgramDraftLoading(false);
     }
   };
   const deleteProgram = async (id) => { if (!window.confirm('Delete this program?')) return; await axios.delete(`${API}/programs/${id}`); toast({ title: 'Program deleted' }); loadAll(); };
   const toggleProgramVisibility = async (p) => { await axios.patch(`${API}/programs/${p.id}/visibility`, { visible: !p.visible }); loadAll(); };
   const moveProgramOrder = async (idx, dir) => { const items = [...programs]; const sw = idx + dir; if (sw < 0 || sw >= items.length) return; [items[idx], items[sw]] = [items[sw], items[idx]]; await axios.patch(`${API}/programs/reorder`, { order: items.map(i => i.id) }); loadAll(); };
-  const resetProgramForm = () => { setShowProgramForm(false); setEditingId(null); setProgramForm({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', session_mode: 'online', enable_online: true, enable_offline: true, enable_in_person: false, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, is_flagship: false, is_group_program: false, replicate_to_flagship: false, start_date: '', end_date: '', deadline_date: '', enrollment_open: true, enrollment_status: 'open', duration_tiers: [], whatsapp_group_link: '', zoom_link: '', custom_link: '', custom_link_label: '', show_whatsapp_link: true, show_zoom_link: true, show_custom_link: true, show_whatsapp_link_2: false, whatsapp_group_link_2: '', content_sections: [], draft_content_sections: [], timing: '', time_zone: '', show_duration_on_page: false, show_start_date_on_page: false, show_timing_on_page: false, show_duration_on_card: true, exclusive_offer_enabled: false, exclusive_offer_text: 'Limited Time Offer', closure_text: 'Registration Closed', show_pricing_on_card: true, show_tiers_on_card: true, india_tax_enabled: false, india_tax_percent: 18.0, india_tax_label: 'GST', india_tax_visible_on_dashboard: true }); };
+  const resetProgramForm = () => {
+    editProgramRequestRef.current += 1;
+    setProgramDraftLoading(false);
+    setShowProgramForm(false);
+    setEditingId(null);
+    setProgramForm({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', session_mode: 'online', enable_online: true, enable_offline: true, enable_in_person: false, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, is_flagship: false, is_group_program: false, replicate_to_flagship: false, start_date: '', end_date: '', deadline_date: '', enrollment_open: true, enrollment_status: 'open', duration_tiers: [], whatsapp_group_link: '', zoom_link: '', custom_link: '', custom_link_label: '', show_whatsapp_link: true, show_zoom_link: true, show_custom_link: true, show_whatsapp_link_2: false, whatsapp_group_link_2: '', content_sections: [], draft_content_sections: [], draft_import_filename: '', draft_import_at: '', timing: '', time_zone: '', show_duration_on_page: false, show_start_date_on_page: false, show_timing_on_page: false, show_duration_on_card: true, exclusive_offer_enabled: false, exclusive_offer_text: 'Limited Time Offer', closure_text: 'Registration Closed', show_pricing_on_card: true, show_tiers_on_card: true, india_tax_enabled: false, india_tax_percent: 18.0, india_tax_label: 'GST', india_tax_visible_on_dashboard: true });
+  };
 
   // ===== SESSIONS =====
   const saveSession = async () => {
@@ -980,6 +1002,7 @@ const AdminPanel = () => {
                           setProgramForm={setProgramForm}
                           siteSettings={siteSettings}
                           onDraftUpdated={handleProgramDraftUpdated}
+                          draftLoading={programDraftLoading}
                         />
 
                         <div className="mt-4 flex gap-2">

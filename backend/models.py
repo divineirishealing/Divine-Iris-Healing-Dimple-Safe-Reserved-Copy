@@ -96,6 +96,8 @@ class Program(BaseModel):
     closure_text: str = "Registration Closed"
     content_sections: List[Dict] = []  # List of ContentSection dicts
     draft_content_sections: List[Dict] = []  # staged draft — not shown on live site until published
+    draft_import_filename: str = ""  # last .docx imported into draft (per program)
+    draft_import_at: str = ""
     highlight_label: str = ""  # e.g. "Highly Recommended", "Most Awaited"
     highlight_style: str = "gradient"  # "gradient", "ribbon", "glow"
     show_whatsapp_link_2: bool = False
@@ -163,6 +165,8 @@ class ProgramCreate(BaseModel):
     closure_text: Optional[str] = "Registration Closed"
     content_sections: Optional[List[Dict]] = []
     draft_content_sections: Optional[List[Dict]] = []
+    draft_import_filename: Optional[str] = ""
+    draft_import_at: Optional[str] = ""
     highlight_label: Optional[str] = ""
     highlight_style: Optional[str] = "gradient"
     show_whatsapp_link_2: Optional[bool] = False
