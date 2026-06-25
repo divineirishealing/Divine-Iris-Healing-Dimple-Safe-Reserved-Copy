@@ -79,7 +79,7 @@ def test_single_document_section_no_split():
     assert body.count("Program Overview") == 1
 
 
-def test_quote_extracted_to_experience_only_once():
+def test_quotes_stay_in_document_body():
     text = (
         "Intro text.\n\n"
         '"What if healing began within the deepest layers of your own soul?"\n\n'
@@ -88,10 +88,8 @@ def test_quote_extracted_to_experience_only_once():
     sections = build_draft_sections_from_text(text)
     exp = next((s for s in sections if s.get("section_type") == "experience"), None)
     doc = next(s for s in sections if s.get("id") == "doc_main")
-    assert exp is not None
-    assert "What if healing" in (exp.get("title") or exp.get("body") or "")
-    assert exp.get("subtitle") == "How It Can Be Life-Changing"
-    assert "What if healing" not in doc["body"]
+    assert exp is None
+    assert "What if healing" in doc["body"]
 
 
 def test_build_draft_sections_from_docx():
@@ -106,6 +104,27 @@ def test_build_draft_sections_from_docx():
     assert "Atomic Memory Reprogramming" in doc["body"]
     assert "**Core benefits**" in doc["body"]
     assert "✦" in doc["body"]
+
+
+def test_amrp_style_import_skips_preamble_and_preserves_headings():
+    """AMRP writeup: skip cover lines; keep Heading 1/2 and ✦ bullets in document."""
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parent / "fixtures" / "AMRP_Program_Writeup.docx"
+    if not src.exists():
+        import pytest
+        pytest.skip("AMRP fixture doc not on this machine")
+
+    sections = build_draft_sections_from_docx(src.read_bytes())
+    doc = next(s for s in sections if s["id"] == "doc_main")
+    body = doc["body"]
+
+    assert "Divine Iris Healing" not in body.split("\n")[0]
+    assert not body.startswith("*Divine Iris")
+    assert "# **What Is the Atomic Musculoskeletal Regeneration Program?**" in body
+    assert "## **Section 1 — Bones & Joints**" in body
+    assert "✦ **Osteoarthritis" in body
+    assert "✦ **✦" not in body
 
 
 def test_question_line_stays_in_document_when_not_word_heading():
