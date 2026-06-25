@@ -1,7 +1,7 @@
 import {
   resolveProgramDocument,
   parseDocumentLandingBlocks,
-  splitDocumentBodyForExperience,
+  splitBlocksForExperience,
 } from '../documentLandingBlocks';
 
 describe('resolveProgramDocument', () => {
@@ -28,7 +28,7 @@ describe('resolveProgramDocument', () => {
 });
 
 describe('faithfulDocument', () => {
-  const { prepareFaithfulDocumentBody, isImportedBoldLine, stripAlignPrefix } = require('../faithfulDocument');
+  const { prepareFaithfulDocumentBody, isImportedBoldLine } = require('../faithfulDocument');
 
   it('preserves bold lines and only normalises bullets', () => {
     const out = prepareFaithfulDocumentBody('**Real Heading**\n\n• First point');
@@ -42,11 +42,6 @@ describe('faithfulDocument', () => {
     expect(isImportedBoldLine('Plain question?')).toBe(false);
   });
 
-  it('parses alignment prefix from import', () => {
-    expect(stripAlignPrefix('>>c *Centered*')).toEqual({ align: 'center', text: '*Centered*' });
-    expect(stripAlignPrefix('>>j Body text')).toEqual({ align: 'justify', text: 'Body text' });
-    expect(stripAlignPrefix('Plain')).toEqual({ align: null, text: 'Plain' });
-  });
 });
 
 describe('parseDocumentLandingBlocks', () => {
@@ -69,23 +64,13 @@ describe('parseDocumentLandingBlocks', () => {
       'Who Is AMRP For?',
     ]);
   });
-});
 
-describe('splitDocumentBodyForExperience', () => {
-  it('splits raw body at second Heading 1 for experience placement', () => {
-    const body = [
-      '# **First Topic**',
-      '',
-      'Content under first.',
-      '',
-      '# **Second Topic**',
-      '',
-      'Content under second.',
-    ].join('\n');
-    const { before, after } = splitDocumentBodyForExperience(body, 1);
-    expect(before).toContain('First Topic');
-    expect(before).toContain('Content under first.');
-    expect(before).not.toContain('Second Topic');
-    expect(after).toContain('Second Topic');
+  it('splitBlocksForExperience places experience after first topic', () => {
+    const blocks = parseDocumentLandingBlocks(
+      '# **First Topic**\n\nContent.\n\n# **Second Topic**\n\nMore.',
+    );
+    const { before, after } = splitBlocksForExperience(blocks, 1);
+    expect(before.some((b) => b.title === 'First Topic')).toBe(true);
+    expect(after.some((b) => b.title === 'Second Topic')).toBe(true);
   });
 });

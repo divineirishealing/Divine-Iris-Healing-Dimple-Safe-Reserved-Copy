@@ -22,7 +22,6 @@ class ParsedParagraph:
     plain: str
     kind: str  # heading | subheading | quote | bullet | body
     level: int = 0  # Word heading level 1–3; 0 = none
-    align: str = ""  # center | justify | left | right | ""
 
 
 def _load_style_names(docx_bytes: bytes) -> Dict[str, str]:
@@ -105,37 +104,6 @@ def _paragraph_is_list(p: ET.Element) -> bool:
     if ppr is None:
         return False
     return ppr.find(f"{_WP}numPr") is not None
-
-
-def _paragraph_alignment(p: ET.Element) -> str:
-    """Map Word w:jc → center | justify | left | right."""
-    ppr = p.find(f"{_WP}pPr")
-    if ppr is None:
-        return ""
-    jc = ppr.find(f"{_WP}jc")
-    if jc is None:
-        return ""
-    val = (jc.attrib.get(_VAL) or "").strip().lower()
-    if val in ("center", "centre"):
-        return "center"
-    if val == "both":
-        return "justify"
-    if val == "right":
-        return "right"
-    if val == "left":
-        return "left"
-    return ""
-
-
-def _align_prefix(align: str) -> str:
-    """Line prefix consumed by the frontend mirror renderer."""
-    if align == "center":
-        return ">>c "
-    if align == "justify":
-        return ">>j "
-    if align == "right":
-        return ">>r "
-    return ""
 
 
 def _collapse_markup(text: str) -> str:
@@ -252,10 +220,7 @@ def docx_bytes_to_paragraphs(data: bytes) -> List[ParsedParagraph]:
         if not plain:
             continue
 
-        align = _paragraph_alignment(para)
-        parsed.append(
-            ParsedParagraph(formatted=formatted, plain=plain, kind=kind, level=level, align=align)
-        )
+        parsed.append(ParsedParagraph(formatted=formatted, plain=plain, kind=kind, level=level))
 
     if not parsed:
         raise ValueError("Document is empty")
@@ -302,15 +267,7 @@ def _ensure_heading_markup(paragraphs: List[ParsedParagraph]) -> List[ParsedPara
     out: List[ParsedParagraph] = []
     for p in paragraphs:
         if p.kind in ("heading", "subheading") and not p.formatted.startswith("**"):
-            out.append(
-                ParsedParagraph(
-                    formatted=f"**{p.plain}**",
-                    plain=p.plain,
-                    kind=p.kind,
-                    level=p.level,
-                    align=p.align,
-                )
-            )
+            out.append(ParsedParagraph(formatted=f"**{p.plain}**", plain=p.plain, kind=p.kind))
         else:
             out.append(p)
     return out
@@ -357,8 +314,7 @@ def _paragraphs_to_document_body(paragraphs: List[ParsedParagraph]) -> str:
     blocks: List[str] = []
 
     for p in paragraphs:
-        prefix = _align_prefix(p.align)
-        block = f"{prefix}{_block_line_prefix(p)}{p.formatted.strip()}".strip()
+        block = f"{_block_line_prefix(p)}{p.formatted.strip()}".strip()
         if not block:
             continue
         if p.level == 1 and blocks:
@@ -427,8 +383,6 @@ def build_draft_sections_from_text(text: str) -> List[Dict[str, Any]]:
         elif re.match(r"^[✦•\-]", plain):
             kind = "bullet"
         formatted = plain if kind != "bullet" else (plain if plain.startswith("✦") else f"✦ {plain.lstrip('•-* ')}")
-        paragraphs.append(
-            ParsedParagraph(formatted=formatted, plain=_plain_text(formatted), kind=kind, align="")
-        )
+        paragraphs.append(ParsedParagraph(formatted=formatted, plain=_plain_text(formatted), kind=kind))
 
     return build_draft_sections_from_paragraphs(paragraphs)

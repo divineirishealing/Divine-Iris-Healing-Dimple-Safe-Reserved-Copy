@@ -8,9 +8,10 @@ import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import {
   resolveProgramDocument,
-  splitDocumentBodyForExperience,
+  parseDocumentLandingBlocks,
+  splitBlocksForExperience,
 } from '../lib/documentLandingBlocks';
-import ProgramDocumentMirror from '../components/ProgramDocumentMirror';
+import ProgramDocumentLanding from '../components/ProgramDocumentLanding';
 import ProgramExperienceMoment from '../components/ProgramExperienceMoment';
 import { experienceMomentHasContent } from '../lib/parseExperienceMoment';
 import { useCurrency } from '../context/CurrencyContext';
@@ -520,11 +521,11 @@ function ProgramDetailPage() {
   })();
   const showExperienceMoment = experienceSection
     && experienceMomentHasContent(experienceSection, experiencePortraitUrl);
-  const docBody = documentSection?.body || '';
+  const docBlocks = documentSection ? parseDocumentLandingBlocks(documentSection.body) : [];
   const splitDocForExperience = !!(documentSection && showExperienceMoment);
   const { before: docBefore, after: docAfter } = splitDocForExperience
-    ? splitDocumentBodyForExperience(docBody, 1)
-    : { before: docBody, after: '' };
+    ? splitBlocksForExperience(docBlocks, 1)
+    : { before: docBlocks, after: [] };
 
   // Global pricing style
   const globalPricingStyle = {
@@ -729,7 +730,7 @@ function ProgramDetailPage() {
 
       {documentSection ? (
         <>
-          <ProgramDocumentMirror body={docBefore} accent={heroAccent} />
+          <ProgramDocumentLanding blocks={docBefore} accent={heroAccent} />
           {showExperienceMoment ? (
             <ProgramExperienceMoment
               section={experienceSection}
@@ -737,7 +738,7 @@ function ProgramDetailPage() {
               portraitUrl={experiencePortraitUrl}
             />
           ) : null}
-          <ProgramDocumentMirror body={docAfter} accent={heroAccent} />
+          <ProgramDocumentLanding blocks={docAfter} accent={heroAccent} startIndex={docBefore.length} />
           {legacySections.map((section, idx) => renderSection(section, idx, { hideLegacyIntro }))}
         </>
       ) : (

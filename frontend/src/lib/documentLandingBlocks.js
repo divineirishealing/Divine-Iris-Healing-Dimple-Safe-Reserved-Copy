@@ -99,35 +99,6 @@ export function parseDocumentLandingBlocks(body) {
 }
 
 /**
- * Split imported document body at the Nth Word Heading 1 for the Experience block.
- */
-export function splitDocumentBodyForExperience(body, sectionCountBefore = 1) {
-  if (!body?.trim()) return { before: '', after: '' };
-
-  const prepared = prepareFaithfulDocumentBody(body);
-  const paragraphs = prepared.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-
-  let h1Count = 0;
-  let splitAt = paragraphs.length;
-
-  for (let i = 0; i < paragraphs.length; i += 1) {
-    const prefixed = parseHeadingPrefix(paragraphs[i]);
-    if (prefixed?.level === 1) {
-      h1Count += 1;
-      if (h1Count === sectionCountBefore + 1) {
-        splitAt = i;
-        break;
-      }
-    }
-  }
-
-  return {
-    before: paragraphs.slice(0, splitAt).join('\n\n'),
-    after: paragraphs.slice(splitAt).join('\n\n'),
-  };
-}
-
-/**
  * Split blocks so the black Experience section sits after intro + first topic.
  */
 export function splitBlocksForExperience(blocks, sectionCountBefore = 1) {
