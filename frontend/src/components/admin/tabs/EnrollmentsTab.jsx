@@ -25,6 +25,18 @@ const STATUS_MAP = {
   abandoned: { label: 'Abandoned', color: 'bg-gray-100 text-gray-500' },
 };
 
+const PAID_PAYMENT_STATUSES = new Set(['paid', 'complete', 'completed']);
+const COMPLETED_ENROLL_STATUSES = new Set(['completed', 'paid', 'india_payment_approved']);
+
+/** Paid checkout can leave enrollment.status stale at checkout_started — prefer payment row. */
+function getEffectiveEnrollmentStatus(enrollment) {
+  const st = String(enrollment?.status || '').toLowerCase();
+  if (COMPLETED_ENROLL_STATUSES.has(st)) return enrollment.status || st;
+  const paySt = String(enrollment?.payment?.payment_status || '').toLowerCase();
+  if (PAID_PAYMENT_STATUSES.has(paySt)) return 'completed';
+  return enrollment?.status || 'pending';
+}
+
 const PAYMENT_MODE_MAP = {
   stripe: { label: 'Stripe', icon: CreditCard, color: 'text-blue-600 bg-blue-50' },
   india_bank: { label: 'Bank Transfer', icon: Building2, color: 'text-green-600 bg-green-50' },
@@ -829,7 +841,7 @@ const EnrollmentsTab = () => {
           [e.id, e.booker_name, e.booker_email, e.item_title, e.phone, e.invoice_number]
             .filter(Boolean)
             .some((f) => f.toLowerCase().includes(search.toLowerCase()));
-        const matchStatus = statusFilter === 'all' || e.status === statusFilter;
+        const matchStatus = statusFilter === 'all' || getEffectiveEnrollmentStatus(e) === statusFilter;
         const mode = getPaymentMode(e);
         const matchPayment = paymentFilter === 'all' || mode === paymentFilter;
         const matchOrigin =
@@ -840,7 +852,7 @@ const EnrollmentsTab = () => {
   );
 
   const statusCounts = {};
-  enrollments.forEach(e => { const s = e.status || 'pending'; statusCounts[s] = (statusCounts[s] || 0) + 1; });
+  enrollments.forEach(e => { const s = getEffectiveEnrollmentStatus(e) || 'pending'; statusCounts[s] = (statusCounts[s] || 0) + 1; });
   statusCounts.all = enrollments.length;
 
   const paymentCounts = {};
@@ -1772,7 +1784,8 @@ const EnrollmentsTab = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
               {summaryAnalyticsRows.map(({ enrollment: e, serial, amountInr, cumulativeInr, attendanceLabel, sourceCurrency }) => {
-                const s = STATUS_MAP[e.status] || { label: e.status || 'Unknown', color: 'bg-gray-100 text-gray-600' };
+                const effectiveStatus = getEffectiveEnrollmentStatus(e);
+                const s = STATUS_MAP[effectiveStatus] || { label: effectiveStatus || 'Unknown', color: 'bg-gray-100 text-gray-600' };
                 const mode = getPaymentMode(e);
                 const modeInfo = mode ? PAYMENT_MODE_MAP[mode] : null;
                 const ModeIcon = modeInfo?.icon || CreditCard;

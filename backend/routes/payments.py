@@ -931,6 +931,10 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
     # If already marked as paid, return immediately (prevent double processing)
     if tx.get("payment_status") == "paid":
         await backfill_transaction_portal_ids(session_id, tx)
+        if enrollment_id:
+            from utils.enrollment_checkout_status import reconcile_enrollment_with_paid_transaction
+
+            await reconcile_enrollment_with_paid_transaction(db, enrollment_id, tx)
         try:
             from routes.india_payments import sync_home_coming_emis_after_online_enrollment_payment
 
@@ -986,7 +990,13 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
         if new_status == "paid":
             await backfill_transaction_portal_ids(session_id, tx)
 
-        # Complete enrollment and send confirmation when payment is newly confirmed
+        paid_tx = {**tx, "payment_status": new_status}
+        if new_status == "paid" and enrollment_id:
+            from utils.enrollment_checkout_status import reconcile_enrollment_with_paid_transaction
+
+            await reconcile_enrollment_with_paid_transaction(db, enrollment_id, paid_tx)
+
+        # Receipts, loyalty, and fraud run once per paid checkout
         if new_status == "paid" and not tx.get("emails_sent"):
             try:
                 from routes.points_logic import run_post_payment_loyalty
@@ -996,17 +1006,7 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
             except Exception as e:
                 logger.warning(f"Points status-poll loyalty: {e}")
 
-            # Mark enrollment as completed (primary path — webhook is secondary/redundant)
             if enrollment_id:
-                await db.enrollments.update_one(
-                    {"id": enrollment_id},
-                    {"$set": {
-                        "status": "completed",
-                        "payment_method": "stripe",
-                        "paid_at": datetime.now(timezone.utc).isoformat(),
-                        "updated_at": datetime.now(timezone.utc).isoformat(),
-                    }}
-                )
                 logger.info(f"Enrollment {enrollment_id} → completed (via status poll)")
 
             # Mark emails_sent immediately to prevent duplicate receipts on page refresh
