@@ -2,13 +2,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from models import Program, ProgramCreate
 from typing import List, Optional
 
-from utils.docx_import import (
-    build_draft_sections_from_docx,
-    build_draft_sections_from_text,
-    docx_bytes_to_text,
-    finalize_document_only_sections,
-    merge_live_preserved_sections,
-)
+from utils.docx_import import build_draft_sections_from_docx, build_draft_sections_from_text, docx_bytes_to_text
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -267,9 +261,6 @@ async def publish_draft_content(program_id: str):
     draft = existing.get("draft_content_sections", [])
     if not draft:
         raise HTTPException(status_code=400, detail="No draft content to publish")
-    live = existing.get("content_sections", [])
-    draft = merge_live_preserved_sections(draft, live)
-    draft = finalize_document_only_sections(draft)
     await db.programs.update_one({"id": program_id}, {"$set": {"content_sections": draft}})
     return {"message": "Draft published to live", "content_sections": draft}
 

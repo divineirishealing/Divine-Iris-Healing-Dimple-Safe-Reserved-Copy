@@ -1,18 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { resolveImageUrl } from '../lib/imageUtils';
-import {
-  resolveProgramDocument,
-} from '../lib/documentLandingBlocks';
-import ProgramDocumentMirror from '../components/ProgramDocumentMirror';
+import { renderMarkdown } from '../lib/renderMarkdown';
 import ProgramExperienceMoment from '../components/ProgramExperienceMoment';
 import { experienceMomentHasContent } from '../lib/parseExperienceMoment';
 import { useCurrency } from '../context/CurrencyContext';
-import { HEADING, BODY, GOLD, LABEL, CONTAINER, SECTION_PY } from '../lib/designTokens';
+import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, NARROW, WIDE, SECTION_PY } from '../lib/designTokens';
+import {
+  SoulfulWrittenCard,
+  SoulfulUniformVideoCard,
+  SoulfulTestimonialFull,
+  templateTestimonialHasPhotos,
+} from '../components/SoulfulTestimonialCard';
+import { applyWrittenQuoteStyle } from '../lib/transformationsWrittenQuoteStyle';
+import { Dialog, DialogContent } from '../components/ui/dialog';
 import { useSeoPage } from '../context/SeoPageContext';
 import { formatDateDdMonYyyy } from '../lib/utils';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -107,6 +112,13 @@ const applyStyle = (styleObj, defaults = {}) => {
   };
 };
 
+const getDefaultSections = (program) => [
+  { id: 'journey', section_type: 'journey', is_enabled: true, order: 0, title: 'The Journey', subtitle: '', body: program.description || '', image_url: '' },
+  { id: 'who_for', section_type: 'who_for', is_enabled: true, order: 1, title: 'Who It Is For?', subtitle: 'A Sacred Invitation for those who resonate', body: '', image_url: '' },
+  { id: 'experience', section_type: 'experience', is_enabled: true, order: 2, title: 'Your Experience', subtitle: '', body: '', image_url: '' },
+  { id: 'why_now', section_type: 'why_now', is_enabled: true, order: 3, title: 'Why You Need This Now?', subtitle: '', body: '', image_url: '' },
+];
+
 function stripForMeta(htmlOrText) {
   if (!htmlOrText) return '';
   return String(htmlOrText)
@@ -152,6 +164,11 @@ function ProgramDetailPage() {
   const [program, setProgram] = useState(null);
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState(null);
+  const [testimonials, setTestimonials] = useState([]);
+  const [currentTestimonial, setCurrentTestimonial] = useState(0);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [selectedEmbed, setSelectedEmbed]       = useState(null);
+  const [lightboxImg, setLightboxImg] = useState(null);
   const [heroTierIdx, setHeroTierIdx] = useState(0);
 
   useEffect(() => {
@@ -189,9 +206,47 @@ function ProgramDetailPage() {
       ]);
       setProgram(progRes.data);
       setSettings(settingsRes.data);
+
+      // Fetch by program_id AND by program_name (title match), then deduplicate
+      const prog = progRes.data;
+      const [byId, byName] = await Promise.all([
+        axios.get(`${API}/testimonials?program_id=${id}&visible_only=true`),
+        prog?.title
+          ? axios.get(`${API}/testimonials?program_name=${encodeURIComponent(prog.title)}&visible_only=true`)
+          : Promise.resolve({ data: [] }),
+      ]);
+      const seen = new Set();
+      const merged = [...(byId.data || []), ...(byName.data || [])].filter(t => {
+        if (seen.has(t.id)) return false;
+        seen.add(t.id);
+        return true;
+      });
+      // Ensure every card on this page always has program_name to display
+      const enriched = merged.map(t => ({
+        ...t,
+        program_name: t.program_name || prog?.title || '',
+      }));
+      setTestimonials(enriched);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
+
+  const imgTestimonialsCount = testimonials.filter(t => t.image).length;
+  const nextT = () => setCurrentTestimonial(p => (p + 1) % Math.max(imgTestimonialsCount, 1));
+  const prevT = () => setCurrentTestimonial(p => (p - 1 + imgTestimonialsCount) % Math.max(imgTestimonialsCount, 1));
+
+  // Auto-play carousel
+  const [hoveredCard, setHoveredCard] = useState(null);
+  useEffect(() => {
+    if (imgTestimonialsCount <= 1) return;
+    const timer = setInterval(() => nextT(), 5000);
+    return () => clearInterval(timer);
+  }, [imgTestimonialsCount, currentTestimonial]);
+
+  const writtenQuoteStyle = useMemo(
+    () => applyWrittenQuoteStyle(settings?.page_heroes?.transformations?.written_story_quote_style),
+    [settings]
+  );
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a]"><p className="text-gray-400 text-xs" style={BODY}>Loading...</p></div>;
   if (!program) return (
@@ -203,37 +258,48 @@ function ProgramDetailPage() {
     </div>
   );
 
-  // Unified program template — one template controls all program detail pages
-  const template = settings?.page_heroes?.program_template || {};
-  const heroAccent = template.accent_color || GOLD;
-  const heroBg = template.hero_bg || '#1a1a1a';
+  // Build sections: use global template for structure, per-program data for content
   const sectionTemplate = settings?.program_section_template || [];
   const programSections = program.content_sections || [];
 
-  const experienceMoment = (() => {
-    const tpl = sectionTemplate.find((t) => t.section_type === 'experience' && t.is_enabled !== false);
-    const match = programSections.find((s) => s.section_type === 'experience' || s.id === 'experience') || {};
-    const globalExpImg = template.experience_image ? resolveImageUrl(template.experience_image) : '';
-    const aboutPortrait = settings?.about_image ? resolveImageUrl(settings.about_image) : '';
-    const section = {
-      id: match.id || tpl?.id || 'experience',
-      section_type: 'experience',
-      title: match.title != null ? match.title : (tpl?.default_title || ''),
-      subtitle: match.subtitle != null ? match.subtitle : (tpl?.default_subtitle || ''),
-      body: match.body || '',
-      image_url: match.image_url || '',
-      image_fit: match.image_fit || 'contain',
-      image_position: match.image_position || 'center top',
-    };
-    const portraitUrl = section.image_url
-      ? resolveImageUrl(section.image_url)
-      : (globalExpImg || aboutPortrait);
-    if (!experienceMomentHasContent(section, portraitUrl)) return null;
-    return { section, portraitUrl };
-  })();
+  const sections = (() => {
+    if (sectionTemplate.length > 0) {
+      const templateIds = new Set(sectionTemplate.map(t => t.id));
+      const templateTypes = new Set(sectionTemplate.map(t => t.section_type));
 
-  const documentSection = resolveProgramDocument(program, programSections)?.section || null;
-  const docBody = documentSection?.body || '';
+      // Template-driven: merge template structure with per-program content.
+      // Use null-check (not falsy) so an explicit empty string suppresses the template default.
+      const templateSections = sectionTemplate
+        .filter(t => t.is_enabled !== false)
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+        .map(tpl => {
+          const match = programSections.find(s => s.id === tpl.id || s.section_type === tpl.section_type) || {};
+          return {
+            id: tpl.id,
+            section_type: tpl.section_type,
+            title:    (match.title    != null) ? match.title    : (tpl.default_title    || ''),
+            subtitle: (match.subtitle != null) ? match.subtitle : (tpl.default_subtitle || ''),
+            body: match.body || '',
+            image_url: match.image_url || '',
+            image_fit: match.image_fit || 'contain',
+            image_position: match.image_position || 'center top',
+            is_enabled: true,
+            order: tpl.order,
+          };
+        });
+
+      // Include any extra custom sections from content_sections not covered by the template
+      const extraSections = programSections
+        .filter(s => s.is_enabled !== false && !templateIds.has(s.id) && !templateTypes.has(s.section_type))
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+      return [...templateSections, ...extraSections].sort((a, b) => (a.order || 0) - (b.order || 0));
+    }
+    // Fallback: use program's own sections or defaults
+    return (programSections.length > 0)
+      ? programSections.filter(s => s.is_enabled).sort((a, b) => (a.order || 0) - (b.order || 0))
+      : getDefaultSections(program);
+  })();
 
   const heroScheduleItems = [];
   if (program.start_date && String(program.start_date).trim()) {
@@ -285,6 +351,9 @@ function ProgramDetailPage() {
     ? 'closed'
     : program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
 
+  const SectionTitle = ({ children, style: extra }) => (
+    <h2 className="text-center mb-4" style={applyStyle(extra || template.section_title_style, { ...HEADING, fontSize: '1.6rem' })}>{children}</h2>
+  );
   const GoldLine = ({ type = 'section' }) => {
     const visKey = `${type}_line_visible`;
     const gapKey = `${type}_line_gap`;
@@ -292,6 +361,125 @@ function ProgramDetailPage() {
     const gap = template[gapKey] || '10';
     return <div className="w-12 h-0.5 mx-auto" style={{ background: heroAccent, marginBottom: `${gap}px` }} />;
   };
+  const SubtitleText = ({ children, style: extra }) => (
+    <p className="text-center mb-8" style={applyStyle(extra || template.section_subtitle_style, { ...SUBTITLE })}>{children}</p>
+  );
+  const BodyText = ({ children, style: extra, className: cls = '' }) => (
+    <p className={`whitespace-pre-wrap ${cls}`} style={applyStyle(extra || template.body_style, { ...BODY })} dangerouslySetInnerHTML={{ __html: renderMarkdown(children || '') }} />
+  );
+
+  const renderSection = (section, idx) => {
+    const sType = section.section_type || 'custom';
+
+    // Skip sections with no content at all — avoids empty padded blocks
+    if (!section.title && !section.subtitle && !section.body && !section.image_url) return null;
+
+    // Document sections render via ProgramDocumentBody (see below)
+    if (sType === 'document') return null;
+
+    if (sType === 'journey' || (sType === 'custom' && !section.image_url)) {
+      return (
+        <section key={section.id || idx} data-testid={`section-${idx}`} className={`${SECTION_PY} bg-white`}>
+          <div className={CONTAINER}><div className={NARROW}>
+            {section.title && <><SectionTitle style={section.title_style}>{section.title}</SectionTitle><GoldLine /></>}
+            {section.subtitle && <SubtitleText style={section.subtitle_style}>{section.subtitle}</SubtitleText>}
+            {section.body && <BodyText style={section.body_style} className="text-justify">{section.body}</BodyText>}
+          </div></div>
+        </section>
+      );
+    }
+
+    if (sType === 'who_for') {
+      const lines = section.body ? section.body.split('\n').filter(l => l.trim()) : [];
+      return (
+        <section key={section.id || idx} data-testid={`section-${idx}`} className={`${SECTION_PY} bg-[#f8f8f8]`}>
+          <div className={CONTAINER}><div className={NARROW}>
+            {section.title && <><SectionTitle style={section.title_style}>{section.title}</SectionTitle><GoldLine /></>}
+            {section.subtitle && <SubtitleText style={section.subtitle_style}>{section.subtitle}</SubtitleText>}
+            {lines.length > 0 && (
+              <div className="grid md:grid-cols-2 gap-x-16 gap-y-5 max-w-3xl mx-auto">
+                {lines.map((line, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <span className="mt-0.5 text-lg flex-shrink-0" style={{ color: heroAccent }}>&#10038;</span>
+                    <p style={{ ...BODY }} dangerouslySetInnerHTML={{ __html: renderMarkdown(line.replace(/^[-•*]\s*/, '')) }} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div></div>
+        </section>
+      );
+    }
+
+    if (sType === 'experience') {
+      const globalExpImg = template.experience_image ? resolveImageUrl(template.experience_image) : '';
+      const aboutPortrait = settings?.about_image ? resolveImageUrl(settings.about_image) : '';
+      const sectionImg = section.image_url
+        ? resolveImageUrl(section.image_url)
+        : (globalExpImg || aboutPortrait);
+      if (!experienceMomentHasContent(section, sectionImg)) return null;
+      return (
+        <ProgramExperienceMoment
+          key={section.id || idx}
+          section={section}
+          accent={heroAccent}
+          portraitUrl={sectionImg}
+        />
+      );
+    }
+
+    if (sType === 'why_now') {
+      return (
+        <section key={section.id || idx} data-testid={`section-${idx}`} className={`${SECTION_PY} bg-white`}>
+          <div className={CONTAINER}><div className={NARROW}>
+            {section.title && <><SectionTitle style={section.title_style}>{section.title || 'Why You Need This Now?'}</SectionTitle><GoldLine /></>}
+            {section.subtitle && <SubtitleText style={section.subtitle_style}>{section.subtitle}</SubtitleText>}
+            {section.body && <BodyText style={section.body_style} className="text-justify">{section.body}</BodyText>}
+            {section.image_url && (
+              <div className="mt-10 rounded-lg overflow-hidden">
+                <img src={resolveImageUrl(section.image_url)} alt={section.title} className="w-full max-h-96" style={{ objectFit: section.image_fit || 'cover', objectPosition: section.image_position || 'center' }} onError={(e) => { e.target.style.display = 'none'; }} />
+              </div>
+            )}
+          </div></div>
+        </section>
+      );
+    }
+
+    if (section.image_url?.trim()) {
+      const imgLeft = idx % 2 === 0;
+      return (
+        <section key={section.id || idx} data-testid={`section-${idx}`} className={`${SECTION_PY} ${idx % 2 === 0 ? 'bg-white' : 'bg-[#f8f8f8]'}`}>
+          <div className={CONTAINER}><div className={WIDE}>
+            {section.title && <><SectionTitle style={section.title_style}>{section.title}</SectionTitle><GoldLine /></>}
+            {section.subtitle && <SubtitleText style={section.subtitle_style}>{section.subtitle}</SubtitleText>}
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div className={imgLeft ? 'order-1' : 'order-1 md:order-2'}>
+                <img src={resolveImageUrl(section.image_url)} alt={section.title} className="w-full rounded-lg" style={{ objectFit: section.image_fit || 'cover', objectPosition: section.image_position || 'center' }} onError={(e) => { e.target.style.display = 'none'; }} />
+              </div>
+              <div className={imgLeft ? 'order-2' : 'order-2 md:order-1'}>
+                <BodyText style={section.body_style}>{section.body}</BodyText>
+              </div>
+            </div>
+          </div></div>
+        </section>
+      );
+    }
+
+    return (
+      <section key={section.id || idx} data-testid={`section-${idx}`} className={`${SECTION_PY} ${idx % 2 === 0 ? 'bg-white' : 'bg-[#f8f8f8]'}`}>
+        <div className={CONTAINER}><div className={NARROW}>
+          {section.title && <><SectionTitle style={section.title_style}>{section.title}</SectionTitle><GoldLine /></>}
+          {section.subtitle && <SubtitleText style={section.subtitle_style}>{section.subtitle}</SubtitleText>}
+          {section.body && <BodyText style={section.body_style} className="text-justify">{section.body}</BodyText>}
+        </div></div>
+      </section>
+    );
+  };
+
+  // Unified program template — one template controls all program detail pages
+  const template = settings?.page_heroes?.program_template || {};
+  const heroAccent = template.accent_color || GOLD;
+  const heroBg = template.hero_bg || '#1a1a1a';
 
   // Global pricing style
   const globalPricingStyle = {
@@ -494,23 +682,9 @@ function ProgramDetailPage() {
         ) : null}
       </section>
 
-      {documentSection && docBody.trim() ? (
-        <ProgramDocumentMirror
-          body={docBody}
-          subtitle={documentSection.subtitle}
-          accent={heroAccent}
-        />
-      ) : null}
+      {sections.map((section, idx) => renderSection(section, idx))}
 
-      {experienceMoment ? (
-        <ProgramExperienceMoment
-          section={experienceMoment.section}
-          accent={heroAccent}
-          portraitUrl={experienceMoment.portraitUrl}
-        />
-      ) : null}
-
-      {/* CTA — Book Now */}
+      {/* CTA */}
       <section className={`${SECTION_PY} bg-white`} data-testid="cta-section">
         <div className={CONTAINER}>
           <div className="max-w-3xl mx-auto text-center">
@@ -638,6 +812,131 @@ function ProgramDetailPage() {
           </div>
         </div>
       </section>
+
+      {testimonials.filter(t => t.type === 'template' || (t.type === 'video' && (t.video_url || t.videoId))).length > 0 && (() => {
+        const rawCards = testimonials.filter(t =>
+          t.type === 'template' || (t.type === 'video' && (t.video_url || t.videoId))
+        );
+        const videoGroup = rawCards.filter((c) => c.type === 'video');
+        const writtenGroup = rawCards.filter((c) => c.type === 'template');
+        const writtenWithPic = writtenGroup.filter((t) => templateTestimonialHasPhotos(t));
+        const writtenWithoutPic = writtenGroup.filter((t) => !templateTestimonialHasPhotos(t));
+        const allCards = [...writtenWithPic, ...writtenWithoutPic, ...videoGroup];
+        const CARD_W  = 300;
+        const CARD_GAP = 20;
+        const times = Math.ceil(10 / Math.max(allCards.length, 1));
+        const loopCards = Array.from({ length: times * 2 }, (_, rep) =>
+          allCards.map((c, i) => ({ ...c, _key: `${rep}-${i}` }))
+        ).flat();
+        const trackWidth = allCards.length * (CARD_W + CARD_GAP);
+        const duration   = Math.max(20, allCards.length * 5);
+
+        return (
+          <section className="py-10 md:py-12" data-testid="testimonials-section"
+            style={{ background: 'linear-gradient(180deg, #f5f4f8 0%, #eceaf1 40%, #f5f4f8 100%)' }}>
+            <div className="container mx-auto px-4 max-w-7xl">
+              <h2 className="text-center mb-6 md:mb-8"
+                style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>
+                What People Are Saying
+              </h2>
+            </div>
+
+            <style>{`
+              @keyframes progTestimonialMarquee {
+                from { transform: translateX(0); }
+                to   { transform: translateX(-${trackWidth + CARD_GAP}px); }
+              }
+              .prog-marquee-track {
+                display: flex;
+                gap: ${CARD_GAP}px;
+                width: max-content;
+                animation: progTestimonialMarquee ${duration}s linear infinite;
+              }
+              .prog-marquee-wrap:hover .prog-marquee-track {
+                animation-play-state: paused;
+              }
+            `}</style>
+            <div className="prog-marquee-wrap overflow-hidden"
+              style={{
+                maskImage: 'linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%)',
+                WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%)',
+              }}>
+              <div className="prog-marquee-track items-stretch">
+                {loopCards.map(t => (
+                  <div
+                    key={t._key}
+                    className="flex items-center justify-center"
+                    style={{ width: CARD_W, flexShrink: 0, alignSelf: 'stretch' }}>
+                    {t.type === 'video'
+                      ? <SoulfulUniformVideoCard testimonial={t} footerCentered compactProgram
+                          quoteStyle={writtenQuoteStyle}
+                          onPlay={(embedUrl, platform) => setSelectedEmbed({ embedUrl, platform })}
+                          onOpen={url => window.open(url, '_blank')}
+                        />
+                      : (
+                          <SoulfulWrittenCard
+                            testimonial={t}
+                            uniform
+                            footerCentered
+                            compactProgram
+                            quoteStyle={writtenQuoteStyle}
+                            onClick={() => setSelectedTemplate(t)}
+                          />
+                        )
+                    }
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Full story modal */}
+            <Dialog open={!!selectedTemplate} onOpenChange={() => setSelectedTemplate(null)}>
+              <DialogContent
+                className="max-w-3xl max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden rounded-2xl"
+                style={{ border: '1px solid rgba(123,104,238,0.15)' }}>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                  {selectedTemplate && (
+                    <SoulfulTestimonialFull testimonial={selectedTemplate} quoteStyle={writtenQuoteStyle} />
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Video embed modal */}
+            <Dialog open={!!selectedEmbed} onOpenChange={() => setSelectedEmbed(null)}>
+              <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black rounded-2xl">
+                {selectedEmbed && (
+                  <div className="relative"
+                    style={{ paddingBottom: selectedEmbed.platform === 'instagram' ? '120%' : '56.25%' }}>
+                    <iframe className="absolute inset-0 w-full h-full"
+                      src={selectedEmbed.embedUrl} title="Video testimonial" frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                      sandbox="allow-scripts allow-same-origin allow-popups allow-presentation allow-forms" />
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+          </section>
+        );
+      })()}
+
+      {/* Testimonial Lightbox — dark overlay, full image */}
+      {lightboxImg && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center" data-testid="program-testimonial-lightbox"
+          onClick={() => setLightboxImg(null)}
+          style={{ background: 'rgba(0,0,0,0.85)' }}>
+          <button onClick={() => setLightboxImg(null)}
+            className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors z-50"
+            data-testid="lightbox-close">
+            <span className="text-white text-xl font-light">&times;</span>
+          </button>
+          <img src={lightboxImg} alt="Testimonial"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-2xl"
+            style={{ boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}
+            onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
 
       <Footer />
       <FloatingButtons />
