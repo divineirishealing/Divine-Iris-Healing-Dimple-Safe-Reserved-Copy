@@ -6,7 +6,7 @@ import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
-import { parseDocumentLandingBlocks, splitBlocksForExperience } from '../lib/documentLandingBlocks';
+import { parseDocumentLandingBlocks, splitBlocksForExperience, resolveProgramDocument } from '../lib/documentLandingBlocks';
 import ProgramDocumentLanding from '../components/ProgramDocumentLanding';
 import { useCurrency } from '../context/CurrencyContext';
 import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, NARROW, WIDE, SECTION_PY } from '../lib/designTokens';
@@ -496,14 +496,20 @@ function ProgramDetailPage() {
   const heroAccent = template.accent_color || GOLD;
   const heroBg = template.hero_bg || '#1a1a1a';
 
-  const documentSection = sections.find((s) => s.section_type === 'document' && s.body?.trim());
+  const docMeta = resolveProgramDocument(program, sections);
+  const documentSection = docMeta?.section || null;
+  const skipLandingTypes = new Set(docMeta?.skipTypes || []);
   const experienceSection = sections.find((s) => {
     if (s.section_type !== 'experience') return false;
     const globalExpImg = template.experience_image ? resolveImageUrl(template.experience_image) : '';
     return !!(s.body?.trim() || s.title?.trim() || s.image_url?.trim() || globalExpImg);
   });
   const legacySections = sections.filter(
-    (s) => s.section_type !== 'document' && s.id !== experienceSection?.id
+    (s) =>
+      s.section_type !== 'document' &&
+      s.id !== 'doc_main' &&
+      s.id !== experienceSection?.id &&
+      !skipLandingTypes.has(s.section_type),
   );
   const docBlocks = documentSection ? parseDocumentLandingBlocks(documentSection.body) : [];
   const splitDocForExperience = !!(documentSection && experienceSection);

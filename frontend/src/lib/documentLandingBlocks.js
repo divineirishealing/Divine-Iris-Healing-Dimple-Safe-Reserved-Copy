@@ -4,6 +4,65 @@
  */
 import { organizeDocumentBody, looksLikeMajorHeadline } from './organizeDocumentBody';
 
+const LEGACY_CONTENT_TYPES = ['journey', 'who_for', 'why_now'];
+
+function sectionBody(s) {
+  return String(s?.body || '').trim();
+}
+
+function isDocumentSection(s) {
+  if (!s || s.is_enabled === false) return false;
+  return (s.section_type === 'document' || s.id === 'doc_main') && sectionBody(s);
+}
+
+/**
+ * Resolve the text that drives the visitor landing layout.
+ * Prefer live document/doc_main blocks; otherwise compose legacy journey/who_for/why_now copy.
+ */
+export function resolveProgramDocument(program, mergedSections = []) {
+  const programSections = program?.content_sections || [];
+
+  const explicit =
+    programSections.find(isDocumentSection) ||
+    (mergedSections || []).find(isDocumentSection);
+
+  if (explicit) {
+    return {
+      section: explicit,
+      skipTypes: LEGACY_CONTENT_TYPES,
+    };
+  }
+
+  const legacyParts = programSections
+    .filter(
+      (s) =>
+        s.is_enabled !== false &&
+        LEGACY_CONTENT_TYPES.includes(s.section_type) &&
+        (sectionBody(s) || String(s.title || '').trim()),
+    )
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  if (!legacyParts.length) return null;
+
+  const body = legacyParts
+    .map((s) => {
+      const chunks = [];
+      if (String(s.title || '').trim()) chunks.push(`**${String(s.title).trim()}**`);
+      if (String(s.subtitle || '').trim()) chunks.push(String(s.subtitle).trim());
+      if (sectionBody(s)) chunks.push(sectionBody(s));
+      return chunks.join('\n\n');
+    })
+    .filter(Boolean)
+    .join('\n\n');
+
+  if (!body.trim()) return null;
+
+  return {
+    section: { id: 'legacy_doc', section_type: 'document', body },
+    skipTypes: LEGACY_CONTENT_TYPES,
+  };
+}
+
 export function parseDocumentLandingBlocks(body) {
   if (!body?.trim()) return [];
 
