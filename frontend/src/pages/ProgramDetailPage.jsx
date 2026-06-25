@@ -6,8 +6,12 @@ import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
-import { resolveProgramDocument } from '../lib/documentLandingBlocks';
-import ProgramDocumentBody from '../components/ProgramDocumentBody';
+import {
+  resolveProgramDocument,
+  parseDocumentLandingBlocks,
+  splitBlocksForExperience,
+} from '../lib/documentLandingBlocks';
+import ProgramDocumentLanding from '../components/ProgramDocumentLanding';
 import ProgramExperienceMoment from '../components/ProgramExperienceMoment';
 import { experienceMomentHasContent } from '../lib/parseExperienceMoment';
 import { useCurrency } from '../context/CurrencyContext';
@@ -517,6 +521,11 @@ function ProgramDetailPage() {
   })();
   const showExperienceMoment = experienceSection
     && experienceMomentHasContent(experienceSection, experiencePortraitUrl);
+  const docBlocks = documentSection ? parseDocumentLandingBlocks(documentSection.body) : [];
+  const splitDocForExperience = !!(documentSection && showExperienceMoment);
+  const { before: docBefore, after: docAfter } = splitDocForExperience
+    ? splitBlocksForExperience(docBlocks, 1)
+    : { before: docBlocks, after: [] };
 
   // Global pricing style
   const globalPricingStyle = {
@@ -721,6 +730,7 @@ function ProgramDetailPage() {
 
       {documentSection ? (
         <>
+          <ProgramDocumentLanding blocks={docBefore} accent={heroAccent} />
           {showExperienceMoment ? (
             <ProgramExperienceMoment
               section={experienceSection}
@@ -728,7 +738,7 @@ function ProgramDetailPage() {
               portraitUrl={experiencePortraitUrl}
             />
           ) : null}
-          <ProgramDocumentBody body={documentSection.body} accent={heroAccent} />
+          <ProgramDocumentLanding blocks={docAfter} accent={heroAccent} startIndex={docBefore.length} />
           {legacySections.map((section, idx) => renderSection(section, idx, { hideLegacyIntro }))}
         </>
       ) : (
