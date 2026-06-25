@@ -1,9 +1,5 @@
 import { resolveProgramDocument } from '../documentLandingBlocks';
-import {
-  prepareFaithfulDocumentBody,
-  isImportedBoldLine,
-  parseHeadingPrefix,
-} from '../faithfulDocument';
+import { prepareFaithfulDocumentBody, isImportedBoldLine } from '../faithfulDocument';
 
 describe('resolveProgramDocument', () => {
   it('prefers live document section over legacy blocks', () => {
@@ -39,16 +35,5 @@ describe('faithfulDocument', () => {
   it('detects imported bold lines', () => {
     expect(isImportedBoldLine('**From Word**')).toBe(true);
     expect(isImportedBoldLine('Plain question?')).toBe(false);
-  });
-
-  it('parses Word heading level prefixes', () => {
-    expect(parseHeadingPrefix('# **Section Title**')).toEqual({
-      level: 1,
-      content: '**Section Title**',
-    });
-    expect(parseHeadingPrefix('## **Sub section**')).toEqual({
-      level: 2,
-      content: '**Sub section**',
-    });
   });
 });

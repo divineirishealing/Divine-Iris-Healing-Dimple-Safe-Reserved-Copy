@@ -1,28 +1,11 @@
 import React from 'react';
 import { renderMarkdown } from '../lib/renderMarkdown';
-import {
-  prepareFaithfulDocumentBody,
-  isImportedBoldLine,
-  parseHeadingPrefix,
-  headingStyleForLevel,
-} from '../lib/faithfulDocument';
+import { prepareFaithfulDocumentBody, isImportedBoldLine } from '../lib/faithfulDocument';
 import { HEADING, BODY, CONTAINER, NARROW, SECTION_PY } from '../lib/designTokens';
 
-function renderHeading(content, level, key) {
-  const Tag = level === 1 ? 'h2' : level === 2 ? 'h3' : 'h4';
-  const mt = level === 1 ? 'mt-12 first:mt-0' : level === 2 ? 'mt-8' : 'mt-6';
-  return (
-    <Tag
-      key={key}
-      className={`${mt} mb-3 text-left font-bold`}
-      style={headingStyleForLevel(level, HEADING)}
-      dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-    />
-  );
-}
-
 /**
- * Render imported program document copy faithfully — Word order, heading levels, bold, italic, bullets.
+ * Render imported program document copy faithfully — order and markup from Word/import preserved.
+ * Only **bold**, *italic*, and ✦ bullets from the source are styled; no headline guessing.
  */
 export default function ProgramDocumentBody({ body, accent }) {
   const prepared = prepareFaithfulDocumentBody(body);
@@ -35,15 +18,22 @@ export default function ProgramDocumentBody({ body, accent }) {
     const trimmed = para.trim();
     if (!trimmed) return;
 
-    const prefixed = parseHeadingPrefix(trimmed);
-    if (prefixed) {
-      nodes.push(renderHeading(prefixed.content, prefixed.level, `hd-${pi}`));
-      return;
-    }
-
     if (isImportedBoldLine(trimmed)) {
       const inner = trimmed.match(/^\*\*(.+)\*\*$/s)?.[1] || trimmed;
-      nodes.push(renderHeading(inner, 4, `bh-${pi}`));
+      nodes.push(
+        <h2
+          key={`bh-${pi}`}
+          className="mb-3 mt-10 text-left font-bold first:mt-0"
+          style={{
+            ...HEADING,
+            color: '#1a1a1a',
+            fontSize: '1.25rem',
+            letterSpacing: '0.02em',
+            lineHeight: 1.4,
+          }}
+          dangerouslySetInnerHTML={{ __html: renderMarkdown(inner) }}
+        />
+      );
       return;
     }
 
@@ -52,7 +42,7 @@ export default function ProgramDocumentBody({ body, accent }) {
       nodes.push(
         <p
           key={`it-${pi}`}
-          className="my-3 italic text-center md:text-left"
+          className="my-4 italic"
           style={{ ...BODY, lineHeight: 1.85 }}
           dangerouslySetInnerHTML={{ __html: renderMarkdown(trimmed) }}
         />
@@ -80,10 +70,10 @@ export default function ProgramDocumentBody({ body, accent }) {
     const flushBullets = () => {
       if (!bulletRun.length) return;
       lineNodes.push(
-        <ul key={`bul-${lineNodes.length}`} className="my-3 space-y-2.5 pl-1">
+        <ul key={`bul-${lineNodes.length}`} className="my-4 space-y-2 pl-1">
           {bulletRun.map((content, bi) => (
             <li key={bi} className="flex items-start gap-3">
-              <span className="mt-1 flex-shrink-0 text-sm font-semibold" style={{ color: accent }}>
+              <span className="mt-1 flex-shrink-0 text-sm" style={{ color: accent }}>
                 ✦
               </span>
               <span
@@ -102,22 +92,22 @@ export default function ProgramDocumentBody({ body, accent }) {
       const t = line.trim();
       if (!t) return;
 
-      const linePrefixed = parseHeadingPrefix(t);
-      if (linePrefixed) {
-        flushBullets();
-        lineNodes.push(renderHeading(linePrefixed.content, linePrefixed.level, `lh-${pi}-${li}`));
-        return;
-      }
-
       if (isImportedBoldLine(t)) {
         flushBullets();
         const inner = t.match(/^\*\*(.+)\*\*$/s)?.[1] || t;
-        lineNodes.push(renderHeading(inner, 4, `bl-${li}`));
+        lineNodes.push(
+          <h3
+            key={`bl-${li}`}
+            className="mb-2 mt-6 font-bold"
+            style={{ ...HEADING, fontSize: '1.05rem', color: '#1a1a1a' }}
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(inner) }}
+          />
+        );
         return;
       }
 
       if (/^[✦•\-]/.test(t)) {
-        bulletRun.push(t.replace(/^✦\s*/, ''));
+        bulletRun.push(t.replace(/^[✦•\-]\s*/, ''));
         return;
       }
 

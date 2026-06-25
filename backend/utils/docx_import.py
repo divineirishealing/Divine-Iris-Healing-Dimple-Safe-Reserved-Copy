@@ -21,7 +21,6 @@ class ParsedParagraph:
     formatted: str
     plain: str
     kind: str  # heading | subheading | quote | bullet | body
-    level: int = 0  # Word heading level 1–3; 0 = none
 
 
 def _load_style_names(docx_bytes: bytes) -> Dict[str, str]:
@@ -121,51 +120,37 @@ def _plain_text(formatted: str) -> str:
     return re.sub(r"\*+", "", formatted).strip()
 
 
-def _heading_level(style_name: str) -> int:
-    sn = (style_name or "").lower()
-    m = re.search(r"heading\s*(\d)", sn)
-    if m:
-        return int(m.group(1))
-    if re.search(r"^title$", sn):
-        return 1
-    return 0
-
-
-def _classify_paragraph(formatted: str, plain: str, style_name: str, is_list: bool) -> Tuple[str, int]:
+def _classify_paragraph(formatted: str, plain: str, style_name: str, is_list: bool) -> str:
     if not plain:
-        return "body", 0
+        return "body"
 
-    level = _heading_level(style_name)
     sn = (style_name or "").lower()
-
-    if level == 1 or re.search(r"^title$|^subtitle$", sn):
-        return "heading", level or 1
-    if level in (2, 3) or re.search(r"heading\s*[2-3]", sn):
-        return "subheading", level or 2
-
-    plain_stripped = plain.strip()
-    if is_list or re.match(r"^[•●○▪\-–—✦]", plain_stripped):
-        return "bullet", 0
+    if re.search(r"heading\s*1|^title$|^subtitle$", sn):
+        return "heading"
+    if re.search(r"heading\s*[2-3]", sn):
+        return "subheading"
 
     if (plain.startswith('"') and plain.endswith('"')) or (plain.startswith('"') and plain.endswith('"')):
         if len(plain) > 30:
-            return "quote", 0
+            return "quote"
 
+    # Whole paragraph already marked bold → heading or subheading
     bold_only = re.match(r"^\*\*(.+)\*\*$", formatted.strip(), re.S)
     if bold_only:
         inner = bold_only.group(1).strip()
-        if re.match(r"^[•●○▪\-–—✦]", inner):
-            return "bullet", 0
         if len(inner) < 80 and (inner.isupper() or re.match(r"^[A-Z0-9][^.!?]*$", inner)):
-            return "heading", 0
+            return "heading"
         if len(inner) < 120:
-            return "subheading", 0
+            return "subheading"
 
-    return "body", 0
+    if is_list or re.match(r"^[•●○▪\-–—✦]\s", plain):
+        return "bullet"
+
+    return "body"
 
 
-def _normalise_formatted_line(formatted: str, kind: str, plain: str = "") -> str:
-    plain = plain or _plain_text(formatted)
+def _normalise_formatted_line(formatted: str, kind: str) -> str:
+    plain = _plain_text(formatted)
     if not plain:
         return ""
 
@@ -178,12 +163,13 @@ def _normalise_formatted_line(formatted: str, kind: str, plain: str = "") -> str
             return f"*{plain}*"
         return plain
     if kind == "bullet":
-        text = re.sub(r"^[•●○▪\-–—✦]\s*", "", plain).strip()
-        text = re.sub(r"^✦\s*", "", text).strip()
-        was_bold = "**" in formatted
-        if was_bold and text:
-            return f"✦ **{text}**"
-        return f"✦ {text}" if text else ""
+        bullet_text = re.sub(r"^[•●○▪\-–—✦]\s*", "", plain)
+        # Keep inline ** from Word inside bullet lines
+        inner = formatted.strip()
+        inner = re.sub(r"^[•●○▪\-–—✦]\s*", "", inner)
+        if "**" in inner:
+            return f"✦ {inner}"
+        return f"✦ {bullet_text}"
     return formatted.strip()
 
 
@@ -214,13 +200,13 @@ def docx_bytes_to_paragraphs(data: bytes) -> List[ParsedParagraph]:
         if not plain:
             continue
 
-        kind, level = _classify_paragraph(formatted, plain, style_name, is_list)
-        formatted = _normalise_formatted_line(formatted, kind, plain)
+        kind = _classify_paragraph(formatted, plain, style_name, is_list)
+        formatted = _normalise_formatted_line(formatted, kind)
         plain = _plain_text(formatted)
         if not plain:
             continue
 
-        parsed.append(ParsedParagraph(formatted=formatted, plain=plain, kind=kind, level=level))
+        parsed.append(ParsedParagraph(formatted=formatted, plain=plain, kind=kind))
 
     if not parsed:
         raise ValueError("Document is empty")
@@ -287,38 +273,16 @@ def _pick_experience_quote(paragraphs: List[ParsedParagraph]) -> Tuple[Optional[
     return quote, rest
 
 
-def _trim_doc_preamble(paragraphs: List[ParsedParagraph]) -> List[ParsedParagraph]:
-    """Drop cover/tagline block before the first Word Heading 1 (hero stays on the page template)."""
-    for i, p in enumerate(paragraphs):
-        if p.level == 1:
-            return paragraphs[i:]
-    return paragraphs
-
-
-def _block_line_prefix(p: ParsedParagraph) -> str:
-    if p.level == 1:
-        return "# "
-    if p.level == 2:
-        return "## "
-    if p.level >= 3:
-        return "### "
-    if p.kind == "subheading":
-        return "## "
-    if p.kind == "heading":
-        return "#### "
-    return ""
-
-
 def _paragraphs_to_document_body(paragraphs: List[ParsedParagraph]) -> str:
-    """Join with spacing — prefix #/##/### preserves Word heading levels for the renderer."""
+    """Join with spacing — extra gap before major headings for visual rhythm."""
     blocks: List[str] = []
 
     for p in paragraphs:
-        block = f"{_block_line_prefix(p)}{p.formatted.strip()}".strip()
+        block = p.formatted.strip()
         if not block:
             continue
-        if p.level == 1 and blocks:
-            blocks.append("")
+        if p.kind == "heading" and blocks:
+            blocks.append("")  # extra break → more air before section titles
         blocks.append(block)
 
     return re.sub(r"\n{3,}", "\n\n", "\n\n".join(blocks)).strip()
@@ -337,14 +301,26 @@ def _blank_template_suppressors() -> List[Dict[str, Any]]:
 
 
 def build_draft_sections_from_paragraphs(paragraphs: List[ParsedParagraph]) -> List[Dict[str, Any]]:
-    """Build draft sections: suppressors + full document (experience filled separately in admin)."""
+    """Build minimal draft sections: suppressors + optional explicit quote + one document block."""
     cleaned = _dedupe_paragraphs(paragraphs)
     cleaned = _ensure_heading_markup(cleaned)
-    cleaned = _trim_doc_preamble(cleaned)
+    quote, main = _pick_experience_quote(cleaned)
 
     sections = _blank_template_suppressors()
 
-    body = _paragraphs_to_document_body(cleaned)
+    if quote:
+        sections.append({
+            "id": "experience",
+            "section_type": "experience",
+            "title": _plain_text(quote.formatted),
+            "subtitle": "How It Can Be Life-Changing",
+            "body": "",
+            "image_url": "",
+            "is_enabled": True,
+            "order": 2,
+        })
+
+    body = _paragraphs_to_document_body(main if quote else cleaned)
 
     sections.append({
         "id": "doc_main",
