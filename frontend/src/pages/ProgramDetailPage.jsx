@@ -7,7 +7,6 @@ import FloatingButtons from '../components/FloatingButtons';
 import { resolveImageUrl } from '../lib/imageUtils';
 import {
   resolveProgramDocument,
-  splitDocumentBodyForExperience,
 } from '../lib/documentLandingBlocks';
 import ProgramDocumentMirror from '../components/ProgramDocumentMirror';
 import ProgramExperienceMoment from '../components/ProgramExperienceMoment';
@@ -235,10 +234,6 @@ function ProgramDetailPage() {
 
   const documentSection = resolveProgramDocument(program, programSections)?.section || null;
   const docBody = documentSection?.body || '';
-  const splitDocForExperience = !!(documentSection && docBody.trim() && experienceMoment);
-  const { before: docBefore, after: docAfter } = splitDocForExperience
-    ? splitDocumentBodyForExperience(docBody, 1)
-    : { before: docBody, after: '' };
 
   const heroScheduleItems = [];
   if (program.start_date && String(program.start_date).trim()) {
@@ -499,9 +494,9 @@ function ProgramDetailPage() {
         ) : null}
       </section>
 
-      {documentSection && docBefore.trim() ? (
+      {documentSection && docBody.trim() ? (
         <ProgramDocumentMirror
-          body={docBefore}
+          body={docBody}
           subtitle={documentSection.subtitle}
           accent={heroAccent}
         />
@@ -512,15 +507,6 @@ function ProgramDetailPage() {
           section={experienceMoment.section}
           accent={heroAccent}
           portraitUrl={experienceMoment.portraitUrl}
-        />
-      ) : null}
-
-      {documentSection && docAfter.trim() ? (
-        <ProgramDocumentMirror
-          body={docAfter}
-          subtitle={documentSection.subtitle}
-          accent={heroAccent}
-          continuation
         />
       ) : null}
 
