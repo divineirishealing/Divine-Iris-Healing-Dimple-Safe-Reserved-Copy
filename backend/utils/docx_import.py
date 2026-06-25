@@ -248,39 +248,15 @@ def _dedupe_paragraphs(paragraphs: List[ParsedParagraph]) -> List[ParsedParagrap
     return out
 
 
-def _pick_experience_moment(
-    paragraphs: List[ParsedParagraph],
-) -> Tuple[Optional[ParsedParagraph], Optional[ParsedParagraph], List[ParsedParagraph]]:
-    """
-    Pull a short quote + life-changing line for the dark Experience block.
-    Bullets and condition lists stay in the main document.
-    """
-    quote_para: Optional[ParsedParagraph] = None
-    message_para: Optional[ParsedParagraph] = None
-    rest: List[ParsedParagraph] = []
-
+def _ensure_heading_markup(paragraphs: List[ParsedParagraph]) -> List[ParsedParagraph]:
+    """Keep Word/import classification — only ensure heading lines carry ** markup."""
+    out: List[ParsedParagraph] = []
     for p in paragraphs:
-        plain = p.plain.strip()
-        if not plain:
-            continue
-        if p.kind in ("bullet", "subheading"):
-            rest.append(p)
-            continue
-        if p.kind == "quote" and not quote_para:
-            quote_para = p
-            continue
-        if p.kind == "heading":
-            rest.append(p)
-            continue
-        if not quote_para and p.kind == "body" and 40 <= len(plain) <= 320 and "." in plain:
-            quote_para = p
-            continue
-        if quote_para and not message_para and p.kind == "body" and len(plain) >= 30:
-            message_para = p
-            continue
-        rest.append(p)
-
-    return quote_para, message_para, rest
+        if p.kind in ("heading", "subheading") and not p.formatted.startswith("**"):
+            out.append(ParsedParagraph(formatted=f"**{p.plain}**", plain=p.plain, kind=p.kind))
+        else:
+            out.append(p)
+    return out
 
 
 def _pick_experience_quote(paragraphs: List[ParsedParagraph]) -> Tuple[Optional[ParsedParagraph], List[ParsedParagraph]]:
@@ -295,71 +271,6 @@ def _pick_experience_quote(paragraphs: List[ParsedParagraph]) -> Tuple[Optional[
     quote = paragraphs[idx]
     rest = paragraphs[:idx] + paragraphs[idx + 1 :]
     return quote, rest
-
-
-def _looks_like_major_headline(text: str) -> bool:
-    t = _plain_text(text).strip()
-    if not t or len(t) > 100:
-        return False
-    if t.endswith("?"):
-        return True
-    if re.match(r"^(What|Who|Why|How|When|Where|Program|Your|The|Module|Section|Chapter)\s", t, re.I) and len(t) < 85:
-        return True
-    if re.match(r"^\d+\.\s", t):
-        return False
-    if len(t) < 60 and not re.search(r"[.!,;:]$", t):
-        if len(t.split()) <= 10 and t[0].isupper():
-            return True
-    return False
-
-
-def _looks_like_subheadline(text: str) -> bool:
-    t = _plain_text(text).strip()
-    if not t or len(t) > 130:
-        return False
-    if re.match(r"^\d+\.\s", t):
-        return True
-    if re.match(r"^(In|For|Options|Format|Who Can|Ideal For|Benefits|Features)\s", t, re.I) and len(t) < 90:
-        return True
-    if len(t) < 75 and not t.endswith(".") and t[0].isupper() and len(t.split()) <= 8:
-        return True
-    return False
-
-
-def _polish_paragraphs_for_display(paragraphs: List[ParsedParagraph]) -> List[ParsedParagraph]:
-    """Infer headlines from plain lines and ensure bold markup for the live page."""
-    out: List[ParsedParagraph] = []
-    body_seen = False
-
-    for p in paragraphs:
-        if p.kind in ("heading", "subheading", "quote", "bullet"):
-            if p.kind in ("heading", "subheading") and not p.formatted.startswith("**"):
-                p = ParsedParagraph(formatted=f"**{p.plain}**", plain=p.plain, kind=p.kind)
-            out.append(p)
-            continue
-
-        plain = p.plain.strip()
-        if not plain:
-            continue
-
-        # First substantial body block → keep as intro (no forced heading)
-        if not body_seen and p.kind == "body" and len(plain) > 120 and not _looks_like_major_headline(plain):
-            body_seen = True
-            out.append(p)
-            continue
-
-        if _looks_like_major_headline(plain):
-            out.append(ParsedParagraph(formatted=f"**{plain}**", plain=plain, kind="heading"))
-            continue
-        if _looks_like_subheadline(plain) or (p.formatted.startswith("**") and len(plain) < 120):
-            inner = plain if not p.formatted.startswith("**") else plain
-            out.append(ParsedParagraph(formatted=f"**{inner}**", plain=plain, kind="subheading"))
-            continue
-
-        body_seen = True
-        out.append(p)
-
-    return out
 
 
 def _paragraphs_to_document_body(paragraphs: List[ParsedParagraph]) -> str:
@@ -390,28 +301,26 @@ def _blank_template_suppressors() -> List[Dict[str, Any]]:
 
 
 def build_draft_sections_from_paragraphs(paragraphs: List[ParsedParagraph]) -> List[Dict[str, Any]]:
-    """Build minimal draft sections: suppressors + optional quote + one document block."""
+    """Build minimal draft sections: suppressors + optional explicit quote + one document block."""
     cleaned = _dedupe_paragraphs(paragraphs)
-    cleaned = _polish_paragraphs_for_display(cleaned)
-    quote_para, message_para, main = _pick_experience_moment(cleaned)
+    cleaned = _ensure_heading_markup(cleaned)
+    quote, main = _pick_experience_quote(cleaned)
 
     sections = _blank_template_suppressors()
 
-    if quote_para or message_para:
+    if quote:
         sections.append({
             "id": "experience",
             "section_type": "experience",
-            "title": _plain_text(quote_para.formatted) if quote_para else "",
+            "title": _plain_text(quote.formatted),
             "subtitle": "How It Can Be Life-Changing",
-            "body": _plain_text(message_para.formatted) if message_para else "",
+            "body": "",
             "image_url": "",
             "is_enabled": True,
             "order": 2,
         })
 
-    body = _paragraphs_to_document_body(main)
-    if not body.strip():
-        body = _paragraphs_to_document_body(cleaned)
+    body = _paragraphs_to_document_body(main if quote else cleaned)
 
     sections.append({
         "id": "doc_main",

@@ -6,9 +6,10 @@ import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
-import { parseDocumentLandingBlocks, splitBlocksForExperience, resolveProgramDocument } from '../lib/documentLandingBlocks';
-import ProgramDocumentLanding from '../components/ProgramDocumentLanding';
+import { resolveProgramDocument } from '../lib/documentLandingBlocks';
+import ProgramDocumentBody from '../components/ProgramDocumentBody';
 import ProgramExperienceMoment from '../components/ProgramExperienceMoment';
+import { experienceMomentHasContent } from '../lib/parseExperienceMoment';
 import { useCurrency } from '../context/CurrencyContext';
 import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, NARROW, WIDE, SECTION_PY } from '../lib/designTokens';
 import {
@@ -379,7 +380,7 @@ function ProgramDetailPage() {
     // Skip sections with no content at all — avoids empty padded blocks
     if (!section.title && !section.subtitle && !section.body && !section.image_url) return null;
 
-    // Document sections render via ProgramDocumentLanding (see below)
+    // Document sections render via ProgramDocumentBody (see below)
     if (sType === 'document') return null;
 
     if (sType === 'journey' || (sType === 'custom' && !section.image_url)) {
@@ -422,13 +423,13 @@ function ProgramDetailPage() {
       const sectionImg = section.image_url
         ? resolveImageUrl(section.image_url)
         : (globalExpImg || aboutPortrait);
+      if (!experienceMomentHasContent(section, sectionImg)) return null;
       return (
         <ProgramExperienceMoment
           key={section.id || idx}
           section={section}
           accent={heroAccent}
           portraitUrl={sectionImg}
-          template={template}
         />
       );
     }
@@ -498,11 +499,7 @@ function ProgramDetailPage() {
     const aboutPortrait = settings?.about_image ? resolveImageUrl(settings.about_image) : '';
     return !!(s.body?.trim() || s.title?.trim() || s.image_url?.trim() || globalExpImg || aboutPortrait);
   });
-  const hideLegacyIntro = !!(
-    documentSection ||
-    hasDocMain ||
-    (experienceSection?.body?.trim()?.length > 0)
-  );
+  const hideLegacyIntro = !!(documentSection || hasDocMain);
   const legacySections = sections.filter(
     (s) =>
       s.section_type !== 'document' &&
@@ -510,11 +507,16 @@ function ProgramDetailPage() {
       s.id !== experienceSection?.id &&
       !skipLandingTypes.has(s.section_type),
   );
-  const docBlocks = documentSection ? parseDocumentLandingBlocks(documentSection.body) : [];
-  const splitDocForExperience = !!(documentSection && experienceSection);
-  const { before: docBefore, after: docAfter } = splitDocForExperience
-    ? splitBlocksForExperience(docBlocks, 1)
-    : { before: docBlocks, after: [] };
+
+  const experiencePortraitUrl = (() => {
+    if (!experienceSection) return '';
+    const globalExpImg = template.experience_image ? resolveImageUrl(template.experience_image) : '';
+    const aboutPortrait = settings?.about_image ? resolveImageUrl(settings.about_image) : '';
+    if (experienceSection.image_url) return resolveImageUrl(experienceSection.image_url);
+    return globalExpImg || aboutPortrait;
+  })();
+  const showExperienceMoment = experienceSection
+    && experienceMomentHasContent(experienceSection, experiencePortraitUrl);
 
   // Global pricing style
   const globalPricingStyle = {
@@ -719,9 +721,14 @@ function ProgramDetailPage() {
 
       {documentSection ? (
         <>
-          <ProgramDocumentLanding blocks={docBefore} accent={heroAccent} />
-          {experienceSection ? renderSection(experienceSection, 'experience', { hideLegacyIntro }) : null}
-          <ProgramDocumentLanding blocks={docAfter} accent={heroAccent} startIndex={docBefore.length} />
+          {showExperienceMoment ? (
+            <ProgramExperienceMoment
+              section={experienceSection}
+              accent={heroAccent}
+              portraitUrl={experiencePortraitUrl}
+            />
+          ) : null}
+          <ProgramDocumentBody body={documentSection.body} accent={heroAccent} />
           {legacySections.map((section, idx) => renderSection(section, idx, { hideLegacyIntro }))}
         </>
       ) : (
