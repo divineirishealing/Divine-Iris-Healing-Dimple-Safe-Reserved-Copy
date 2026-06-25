@@ -16,6 +16,22 @@ export function prepareFaithfulDocumentBody(body) {
     .trim();
 }
 
+/** Parse Word alignment prefix from import (>>c center, >>j justify, >>r right). */
+export function stripAlignPrefix(line) {
+  const raw = String(line || '').trim();
+  const m = raw.match(/^>>([cjr])\s+(.*)$/s);
+  if (!m) return { align: null, text: raw };
+  const map = { c: 'center', j: 'justify', r: 'right' };
+  return { align: map[m[1]] || null, text: m[2].trim() };
+}
+
+export function textAlignStyle(align) {
+  if (align === 'center') return 'center';
+  if (align === 'justify') return 'justify';
+  if (align === 'right') return 'right';
+  return 'left';
+}
+
 /** Parse `#` / `##` / `###` prefix from import (Word heading levels). */
 export function parseHeadingPrefix(line) {
   const m = String(line || '').trim().match(/^(#{1,4})\s+(.*)$/s);
