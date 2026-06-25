@@ -292,11 +292,23 @@ def _plain_from_runs(runs: List[ET.Element]) -> str:
     return "".join(_run_text(r) for r in runs).strip()
 
 
-def _trim_html_preamble(blocks: List[str], heading_flags: List[int]) -> List[str]:
-    for i, level in enumerate(heading_flags):
-        if level == 1:
-            return blocks[i:]
-    return blocks
+def _trim_cover_preamble(
+    blocks: List[str],
+    aligns: List[str],
+    heading_levels: List[int],
+) -> List[str]:
+    """Drop centered cover/tagline lines only; keep intro body before the first Heading 1."""
+    i = 0
+    while i < len(blocks):
+        if heading_levels[i] >= 1:
+            break
+        if aligns[i] in ("justify", "left", "right"):
+            break
+        if aligns[i] == "center":
+            i += 1
+            continue
+        break
+    return blocks[i:]
 
 
 def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = True) -> str:
@@ -320,6 +332,7 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = True) -> str:
 
     html_blocks: List[str] = []
     heading_levels: List[int] = []
+    align_flags: List[str] = []
 
     for para in body.findall(f"{_WP}p"):
         runs = para.findall(f"{_WP}r")
@@ -367,23 +380,25 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = True) -> str:
                 f"</p>"
             )
             heading_levels.append(0)
+            align_flags.append(para_style.align)
             continue
         else:
             tag = "p"
             block_css = f"{_para_style_css(para_style)};{_run_style_css(para_style.run)}"
             heading_levels.append(0)
 
+        align_flags.append(para_style.align)
         html_blocks.append(f'<{tag} class="docx-{tag}" style="{block_css}">{inner}</{tag}>')
 
     if trim_preamble:
-        html_blocks = _trim_html_preamble(html_blocks, heading_levels)
+        html_blocks = _trim_cover_preamble(html_blocks, align_flags, heading_levels)
 
     if not html_blocks:
         raise ValueError("Document is empty")
 
     return (
         '<article class="docx-mirror" style="font-family:Arial,Helvetica,sans-serif;'
-        'font-size:11pt;color:#1a1a1a;max-width:100%;">'
+        'font-size:11pt;color:#1a1a1a;line-height:1.42;width:100%;">'
         + "".join(html_blocks)
         + "</article>"
     )

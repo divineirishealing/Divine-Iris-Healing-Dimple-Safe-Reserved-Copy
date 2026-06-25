@@ -687,7 +687,11 @@ html {
   }
 }
 
-/* Imported Word HTML — inline styles from docx carry typography; avoid site heading overrides. */
+/* Imported Word HTML — exact doc typography; hero + Experience stay outside this shell. */
+.docx-page {
+  background: #fff;
+}
+
 .docx-html-shell .docx-mirror h1,
 .docx-html-shell .docx-mirror h2,
 .docx-html-shell .docx-mirror h3,
@@ -702,4 +706,12 @@ html {
 .docx-html-shell .docx-mirror h3 {
   border: none;
   background: none;
+  padding: 0;
+}
+
+.docx-html-shell .docx-mirror p,
+.docx-html-shell .docx-mirror h1,
+.docx-html-shell .docx-mirror h2,
+.docx-html-shell .docx-mirror h3 {
+  max-width: none;
 }

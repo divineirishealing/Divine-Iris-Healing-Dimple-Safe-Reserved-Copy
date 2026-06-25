@@ -331,11 +331,19 @@ def _pick_experience_quote(paragraphs: List[ParsedParagraph]) -> Tuple[Optional[
 
 
 def _trim_doc_preamble(paragraphs: List[ParsedParagraph]) -> List[ParsedParagraph]:
-    """Drop cover/tagline block before the first Word Heading 1 (hero stays on the page template)."""
-    for i, p in enumerate(paragraphs):
+    """Drop centered cover/tagline block only; keep intro body before the first Word Heading 1."""
+    i = 0
+    while i < len(paragraphs):
+        p = paragraphs[i]
         if p.level == 1:
-            return paragraphs[i:]
-    return paragraphs
+            break
+        if p.align in ("justify", "left", "right"):
+            break
+        if p.align == "center":
+            i += 1
+            continue
+        break
+    return paragraphs[i:]
 
 
 def _block_line_prefix(p: ParsedParagraph) -> str:

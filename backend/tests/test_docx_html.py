@@ -25,7 +25,8 @@ def test_amrp_fixture_html_skips_cover_and_keeps_content():
         pytest.skip("AMRP fixture doc not on this machine")
 
     html = docx_bytes_to_html(src.read_bytes())
-    assert "Divine Iris Healing" not in html.split("<h1", 1)[0]
+    assert "Divine Iris Healing" not in html.split("Every day", 1)[0]
+    assert "Every day, millions of people" in html
     assert "What Is the Atomic Musculoskeletal Regeneration Program?" in html
     assert "Georgia" in html
     assert "Osteoarthritis" in html

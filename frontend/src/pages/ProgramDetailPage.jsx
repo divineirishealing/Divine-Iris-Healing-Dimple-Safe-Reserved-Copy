@@ -737,7 +737,7 @@ function ProgramDetailPage() {
               portraitUrl={experiencePortraitUrl}
             />
           ) : null}
-          <ProgramDocumentMirror body={docAfter} accent={heroAccent} />
+          <ProgramDocumentMirror body={docAfter} accent={heroAccent} continuation />
           {legacySections.map((section, idx) => renderSection(section, idx, { hideLegacyIntro }))}
         </>
       ) : (
