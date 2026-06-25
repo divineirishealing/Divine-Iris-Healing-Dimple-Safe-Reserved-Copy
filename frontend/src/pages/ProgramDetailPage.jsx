@@ -6,6 +6,7 @@ import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
+import { organizeDocumentBody, looksLikeMajorHeadline } from '../lib/organizeDocumentBody';
 import { useCurrency } from '../context/CurrencyContext';
 import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, NARROW, WIDE, SECTION_PY } from '../lib/designTokens';
 import {
@@ -367,103 +368,143 @@ function ProgramDetailPage() {
   );
 
   /**
-   * DocumentBody — renders freeform body text with document-like typography.
-   * Supports:
-   *   **Heading**           → centred gold heading + gold rule (standalone paragraph)
-   *   **Sub-heading**       → bold dark inline heading (line within a paragraph)
-   *   ✦ / • / - line       → gold bullet
-   *   "quote" / *quote*    → centred italic quote block
-   *   plain text           → justified body paragraph
+   * DocumentBody — visitor-friendly layout for imported program copy.
+   * **Heading** → gold centred title · **Sub** → bold section label · ✦ bullets · quotes
    */
   const DocumentBody = ({ body }) => {
     if (!body) return null;
-    const paragraphs = body.split(/\n{2,}/);
+    const organized = organizeDocumentBody(body);
+    const paragraphs = organized.split(/\n{2,}/);
     const nodes = [];
+    let leadUsed = false;
 
     paragraphs.forEach((para, pi) => {
       const trimmed = para.trim();
       if (!trimmed) return;
 
-      // Standalone **Heading** paragraph
       const headingFull = trimmed.match(/^\*\*(.+)\*\*$/s);
       if (headingFull) {
+        const isMajor = looksLikeMajorHeadline(trimmed) || headingFull[1].length < 70;
         nodes.push(
-          <div key={`h-${pi}`} className="text-center mt-10 mb-2">
-            <h2 style={{ ...HEADING, color: heroAccent, fontSize: '1.45rem', letterSpacing: '0.04em' }}>
-              {headingFull[1]}
-            </h2>
-            <div className="w-10 h-0.5 mx-auto mt-3" style={{ background: heroAccent }} />
+          <div key={`h-${pi}`} className={`text-center ${pi === 0 ? 'mt-2 mb-4' : 'mt-12 mb-4'}`}>
+            <h2
+              className="font-bold"
+              style={{
+                ...HEADING,
+                color: heroAccent,
+                fontSize: isMajor ? '1.55rem' : '1.15rem',
+                letterSpacing: '0.04em',
+                lineHeight: 1.35,
+              }}
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(headingFull[1]) }}
+            />
+            {isMajor && <div className="w-12 h-0.5 mx-auto mt-3" style={{ background: heroAccent }} />}
           </div>
         );
         return;
       }
 
-      // Centred italic quote: *text* spanning whole paragraph
       const italicFull = trimmed.match(/^\*([^*].+[^*])\*$/s);
       if (italicFull) {
         nodes.push(
-          <p key={`q-${pi}`} className="text-center italic my-6 px-6 md:px-16"
-            style={{ ...BODY, fontSize: '1.05rem', color: '#555', lineHeight: 1.8 }}>
+          <blockquote
+            key={`q-${pi}`}
+            className="text-center italic my-8 px-6 md:px-12 py-4 border-l-0"
+            style={{ ...BODY, fontSize: '1.08rem', color: '#555', lineHeight: 1.85 }}
+          >
             {italicFull[1]}
-          </p>
+          </blockquote>
         );
         return;
       }
 
-      // "quoted string" paragraph
       if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
         nodes.push(
-          <p key={`dq-${pi}`} className="text-center italic my-6 px-6 md:px-16"
-            style={{ ...BODY, fontSize: '1.05rem', color: '#555', lineHeight: 1.8 }}>
+          <blockquote
+            key={`dq-${pi}`}
+            className="text-center italic my-8 px-6 md:px-12"
+            style={{ ...BODY, fontSize: '1.08rem', color: '#555', lineHeight: 1.85 }}
+          >
             {trimmed}
-          </p>
+          </blockquote>
         );
         return;
       }
 
-      // Mixed paragraph: split by lines
       const lines = trimmed.split('\n');
       const lineNodes = [];
+      let bulletRun = [];
+
+      const flushBullets = () => {
+        if (!bulletRun.length) return;
+        lineNodes.push(
+          <ul key={`bul-${lineNodes.length}`} className="space-y-2.5 my-4 pl-1">
+            {bulletRun.map((content, bi) => (
+              <li key={bi} className="flex items-start gap-3">
+                <span className="mt-1 flex-shrink-0 text-sm font-bold" style={{ color: heroAccent }}>✦</span>
+                <span
+                  className="flex-1 leading-relaxed"
+                  style={{ ...BODY }}
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+                />
+              </li>
+            ))}
+          </ul>
+        );
+        bulletRun = [];
+      };
+
       lines.forEach((line, li) => {
         const t = line.trim();
-        if (!t) { lineNodes.push(<div key={`sp-${li}`} className="h-1" />); return; }
+        if (!t) return;
 
-        // Inline **Sub-heading** line
         const subH = t.match(/^\*\*(.+)\*\*$/);
         if (subH) {
+          flushBullets();
           lineNodes.push(
-            <p key={`sh-${li}`} className="mt-5 mb-1"
-              style={{ ...HEADING, fontSize: '0.95rem', fontWeight: '700', color: '#1a1a1a', letterSpacing: '0.03em' }}>
-              {subH[1]}
-            </p>
+            <h3
+              key={`sh-${li}`}
+              className="mt-8 mb-2 font-bold pl-3 border-l-4"
+              style={{
+                ...HEADING,
+                fontSize: '1.05rem',
+                color: '#1a1a1a',
+                borderColor: heroAccent,
+                letterSpacing: '0.02em',
+              }}
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(subH[1]) }}
+            />
           );
           return;
         }
 
-        // Bullet line
         if (/^[✦•\-]/.test(t)) {
-          const content = t.replace(/^[✦•\-]\s*/, '');
-          lineNodes.push(
-            <div key={`bl-${li}`} className="flex items-start gap-3 ml-2">
-              <span className="mt-0.5 flex-shrink-0 text-sm" style={{ color: heroAccent }}>✦</span>
-              <p style={{ ...BODY }} dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />
-            </div>
-          );
+          bulletRun.push(t.replace(/^[✦•\-]\s*/, ''));
           return;
         }
 
-        // Plain line
+        flushBullets();
+        const isLead = !leadUsed && t.length > 80 && !looksLikeMajorHeadline(t);
+        if (isLead) leadUsed = true;
         lineNodes.push(
-          <p key={`pl-${li}`} className="text-justify leading-relaxed"
-            style={{ ...BODY }}
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(t) }} />
+          <p
+            key={`pl-${li}`}
+            className={`leading-relaxed ${isLead ? 'text-lg text-gray-700 mb-2' : 'text-justify'}`}
+            style={{ ...BODY, lineHeight: isLead ? 1.85 : 1.75 }}
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(t) }}
+          />
         );
       });
 
-      nodes.push(<div key={`p-${pi}`} className="space-y-1.5">{lineNodes}</div>);
+      flushBullets();
+      nodes.push(<div key={`p-${pi}`} className="space-y-2">{lineNodes}</div>);
     });
 
-    return <div className="space-y-4">{nodes}</div>;
+    return (
+      <div className="space-y-5 max-w-none prose-headings:font-bold">
+        {nodes}
+      </div>
+    );
   };
 
   const renderSection = (section, idx) => {

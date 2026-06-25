@@ -105,3 +105,15 @@ def test_build_draft_sections_from_docx():
     assert "Atomic Memory Reprogramming" in doc["body"]
     assert "**Core benefits**" in doc["body"]
     assert "✦" in doc["body"]
+
+
+def test_polish_promotes_question_headlines():
+    from utils.docx_import import ParsedParagraph, _polish_paragraphs_for_display
+
+    paras = [
+        ParsedParagraph(formatted="Intro paragraph text.", plain="Intro paragraph text.", kind="body"),
+        ParsedParagraph(formatted="What Is AMRP?", plain="What Is AMRP?", kind="body"),
+    ]
+    polished = _polish_paragraphs_for_display(paras)
+    assert polished[1].kind == "heading"
+    assert polished[1].formatted == "**What Is AMRP?**"
