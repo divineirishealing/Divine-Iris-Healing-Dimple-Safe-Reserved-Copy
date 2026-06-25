@@ -6,7 +6,8 @@ import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
-import { organizeDocumentBody, looksLikeMajorHeadline } from '../lib/organizeDocumentBody';
+import { parseDocumentLandingBlocks, splitBlocksForExperience } from '../lib/documentLandingBlocks';
+import ProgramDocumentLanding from '../components/ProgramDocumentLanding';
 import { useCurrency } from '../context/CurrencyContext';
 import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, NARROW, WIDE, SECTION_PY } from '../lib/designTokens';
 import {
@@ -367,164 +368,14 @@ function ProgramDetailPage() {
     <p className={`whitespace-pre-wrap ${cls}`} style={applyStyle(extra || template.body_style, { ...BODY })} dangerouslySetInnerHTML={{ __html: renderMarkdown(children || '') }} />
   );
 
-  /**
-   * DocumentBody — visitor-friendly layout for imported program copy.
-   * **Heading** → gold centred title · **Sub** → bold section label · ✦ bullets · quotes
-   */
-  const DocumentBody = ({ body }) => {
-    if (!body) return null;
-    const organized = organizeDocumentBody(body);
-    const paragraphs = organized.split(/\n{2,}/);
-    const nodes = [];
-    let leadUsed = false;
-
-    paragraphs.forEach((para, pi) => {
-      const trimmed = para.trim();
-      if (!trimmed) return;
-
-      const headingFull = trimmed.match(/^\*\*(.+)\*\*$/s);
-      if (headingFull) {
-        const isMajor = looksLikeMajorHeadline(trimmed) || headingFull[1].length < 70;
-        nodes.push(
-          <div key={`h-${pi}`} className={`text-center ${pi === 0 ? 'mt-2 mb-4' : 'mt-12 mb-4'}`}>
-            <h2
-              className="font-bold"
-              style={{
-                ...HEADING,
-                color: heroAccent,
-                fontSize: isMajor ? '1.55rem' : '1.15rem',
-                letterSpacing: '0.04em',
-                lineHeight: 1.35,
-              }}
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(headingFull[1]) }}
-            />
-            {isMajor && <div className="w-12 h-0.5 mx-auto mt-3" style={{ background: heroAccent }} />}
-          </div>
-        );
-        return;
-      }
-
-      const italicFull = trimmed.match(/^\*([^*].+[^*])\*$/s);
-      if (italicFull) {
-        nodes.push(
-          <blockquote
-            key={`q-${pi}`}
-            className="text-center italic my-8 px-6 md:px-12 py-4 border-l-0"
-            style={{ ...BODY, fontSize: '1.08rem', color: '#555', lineHeight: 1.85 }}
-          >
-            {italicFull[1]}
-          </blockquote>
-        );
-        return;
-      }
-
-      if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-        nodes.push(
-          <blockquote
-            key={`dq-${pi}`}
-            className="text-center italic my-8 px-6 md:px-12"
-            style={{ ...BODY, fontSize: '1.08rem', color: '#555', lineHeight: 1.85 }}
-          >
-            {trimmed}
-          </blockquote>
-        );
-        return;
-      }
-
-      const lines = trimmed.split('\n');
-      const lineNodes = [];
-      let bulletRun = [];
-
-      const flushBullets = () => {
-        if (!bulletRun.length) return;
-        lineNodes.push(
-          <ul key={`bul-${lineNodes.length}`} className="space-y-2.5 my-4 pl-1">
-            {bulletRun.map((content, bi) => (
-              <li key={bi} className="flex items-start gap-3">
-                <span className="mt-1 flex-shrink-0 text-sm font-bold" style={{ color: heroAccent }}>✦</span>
-                <span
-                  className="flex-1 leading-relaxed"
-                  style={{ ...BODY }}
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-                />
-              </li>
-            ))}
-          </ul>
-        );
-        bulletRun = [];
-      };
-
-      lines.forEach((line, li) => {
-        const t = line.trim();
-        if (!t) return;
-
-        const subH = t.match(/^\*\*(.+)\*\*$/);
-        if (subH) {
-          flushBullets();
-          lineNodes.push(
-            <h3
-              key={`sh-${li}`}
-              className="mt-8 mb-2 font-bold pl-3 border-l-4"
-              style={{
-                ...HEADING,
-                fontSize: '1.05rem',
-                color: '#1a1a1a',
-                borderColor: heroAccent,
-                letterSpacing: '0.02em',
-              }}
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(subH[1]) }}
-            />
-          );
-          return;
-        }
-
-        if (/^[✦•\-]/.test(t)) {
-          bulletRun.push(t.replace(/^[✦•\-]\s*/, ''));
-          return;
-        }
-
-        flushBullets();
-        const isLead = !leadUsed && t.length > 80 && !looksLikeMajorHeadline(t);
-        if (isLead) leadUsed = true;
-        lineNodes.push(
-          <p
-            key={`pl-${li}`}
-            className={`leading-relaxed ${isLead ? 'text-lg text-gray-700 mb-2' : 'text-justify'}`}
-            style={{ ...BODY, lineHeight: isLead ? 1.85 : 1.75 }}
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(t) }}
-          />
-        );
-      });
-
-      flushBullets();
-      nodes.push(<div key={`p-${pi}`} className="space-y-2">{lineNodes}</div>);
-    });
-
-    return (
-      <div className="space-y-5 max-w-none prose-headings:font-bold">
-        {nodes}
-      </div>
-    );
-  };
-
   const renderSection = (section, idx) => {
     const sType = section.section_type || 'custom';
 
     // Skip sections with no content at all — avoids empty padded blocks
     if (!section.title && !section.subtitle && !section.body && !section.image_url) return null;
 
-    // Document-mode section: rich typographic rendering, no coloured backgrounds
-    if (sType === 'document') {
-      return (
-        <section key={section.id || idx} data-testid={`section-${idx}`} className={`${SECTION_PY} bg-white`}>
-          <div className={CONTAINER}>
-            <div className={NARROW}>
-              <DocumentBody body={section.body} />
-            </div>
-          </div>
-        </section>
-      );
-    }
+    // Document sections render via ProgramDocumentLanding (see below)
+    if (sType === 'document') return null;
 
     if (sType === 'journey' || (sType === 'custom' && !section.image_url)) {
       return (
@@ -644,6 +495,21 @@ function ProgramDetailPage() {
   const template = settings?.page_heroes?.program_template || {};
   const heroAccent = template.accent_color || GOLD;
   const heroBg = template.hero_bg || '#1a1a1a';
+
+  const documentSection = sections.find((s) => s.section_type === 'document' && s.body?.trim());
+  const experienceSection = sections.find((s) => {
+    if (s.section_type !== 'experience') return false;
+    const globalExpImg = template.experience_image ? resolveImageUrl(template.experience_image) : '';
+    return !!(s.body?.trim() || s.title?.trim() || s.image_url?.trim() || globalExpImg);
+  });
+  const legacySections = sections.filter(
+    (s) => s.section_type !== 'document' && s.id !== experienceSection?.id
+  );
+  const docBlocks = documentSection ? parseDocumentLandingBlocks(documentSection.body) : [];
+  const splitDocForExperience = !!(documentSection && experienceSection);
+  const { before: docBefore, after: docAfter } = splitDocForExperience
+    ? splitBlocksForExperience(docBlocks, 1)
+    : { before: docBlocks, after: [] };
 
   // Global pricing style
   const globalPricingStyle = {
@@ -846,7 +712,16 @@ function ProgramDetailPage() {
         ) : null}
       </section>
 
-      {sections.map((section, idx) => renderSection(section, idx))}
+      {documentSection ? (
+        <>
+          <ProgramDocumentLanding blocks={docBefore} accent={heroAccent} />
+          {experienceSection ? renderSection(experienceSection, 'experience') : null}
+          <ProgramDocumentLanding blocks={docAfter} accent={heroAccent} startIndex={docBefore.length} />
+          {legacySections.map((section, idx) => renderSection(section, idx))}
+        </>
+      ) : (
+        sections.map((section, idx) => renderSection(section, idx))
+      )}
 
       {/* CTA */}
       <section className={`${SECTION_PY} bg-white`} data-testid="cta-section">
