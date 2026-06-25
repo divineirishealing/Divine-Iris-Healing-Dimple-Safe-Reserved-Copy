@@ -1,9 +1,9 @@
 import React from 'react';
 
 /**
- * Word document body — inline typography from import; hero and Experience stay on ProgramDetailPage.
+ * Word document landing — full doc typography plus highlighted section structure.
  */
-export default function DocxHtmlMirror({ html, continuation = false }) {
+export default function DocxHtmlMirror({ html, accent = '#C9962A', continuation = false }) {
   if (!html?.trim()) return null;
 
   return (
@@ -17,7 +17,12 @@ export default function DocxHtmlMirror({ html, continuation = false }) {
       >
         <div
           className="docx-html-shell"
-          style={{ wordBreak: 'break-word' }}
+          style={{
+            wordBreak: 'break-word',
+            '--docx-gold': accent,
+            '--docx-purple': '#534AB7',
+            '--docx-navy': '#2A1F5E',
+          }}
           dangerouslySetInnerHTML={{ __html: html }}
         />
       </div>

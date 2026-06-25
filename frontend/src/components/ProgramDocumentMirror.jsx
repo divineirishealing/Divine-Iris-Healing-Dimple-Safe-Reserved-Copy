@@ -11,7 +11,7 @@ export default function ProgramDocumentMirror({ body, accent, continuation = fal
   if (!body?.trim()) return null;
 
   if (isDocxHtmlBody(body)) {
-    return <DocxHtmlMirror html={extractDocxHtml(body)} accent={accent} continuation={continuation} />;
+    return <DocxHtmlMirror html={extractDocxHtml(body)} accent={accent || '#C9962A'} continuation={continuation} />;
   }
 
   return (

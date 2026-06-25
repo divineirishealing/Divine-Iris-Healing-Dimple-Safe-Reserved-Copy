@@ -687,9 +687,15 @@ html {
   }
 }
 
-/* Imported Word HTML — preserve inline Word typography; no site overlays. */
+/* Word doc landing — Word typography + highlighted section structure */
 .docx-page {
   background: #fff;
+}
+
+.docx-html-shell {
+  --docx-gold: #c9962a;
+  --docx-purple: #534ab7;
+  --docx-navy: #2a1f5e;
 }
 
 .docx-html-shell .docx-mirror h1,
@@ -706,4 +712,121 @@ html {
   display: block;
   height: 0;
   overflow: visible;
+}
+
+/* Cover panel — centered title block from Word */
+.docx-html-shell .docx-cover-stage {
+  text-align: center;
+  padding: 2.25rem 1.75rem 2rem;
+  margin: 0 0 2rem;
+  background: linear-gradient(180deg, #fdfbf7 0%, #ffffff 100%);
+  border: 1px solid rgba(201, 150, 42, 0.22);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(42, 31, 94, 0.07);
+}
+
+.docx-html-shell .docx-cover-stage .docx-rule-wrap {
+  max-width: 28rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Intro paragraphs before first major heading */
+.docx-html-shell .docx-intro-body {
+  padding: 0 0.15rem 2rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid rgba(201, 150, 42, 0.28);
+}
+
+.docx-html-shell .docx-intro-body .docx-p {
+  text-align: justify !important;
+}
+
+/* Pull quote inside cover */
+.docx-html-shell .docx-word-quote {
+  display: block;
+  max-width: 34rem;
+  margin: 1.25rem auto !important;
+  padding: 1.15rem 1.35rem !important;
+  background: rgba(83, 74, 183, 0.07) !important;
+  border-radius: 10px;
+  border: 1px solid rgba(83, 74, 183, 0.12);
+}
+
+/* Major section titles (Word Heading 1) */
+.docx-html-shell .docx-section-major {
+  margin: 2.25rem 0 1.15rem;
+}
+
+.docx-html-shell .docx-section-major-inner {
+  padding: 0.15rem 0 0.15rem 1rem;
+  border-left: 4px solid var(--docx-gold);
+  background: linear-gradient(
+    102deg,
+    rgba(201, 150, 42, 0.16) 0%,
+    rgba(83, 74, 183, 0.07) 42%,
+    transparent 88%
+  );
+  border-radius: 0 12px 12px 0;
+  box-shadow: 0 2px 12px rgba(42, 31, 94, 0.05);
+}
+
+.docx-html-shell .docx-section-major-inner .docx-h1 {
+  margin-top: 0.85rem !important;
+  margin-bottom: 0.85rem !important;
+}
+
+/* Subsection titles (Word Heading 2/3) */
+.docx-html-shell .docx-section-minor {
+  margin: 1.5rem 0 0.85rem;
+}
+
+.docx-html-shell .docx-section-minor-inner {
+  padding: 0.35rem 0 0.35rem 0.85rem;
+  border-left: 3px solid var(--docx-gold);
+  background: linear-gradient(90deg, rgba(201, 150, 42, 0.1) 0%, transparent 72%);
+  border-radius: 0 8px 8px 0;
+}
+
+.docx-html-shell .docx-section-minor-inner .docx-h2,
+.docx-html-shell .docx-section-minor-inner .docx-h3 {
+  margin-top: 0.55rem !important;
+  margin-bottom: 0.55rem !important;
+}
+
+/* Bullet rows — gold condition name before em dash */
+.docx-html-shell .docx-bullet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem;
+  padding: 0.45rem 0.5rem;
+  margin: 0.15rem 0;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+
+.docx-html-shell .docx-bullet-split:hover {
+  background: rgba(201, 150, 42, 0.07);
+}
+
+.docx-html-shell .docx-bullet-mark {
+  color: var(--docx-gold);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.docx-html-shell .docx-item-title {
+  font-weight: 700;
+  color: var(--docx-navy);
+}
+
+.docx-html-shell .docx-item-sep {
+  color: #888;
+}
+
+.docx-html-shell .docx-item-desc {
+  color: #1a1a2e;
+  flex: 1;
+  min-width: 10rem;
 }

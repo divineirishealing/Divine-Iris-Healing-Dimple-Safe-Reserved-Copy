@@ -28,7 +28,9 @@ def test_amrp_fixture_html_matches_full_word_document():
     assert "Divine Iris Healing" in html
     assert "Atomic Musculoskeletal" in html
     assert "AMRP" in html
-    assert "docx-rule" in html
+    assert "docx-cover-stage" in html
+    assert "docx-section-major" in html
+    assert "docx-item-title" in html
     assert "#c9962a" in html.lower()
     assert "Every day, millions of people" in html
     assert "What Is the Atomic Musculoskeletal Regeneration Program?" in html

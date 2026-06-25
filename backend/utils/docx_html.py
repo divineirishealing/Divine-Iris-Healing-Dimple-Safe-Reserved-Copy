@@ -336,6 +336,97 @@ def _plain_from_runs(runs: List[ET.Element]) -> str:
     return "".join(_run_text(r) for r in runs).strip()
 
 
+def _smart_bullet_html(para_style: _ParaStyle, plain: str, inner: str) -> str:
+    text = re.sub(r"^[✦•●○▪\-–—\s]+", "", plain).strip()
+    block_css = f"{_para_style_css(para_style)};{_run_style_css(para_style.run)}"
+    m = re.match(r"^(.+?)\s*[—–]\s*(.+)$", text)
+    if m:
+        title, desc = m.group(1).strip(), m.group(2).strip()
+        return (
+            f'<p class="docx-bullet docx-bullet-split" style="{block_css};margin-left:0;padding-left:0">'
+            f'<span class="docx-bullet-mark" aria-hidden="true">✦</span> '
+            f'<span class="docx-item-title">{html.escape(title)}</span>'
+            f'<span class="docx-item-sep"> — </span>'
+            f'<span class="docx-item-desc">{html.escape(desc)}</span>'
+            f"</p>"
+        )
+    return (
+        f'<p class="docx-bullet" style="{block_css};margin-left:0;padding-left:0">'
+        f'<span class="docx-bullet-mark" aria-hidden="true">✦</span> {inner}'
+        f"</p>"
+    )
+
+
+def _tag_quote_paragraph(block: str) -> str:
+    if "class=\"docx-p\"" not in block:
+        return block
+    lower = block.lower()
+    if "text-align:center" in lower.replace(" ", "") and "italic" in lower:
+        return block.replace('class="docx-p"', 'class="docx-p docx-word-quote"', 1)
+    if "text-align:center" in lower.replace(" ", "") and ('"' in block or "&#x27;" in block):
+        return block.replace('class="docx-p"', 'class="docx-p docx-word-quote"', 1)
+    return block
+
+
+def _wrap_section(block: str, level: int) -> str:
+    if level == 1:
+        return f'<div class="docx-section-major"><div class="docx-section-major-inner">{block}</div></div>'
+    if level >= 2:
+        return f'<div class="docx-section-minor"><div class="docx-section-minor-inner">{block}</div></div>'
+    return block
+
+
+def _structure_document_html(
+    blocks: List[str],
+    aligns: List[str],
+    headings: List[int],
+) -> List[str]:
+    """Group cover, intro, and highlight section headings for the live landing layout."""
+    n = len(blocks)
+    first_justify = next(
+        (i for i in range(n) if i < len(aligns) and aligns[i] == "justify" and headings[i] == 0),
+        None,
+    )
+    first_h1 = next((i for i in range(n) if headings[i] == 1), None)
+
+    out: List[str] = []
+    cover_open = intro_open = False
+
+    for i, block in enumerate(blocks):
+        level = headings[i] if i < len(headings) else 0
+        align = aligns[i] if i < len(aligns) else ""
+
+        if i == 0 and first_justify and first_justify > 0:
+            out.append('<div class="docx-cover-stage">')
+            cover_open = True
+
+        if i == first_justify and cover_open:
+            out.append("</div>")
+            cover_open = False
+            out.append('<div class="docx-intro-body">')
+            intro_open = True
+
+        if i == first_h1 and intro_open:
+            out.append("</div>")
+            intro_open = False
+
+        if level >= 1:
+            out.append(_wrap_section(block, level))
+        elif "docx-bullet" in block:
+            out.append(block)
+        elif align == "center" and "docx-p" in block:
+            out.append(_tag_quote_paragraph(block))
+        else:
+            out.append(block)
+
+    if intro_open:
+        out.append("</div>")
+    if cover_open:
+        out.append("</div>")
+
+    return out
+
+
 def _trim_cover_preamble(
     blocks: List[str],
     aligns: List[str],
@@ -427,12 +518,9 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False) -> str:
             block_css = _block_css(para_style, heading=True)
             heading_levels.append(level)
         elif is_list or re.match(r"^[•●○▪\-–—✦]", plain.strip()):
-            block_css = f"{_para_style_css(para_style)};{_run_style_css(para_style.run)}"
             align_flags.append(para_style.align)
             heading_levels.append(0)
-            html_blocks.append(
-                f'<p class="docx-bullet" style="{block_css};margin-left:0;padding-left:0">{inner}</p>'
-            )
+            html_blocks.append(_smart_bullet_html(para_style, plain, inner))
             continue
         else:
             tag = "p"
@@ -445,12 +533,15 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False) -> str:
     if trim_preamble:
         html_blocks = _trim_cover_preamble(html_blocks, align_flags, heading_levels)
 
+    html_blocks = _structure_document_html(html_blocks, align_flags, heading_levels)
+
     if not html_blocks:
         raise ValueError("Document is empty")
 
     return (
-        '<article class="docx-mirror" style="font-family:Arial,Helvetica,sans-serif;'
-        'font-size:11pt;color:#1a1a1a;line-height:1.42;width:100%;">'
+        '<article class="docx-mirror docx-mirror-landing" '
+        "style=\"font-family:Georgia,'Times New Roman',Times,serif;"
+        'font-size:11pt;color:#1a1a2e;line-height:1.45;width:100%;">'
         + "".join(html_blocks)
         + "</article>"
     )
