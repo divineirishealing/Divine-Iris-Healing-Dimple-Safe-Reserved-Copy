@@ -2,43 +2,106 @@
 import zipfile
 from io import BytesIO
 
-from utils.docx_import import build_draft_sections_from_text, docx_bytes_to_text
+from utils.docx_import import (
+    build_draft_sections_from_docx,
+    build_draft_sections_from_text,
+    docx_bytes_to_paragraphs,
+    docx_bytes_to_text,
+)
 
 
-def _minimal_docx(paragraphs):
-    body = "".join(
-        f'<w:p><w:r><w:t>{p}</w:t></w:r></w:p>' for p in paragraphs
-    )
+def _docx_xml(body_inner: str) -> bytes:
     xml = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-        f"<w:body>{body}</w:body></w:document>"
+        f"<w:body>{body_inner}</w:body></w:document>"
+    )
+    styles = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        '<w:style w:type="paragraph" w:styleId="Heading1">'
+        '<w:name w:val="heading 1"/></w:style>'
+        '</w:styles>'
     )
     buf = BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr("word/document.xml", xml)
+        zf.writestr("word/styles.xml", styles)
     return buf.getvalue()
 
 
+def _p(text: str, *, bold: bool = False, style: str = "", num: bool = False) -> str:
+    rpr = "<w:rPr><w:b/></w:rPr>" if bold else ""
+    ppr = ""
+    if style:
+        ppr += f'<w:pStyle w:val="{style}"/>'
+    if num:
+        ppr += "<w:numPr><w:ilvl w:val=\"0\"/><w:numId w:val=\"1\"/></w:numPr>"
+    ppr_tag = f"<w:pPr>{ppr}</w:pPr>" if ppr else ""
+    return f"<w:p>{ppr_tag}<w:r>{rpr}<w:t>{text}</w:t></w:r></w:p>"
+
+
 def test_docx_bytes_to_text():
-    data = _minimal_docx(["Hello world", "Second paragraph"])
+    data = _docx_xml(_p("Hello world") + _p("Second paragraph"))
     text = docx_bytes_to_text(data)
     assert "Hello world" in text
     assert "Second paragraph" in text
 
 
-def test_build_draft_sections_splits_quote():
+def test_bold_becomes_markup():
+    data = _docx_xml(_p("Important line", bold=True))
+    paras = docx_bytes_to_paragraphs(data)
+    assert paras[0].formatted == "**Important line**"
+
+
+def test_heading_style_becomes_heading():
+    data = _docx_xml(_p("Program Overview", style="Heading1"))
+    paras = docx_bytes_to_paragraphs(data)
+    assert paras[0].kind == "heading"
+    assert paras[0].formatted == "**Program Overview**"
+
+
+def test_single_document_section_no_split():
     text = (
         "Opening intro paragraph.\n\n"
+        "**Program Overview**\n\n"
+        "Program Overview\n\n"
+        "Body paragraph here."
+    )
+    sections = build_draft_sections_from_text(text)
+    doc_sections = [s for s in sections if s.get("section_type") == "document"]
+    assert len(doc_sections) == 1
+    assert doc_sections[0]["id"] == "doc_main"
+    body = doc_sections[0]["body"]
+    assert "Opening intro" in body
+    assert "**Program Overview**" in body
+    # duplicate plain line after heading should be removed
+    assert body.count("Program Overview") == 1
+
+
+def test_quote_extracted_to_experience_only_once():
+    text = (
+        "Intro text.\n\n"
         '"What if healing began within the deepest layers of your own soul?"\n\n'
-        "The Healing Modalities — details here.\n\n"
         "More body content."
     )
     sections = build_draft_sections_from_text(text)
-    types = {s["section_type"] for s in sections}
-    assert "document" in types
-    assert "experience" in types
-    exp = next(s for s in sections if s["section_type"] == "experience")
+    exp = next((s for s in sections if s.get("section_type") == "experience"), None)
+    doc = next(s for s in sections if s.get("id") == "doc_main")
+    assert exp is not None
     assert "What if healing" in exp["body"]
-    intro = next(s for s in sections if s.get("id") == "doc_intro")
-    assert "Opening intro" in intro["body"]
+    assert "What if healing" not in doc["body"]
+
+
+def test_build_draft_sections_from_docx():
+    inner = (
+        _p("AMRP Introduction")
+        + _p("Atomic Memory Reprogramming", style="Heading1")
+        + _p("Core benefits", bold=True)
+        + _p("First benefit point", num=True)
+    )
+    sections = build_draft_sections_from_docx(_docx_xml(inner))
+    doc = next(s for s in sections if s["section_type"] == "document")
+    assert "Atomic Memory Reprogramming" in doc["body"]
+    assert "**Core benefits**" in doc["body"]
+    assert "✦" in doc["body"]

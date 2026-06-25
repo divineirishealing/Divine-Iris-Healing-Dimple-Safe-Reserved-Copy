@@ -321,8 +321,9 @@ export default function DraftContentPanel({
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-semibold text-blue-700">Import document for this program</p>
                 <p className="text-[10px] text-blue-600 mt-0.5 leading-relaxed">
-                  Upload a <strong>.docx</strong> for <strong>{programTitle || 'this program only'}</strong> — drag here or choose file.
-                  Other programs keep their own drafts.
+                  Upload a <strong>.docx</strong> for <strong>{programTitle || 'this program only'}</strong>.
+                  Word <strong>Heading 1/2</strong>, <strong>bold</strong>, and <strong>highlight</strong> become gold headings;
+                  lists become ✦ bullets — no duplicate sections.
                 </p>
                 {!editingId && (
                   <p className="text-[10px] text-amber-700 mt-1 font-medium">Save this program before importing.</p>

@@ -2,7 +2,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from models import Program, ProgramCreate
 from typing import List, Optional
 
-from utils.docx_import import build_draft_sections_from_text, docx_bytes_to_text
+from utils.docx_import import build_draft_sections_from_docx, build_draft_sections_from_text, docx_bytes_to_text
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -168,8 +168,7 @@ async def import_docx_for_program(program_id: str, file: UploadFile = File(...))
     if len(raw) > 15 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large (max 15 MB)")
     try:
-        text = docx_bytes_to_text(raw)
-        sections = build_draft_sections_from_text(text)
+        sections = build_draft_sections_from_docx(raw)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -207,8 +206,7 @@ async def import_docx_draft(file: UploadFile = File(...)):
     if len(raw) > 15 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large (max 15 MB)")
     try:
-        text = docx_bytes_to_text(raw)
-        sections = build_draft_sections_from_text(text)
+        sections = build_draft_sections_from_docx(raw)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
