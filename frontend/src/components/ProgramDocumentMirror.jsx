@@ -1,12 +1,18 @@
 import React from 'react';
+import DocxHtmlMirror from './DocxHtmlMirror';
 import FaithfulDocumentParagraphs from './FaithfulDocumentParagraphs';
+import { isDocxHtmlBody, extractDocxHtml } from '../lib/docxHtml';
 import { CONTAINER, NARROW, SECTION_PY } from '../lib/designTokens';
 
 /**
- * Flat Word-faithful layout — no Welcome bands, gold titles, or alternating section chrome.
+ * Exact Word mirror — styled HTML when imported from .docx, markdown fallback otherwise.
  */
 export default function ProgramDocumentMirror({ body, accent }) {
   if (!body?.trim()) return null;
+
+  if (isDocxHtmlBody(body)) {
+    return <DocxHtmlMirror html={extractDocxHtml(body)} />;
+  }
 
   return (
     <section data-testid="program-document-mirror" className={`${SECTION_PY} bg-white`}>

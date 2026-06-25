@@ -101,14 +101,16 @@ def test_build_draft_sections_from_docx():
     )
     sections = build_draft_sections_from_docx(_docx_xml(inner))
     doc = next(s for s in sections if s["section_type"] == "document")
+    assert doc["body"].startswith("@@DOCX_HTML@@")
     assert "Atomic Memory Reprogramming" in doc["body"]
-    assert "**Core benefits**" in doc["body"]
-    assert "✦" in doc["body"]
+    assert "Core benefits" in doc["body"]
+    assert "First benefit point" in doc["body"]
 
 
 def test_amrp_style_import_skips_preamble_and_preserves_headings():
-    """AMRP writeup: skip cover lines; keep Heading 1/2 and ✦ bullets in document."""
+    """AMRP writeup HTML: skip cover lines; keep headings and bullets."""
     from pathlib import Path
+    from utils.docx_html import is_docx_html_body
 
     src = Path(__file__).resolve().parent / "fixtures" / "AMRP_Program_Writeup.docx"
     if not src.exists():
@@ -119,14 +121,12 @@ def test_amrp_style_import_skips_preamble_and_preserves_headings():
     doc = next(s for s in sections if s["id"] == "doc_main")
     body = doc["body"]
 
-    assert "Divine Iris Healing" not in body.split("\n")[0]
-    assert not body.startswith("*Divine Iris")
-    assert "# **What Is the Atomic Musculoskeletal Regeneration Program?**" in body
-    assert "## **Section 1 — Bones & Joints**" in body
-    assert "✦ **Osteoarthritis" in body
-    assert "✦ **✦" not in body
-    assert ">>j AMRP is Divine Iris Healing" in body
-    assert ">>c \"Degeneration is a direction" in body
+    assert is_docx_html_body(body)
+    assert "Divine Iris Healing" not in body.split("<h1", 1)[0]
+    assert "What Is the Atomic Musculoskeletal Regeneration Program?" in body
+    assert "Section 1 — Bones &amp; Joints" in body or "Section 1 — Bones & Joints" in body
+    assert "Osteoarthritis" in body
+    assert "Georgia" in body
 
 
 def test_paragraph_alignment_prefix():
@@ -136,13 +136,11 @@ def test_paragraph_alignment_prefix():
         + _p("Justified body text")
         .replace("<w:p>", '<w:p><w:pPr><w:jc w:val="both"/></w:pPr>')
     )
-    paras = docx_bytes_to_paragraphs(_docx_xml(inner))
-    assert paras[0].align == "center"
-    assert paras[1].align == "justify"
     sections = build_draft_sections_from_docx(_docx_xml(inner))
     body = next(s for s in sections if s["id"] == "doc_main")["body"]
-    assert body.startswith(">>c Centered tagline")
-    assert ">>j Justified body text" in body
+    assert "Centered tagline" in body
+    assert "text-align:center" in body.replace(" ", "")
+    assert "text-align:justify" in body.replace(" ", "")
 
 
 def test_question_line_stays_in_document_when_not_word_heading():

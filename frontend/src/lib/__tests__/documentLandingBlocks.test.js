@@ -88,4 +88,16 @@ describe('splitDocumentBodyForExperience', () => {
     expect(before).not.toContain('Second Topic');
     expect(after).toContain('Second Topic');
   });
+
+  it('splits docx HTML at second h1', () => {
+    const { DOCX_HTML_MARKER } = require('../docxHtml');
+    const html = [
+      '<article><h1>First</h1><p>A</p><h1>Second</h1><p>B</p></article>',
+    ].join('');
+    const body = `${DOCX_HTML_MARKER}${html}`;
+    const { before, after } = splitDocumentBodyForExperience(body, 1);
+    expect(before).toContain('First');
+    expect(before).not.toContain('Second');
+    expect(after).toContain('Second');
+  });
 });

@@ -7,6 +7,7 @@ import {
   parseHeadingPrefix,
   isImportedBoldLine,
 } from './faithfulDocument';
+import { isDocxHtmlBody, extractDocxHtml, splitDocxHtmlForExperience, DOCX_HTML_MARKER } from './docxHtml';
 
 const LEGACY_CONTENT_TYPES = ['journey', 'who_for', 'why_now'];
 
@@ -104,6 +105,14 @@ export function parseDocumentLandingBlocks(body) {
 export function splitDocumentBodyForExperience(body, sectionCountBefore = 1) {
   if (!body?.trim()) return { before: '', after: '' };
 
+  if (isDocxHtmlBody(body)) {
+    const html = extractDocxHtml(body);
+    const { before, after } = splitDocxHtmlForExperience(html, sectionCountBefore);
+    return {
+      before: before ? `${DOCX_HTML_MARKER}${before}` : '',
+      after: after ? `${DOCX_HTML_MARKER}${after}` : '',
+    };
+  }
   const prepared = prepareFaithfulDocumentBody(body);
   const paragraphs = prepared.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
 

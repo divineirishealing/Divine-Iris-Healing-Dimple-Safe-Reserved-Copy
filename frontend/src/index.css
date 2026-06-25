@@ -686,3 +686,20 @@ html {
     opacity: 0;
   }
 }
+
+/* Imported Word HTML — inline styles from docx carry typography; avoid site heading overrides. */
+.docx-html-shell .docx-mirror h1,
+.docx-html-shell .docx-mirror h2,
+.docx-html-shell .docx-mirror h3,
+.docx-html-shell .docx-mirror p {
+  font-weight: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.docx-html-shell .docx-mirror h1,
+.docx-html-shell .docx-mirror h2,
+.docx-html-shell .docx-mirror h3 {
+  border: none;
+  background: none;
+}

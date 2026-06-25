@@ -406,8 +406,21 @@ def build_draft_sections_from_paragraphs(paragraphs: List[ParsedParagraph]) -> L
 
 def build_draft_sections_from_docx(data: bytes) -> List[Dict[str, Any]]:
     """Parse .docx bytes → draft_content_sections for admin import."""
-    paragraphs = docx_bytes_to_paragraphs(data)
-    return build_draft_sections_from_paragraphs(paragraphs)
+    from utils.docx_html import docx_html_document_body
+
+    sections = _blank_template_suppressors()
+    body = docx_html_document_body(data)
+    sections.append({
+        "id": "doc_main",
+        "section_type": "document",
+        "title": "",
+        "subtitle": "docx-html",
+        "body": body,
+        "image_url": "",
+        "is_enabled": True,
+        "order": -1,
+    })
+    return sections
 
 
 def build_draft_sections_from_text(text: str) -> List[Dict[str, Any]]:
