@@ -23,7 +23,7 @@ import {
   buildProgramPageSections,
   isStandardProgramSection,
 } from '../lib/programPageSections';
-import { computeProgramHeroLayout } from '../lib/programHeroLayout';
+import { computeProgramHeroLayout, computeProgramCtaLayout } from '../lib/programHeroLayout';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
@@ -318,6 +318,13 @@ function ProgramDetailPage() {
     detailEnrollStatus,
   });
 
+  const { showCtaTiers, showCtaPricing } = computeProgramCtaLayout({
+    program,
+    showHeroPrice,
+    tiersLen,
+    detailEnrollStatus,
+  });
+
   const SectionTitle = ({ children, style: extra }) => (
     <h2 className="text-center mb-4" style={applyStyle(extra || template.section_title_style, { ...HEADING, fontSize: '1.6rem' })}>{children}</h2>
   );
@@ -512,7 +519,7 @@ function ProgramDetailPage() {
                       <span>{heroTime.value}</span>
                     </p>
                   )}
-                  {showHeroPrice && heroHasAmount && !heroHasTiers && (
+                  {showCtaPricing && heroHasAmount && !heroHasTiers && (
                     <div>
                       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-snug md:text-base">
                         <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>Investment:</span>
@@ -676,9 +683,9 @@ function ProgramDetailPage() {
           <div className="max-w-3xl mx-auto text-center">
             <GoldLine type="cta" />
 
-            {program.show_tiers_on_card !== false && program.duration_tiers?.length > 0 && (
+            {showCtaTiers && (
               <div data-testid="duration-tiers" className="max-w-3xl mx-auto mb-10">
-                {showHeroPrice ? (
+                {showCtaPricing ? (
                   <div className={`grid gap-4 ${program.duration_tiers.length === 3 ? 'sm:grid-cols-3' : program.duration_tiers.length === 2 ? 'sm:grid-cols-2' : 'max-w-xs mx-auto'}`}>
                     {program.duration_tiers.map((tier, tIdx) => {
                       const isAnnual = tier.label?.toLowerCase().includes('annual') || tier.label?.toLowerCase().includes('year') || tier.duration_unit === 'year';
@@ -741,7 +748,7 @@ function ProgramDetailPage() {
             )}
 
             {/* Regular pricing when no tiers */}
-            {showHeroPrice && (!program.duration_tiers || program.duration_tiers.length === 0) && (
+            {showCtaPricing && (!program.duration_tiers || program.duration_tiers.length === 0) && (
               <div className="mb-10" data-testid="regular-pricing">
                 <div className="max-w-xs mx-auto text-center">
                   {(() => {
@@ -769,8 +776,8 @@ function ProgramDetailPage() {
                 const hasTiers = program.duration_tiers?.length > 0;
 
                 // No purchase pricing on page — still show Enroll Now if enrollment is open
-                if (!showHeroPrice) {
-                  if (detailEnrollStatus === 'open') {
+                if (!showCtaPricing) {
+                  if (heroEnrollOpen) {
                     return hasTiers ? null : ( // tiers block above already shows the button
                       <button
                         data-testid="enroll-btn-no-price-solo"
