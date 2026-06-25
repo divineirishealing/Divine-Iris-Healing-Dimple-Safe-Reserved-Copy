@@ -108,14 +108,13 @@ def test_build_draft_sections_from_docx():
     assert "✦" in doc["body"]
 
 
-def test_question_line_stays_in_document_when_not_word_heading():
-    """Faithful import: plain question lines stay in the document body."""
-    from utils.docx_import import ParsedParagraph, _ensure_heading_markup
+def test_polish_promotes_question_headlines():
+    from utils.docx_import import ParsedParagraph, _polish_paragraphs_for_display
 
     paras = [
         ParsedParagraph(formatted="Intro paragraph text.", plain="Intro paragraph text.", kind="body"),
         ParsedParagraph(formatted="What Is AMRP?", plain="What Is AMRP?", kind="body"),
     ]
-    out = _ensure_heading_markup(paras)
-    assert out[1].kind == "body"
-    assert out[1].formatted == "What Is AMRP?"
+    polished = _polish_paragraphs_for_display(paras)
+    assert polished[1].kind == "heading"
+    assert polished[1].formatted == "**What Is AMRP?**"

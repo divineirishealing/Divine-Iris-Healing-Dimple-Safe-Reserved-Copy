@@ -1,11 +1,7 @@
-import {
-  parseExperienceMoment,
-  stripBulletsFromText,
-  experienceMomentHasContent,
-} from '../parseExperienceMoment';
+import { parseExperienceMoment, stripBulletsFromText } from '../parseExperienceMoment';
 
 describe('parseExperienceMoment', () => {
-  it('uses only explicit admin fields', () => {
+  it('uses title as quote and body as message', () => {
     const result = parseExperienceMoment({
       title: 'Healing is possible.',
       subtitle: 'How It Can Be Life-Changing',
@@ -14,11 +10,6 @@ describe('parseExperienceMoment', () => {
     expect(result.quote).toBe('Healing is possible.');
     expect(result.heading).toBe('How It Can Be Life-Changing');
     expect(result.message).toContain('lighter');
-  });
-
-  it('does not invent placeholder copy', () => {
-    expect(parseExperienceMoment({})).toEqual({ quote: '', heading: '', message: '' });
-    expect(experienceMomentHasContent({}, '')).toBe(false);
   });
 
   it('strips bullet lists from experience copy', () => {

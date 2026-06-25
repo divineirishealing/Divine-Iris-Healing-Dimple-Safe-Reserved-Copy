@@ -1,5 +1,4 @@
-import { resolveProgramDocument } from '../documentLandingBlocks';
-import { prepareFaithfulDocumentBody, isImportedBoldLine } from '../faithfulDocument';
+import { resolveProgramDocument, parseDocumentLandingBlocks } from '../documentLandingBlocks';
 
 describe('resolveProgramDocument', () => {
   it('prefers live document section over legacy blocks', () => {
@@ -24,16 +23,10 @@ describe('resolveProgramDocument', () => {
   });
 });
 
-describe('faithfulDocument', () => {
-  it('preserves bold lines and only normalises bullets', () => {
-    const out = prepareFaithfulDocumentBody('**Real Heading**\n\n• First point');
-    expect(out).toContain('**Real Heading**');
-    expect(out).toContain('✦ First point');
-    expect(out).not.toContain('• First');
-  });
-
-  it('detects imported bold lines', () => {
-    expect(isImportedBoldLine('**From Word**')).toBe(true);
-    expect(isImportedBoldLine('Plain question?')).toBe(false);
+describe('parseDocumentLandingBlocks', () => {
+  it('creates intro and section blocks from headlines', () => {
+    const blocks = parseDocumentLandingBlocks('Opening paragraph.\n\n**What is AMRP?**\n\nDetails here.');
+    expect(blocks.some((b) => b.type === 'intro')).toBe(true);
+    expect(blocks.some((b) => b.type === 'section' && b.title.includes('AMRP'))).toBe(true);
   });
 });
