@@ -30,6 +30,9 @@ def test_amrp_fixture_html_skips_cover_and_keeps_content():
     assert "What Is the Atomic Musculoskeletal Regeneration Program?" in html
     assert "Georgia" in html
     assert "Osteoarthritis" in html
+    assert "docx-item-title" in html
+    assert "docx-title-block-h1" in html
+    assert "docx-title-block-h2" in html
     assert "text-align:center" in html or "text-align: center" in html.replace(" ", "")
 
 

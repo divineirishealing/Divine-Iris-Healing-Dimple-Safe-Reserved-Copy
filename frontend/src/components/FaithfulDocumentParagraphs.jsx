@@ -35,14 +35,21 @@ export default function FaithfulDocumentParagraphs({
         textAlign: textAlignStyle(align),
         marginTop: level === 1 ? '2rem' : '1.35rem',
         marginBottom: '0.5rem',
+        padding: level === 1 ? '1rem 1.25rem 1rem 1.1rem' : '0.5rem 0 0.5rem 0.85rem',
+        borderLeft: `${level === 1 ? 4 : 3}px solid ${accent}`,
+        background: level === 1
+          ? `linear-gradient(102deg, ${accent}1f 0%, ${accent}0f 42%, transparent 88%)`
+          : `linear-gradient(90deg, ${accent}0f 0%, transparent 70%)`,
+        borderRadius: '0 8px 8px 0',
       };
       return (
-        <h3
-          key={key}
-          className="font-bold"
-          style={style}
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-        />
+        <div key={key} className={level === 1 ? 'docx-title-block-h1' : 'docx-title-block-h2'}>
+          <h3
+            className="docx-title-highlight font-bold"
+            style={style}
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+          />
+        </div>
       );
     }
     if (subheadStyle === 'accent') {
@@ -74,12 +81,15 @@ export default function FaithfulDocumentParagraphs({
   const renderMirrorQuote = (text, key, align) => (
     <p
       key={key}
-      className="my-5 italic"
+      className="docx-pullquote my-5 italic pl-5"
       style={{
         ...BODY,
         textAlign: textAlignStyle(align || 'center'),
         lineHeight: 1.65,
         color: '#333',
+        borderLeft: `3px solid ${accent}`,
+        background: `linear-gradient(90deg, ${accent}0f 0%, transparent 55%)`,
+        borderRadius: '0 6px 6px 0',
       }}
       dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }}
     />
@@ -181,19 +191,31 @@ export default function FaithfulDocumentParagraphs({
       if (!bulletRun.length) return;
       if (isMirror) {
         lineNodes.push(
-          <ul key={`bul-${lineNodes.length}`} className="my-3 space-y-2 pl-0 list-none">
-            {bulletRun.map((content, bi) => (
-              <li key={bi} className="flex items-start gap-2">
-                <span className="mt-0.5 flex-shrink-0 text-sm" style={{ color: '#1a1a1a' }}>
-                  ✦
-                </span>
-                <span
-                  className="flex-1 leading-relaxed"
-                  style={{ ...BODY, color: '#333' }}
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-                />
-              </li>
-            ))}
+          <ul key={`bul-${lineNodes.length}`} className="my-3 space-y-1 pl-0 list-none">
+            {bulletRun.map((content, bi) => {
+              const plain = content.replace(/\*+/g, '').trim();
+              const split = plain.match(/^(.+?)\s*[—–]\s*(.+)$/);
+              if (split) {
+                return (
+                  <li key={bi} className="docx-bullet docx-bullet-split flex flex-wrap items-baseline gap-1 py-1">
+                    <span className="docx-bullet-mark font-bold" style={{ color: accent }}>✦</span>
+                    <span className="docx-item-title font-bold" style={{ color: accent }}>{split[1]}</span>
+                    <span className="text-gray-500"> — </span>
+                    <span className="docx-item-body flex-1" style={{ ...BODY }}>{split[2]}</span>
+                  </li>
+                );
+              }
+              return (
+                <li key={bi} className="flex items-start gap-2 py-1">
+                  <span className="mt-0.5 flex-shrink-0 text-sm font-bold" style={{ color: accent }}>✦</span>
+                  <span
+                    className="flex-1 leading-relaxed"
+                    style={{ ...BODY, color: '#333' }}
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+                  />
+                </li>
+              );
+            })}
           </ul>
         );
       } else {

@@ -687,9 +687,15 @@ html {
   }
 }
 
-/* Imported Word HTML — exact doc typography; hero + Experience stay outside this shell. */
+/* Imported Word HTML — exact doc typography + smart title highlights. */
 .docx-page {
   background: #fff;
+}
+
+.docx-html-shell {
+  --docx-accent: #d4af37;
+  --docx-accent-soft: rgba(212, 175, 55, 0.12);
+  --docx-accent-softer: rgba(212, 175, 55, 0.06);
 }
 
 .docx-html-shell .docx-mirror h1,
@@ -701,17 +707,92 @@ html {
   text-transform: none;
 }
 
-.docx-html-shell .docx-mirror h1,
-.docx-html-shell .docx-mirror h2,
-.docx-html-shell .docx-mirror h3 {
-  border: none;
-  background: none;
-  padding: 0;
-}
-
 .docx-html-shell .docx-mirror p,
 .docx-html-shell .docx-mirror h1,
 .docx-html-shell .docx-mirror h2,
 .docx-html-shell .docx-mirror h3 {
   max-width: none;
+}
+
+/* Major section titles (Word Heading 1) */
+.docx-html-shell .docx-title-block-h1 {
+  margin: 1.75rem 0 1.15rem;
+}
+
+.docx-html-shell .docx-title-block-h1 .docx-h1 {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 1rem 1.25rem 1rem 1.1rem;
+  border-left: 4px solid var(--docx-accent);
+  background: linear-gradient(102deg, var(--docx-accent-soft) 0%, var(--docx-accent-softer) 42%, transparent 88%);
+  border-radius: 0 8px 8px 0;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+
+/* Subsection titles (Word Heading 2/3) */
+.docx-html-shell .docx-title-block-h2,
+.docx-html-shell .docx-title-block-h3 {
+  margin: 1.35rem 0 0.75rem;
+}
+
+.docx-html-shell .docx-title-block-h2 .docx-h2,
+.docx-html-shell .docx-title-block-h3 .docx-h3 {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 0.5rem 0 0.5rem 0.85rem;
+  border-left: 3px solid var(--docx-accent);
+  background: linear-gradient(90deg, var(--docx-accent-softer) 0%, transparent 70%);
+  border-radius: 0 6px 6px 0;
+}
+
+/* Bullet condition / item titles */
+.docx-html-shell .docx-bullet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem;
+  padding: 0.35rem 0 0.35rem 0.15rem;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.docx-html-shell .docx-bullet-split:hover {
+  background: var(--docx-accent-softer);
+}
+
+.docx-html-shell .docx-bullet-mark {
+  color: var(--docx-accent);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.docx-html-shell .docx-item-title {
+  font-weight: 700;
+  color: var(--docx-accent);
+  letter-spacing: 0.01em;
+}
+
+.docx-html-shell .docx-item-sep {
+  color: #888;
+  font-weight: 400;
+}
+
+.docx-html-shell .docx-item-body {
+  color: inherit;
+  flex: 1;
+  min-width: 12rem;
+}
+
+.docx-html-shell .docx-run-bold {
+  font-weight: 700 !important;
+  color: var(--docx-accent);
+}
+
+/* Pull quotes from Word */
+.docx-html-shell .docx-pullquote {
+  border-left: 3px solid var(--docx-accent);
+  padding-left: 1.15rem !important;
+  margin-left: 0.25rem;
+  background: linear-gradient(90deg, var(--docx-accent-softer) 0%, transparent 55%);
+  border-radius: 0 6px 6px 0;
 }

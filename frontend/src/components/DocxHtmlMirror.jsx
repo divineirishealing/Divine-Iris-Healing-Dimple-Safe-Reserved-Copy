@@ -3,7 +3,7 @@ import React from 'react';
 /**
  * Word document body — inline typography from import; hero and Experience stay on ProgramDetailPage.
  */
-export default function DocxHtmlMirror({ html, continuation = false }) {
+export default function DocxHtmlMirror({ html, accent = '#D4AF37', continuation = false }) {
   if (!html?.trim()) return null;
 
   return (
@@ -17,7 +17,10 @@ export default function DocxHtmlMirror({ html, continuation = false }) {
       >
         <div
           className="docx-html-shell"
-          style={{ wordBreak: 'break-word' }}
+          style={{
+            wordBreak: 'break-word',
+            '--docx-accent': accent,
+          }}
           dangerouslySetInnerHTML={{ __html: html }}
         />
       </div>

@@ -276,6 +276,15 @@ def _run_text(run: ET.Element) -> str:
     return "".join(parts)
 
 
+def _run_span_html(run_style: _RunStyle, text: str) -> str:
+    safe = html.escape(text).replace("\n", "<br/>")
+    css = _run_style_css(run_style)
+    cls = "docx-run-bold" if run_style.bold else "docx-run"
+    if run_style.italic and not run_style.bold:
+        cls = "docx-run-italic"
+    return f'<span class="{cls}" style="{css}">{safe}</span>'
+
+
 def _runs_to_html(runs: List[ET.Element], para_style: _ParaStyle) -> str:
     chunks: List[str] = []
     for run in runs:
@@ -283,9 +292,50 @@ def _runs_to_html(runs: List[ET.Element], para_style: _ParaStyle) -> str:
         if not text:
             continue
         run_style = _parse_rpr(run.find(f"{_WP}rPr"), para_style.run)
-        safe = html.escape(text).replace("\n", "<br/>")
-        chunks.append(f'<span style="{_run_style_css(run_style)}">{safe}</span>')
+        chunks.append(_run_span_html(run_style, text))
     return "".join(chunks)
+
+
+def _runs_all_italic(runs: List[ET.Element], para_style: _ParaStyle) -> bool:
+    seen = False
+    for run in runs:
+        text = _run_text(run)
+        if not text.strip():
+            continue
+        seen = True
+        run_style = _parse_rpr(run.find(f"{_WP}rPr"), para_style.run)
+        if not run_style.italic:
+            return False
+    return seen
+
+
+def _heading_block(tag: str, block_css: str, inner: str) -> str:
+    return (
+        f'<div class="docx-title-block docx-title-block-{tag}">'
+        f'<{tag} class="docx-{tag} docx-title-highlight" style="{block_css}">{inner}</{tag}>'
+        f"</div>"
+    )
+
+
+def _smart_bullet_html(para_style: _ParaStyle, plain: str, inner: str) -> str:
+    text = re.sub(r"^[✦•●○▪\-–—\s]+", "", plain).strip()
+    block_css = f"{_para_style_css(para_style)};{_run_style_css(para_style.run)}"
+    m = re.match(r"^(.+?)\s*[—–]\s*(.+)$", text)
+    if m:
+        title, desc = m.group(1).strip(), m.group(2).strip()
+        return (
+            f'<p class="docx-bullet docx-bullet-split" style="{block_css};margin-left:0;padding-left:0">'
+            f'<span class="docx-bullet-mark" aria-hidden="true">✦</span> '
+            f'<span class="docx-item-title">{html.escape(title)}</span>'
+            f'<span class="docx-item-sep"> — </span>'
+            f'<span class="docx-item-body">{html.escape(desc)}</span>'
+            f"</p>"
+        )
+    return (
+        f'<p class="docx-bullet" style="{block_css};margin-left:0;padding-left:0">'
+        f'<span class="docx-bullet-mark" aria-hidden="true">✦</span> {inner}'
+        f"</p>"
+    )
 
 
 def _plain_from_runs(runs: List[ET.Element]) -> str:
@@ -361,24 +411,25 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = True) -> str:
             tag = "h1"
             block_css = _block_css(para_style, heading=True)
             heading_levels.append(1)
+            align_flags.append(para_style.align)
+            html_blocks.append(_heading_block(tag, block_css, inner))
+            continue
         elif level == 2:
             tag = "h2"
             block_css = _block_css(para_style, heading=True)
             heading_levels.append(2)
+            align_flags.append(para_style.align)
+            html_blocks.append(_heading_block(tag, block_css, inner))
+            continue
         elif level >= 3:
             tag = "h3"
             block_css = _block_css(para_style, heading=True)
             heading_levels.append(level)
+            align_flags.append(para_style.align)
+            html_blocks.append(_heading_block(tag, block_css, inner))
+            continue
         elif is_list or re.match(r"^[•●○▪\-–—✦]", plain.strip()):
-            block_css = f"{_para_style_css(para_style)};{_run_style_css(para_style.run)}"
-            bullet_inner = inner
-            if plain.strip().startswith("✦"):
-                bullet_inner = re.sub(r"^(\s*<span[^>]*>\s*)?✦\s*", "", inner, count=1)
-            html_blocks.append(
-                f'<p class="docx-bullet" style="{block_css};margin-left:0;padding-left:0">'
-                f'<span style="{_run_style_css(para_style.run)}">✦ </span>{bullet_inner}'
-                f"</p>"
-            )
+            html_blocks.append(_smart_bullet_html(para_style, plain, inner))
             heading_levels.append(0)
             align_flags.append(para_style.align)
             continue
@@ -386,9 +437,14 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = True) -> str:
             tag = "p"
             block_css = f"{_para_style_css(para_style)};{_run_style_css(para_style.run)}"
             heading_levels.append(0)
+            extra = ""
+            if para_style.align == "center" and _runs_all_italic(runs, para_style):
+                extra = " docx-pullquote"
+            elif plain.startswith('"') and plain.endswith('"'):
+                extra = " docx-pullquote"
 
         align_flags.append(para_style.align)
-        html_blocks.append(f'<{tag} class="docx-{tag}" style="{block_css}">{inner}</{tag}>')
+        html_blocks.append(f'<{tag} class="docx-{tag}{extra}" style="{block_css}">{inner}</{tag}>')
 
     if trim_preamble:
         html_blocks = _trim_cover_preamble(html_blocks, align_flags, heading_levels)
