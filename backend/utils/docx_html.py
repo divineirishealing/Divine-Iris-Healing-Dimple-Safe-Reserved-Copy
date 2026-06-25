@@ -278,11 +278,7 @@ def _run_text(run: ET.Element) -> str:
 
 def _run_span_html(run_style: _RunStyle, text: str) -> str:
     safe = html.escape(text).replace("\n", "<br/>")
-    css = _run_style_css(run_style)
-    cls = "docx-run-bold" if run_style.bold else "docx-run"
-    if run_style.italic and not run_style.bold:
-        cls = "docx-run-italic"
-    return f'<span class="{cls}" style="{css}">{safe}</span>'
+    return f'<span style="{_run_style_css(run_style)}">{safe}</span>'
 
 
 def _runs_to_html(runs: List[ET.Element], para_style: _ParaStyle) -> str:
@@ -296,45 +292,43 @@ def _runs_to_html(runs: List[ET.Element], para_style: _ParaStyle) -> str:
     return "".join(chunks)
 
 
-def _runs_all_italic(runs: List[ET.Element], para_style: _ParaStyle) -> bool:
-    seen = False
-    for run in runs:
-        text = _run_text(run)
-        if not text.strip():
-            continue
-        seen = True
-        run_style = _parse_rpr(run.find(f"{_WP}rPr"), para_style.run)
-        if not run_style.italic:
-            return False
-    return seen
-
-
-def _heading_block(tag: str, block_css: str, inner: str) -> str:
+def _paragraph_rule_html(ppr: Optional[ET.Element], para_style: _ParaStyle) -> str:
+    """Horizontal rule from Word paragraph bottom border."""
+    if ppr is None:
+        return ""
+    pb = ppr.find(f"{_WP}pBdr")
+    if pb is None:
+        return ""
+    bottom = pb.find(f"{_WP}bottom")
+    if bottom is None:
+        return ""
+    val = (bottom.attrib.get(_VAL) or "").lower()
+    if val in ("", "none", "nil"):
+        return ""
+    try:
+        width_pt = int(bottom.attrib.get(f"{_WP}sz", "4")) / 8.0
+    except (TypeError, ValueError):
+        width_pt = 0.5
+    color = _word_color(bottom.attrib.get(f"{_WP}color", "C9962A"))
+    margin = (
+        f"margin-top:{para_style.margin_before_pt:.2f}pt;"
+        f"margin-bottom:{para_style.margin_after_pt:.2f}pt;"
+    )
     return (
-        f'<div class="docx-title-block docx-title-block-{tag}">'
-        f'<{tag} class="docx-{tag} docx-title-highlight" style="{block_css}">{inner}</{tag}>'
+        f'<div class="docx-rule-wrap" style="{margin}">'
+        f'<hr class="docx-rule" style="border:none;border-bottom:{width_pt:.2f}pt solid {color};'
+        f'width:100%;margin:0;padding:0;" />'
         f"</div>"
     )
 
 
-def _smart_bullet_html(para_style: _ParaStyle, plain: str, inner: str) -> str:
-    text = re.sub(r"^[✦•●○▪\-–—\s]+", "", plain).strip()
-    block_css = f"{_para_style_css(para_style)};{_run_style_css(para_style.run)}"
-    m = re.match(r"^(.+?)\s*[—–]\s*(.+)$", text)
-    if m:
-        title, desc = m.group(1).strip(), m.group(2).strip()
-        return (
-            f'<p class="docx-bullet docx-bullet-split" style="{block_css};margin-left:0;padding-left:0">'
-            f'<span class="docx-bullet-mark" aria-hidden="true">✦</span> '
-            f'<span class="docx-item-title">{html.escape(title)}</span>'
-            f'<span class="docx-item-sep"> — </span>'
-            f'<span class="docx-item-body">{html.escape(desc)}</span>'
-            f"</p>"
-        )
+def _spacer_html(para_style: _ParaStyle) -> str:
+    if para_style.margin_before_pt <= 0 and para_style.margin_after_pt <= 0:
+        return ""
     return (
-        f'<p class="docx-bullet" style="{block_css};margin-left:0;padding-left:0">'
-        f'<span class="docx-bullet-mark" aria-hidden="true">✦</span> {inner}'
-        f"</p>"
+        f'<div class="docx-spacer" aria-hidden="true" '
+        f'style="margin-top:{para_style.margin_before_pt:.2f}pt;'
+        f'margin-bottom:{para_style.margin_after_pt:.2f}pt"></div>'
     )
 
 
@@ -361,8 +355,8 @@ def _trim_cover_preamble(
     return blocks[i:]
 
 
-def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = True) -> str:
-    """Render document body as HTML with inline Word typography."""
+def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False) -> str:
+    """Render the full document body as HTML with inline Word typography."""
     try:
         with zipfile.ZipFile(BytesIO(data)) as zf:
             xml_bytes = zf.read("word/document.xml")
@@ -387,8 +381,7 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = True) -> str:
     for para in body.findall(f"{_WP}p"):
         runs = para.findall(f"{_WP}r")
         plain = _plain_from_runs(runs)
-        if not plain:
-            continue
+        ppr = para.find(f"{_WP}pPr")
 
         style_id = _paragraph_style_id(para)
         style_name = style_names.get(style_id, "")
@@ -396,12 +389,26 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = True) -> str:
         is_list = _paragraph_is_list(para)
 
         base = style_map.get(style_id, _ParaStyle(run=doc_defaults))
-        para_style = _parse_ppr(para.find(f"{_WP}pPr"), base)
+        para_style = _parse_ppr(ppr, base)
         align = _paragraph_alignment(para)
         if align:
             mapped = {"center": "center", "justify": "justify", "right": "right", "left": "left"}.get(align)
             if mapped:
                 para_style.align = mapped
+
+        if not plain:
+            rule = _paragraph_rule_html(ppr, para_style)
+            if rule:
+                html_blocks.append(rule)
+                heading_levels.append(0)
+                align_flags.append(para_style.align)
+            else:
+                spacer = _spacer_html(para_style)
+                if spacer:
+                    html_blocks.append(spacer)
+                    heading_levels.append(0)
+                    align_flags.append(para_style.align)
+            continue
 
         inner = _runs_to_html(runs, para_style)
         if not inner:
@@ -411,40 +418,29 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = True) -> str:
             tag = "h1"
             block_css = _block_css(para_style, heading=True)
             heading_levels.append(1)
-            align_flags.append(para_style.align)
-            html_blocks.append(_heading_block(tag, block_css, inner))
-            continue
         elif level == 2:
             tag = "h2"
             block_css = _block_css(para_style, heading=True)
             heading_levels.append(2)
-            align_flags.append(para_style.align)
-            html_blocks.append(_heading_block(tag, block_css, inner))
-            continue
         elif level >= 3:
             tag = "h3"
             block_css = _block_css(para_style, heading=True)
             heading_levels.append(level)
-            align_flags.append(para_style.align)
-            html_blocks.append(_heading_block(tag, block_css, inner))
-            continue
         elif is_list or re.match(r"^[•●○▪\-–—✦]", plain.strip()):
-            html_blocks.append(_smart_bullet_html(para_style, plain, inner))
-            heading_levels.append(0)
+            block_css = f"{_para_style_css(para_style)};{_run_style_css(para_style.run)}"
             align_flags.append(para_style.align)
+            heading_levels.append(0)
+            html_blocks.append(
+                f'<p class="docx-bullet" style="{block_css};margin-left:0;padding-left:0">{inner}</p>'
+            )
             continue
         else:
             tag = "p"
             block_css = f"{_para_style_css(para_style)};{_run_style_css(para_style.run)}"
             heading_levels.append(0)
-            extra = ""
-            if para_style.align == "center" and _runs_all_italic(runs, para_style):
-                extra = " docx-pullquote"
-            elif plain.startswith('"') and plain.endswith('"'):
-                extra = " docx-pullquote"
 
         align_flags.append(para_style.align)
-        html_blocks.append(f'<{tag} class="docx-{tag}{extra}" style="{block_css}">{inner}</{tag}>')
+        html_blocks.append(f'<{tag} class="docx-{tag}" style="{block_css}">{inner}</{tag}>')
 
     if trim_preamble:
         html_blocks = _trim_cover_preamble(html_blocks, align_flags, heading_levels)

@@ -122,7 +122,8 @@ def test_amrp_style_import_skips_preamble_and_preserves_headings():
     body = doc["body"]
 
     assert is_docx_html_body(body)
-    assert "Divine Iris Healing" not in body.split("Every day", 1)[0]
+    assert "Atomic Musculoskeletal" in body
+    assert "docx-rule" in body
     assert "Every day, millions" in body
     assert "What Is the Atomic Musculoskeletal Regeneration Program?" in body
     assert "Section 1 — Bones &amp; Joints" in body or "Section 1 — Bones & Joints" in body
@@ -139,8 +140,9 @@ def test_paragraph_alignment_prefix():
     )
     sections = build_draft_sections_from_docx(_docx_xml(inner))
     body = next(s for s in sections if s["id"] == "doc_main")["body"]
-    assert "Centered tagline" not in body
+    assert "Centered tagline" in body
     assert "Justified body text" in body
+    assert "text-align:center" in body.replace(" ", "")
     assert "text-align:justify" in body.replace(" ", "")
 
 

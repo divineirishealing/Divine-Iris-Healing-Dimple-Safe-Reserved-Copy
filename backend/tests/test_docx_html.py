@@ -18,22 +18,23 @@ def test_heading_uses_georgia_and_color():
     assert "#2a1f5e" in html.lower() or "#2A1F5E".lower() in html.lower()
 
 
-def test_amrp_fixture_html_skips_cover_and_keeps_content():
+def test_amrp_fixture_html_matches_full_word_document():
     src = Path(__file__).resolve().parent / "fixtures" / "AMRP_Program_Writeup.docx"
     if not src.exists():
         import pytest
         pytest.skip("AMRP fixture doc not on this machine")
 
     html = docx_bytes_to_html(src.read_bytes())
-    assert "Divine Iris Healing" not in html.split("Every day", 1)[0]
+    assert "Divine Iris Healing" in html
+    assert "Atomic Musculoskeletal" in html
+    assert "AMRP" in html
+    assert "docx-rule" in html
+    assert "#c9962a" in html.lower()
     assert "Every day, millions of people" in html
     assert "What Is the Atomic Musculoskeletal Regeneration Program?" in html
     assert "Georgia" in html
     assert "Osteoarthritis" in html
-    assert "docx-item-title" in html
-    assert "docx-title-block-h1" in html
-    assert "docx-title-block-h2" in html
-    assert "text-align:center" in html or "text-align: center" in html.replace(" ", "")
+    assert "text-align:center" in html.replace(" ", "")
 
 
 def test_build_draft_sections_stores_html_body():
