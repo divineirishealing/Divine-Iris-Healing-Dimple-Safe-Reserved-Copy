@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from models import Program, ProgramCreate
 from typing import List, Optional
+
+from utils.docx_import import build_draft_sections_from_text, docx_bytes_to_text
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -150,6 +152,33 @@ async def update_program(program_id: str, program: ProgramCreate):
     await db.programs.update_one({"id": program_id}, {"$set": update_data})
     updated = await db.programs.find_one({"id": program_id})
     return Program(**updated)
+
+@router.post("/import-docx")
+async def import_docx_draft(file: UploadFile = File(...)):
+    """Parse a .docx file into draft_content_sections for the admin draft panel."""
+    name = (file.filename or "").lower()
+    if not name.endswith(".docx"):
+        raise HTTPException(status_code=400, detail="Please upload a .docx file")
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="File is empty")
+    if len(raw) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 15 MB)")
+    try:
+        text = docx_bytes_to_text(raw)
+        sections = build_draft_sections_from_text(text)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not read document: {exc}") from exc
+    content_count = sum(1 for s in sections if (s.get("body") or "").strip())
+    return {
+        "draft_content_sections": sections,
+        "section_count": len(sections),
+        "content_section_count": content_count,
+        "filename": file.filename,
+    }
+
 
 @router.patch("/{program_id}/draft-content")
 async def save_draft_content(program_id: str, data: dict):

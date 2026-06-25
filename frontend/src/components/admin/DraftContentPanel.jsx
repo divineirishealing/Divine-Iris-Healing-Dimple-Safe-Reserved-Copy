@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import axios from 'axios';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -231,43 +231,154 @@ Who Can Join:
 
 // ---------------------------------------------------------------------------
 
+const TYPE_LABELS = {
+  journey: 'Intro / Journey',
+  who_for: 'Who It Is For',
+  experience: 'Experience (Dark)',
+  why_now: 'Why Now / How It Works',
+  document: 'Document Block',
+  custom: 'Custom Section',
+};
+
+const TYPE_COLOR = {
+  journey: 'bg-blue-50 border-blue-200',
+  who_for: 'bg-amber-50 border-amber-200',
+  experience: 'bg-gray-800 border-gray-600',
+  why_now: 'bg-green-50 border-green-200',
+  document: 'bg-indigo-50 border-indigo-200',
+  custom: 'bg-white border-gray-200',
+};
+
+function sectionHasContent(sec) {
+  return Boolean(
+    (sec?.title || '').trim()
+    || (sec?.subtitle || '').trim()
+    || (sec?.body || '').trim()
+    || (sec?.image_url || '').trim()
+  );
+}
+
+/** Show sections with content first so import results are obvious. */
+function sortDraftForDisplay(sections) {
+  return [...sections].sort((a, b) => {
+    const aContent = sectionHasContent(a) ? 0 : 1;
+    const bContent = sectionHasContent(b) ? 0 : 1;
+    if (aContent !== bContent) return aContent - bContent;
+    return (a.order ?? 0) - (b.order ?? 0);
+  });
+}
+
+function countContentSections(sections) {
+  return (sections || []).filter(sectionHasContent).length;
+}
+
+// ---------------------------------------------------------------------------
+
 export default function DraftContentPanel({ editingId, programForm, setProgramForm, siteSettings }) {
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
+  const fileRef = useRef(null);
+  const [open, setOpen] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const draft = programForm.draft_content_sections || [];
   const hasDraft = draft.length > 0;
+  const displayDraft = sortDraftForDisplay(draft);
+  const contentCount = countContentSections(draft);
 
-  const typeLabels = {
-    journey: 'Intro / Journey',
-    who_for: 'Who It Is For',
-    experience: 'Experience (Dark)',
-    why_now: 'Why Now / How It Works',
-    custom: 'Custom Section',
+  const applyDraftSections = async (sections, { filename, autoSave = true } = {}) => {
+    setProgramForm((f) => ({ ...f, draft_content_sections: sections }));
+    setOpen(true);
+    const n = countContentSections(sections);
+    if (!editingId) {
+      toast({
+        title: 'Content imported into draft',
+        description: `${n} section(s) with content loaded. Save the program first, then click Save Draft.`,
+        duration: 8000,
+      });
+      return;
+    }
+    if (autoSave) {
+      setSaving(true);
+      try {
+        await axios.patch(`${API}/programs/${editingId}/draft-content`, {
+          draft_content_sections: sections,
+        });
+        toast({
+          title: filename ? `Imported ${filename}` : 'Document imported',
+          description: `${n} section(s) with content — draft saved. Review below, then Publish when ready.`,
+        });
+      } catch (e) {
+        toast({
+          title: 'Imported locally — save failed',
+          description: e.response?.data?.detail || e.message,
+          variant: 'destructive',
+        });
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      toast({
+        title: filename ? `Imported ${filename}` : 'Document imported',
+        description: `${n} section(s) with content. Click Save Draft to persist.`,
+      });
+    }
   };
-  const typeColor = {
-    journey: 'bg-blue-50 border-blue-200',
-    who_for: 'bg-amber-50 border-amber-200',
-    experience: 'bg-gray-800 border-gray-600',
-    why_now: 'bg-green-50 border-green-200',
-    custom: 'bg-white border-gray-200',
+
+  const importSoulSyncTemplate = () => {
+    applyDraftSections(JSON.parse(JSON.stringify(SOULSYNC_DRAFT)), { filename: 'SoulSync template' });
+  };
+
+  const handleDocxFile = async (file) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.docx')) {
+      toast({ title: 'Please choose a .docx file', variant: 'destructive' });
+      return;
+    }
+    setImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const r = await axios.post(`${API}/programs/import-docx`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 60000,
+      });
+      const sections = r.data?.draft_content_sections || [];
+      if (!sections.length) {
+        throw new Error('No sections returned from document');
+      }
+      await applyDraftSections(sections, { filename: file.name });
+    } catch (e) {
+      toast({
+        title: 'Import failed',
+        description: e.response?.data?.detail || e.message || 'Could not read the document',
+        variant: 'destructive',
+      });
+    } finally {
+      setImporting(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
   };
 
   const updateDraftSection = (idx, field, val) => {
+    const sec = displayDraft[idx];
+    const realIdx = draft.findIndex((s) => (s.id && s.id === sec.id) || s === sec);
+    if (realIdx < 0) return;
     const sections = [...draft];
-    sections[idx] = { ...sections[idx], [field]: val };
-    setProgramForm(f => ({ ...f, draft_content_sections: sections }));
-  };
-
-  const importFromDoc = () => {
-    setProgramForm(f => ({ ...f, draft_content_sections: JSON.parse(JSON.stringify(SOULSYNC_DRAFT)) }));
-    toast({ title: 'Document content imported into draft', description: 'Review below, then Save Draft.' });
+    sections[realIdx] = { ...sections[realIdx], [field]: val };
+    setProgramForm((f) => ({ ...f, draft_content_sections: sections }));
   };
 
   const saveDraft = async () => {
-    if (!editingId) return;
+    if (!editingId) {
+      toast({
+        title: 'Save the program first',
+        description: 'Create or save this program, then use Save Draft.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setSaving(true);
     try {
       await axios.patch(`${API}/programs/${editingId}/draft-content`, {
@@ -309,7 +420,7 @@ export default function DraftContentPanel({ editingId, programForm, setProgramFo
         {open ? <ChevronDown size={14} className="text-purple-500" /> : <ChevronRight size={14} className="text-purple-500" />}
         <FileText size={14} className="text-purple-500" />
         <span className="text-[11px] font-bold text-purple-700 flex-1 text-left">
-          DRAFT CONTENT {hasDraft ? `(${draft.length} sections staged)` : '— not live yet'}
+          DRAFT CONTENT {hasDraft ? `(${contentCount} with content · ${draft.length} total)` : '— not live yet'}
         </span>
         {hasDraft && (
           <span className="text-[9px] bg-purple-200 text-purple-700 px-2 py-0.5 rounded-full font-semibold">STAGED</span>
@@ -326,47 +437,85 @@ export default function DraftContentPanel({ editingId, programForm, setProgramFo
             </p>
           </div>
 
-          {/* Import button */}
-          <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <Upload size={14} className="text-blue-500 shrink-0" />
-            <div className="flex-1">
-              <p className="text-[11px] font-semibold text-blue-700">Import from document</p>
-              <p className="text-[10px] text-blue-500">SoulSync_Neuro_Harmonics_Program.docx — 8 sections, full content, no generic headings</p>
+          {/* Import */}
+          <div className="space-y-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="flex items-start gap-3">
+              <Upload size={14} className="text-blue-500 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-semibold text-blue-700">Import from document</p>
+                <p className="text-[10px] text-blue-600 mt-0.5 leading-relaxed">
+                  Upload a <strong>.docx</strong> file, or use the pre-built SoulSync template.
+                  Content lands in <strong>Document Block</strong> sections — blank template slots stay empty on the live page.
+                </p>
+              </div>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              onClick={importFromDoc}
-              className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white shrink-0"
-            >
-              Import from Doc
-            </Button>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                className="hidden"
+                onChange={(e) => handleDocxFile(e.target.files?.[0])}
+              />
+              <Button
+                type="button"
+                size="sm"
+                disabled={importing}
+                onClick={() => fileRef.current?.click()}
+                className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+              >
+                {importing ? 'Reading document…' : 'Choose .docx file'}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={importing}
+                onClick={importSoulSyncTemplate}
+                className="text-[10px] border-blue-300 text-blue-700 shrink-0"
+              >
+                Import SoulSync template
+              </Button>
+            </div>
           </div>
 
           {/* Section editors */}
           {!hasDraft && (
             <p className="text-xs text-gray-400 text-center py-4 border border-dashed rounded">
-              Click "Import from Doc" above to pre-fill all 8 sections from the document.
+              Upload a .docx file or use the SoulSync template to pre-fill draft sections.
             </p>
           )}
 
           {hasDraft && (
             <div className="space-y-3">
-              {draft.map((sec, idx) => {
+              {displayDraft.map((sec, idx) => {
                 const isDark = sec.section_type === 'experience';
-                const colClass = typeColor[sec.section_type] || 'bg-white border-gray-200';
-                const label = typeLabels[sec.section_type] || 'Section';
+                const colClass = TYPE_COLOR[sec.section_type] || 'bg-white border-gray-200';
+                const label = TYPE_LABELS[sec.section_type] || 'Section';
+                const hasContent = sectionHasContent(sec);
+                const bodyLen = (sec.body || '').length;
                 return (
-                  <div key={sec.id || idx} className="border rounded-lg overflow-hidden">
-                    <div className={`px-4 py-2 border-b ${colClass} flex items-center gap-2`}>
+                  <div key={sec.id || idx} className={`border rounded-lg overflow-hidden ${!hasContent ? 'opacity-75' : ''}`}>
+                    <div className={`px-4 py-2 border-b ${colClass} flex items-center gap-2 flex-wrap`}>
                       <span className={`text-[10px] font-bold ${isDark ? 'text-yellow-400' : 'text-gray-700'}`}>
                         #{idx + 1} {label}
                         {sec.id && sec.id !== sec.section_type ? ` (${sec.id})` : ''}
                       </span>
+                      {!hasContent && (
+                        <span className="text-[8px] px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded">Blank — hidden on live page</span>
+                      )}
+                      {hasContent && bodyLen > 0 && (
+                        <span className="text-[8px] px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded">{bodyLen.toLocaleString()} chars</span>
+                      )}
                       {isDark && <span className="text-[8px] px-1.5 py-0.5 bg-black/30 text-white rounded">Dark bg</span>}
                       <span className="ml-auto text-[9px] text-purple-500 font-semibold">DRAFT</span>
                     </div>
                     <div className="p-4 bg-white">
+                      {!hasContent && (
+                        <p className="text-[10px] text-gray-400 mb-3 italic">
+                          Intentionally empty — suppresses the default template heading on the public program page.
+                        </p>
+                      )}
                       <div className="grid md:grid-cols-2 gap-3 mb-3">
                         <div>
                           <Label className="text-[10px]">Title <span className="text-gray-400 font-normal">(leave blank = no heading on page)</span></Label>
@@ -396,7 +545,7 @@ export default function DraftContentPanel({ editingId, programForm, setProgramFo
                         <Textarea
                           value={sec.body || ''}
                           onChange={e => updateDraftSection(idx, 'body', e.target.value)}
-                          rows={7}
+                          rows={bodyLen > 2000 ? 14 : bodyLen > 500 ? 10 : 7}
                           className="text-xs font-mono"
                         />
                       </div>
@@ -428,9 +577,9 @@ export default function DraftContentPanel({ editingId, programForm, setProgramFo
             >
               {publishing ? 'Publishing…' : '🚀 Publish Draft → Live'}
             </Button>
-            {hasDraft && (
+            {hasDraft && contentCount > 0 && (
               <span className="flex items-center gap-1 text-[10px] text-purple-500">
-                <CheckCircle2 size={11} /> Draft ready
+                <CheckCircle2 size={11} /> {contentCount} section(s) ready — Publish to update live page
               </span>
             )}
           </div>
