@@ -8,10 +8,9 @@ import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import {
   resolveProgramDocument,
-  parseDocumentLandingBlocks,
-  splitBlocksForExperience,
+  splitDocumentBodyForExperience,
 } from '../lib/documentLandingBlocks';
-import ProgramDocumentLanding from '../components/ProgramDocumentLanding';
+import ProgramDocumentMirror from '../components/ProgramDocumentMirror';
 import ProgramExperienceMoment from '../components/ProgramExperienceMoment';
 import { experienceMomentHasContent } from '../lib/parseExperienceMoment';
 import { useCurrency } from '../context/CurrencyContext';
@@ -521,11 +520,11 @@ function ProgramDetailPage() {
   })();
   const showExperienceMoment = experienceSection
     && experienceMomentHasContent(experienceSection, experiencePortraitUrl);
-  const docBlocks = documentSection ? parseDocumentLandingBlocks(documentSection.body) : [];
+  const docBody = documentSection?.body || '';
   const splitDocForExperience = !!(documentSection && showExperienceMoment);
   const { before: docBefore, after: docAfter } = splitDocForExperience
-    ? splitBlocksForExperience(docBlocks, 1)
-    : { before: docBlocks, after: [] };
+    ? splitDocumentBodyForExperience(docBody, 1)
+    : { before: docBody, after: '' };
 
   // Global pricing style
   const globalPricingStyle = {
@@ -730,7 +729,7 @@ function ProgramDetailPage() {
 
       {documentSection ? (
         <>
-          <ProgramDocumentLanding blocks={docBefore} accent={heroAccent} />
+          <ProgramDocumentMirror body={docBefore} accent={heroAccent} />
           {showExperienceMoment ? (
             <ProgramExperienceMoment
               section={experienceSection}
@@ -738,7 +737,7 @@ function ProgramDetailPage() {
               portraitUrl={experiencePortraitUrl}
             />
           ) : null}
-          <ProgramDocumentLanding blocks={docAfter} accent={heroAccent} startIndex={docBefore.length} />
+          <ProgramDocumentMirror body={docAfter} accent={heroAccent} />
           {legacySections.map((section, idx) => renderSection(section, idx, { hideLegacyIntro }))}
         </>
       ) : (

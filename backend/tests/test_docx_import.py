@@ -125,6 +125,24 @@ def test_amrp_style_import_skips_preamble_and_preserves_headings():
     assert "## **Section 1 — Bones & Joints**" in body
     assert "✦ **Osteoarthritis" in body
     assert "✦ **✦" not in body
+    assert ">>j AMRP is Divine Iris Healing" in body
+    assert ">>c \"Degeneration is a direction" in body
+
+
+def test_paragraph_alignment_prefix():
+    inner = (
+        _p("Centered tagline", style="")
+        .replace("<w:p>", '<w:p><w:pPr><w:jc w:val="center"/></w:pPr>')
+        + _p("Justified body text")
+        .replace("<w:p>", '<w:p><w:pPr><w:jc w:val="both"/></w:pPr>')
+    )
+    paras = docx_bytes_to_paragraphs(_docx_xml(inner))
+    assert paras[0].align == "center"
+    assert paras[1].align == "justify"
+    sections = build_draft_sections_from_docx(_docx_xml(inner))
+    body = next(s for s in sections if s["id"] == "doc_main")["body"]
+    assert body.startswith(">>c Centered tagline")
+    assert ">>j Justified body text" in body
 
 
 def test_question_line_stays_in_document_when_not_word_heading():
