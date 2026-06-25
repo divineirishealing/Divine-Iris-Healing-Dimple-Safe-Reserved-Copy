@@ -492,7 +492,6 @@ function ProgramDetailPage() {
 
   const docMeta = resolveProgramDocument(program, sections);
   const documentSection = docMeta?.section || null;
-  const skipLandingTypes = new Set(docMeta?.skipTypes || []);
   const hasDocMain = (program.content_sections || []).some(
     (s) => (s.id === 'doc_main' || s.section_type === 'document') && String(s.body || '').trim(),
   );
@@ -503,13 +502,8 @@ function ProgramDetailPage() {
     return !!(s.body?.trim() || s.title?.trim() || s.image_url?.trim() || globalExpImg || aboutPortrait);
   });
   const hideLegacyIntro = !!(documentSection || hasDocMain);
-  const legacySections = sections.filter(
-    (s) =>
-      s.section_type !== 'document' &&
-      s.id !== 'doc_main' &&
-      s.id !== experienceSection?.id &&
-      !skipLandingTypes.has(s.section_type),
-  );
+  const docBody = documentSection?.body || '';
+  const showImportedDocumentOnly = !!(documentSection && docBody.trim());
 
   const experiencePortraitUrl = (() => {
     if (!experienceSection) return '';
@@ -520,7 +514,6 @@ function ProgramDetailPage() {
   })();
   const showExperienceMoment = experienceSection
     && experienceMomentHasContent(experienceSection, experiencePortraitUrl);
-  const docBody = documentSection?.body || '';
   const splitDocForExperience = !!(documentSection && showExperienceMoment);
   const { before: docBefore, after: docAfter } = splitDocForExperience
     ? splitDocumentBodyForExperience(docBody, 1)
@@ -727,7 +720,7 @@ function ProgramDetailPage() {
         ) : null}
       </section>
 
-      {documentSection ? (
+      {showImportedDocumentOnly ? (
         <>
           <ProgramDocumentMirror
             body={docBefore}
@@ -747,7 +740,6 @@ function ProgramDetailPage() {
             accent={heroAccent}
             continuation
           />
-          {legacySections.map((section, idx) => renderSection(section, idx, { hideLegacyIntro }))}
         </>
       ) : (
         sections.map((section, idx) => renderSection(section, idx, { hideLegacyIntro }))

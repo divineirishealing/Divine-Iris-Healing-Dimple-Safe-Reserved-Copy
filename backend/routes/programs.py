@@ -2,7 +2,13 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from models import Program, ProgramCreate
 from typing import List, Optional
 
-from utils.docx_import import build_draft_sections_from_docx, build_draft_sections_from_text, docx_bytes_to_text
+from utils.docx_import import (
+    build_draft_sections_from_docx,
+    build_draft_sections_from_text,
+    docx_bytes_to_text,
+    finalize_document_only_sections,
+    merge_live_preserved_sections,
+)
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -168,7 +174,7 @@ async def import_docx_for_program(program_id: str, file: UploadFile = File(...))
     if len(raw) > 15 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large (max 15 MB)")
     try:
-        sections = build_draft_sections_from_docx(raw)
+        sections = build_draft_sections_from_docx(raw, existing.get("content_sections"))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -261,6 +267,9 @@ async def publish_draft_content(program_id: str):
     draft = existing.get("draft_content_sections", [])
     if not draft:
         raise HTTPException(status_code=400, detail="No draft content to publish")
+    live = existing.get("content_sections", [])
+    draft = merge_live_preserved_sections(draft, live)
+    draft = finalize_document_only_sections(draft)
     await db.programs.update_one({"id": program_id}, {"$set": {"content_sections": draft}})
     return {"message": "Draft published to live", "content_sections": draft}
 

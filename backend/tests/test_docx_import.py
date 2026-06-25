@@ -7,6 +7,8 @@ from utils.docx_import import (
     build_draft_sections_from_text,
     docx_bytes_to_paragraphs,
     docx_bytes_to_text,
+    finalize_document_only_sections,
+    merge_live_preserved_sections,
 )
 
 
@@ -157,3 +159,54 @@ def test_question_line_stays_in_document_when_not_word_heading():
     out = _ensure_heading_markup(paras)
     assert out[1].kind == "body"
     assert out[1].formatted == "What Is AMRP?"
+
+
+def test_import_preserves_experience_from_live():
+    live = [
+        {
+            "id": "experience",
+            "section_type": "experience",
+            "title": "Your Experience",
+            "subtitle": "",
+            "body": "Life-changing quote here.",
+            "image_url": "",
+            "is_enabled": True,
+            "order": 2,
+        }
+    ]
+    inner = _p("Intro") + _p("Topic One", style="Heading1") + _p("Details")
+    sections = build_draft_sections_from_docx(_docx_xml(inner), live)
+    exp = next(s for s in sections if s.get("section_type") == "experience")
+    assert exp["body"] == "Life-changing quote here."
+    journey = next(s for s in sections if s.get("id") == "journey")
+    assert journey["body"] == ""
+
+
+def test_finalize_clears_legacy_sections_when_document_live():
+    sections = [
+        {"id": "journey", "section_type": "journey", "title": "The Journey", "body": "Old copy", "subtitle": "", "image_url": ""},
+        {"id": "doc_main", "section_type": "document", "title": "", "body": "@@DOCX_HTML@@<p>Word</p>", "subtitle": "docx-html", "image_url": ""},
+        {"id": "experience", "section_type": "experience", "title": "Experience", "body": "Keep me", "subtitle": "", "image_url": ""},
+    ]
+    out = finalize_document_only_sections(sections)
+    journey = next(s for s in out if s["id"] == "journey")
+    exp = next(s for s in out if s["id"] == "experience")
+    doc = next(s for s in out if s["id"] == "doc_main")
+    assert journey["body"] == ""
+    assert journey["title"] == ""
+    assert exp["body"] == "Keep me"
+    assert "Word" in doc["body"]
+
+
+def test_merge_live_experience_when_missing_from_draft():
+    draft = [
+        {"id": "journey", "section_type": "journey", "title": "", "body": "", "subtitle": "", "image_url": ""},
+        {"id": "doc_main", "section_type": "document", "title": "", "body": "@@DOCX_HTML@@<p>Doc</p>", "subtitle": "docx-html", "image_url": ""},
+    ]
+    live = [
+        {"id": "experience", "section_type": "experience", "title": "Your Experience", "body": "Saved quote", "subtitle": "", "image_url": "/img.jpg"},
+    ]
+    merged = merge_live_preserved_sections(draft, live)
+    exp = next(s for s in merged if s["id"] == "experience")
+    assert exp["body"] == "Saved quote"
+    assert exp["image_url"] == "/img.jpg"

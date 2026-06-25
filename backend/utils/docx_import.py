@@ -388,13 +388,125 @@ def _blank_template_suppressors() -> List[Dict[str, Any]]:
     ]
 
 
-def build_draft_sections_from_paragraphs(paragraphs: List[ParsedParagraph]) -> List[Dict[str, Any]]:
+PRESERVE_ON_DOC_IMPORT = ("experience",)
+
+
+def _preserved_sections_from_live(
+    existing_sections: Optional[List[Dict[str, Any]]],
+    preserve_types: tuple = PRESERVE_ON_DOC_IMPORT,
+) -> List[Dict[str, Any]]:
+    """Keep admin-configured slots (e.g. Experience) when replacing body with a Word import."""
+    if not existing_sections:
+        return []
+    out: List[Dict[str, Any]] = []
+    seen: set = set()
+    for sec in existing_sections:
+        st = sec.get("section_type")
+        sid = sec.get("id")
+        if st not in preserve_types and sid not in preserve_types:
+            continue
+        key = sid or st
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append({**sec, "is_enabled": sec.get("is_enabled", True)})
+    return out
+
+
+def has_document_body(sections: List[Dict[str, Any]]) -> bool:
+    return any(
+        (s.get("id") == "doc_main" or s.get("section_type") == "document")
+        and str(s.get("body") or "").strip()
+        for s in sections
+    )
+
+
+def _empty_section_content(sec: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        **sec,
+        "title": "",
+        "subtitle": "",
+        "body": "",
+        "image_url": "",
+    }
+
+
+def finalize_document_only_sections(sections: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """When a Word document is live, clear template/custom sections — doc + experience only."""
+    if not has_document_body(sections):
+        return sections
+
+    legacy_ids = {"journey", "who_for", "why_now"}
+    legacy_types = {"journey", "who_for", "why_now", "custom"}
+
+    out: List[Dict[str, Any]] = []
+    for sec in sections:
+        st = sec.get("section_type")
+        sid = sec.get("id")
+        if sid == "doc_main" or st == "document":
+            out.append(sec)
+        elif st == "experience" or sid == "experience":
+            out.append(sec)
+        elif st in legacy_types or sid in legacy_ids:
+            out.append(_empty_section_content(sec))
+        else:
+            out.append(_empty_section_content(sec))
+    return out
+
+
+def merge_live_preserved_sections(
+    draft: List[Dict[str, Any]],
+    live: Optional[List[Dict[str, Any]]],
+    preserve_types: tuple = PRESERVE_ON_DOC_IMPORT,
+) -> List[Dict[str, Any]]:
+    """Carry Experience (and similar) from live content when publishing a doc-only draft."""
+    merged = list(draft)
+    live = live or []
+    index_by_key: Dict[str, int] = {}
+    for i, sec in enumerate(merged):
+        key = sec.get("id") or sec.get("section_type")
+        if key:
+            index_by_key[key] = i
+
+    for live_sec in live:
+        st = live_sec.get("section_type")
+        sid = live_sec.get("id")
+        if st not in preserve_types and sid not in preserve_types:
+            continue
+        key = sid or st
+        if not key:
+            continue
+        if key in index_by_key:
+            idx = index_by_key[key]
+            cur = merged[idx]
+            if not str(cur.get("body") or "").strip() and str(live_sec.get("body") or "").strip():
+                merged[idx] = {
+                    **cur,
+                    "title": live_sec.get("title", cur.get("title", "")),
+                    "subtitle": live_sec.get("subtitle", cur.get("subtitle", "")),
+                    "body": live_sec.get("body", ""),
+                    "image_url": live_sec.get("image_url", cur.get("image_url", "")),
+                    "image_fit": live_sec.get("image_fit", cur.get("image_fit", "contain")),
+                    "image_position": live_sec.get("image_position", cur.get("image_position", "center top")),
+                }
+            continue
+        merged.append(dict(live_sec))
+        index_by_key[key] = len(merged) - 1
+
+    return merged
+
+
+def build_draft_sections_from_paragraphs(
+    paragraphs: List[ParsedParagraph],
+    existing_sections: Optional[List[Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
     """Build draft sections: suppressors + full document (experience filled separately in admin)."""
     cleaned = _dedupe_paragraphs(paragraphs)
     cleaned = _ensure_heading_markup(cleaned)
     cleaned = _trim_doc_preamble(cleaned)
 
     sections = _blank_template_suppressors()
+    sections.extend(_preserved_sections_from_live(existing_sections))
 
     body = _paragraphs_to_document_body(cleaned)
 
@@ -412,11 +524,15 @@ def build_draft_sections_from_paragraphs(paragraphs: List[ParsedParagraph]) -> L
     return sections
 
 
-def build_draft_sections_from_docx(data: bytes) -> List[Dict[str, Any]]:
+def build_draft_sections_from_docx(
+    data: bytes,
+    existing_sections: Optional[List[Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
     """Parse .docx bytes → draft_content_sections for admin import."""
     from utils.docx_html import docx_html_document_body
 
     sections = _blank_template_suppressors()
+    sections.extend(_preserved_sections_from_live(existing_sections))
     body = docx_html_document_body(data)
     sections.append({
         "id": "doc_main",
