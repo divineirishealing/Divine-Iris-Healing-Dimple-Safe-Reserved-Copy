@@ -1,6 +1,6 @@
 import asyncio
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, Request
 from typing import Any, Dict, List, Optional, Tuple
 import os, uuid, logging
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -15,9 +15,9 @@ import s3_storage
 from routes.clients import ensure_client_from_enrollment_lead
 from utils.enrollment_checkout_status import (
     effective_enrollment_status,
-    reconcile_enrollment_with_paid_transaction,
+    get_stripe_api_key,
+    reconcile_enrollment_checkout_from_db,
     transaction_is_paid,
-    try_reconcile_stripe_checkout_session,
     INCOMPLETE_CHECKOUT_STATUSES,
 )
 
@@ -2721,54 +2721,18 @@ async def reject_payment_proof(proof_id: str, reason: str = ""):
     enrollment_id = proof.get("enrollment_id")
 
 
-async def _reconcile_limited_stale_stripe_checkouts(
-    enrollments: List[dict],
-    by_e: Dict[str, List[dict]],
-    *,
-    limit: int = 5,
-) -> None:
-    """Poll Stripe for a few checkout_started rows whose txn is still pending (missed webhook)."""
-    from key_manager import get_key
-
-    key = (await get_key("stripe_secret_key")).strip()
-    if not key:
-        return
-
-    reconciled = 0
-    for e in enrollments:
-        if reconciled >= limit:
-            break
-        st = _clean_str(e.get("status")).lower()
-        if st not in INCOMPLETE_CHECKOUT_STATUSES:
-            continue
-        eid = e.get("id")
-        if not eid:
-            continue
-        txns = by_e.get(eid) or []
-        if not txns:
-            continue
-        for txn in sorted(txns, key=_txn_sort_key, reverse=True):
-            if transaction_is_paid(txn):
-                break
-            sid = (txn.get("stripe_session_id") or e.get("stripe_session_id") or "").strip()
-            if not sid or sid.startswith("rz_") or txn.get("payment_provider") == "razorpay":
-                continue
-            if await try_reconcile_stripe_checkout_session(db, sid, key):
-                reconciled += 1
-                by_e[eid] = await db.payment_transactions.find(
-                    {"enrollment_id": eid}, {"_id": 0}
-                ).to_list(50)
-            break
-
-
-async def _apply_enrollment_payment_reconciliation(enrollment: dict, txn: Optional[dict]) -> None:
-    """Sync enrollment.status with a paid transaction and expose effective status on the row."""
-    eid = enrollment.get("id")
-    if txn and transaction_is_paid(txn) and eid:
-        if await reconcile_enrollment_with_paid_transaction(db, eid, txn, enrollment=enrollment):
-            enrollment["status"] = "completed"
-            enrollment["payment_method"] = txn.get("payment_method") or enrollment.get("payment_method")
-    enrollment["status"] = effective_enrollment_status(enrollment, txn)
+async def _enrich_enrollment_row_with_payment(e: dict, by_e: Dict[str, List[dict]], stripe_key: str, *, poll_stripe: bool) -> None:
+    """Attach payment txn and reconcile checkout status (DB + optional Stripe poll)."""
+    eid = e.get("id")
+    txns = list(by_e.get(eid) or [])
+    e, txns, _meta = await reconcile_enrollment_checkout_from_db(
+        db, e, txns, stripe_key=stripe_key, poll_stripe=poll_stripe,
+    )
+    if txns is not by_e.get(eid):
+        by_e[eid] = txns
+    txn = _pick_best_transaction_for_enrollment(e, txns)
+    e["payment"] = txn
+    e["status"] = effective_enrollment_status(e, txn)
 
 
 @router.get("/admin/enrollments")
@@ -2777,12 +2741,22 @@ async def list_enrollments():
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)
-    await _reconcile_limited_stale_stripe_checkouts(enrollments, by_e)
+    stripe_key = await get_stripe_api_key()
+    stripe_polls = 0
+    stripe_poll_cap = 40
     for e in enrollments:
         eid = e.get("id")
-        txn = _pick_best_transaction_for_enrollment(e, by_e.get(eid) or [])
-        e["payment"] = txn
-        await _apply_enrollment_payment_reconciliation(e, txn)
+        st = _clean_str(e.get("status")).lower()
+        needs_poll = (
+            stripe_key
+            and stripe_polls < stripe_poll_cap
+            and st in INCOMPLETE_CHECKOUT_STATUSES
+            and not any(transaction_is_paid(t) for t in (by_e.get(eid) or []))
+        )
+        if needs_poll:
+            stripe_polls += 1
+        await _enrich_enrollment_row_with_payment(e, by_e, stripe_key, poll_stripe=needs_poll)
+        txn = e.get("payment")
         e["enrollment_origin"] = _enrollment_origin(e)
         if txn and txn.get("invoice_number"):
             e["invoice_number"] = txn["invoice_number"]
@@ -2791,6 +2765,48 @@ async def list_enrollments():
         if resolved_title:
             e["item_title"] = resolved_title
     return enrollments
+
+
+@router.post("/admin/enrollments/reconcile-payment")
+async def reconcile_enrollment_payment(request: Request):
+    """
+    Admin: force-sync one enrollment with Stripe / paid transaction.
+    Body: { "enrollment_id": "..." } and/or { "invoice_number": "2026-06-089" }.
+    """
+    body = await request.json()
+    enrollment_id = _clean_str(body.get("enrollment_id"))
+    invoice_number = _clean_str(body.get("invoice_number"))
+
+    enrollment = None
+    if enrollment_id:
+        enrollment = await db.enrollments.find_one({"id": enrollment_id}, {"_id": 0})
+    if not enrollment and invoice_number:
+        txn = await db.payment_transactions.find_one({"invoice_number": invoice_number}, {"_id": 0})
+        if txn and txn.get("enrollment_id"):
+            enrollment = await db.enrollments.find_one({"id": txn["enrollment_id"]}, {"_id": 0})
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+
+    eid = enrollment.get("id")
+    txns = await db.payment_transactions.find({"enrollment_id": eid}, {"_id": 0}).to_list(50)
+    stripe_key = await get_stripe_api_key()
+    enrollment, txns, meta = await reconcile_enrollment_checkout_from_db(
+        db,
+        enrollment,
+        txns,
+        stripe_key=stripe_key,
+        poll_stripe=bool(stripe_key),
+    )
+    txn = _pick_best_transaction_for_enrollment(enrollment, txns)
+    status = effective_enrollment_status(enrollment, txn)
+    return {
+        "ok": True,
+        "enrollment_id": eid,
+        "status": status,
+        "payment_status": (txn or {}).get("payment_status"),
+        "invoice_number": (txn or {}).get("invoice_number") or invoice_number,
+        **meta,
+    }
 
 
 @router.get("/admin/enrollments/participant-rows")
@@ -2803,11 +2819,21 @@ async def participant_enrollment_rows(paid_completed_only: bool = False):
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)
-    await _reconcile_limited_stale_stripe_checkouts(enrollments, by_e)
+    stripe_key = await get_stripe_api_key()
+    stripe_polls = 0
+    stripe_poll_cap = 40
     for e in enrollments:
         eid = e.get("id")
-        txn = _pick_best_transaction_for_enrollment(e, by_e.get(eid) or [])
-        await _apply_enrollment_payment_reconciliation(e, txn)
+        st = _clean_str(e.get("status")).lower()
+        needs_poll = (
+            stripe_key
+            and stripe_polls < stripe_poll_cap
+            and st in INCOMPLETE_CHECKOUT_STATUSES
+            and not any(transaction_is_paid(t) for t in (by_e.get(eid) or []))
+        )
+        if needs_poll:
+            stripe_polls += 1
+        await _enrich_enrollment_row_with_payment(e, by_e, stripe_key, poll_stripe=needs_poll)
     extra_emi_ids, booker_email_client_map = await _booker_email_client_ids_for_emi_overlay(enrollments, by_e)
     base_portal_ids = _client_ids_for_emi_context(enrollments, by_e)
     portal_client_ids = list(dict.fromkeys(list(base_portal_ids) + list(extra_emi_ids)))

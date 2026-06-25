@@ -1,12 +1,36 @@
 """Enrollment checkout status helpers — align enrollment.status with paid transactions."""
 from __future__ import annotations
 
+import logging
+import os
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 PAID_TRANSACTION_STATUSES = frozenset({"paid", "complete", "completed"})
 COMPLETED_ENROLLMENT_STATUSES = frozenset({"completed", "paid", "india_payment_approved"})
 INCOMPLETE_CHECKOUT_STATUSES = frozenset({"checkout_started", "otp_verified", "started", "pending"})
+
+
+def _txn_sort_ts(t: dict) -> float:
+    v = t.get("updated_at") or t.get("created_at") or t.get("paid_at")
+    if v is None:
+        return 0.0
+    if hasattr(v, "timestamp"):
+        try:
+            return float(v.timestamp())
+        except Exception:
+            return 0.0
+    if isinstance(v, str):
+        try:
+            return datetime.fromisoformat(v.replace("Z", "+00:00")).timestamp()
+        except Exception:
+            return 0.0
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def transaction_is_paid(txn: Optional[dict]) -> bool:
@@ -39,6 +63,19 @@ def payment_method_from_transaction(txn: dict) -> str:
     if method in ("stripe", "razorpay", "india_bank", "manual_proof", "exly"):
         return method
     return "stripe"
+
+
+async def get_stripe_api_key() -> str:
+    """Stripe secret key from key_manager (stripe_api_key) with .env fallback."""
+    try:
+        from key_manager import get_key
+
+        key = (await get_key("stripe_api_key")).strip()
+        if key:
+            return key
+    except Exception as exc:
+        logger.warning("get_stripe_api_key key_manager: %s", exc)
+    return (os.environ.get("STRIPE_API_KEY") or "").strip()
 
 
 async def reconcile_enrollment_with_paid_transaction(
@@ -86,10 +123,13 @@ async def try_reconcile_stripe_checkout_session(db, session_id: str, stripe_api_
     stripe_lib.api_key = key
     try:
         sess = stripe_lib.checkout.Session.retrieve(sid)
-    except Exception:
+    except Exception as exc:
+        logger.warning("Stripe session retrieve failed for %s: %s", sid, exc)
         return False
 
-    if str(getattr(sess, "payment_status", "") or "").lower() != "paid":
+    stripe_status = str(getattr(sess, "payment_status", "") or "").lower()
+    if stripe_status != "paid":
+        logger.info("Stripe session %s payment_status=%s (not paid yet)", sid, stripe_status or "unknown")
         return False
 
     tx = await db.payment_transactions.find_one({"stripe_session_id": sid}, {"_id": 0})
@@ -115,4 +155,50 @@ async def try_reconcile_stripe_checkout_session(db, session_id: str, stripe_api_
             enrollment_id,
             {**tx, "payment_status": "paid"},
         )
+        logger.info("Reconciled paid Stripe checkout %s → enrollment %s", sid, enrollment_id)
     return True
+
+
+async def reconcile_enrollment_checkout_from_db(
+    db,
+    enrollment: dict,
+    txns: List[dict],
+    *,
+    stripe_key: str = "",
+    poll_stripe: bool = True,
+) -> Tuple[dict, List[dict], dict]:
+    """
+    Heal one enrollment: optional Stripe poll, then align status with paid txns.
+    Returns (enrollment, txns, result_meta).
+    """
+    eid = enrollment.get("id")
+    meta = {"stripe_polled": False, "stripe_paid": False, "enrollment_updated": False}
+    if not eid:
+        return enrollment, txns, meta
+
+    key = stripe_key or (await get_stripe_api_key())
+    st = str(enrollment.get("status") or "").strip().lower()
+    has_paid = any(transaction_is_paid(t) for t in txns)
+
+    if poll_stripe and key and st in INCOMPLETE_CHECKOUT_STATUSES and not has_paid:
+        for txn in sorted(txns, key=_txn_sort_ts, reverse=True):
+            if transaction_is_paid(txn):
+                break
+            sid = (txn.get("stripe_session_id") or enrollment.get("stripe_session_id") or "").strip()
+            if not sid or sid.startswith("rz_") or txn.get("payment_provider") == "razorpay":
+                continue
+            meta["stripe_polled"] = True
+            if await try_reconcile_stripe_checkout_session(db, sid, key):
+                meta["stripe_paid"] = True
+                txns = await db.payment_transactions.find({"enrollment_id": eid}, {"_id": 0}).to_list(50)
+            break
+
+    for txn in txns:
+        if transaction_is_paid(txn):
+            if await reconcile_enrollment_with_paid_transaction(db, eid, txn, enrollment=enrollment):
+                meta["enrollment_updated"] = True
+                enrollment["status"] = "completed"
+                enrollment["payment_method"] = txn.get("payment_method") or enrollment.get("payment_method")
+            break
+
+    return enrollment, txns, meta

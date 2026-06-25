@@ -651,6 +651,7 @@ const EnrollmentsTab = () => {
   const [originFilter, setOriginFilter] = useState('all');
   const [columnVisibility, setColumnVisibility] = useState(loadColumnVisibility);
   const [programBatchColumnFilters, setProgramBatchColumnFilters] = useState({});
+  const [syncingEnrollmentId, setSyncingEnrollmentId] = useState(null);
 
   useEffect(() => {
     if (viewMode !== 'program_analytics') setProgramBatchColumnFilters({});
@@ -768,6 +769,32 @@ const EnrollmentsTab = () => {
     } catch {
       toast({ title: 'Failed to load', variant: 'destructive' });
     } finally { setLoading(false); }
+  };
+
+  const syncEnrollmentPayment = async (enrollment, event) => {
+    event?.stopPropagation();
+    if (!enrollment?.id) return;
+    setSyncingEnrollmentId(enrollment.id);
+    try {
+      const r = await axios.post(`${API}/india-payments/admin/enrollments/reconcile-payment`, {
+        enrollment_id: enrollment.id,
+        invoice_number: enrollment.invoice_number || undefined,
+      });
+      await loadEnrollments();
+      const label = STATUS_MAP[r.data?.status]?.label || r.data?.status || 'Updated';
+      toast({
+        title: r.data?.status === 'completed' ? 'Payment synced — Completed' : `Payment sync: ${label}`,
+        description: r.data?.stripe_paid ? 'Confirmed with Stripe.' : undefined,
+      });
+    } catch (err) {
+      toast({
+        title: 'Could not sync payment',
+        description: err.response?.data?.detail || err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setSyncingEnrollmentId(null);
+    }
   };
 
   const handleExport = async () => {
@@ -1943,6 +1970,7 @@ const EnrollmentsTab = () => {
                               )}
                             </div>
                           ) : (
+                          <div className="space-y-3">
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[10px]">
                             <div><span className="text-gray-400 block">Enrollment ID</span><span className="font-mono">{e.id}</span></div>
                             <div><span className="text-gray-400 block">Origin</span>{e.enrollment_origin === 'dashboard' ? 'Dashboard' : 'Website'}</div>
@@ -1950,13 +1978,30 @@ const EnrollmentsTab = () => {
                             <div><span className="text-gray-400 block">Booker phone</span>{e.phone || '—'}</div>
                             <div><span className="text-gray-400 block">Stored currency</span>{(currency || '').toUpperCase() || '—'}</div>
                             <div><span className="text-gray-400 block">Amount (analytics INR)</span>₹{amountInr.toLocaleString('en-IN')}</div>
+                            <div><span className="text-gray-400 block">Payment status</span>{e.payment?.payment_status || '—'}</div>
                             <div><span className="text-gray-400 block">Attendance (summary)</span>{attendanceLabel}</div>
                             <div><span className="text-gray-400 block">Tier</span>{e.tier_index != null ? `Tier ${e.tier_index + 1}` : '-'}</div>
                             <div><span className="text-gray-400 block">Promo Code</span>{e.promo_code || '-'}</div>
                             <div><span className="text-gray-400 block">Bank/Account</span>{e.bank_name || e.payment?.bank_name || '-'}</div>
                             <div><span className="text-gray-400 block">VPN Detected</span>{e.vpn_detected ? 'Yes' : 'No'}</div>
-                            <div><span className="text-gray-400 block">Stripe Session</span><span className="font-mono truncate block max-w-[150px]">{e.stripe_session_id || '-'}</span></div>
+                            <div><span className="text-gray-400 block">Stripe Session</span><span className="font-mono truncate block max-w-[150px]">{e.stripe_session_id || e.payment?.stripe_session_id || '-'}</span></div>
                             <div><span className="text-gray-400 block">Updated</span>{e.updated_at ? formatDateTimeDMonYyyyUpper(e.updated_at) : '-'}</div>
+                          </div>
+                          {getEffectiveEnrollmentStatus(e) === 'checkout_started' && (
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[10px]"
+                                disabled={syncingEnrollmentId === e.id}
+                                onClick={(ev) => syncEnrollmentPayment(e, ev)}
+                              >
+                                {syncingEnrollmentId === e.id ? 'Syncing…' : 'Sync payment from Stripe'}
+                              </Button>
+                              <span className="text-[9px] text-gray-500">Use if card was charged but status stayed on Checkout Started.</span>
+                            </div>
+                          )}
                           </div>
                           )}
                           {/* Participants — only for non-sponsor */}
