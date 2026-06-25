@@ -784,7 +784,14 @@ const EnrollmentsTab = () => {
       const label = STATUS_MAP[r.data?.status]?.label || r.data?.status || 'Updated';
       toast({
         title: r.data?.status === 'completed' ? 'Payment synced — Completed' : `Payment sync: ${label}`,
-        description: r.data?.stripe_paid ? 'Confirmed with Stripe.' : undefined,
+        description: r.data?.stripe_paid
+          ? 'Confirmed with Stripe.'
+          : (r.data?.stripe_errors?.length
+            ? r.data.stripe_errors.join(' · ')
+            : (r.data?.sessions_checked?.length
+              ? `Checked ${r.data.sessions_checked.length} Stripe session(s) — still not paid in Stripe.`
+              : 'No Stripe session found to check.')),
+        variant: r.data?.status === 'completed' ? 'default' : (r.data?.stripe_errors?.length ? 'destructive' : 'default'),
       });
     } catch (err) {
       toast({

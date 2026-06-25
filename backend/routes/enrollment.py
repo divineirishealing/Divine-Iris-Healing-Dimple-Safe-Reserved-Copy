@@ -852,6 +852,19 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     await _attach_portal_ids_to_transaction(transaction, enrollment)
     await db.payment_transactions.insert_one(transaction)
 
+    try:
+        import stripe as stripe_lib
+        stripe_lib.api_key = await _get_stripe_key()
+        stripe_lib.checkout.Session.modify(
+            session.session_id,
+            metadata={
+                **(checkout_request.metadata or {}),
+                "invoice_number": invoice_number,
+            },
+        )
+    except Exception as ex:
+        logger.warning("Stripe session metadata update (invoice): %s", ex)
+
     await db.enrollments.update_one(
         {"id": enrollment_id},
         {

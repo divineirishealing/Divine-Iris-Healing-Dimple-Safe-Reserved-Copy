@@ -1,6 +1,8 @@
 from utils.enrollment_checkout_status import (
+    collect_stripe_session_ids,
     effective_enrollment_status,
     reconcile_enrollment_with_paid_transaction,
+    stripe_session_is_paid,
     transaction_is_paid,
 )
 import asyncio
@@ -44,6 +46,23 @@ class _FakeEnrollments:
 class _FakeDb:
     def __init__(self, enrollment):
         self.enrollments = _FakeEnrollments(enrollment)
+
+
+def test_collect_stripe_session_ids_dedupes():
+    enrollment = {"stripe_session_id": "cs_new"}
+    txns = [
+        {"stripe_session_id": "cs_old"},
+        {"stripe_session_id": "cs_new"},
+    ]
+    ids = collect_stripe_session_ids(enrollment, txns)
+    assert ids == ["cs_new", "cs_old"]
+
+
+def test_stripe_session_is_paid():
+    class S:
+        payment_status = "paid"
+        status = "complete"
+    assert stripe_session_is_paid(S()) is True
 
 
 def test_reconcile_enrollment_with_paid_transaction():

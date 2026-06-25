@@ -2743,7 +2743,7 @@ async def list_enrollments():
     by_e = await _transactions_grouped_by_enrollment(eids)
     stripe_key = await get_stripe_api_key()
     stripe_polls = 0
-    stripe_poll_cap = 40
+    stripe_poll_cap = 100
     for e in enrollments:
         eid = e.get("id")
         st = _clean_str(e.get("status")).lower()
@@ -2789,6 +2789,7 @@ async def reconcile_enrollment_payment(request: Request):
 
     eid = enrollment.get("id")
     txns = await db.payment_transactions.find({"enrollment_id": eid}, {"_id": 0}).to_list(50)
+    inv = invoice_number or _clean_str((txns[0] or {}).get("invoice_number") if txns else "")
     stripe_key = await get_stripe_api_key()
     enrollment, txns, meta = await reconcile_enrollment_checkout_from_db(
         db,
@@ -2796,6 +2797,8 @@ async def reconcile_enrollment_payment(request: Request):
         txns,
         stripe_key=stripe_key,
         poll_stripe=bool(stripe_key),
+        invoice_number=inv,
+        thorough=True,
     )
     txn = _pick_best_transaction_for_enrollment(enrollment, txns)
     status = effective_enrollment_status(enrollment, txn)
@@ -2821,7 +2824,7 @@ async def participant_enrollment_rows(paid_completed_only: bool = False):
     by_e = await _transactions_grouped_by_enrollment(eids)
     stripe_key = await get_stripe_api_key()
     stripe_polls = 0
-    stripe_poll_cap = 40
+    stripe_poll_cap = 100
     for e in enrollments:
         eid = e.get("id")
         st = _clean_str(e.get("status")).lower()
