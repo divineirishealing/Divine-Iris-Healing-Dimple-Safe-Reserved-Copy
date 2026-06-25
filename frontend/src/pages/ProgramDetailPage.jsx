@@ -7,7 +7,6 @@ import FloatingButtons from '../components/FloatingButtons';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import ProgramExperienceMoment from '../components/ProgramExperienceMoment';
-import { experienceMomentHasContent } from '../lib/parseExperienceMoment';
 import { useCurrency } from '../context/CurrencyContext';
 import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, NARROW, WIDE, SECTION_PY } from '../lib/designTokens';
 import {
@@ -20,6 +19,10 @@ import { applyWrittenQuoteStyle } from '../lib/transformationsWrittenQuoteStyle'
 import { Dialog, DialogContent } from '../components/ui/dialog';
 import { useSeoPage } from '../context/SeoPageContext';
 import { formatDateDdMonYyyy } from '../lib/utils';
+import {
+  buildProgramPageSections,
+  isStandardProgramSection,
+} from '../lib/programPageSections';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
@@ -111,13 +114,6 @@ const applyStyle = (styleObj, defaults = {}) => {
     ...(styleObj.text_align && { textAlign: styleObj.text_align }),
   };
 };
-
-const getDefaultSections = (program) => [
-  { id: 'journey', section_type: 'journey', is_enabled: true, order: 0, title: 'The Journey', subtitle: '', body: program.description || '', image_url: '' },
-  { id: 'who_for', section_type: 'who_for', is_enabled: true, order: 1, title: 'Who It Is For?', subtitle: 'A Sacred Invitation for those who resonate', body: '', image_url: '' },
-  { id: 'experience', section_type: 'experience', is_enabled: true, order: 2, title: 'Your Experience', subtitle: '', body: '', image_url: '' },
-  { id: 'why_now', section_type: 'why_now', is_enabled: true, order: 3, title: 'Why You Need This Now?', subtitle: '', body: '', image_url: '' },
-];
 
 function stripForMeta(htmlOrText) {
   if (!htmlOrText) return '';
@@ -258,48 +254,8 @@ function ProgramDetailPage() {
     </div>
   );
 
-  // Build sections: use global template for structure, per-program data for content
-  const sectionTemplate = settings?.program_section_template || [];
-  const programSections = program.content_sections || [];
-
-  const sections = (() => {
-    if (sectionTemplate.length > 0) {
-      const templateIds = new Set(sectionTemplate.map(t => t.id));
-      const templateTypes = new Set(sectionTemplate.map(t => t.section_type));
-
-      // Template-driven: merge template structure with per-program content.
-      // Use null-check (not falsy) so an explicit empty string suppresses the template default.
-      const templateSections = sectionTemplate
-        .filter(t => t.is_enabled !== false)
-        .sort((a, b) => (a.order || 0) - (b.order || 0))
-        .map(tpl => {
-          const match = programSections.find(s => s.id === tpl.id || s.section_type === tpl.section_type) || {};
-          return {
-            id: tpl.id,
-            section_type: tpl.section_type,
-            title:    (match.title    != null) ? match.title    : (tpl.default_title    || ''),
-            subtitle: (match.subtitle != null) ? match.subtitle : (tpl.default_subtitle || ''),
-            body: match.body || '',
-            image_url: match.image_url || '',
-            image_fit: match.image_fit || 'contain',
-            image_position: match.image_position || 'center top',
-            is_enabled: true,
-            order: tpl.order,
-          };
-        });
-
-      // Include any extra custom sections from content_sections not covered by the template
-      const extraSections = programSections
-        .filter(s => s.is_enabled !== false && !templateIds.has(s.id) && !templateTypes.has(s.section_type))
-        .sort((a, b) => (a.order || 0) - (b.order || 0));
-
-      return [...templateSections, ...extraSections].sort((a, b) => (a.order || 0) - (b.order || 0));
-    }
-    // Fallback: use program's own sections or defaults
-    return (programSections.length > 0)
-      ? programSections.filter(s => s.is_enabled).sort((a, b) => (a.order || 0) - (b.order || 0))
-      : getDefaultSections(program);
-  })();
+  // Same section structure for every program (global template + per-program content).
+  const sections = buildProgramPageSections(program, settings);
 
   const heroScheduleItems = [];
   if (program.start_date && String(program.start_date).trim()) {
@@ -371,17 +327,24 @@ function ProgramDetailPage() {
   const renderSection = (section, idx) => {
     const sType = section.section_type || 'custom';
 
-    // Skip sections with no content at all — avoids empty padded blocks
-    if (!section.title && !section.subtitle && !section.body && !section.image_url) return null;
-
-    // Document sections render via ProgramDocumentBody (see below)
     if (sType === 'document') return null;
+
+    // Standard template sections always render so every program page matches.
+    if (
+      !isStandardProgramSection(sType)
+      && !section.title
+      && !section.subtitle
+      && !section.body
+      && !section.image_url
+    ) {
+      return null;
+    }
 
     if (sType === 'journey' || (sType === 'custom' && !section.image_url)) {
       return (
-        <section key={section.id || idx} data-testid={`section-${idx}`} className={`${SECTION_PY} bg-white`}>
+        <section key={section.id || idx} data-testid={`section-${sType}`} className={`${SECTION_PY} bg-white`}>
           <div className={CONTAINER}><div className={NARROW}>
-            {section.title && <><SectionTitle style={section.title_style}>{section.title}</SectionTitle><GoldLine /></>}
+            {section.title ? <><SectionTitle style={section.title_style}>{section.title}</SectionTitle><GoldLine /></> : null}
             {section.subtitle && <SubtitleText style={section.subtitle_style}>{section.subtitle}</SubtitleText>}
             {section.body && <BodyText style={section.body_style} className="text-justify">{section.body}</BodyText>}
           </div></div>
@@ -392,9 +355,9 @@ function ProgramDetailPage() {
     if (sType === 'who_for') {
       const lines = section.body ? section.body.split('\n').filter(l => l.trim()) : [];
       return (
-        <section key={section.id || idx} data-testid={`section-${idx}`} className={`${SECTION_PY} bg-[#f8f8f8]`}>
+        <section key={section.id || idx} data-testid={`section-${sType}`} className={`${SECTION_PY} bg-[#f8f8f8]`}>
           <div className={CONTAINER}><div className={NARROW}>
-            {section.title && <><SectionTitle style={section.title_style}>{section.title}</SectionTitle><GoldLine /></>}
+            {section.title ? <><SectionTitle style={section.title_style}>{section.title}</SectionTitle><GoldLine /></> : null}
             {section.subtitle && <SubtitleText style={section.subtitle_style}>{section.subtitle}</SubtitleText>}
             {lines.length > 0 && (
               <div className="grid md:grid-cols-2 gap-x-16 gap-y-5 max-w-3xl mx-auto">
@@ -417,7 +380,6 @@ function ProgramDetailPage() {
       const sectionImg = section.image_url
         ? resolveImageUrl(section.image_url)
         : (globalExpImg || aboutPortrait);
-      if (!experienceMomentHasContent(section, sectionImg)) return null;
       return (
         <ProgramExperienceMoment
           key={section.id || idx}
@@ -430,9 +392,9 @@ function ProgramDetailPage() {
 
     if (sType === 'why_now') {
       return (
-        <section key={section.id || idx} data-testid={`section-${idx}`} className={`${SECTION_PY} bg-white`}>
+        <section key={section.id || idx} data-testid={`section-${sType}`} className={`${SECTION_PY} bg-white`}>
           <div className={CONTAINER}><div className={NARROW}>
-            {section.title && <><SectionTitle style={section.title_style}>{section.title || 'Why You Need This Now?'}</SectionTitle><GoldLine /></>}
+            {section.title ? <><SectionTitle style={section.title_style}>{section.title}</SectionTitle><GoldLine /></> : null}
             {section.subtitle && <SubtitleText style={section.subtitle_style}>{section.subtitle}</SubtitleText>}
             {section.body && <BodyText style={section.body_style} className="text-justify">{section.body}</BodyText>}
             {section.image_url && (
