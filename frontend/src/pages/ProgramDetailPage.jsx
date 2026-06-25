@@ -23,6 +23,7 @@ import {
   buildProgramPageSections,
   isStandardProgramSection,
 } from '../lib/programPageSections';
+import { computeProgramHeroLayout } from '../lib/programHeroLayout';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
@@ -288,7 +289,6 @@ function ProgramDetailPage() {
     program.enrollment_open !== false &&
     String(program.enrollment_status || 'open').toLowerCase() !== 'closed';
   const tiersLen = program.duration_tiers?.length || 0;
-  const showTierUi = program.show_tiers_on_card !== false && tiersLen > 0;
   const heroPriceBase = tiersLen > 0 ? getPrice(program, 0) : getPrice(program);
   const heroPriceOffer = tiersLen > 0 ? getOfferPrice(program, 0) : getOfferPrice(program);
   const heroHasAmount = heroPriceOffer > 0 || heroPriceBase > 0;
@@ -296,16 +296,27 @@ function ProgramDetailPage() {
   const heroStart = heroScheduleItems.find((r) => r.key === 'sd');
   const heroEnd = heroScheduleItems.find((r) => r.key === 'ed');
   const heroTime = heroScheduleItems.find((r) => r.key === 'tm');
-  /** Schedule / single-price block (no duplicated tier breakdown when tier UI is enabled). */
-  const heroLeftScheduleBlock = !registrationClosed && (heroStart || heroEnd || heroTime);
-  const heroLeftInvestmentSingle = showHeroPrice && heroHasAmount && !showTierUi;
-  const showHeroFooter = !!(heroLeftScheduleBlock || heroLeftInvestmentSingle);
-  /** Stacked duration tiers + enroll in hero (right column on large screens). */
-  const showHeroTierDock = showTierUi && showHeroPrice;
+  const heroHasSchedule = !!(heroStart || heroEnd || heroTime);
 
   const detailEnrollStatus = registrationClosed
     ? 'closed'
     : program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
+
+  const {
+    heroHasTiers,
+    heroEnrollOpen,
+    showHeroScheduleCol,
+    showHeroActionCol,
+    showHeroFooterRow,
+    showHeroTierPricing,
+  } = computeProgramHeroLayout({
+    program,
+    showHeroPrice,
+    heroHasSchedule,
+    tiersLen,
+    heroHasAmount,
+    detailEnrollStatus,
+  });
 
   const SectionTitle = ({ children, style: extra }) => (
     <h2 className="text-center mb-4" style={applyStyle(extra || template.section_title_style, { ...HEADING, fontSize: '1.6rem' })}>{children}</h2>
@@ -472,14 +483,14 @@ function ProgramDetailPage() {
           </div>
         </div>
 
-        {(showHeroFooter || showHeroTierDock) ? (
+        {showHeroFooterRow ? (
           <div
-            className={`relative z-10 mt-auto flex w-full flex-col gap-6 pt-6 lg:gap-10 ${showHeroFooter && showHeroTierDock ? 'lg:flex-row lg:items-end lg:justify-between' : showHeroTierDock ? 'lg:justify-end' : ''}`}
+            className="relative z-10 mt-auto flex w-full flex-col gap-6 pt-6 lg:flex-row lg:items-end lg:justify-between lg:gap-10"
             data-testid="program-hero-footer-row"
           >
-            {showHeroFooter ? (
+            {showHeroScheduleCol ? (
               <div
-                className={`w-full max-w-xl self-start text-left lg:self-end ${showHeroTierDock ? 'lg:max-w-md' : ''}`}
+                className="w-full max-w-xl self-start text-left lg:max-w-md"
                 data-testid="program-hero-schedule-price"
               >
                 <div className="flex flex-col gap-3.5">
@@ -501,7 +512,7 @@ function ProgramDetailPage() {
                       <span>{heroTime.value}</span>
                     </p>
                   )}
-                  {showHeroPrice && heroHasAmount && !showTierUi && (
+                  {showHeroPrice && heroHasAmount && !heroHasTiers && (
                     <div>
                       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-snug md:text-base">
                         <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>Investment:</span>
@@ -537,12 +548,12 @@ function ProgramDetailPage() {
               </div>
             ) : null}
 
-            {showHeroTierDock ? (
+            {showHeroActionCol ? (
               <div
                 className="flex w-full max-w-[min(100%,28rem)] flex-col gap-3 self-end text-right"
                 data-testid="program-hero-tier-dock"
               >
-                {detailEnrollStatus === 'open' && (
+                {heroEnrollOpen && (
                   <div className="mb-1 flex w-full justify-end" data-testid="program-hero-tier-dock-title">
                     <button
                       type="button"
@@ -555,7 +566,7 @@ function ProgramDetailPage() {
                     </button>
                   </div>
                 )}
-                {program.duration_tiers.map((tier, tIdx) => {
+                {heroHasTiers && program.duration_tiers.map((tier, tIdx) => {
                   const isAnnual =
                     tier.label?.toLowerCase().includes('annual') ||
                     tier.label?.toLowerCase().includes('year') ||
@@ -572,7 +583,7 @@ function ProgramDetailPage() {
                       <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>
                         {tier.label}:
                       </span>
-                      {tierOffer > 0 ? (
+                      {showHeroTierPricing && tierOffer > 0 ? (
                         <>
                           <span className="shrink-0 text-base font-semibold tabular-nums md:text-lg" style={{ ...globalPricingStyle, color: heroAccent }}>
                             {symbol} {tierOffer.toLocaleString()}
@@ -595,7 +606,7 @@ function ProgramDetailPage() {
                             SELECT
                           </button>
                         </>
-                      ) : tierPrice > 0 ? (
+                      ) : showHeroTierPricing && tierPrice > 0 ? (
                         <>
                           <span className="shrink-0 text-base font-semibold tabular-nums md:text-lg" style={{ ...globalPricingStyle, color: heroAccent }}>
                             {symbol} {tierPrice.toLocaleString()}
@@ -613,7 +624,7 @@ function ProgramDetailPage() {
                             SELECT
                           </button>
                         </>
-                      ) : (
+                      ) : showHeroTierPricing ? (
                         <>
                           <span className="min-w-0 text-[10px] italic text-white/70 md:text-xs">Contact for customised pricing</span>
                           <button
@@ -629,11 +640,24 @@ function ProgramDetailPage() {
                             CONTACT US
                           </button>
                         </>
-                      )}
+                      ) : heroEnrollOpen ? (
+                        <button
+                          type="button"
+                          data-testid={`hero-tier-${tIdx}`}
+                          onClick={() => {
+                            setHeroTierIdx(tIdx);
+                            navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`);
+                          }}
+                          className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90"
+                          style={{ color: heroAccent, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                        >
+                          SELECT
+                        </button>
+                      ) : null}
                     </div>
                   );
                 })}
-                {detailEnrollStatus !== 'open' && (
+                {!heroEnrollOpen && (
                   <div className="flex flex-col items-end pt-2" data-testid="hero-express-interest">
                     <ExpressInterestInline variant="hero" programId={program.id} programTitle={program.title} accent={heroAccent} />
                   </div>
