@@ -14,7 +14,7 @@ import { Label } from '../../ui/label';
 import {
   Plus, Copy, Check, Trash2, Link2, ExternalLink,
   Clock, CheckCircle2, XCircle,
-  RefreshCw, Search, ChevronDown, ChevronUp, Calendar,
+  RefreshCw, Search, ChevronDown, ChevronUp, Calendar, Banknote,
 } from 'lucide-react';
 import { formatDateDMonYyyyUpper } from '@/lib/utils';
 
@@ -35,6 +35,17 @@ const STATUS_META = {
   cancelled: { label: 'Cancelled', color: 'bg-gray-100 text-gray-500' },
 };
 
+const MANUAL_PAYMENT_METHODS = [
+  { value: 'gpay', label: 'GPay / UPI' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'bank', label: 'Bank transfer' },
+  { value: 'stripe', label: 'Card / Stripe' },
+  { value: 'exly', label: 'Exly' },
+  { value: 'other', label: 'Other' },
+];
+
+const MANUAL_METHOD_LABEL = Object.fromEntries(MANUAL_PAYMENT_METHODS.map((m) => [m.value, m.label]));
+
 const BLANK = {
   title: '', description: '', amount: '', currency: 'aed',
   recipient_name: '', recipient_email: '', note: '',
@@ -49,6 +60,22 @@ function splitInstallmentAmounts(total, n) {
   const base = Math.floor(centsTotal / count);
   const extra = centsTotal % count;
   return Array.from({ length: count }, (_, i) => (base + (i < extra ? 1 : 0)) / 100);
+}
+
+function checkoutAmountDue(req) {
+  if (!req?.installments_enabled) return parseFloat(req?.amount) || 0;
+  const paid = req.installments_paid ?? (req.installment_payments?.length || 0);
+  const amounts = req.installment_amounts || [];
+  if (amounts[paid] != null) return Number(amounts[paid]) || 0;
+  const total = parseFloat(req.amount) || 0;
+  const n = req.num_installments || 2;
+  const parts = splitInstallmentAmounts(total, n);
+  return parts[paid] ?? parts[0] ?? total;
+}
+
+function paymentMethodLabel(p) {
+  const m = p?.payment_method || (p?.payment_provider === 'manual' ? 'cash' : 'stripe');
+  return MANUAL_METHOD_LABEL[m] || (m === 'stripe' ? 'Card / Stripe' : m);
 }
 
 function installmentSummary(req) {
@@ -226,9 +253,48 @@ const StatusBadge = ({ status }) => {
 };
 
 /* ─── Individual row ────────────────────────────────────────────── */
-const RequestRow = ({ req, onDelete, onCancel }) => {
+const RequestRow = ({ req, onDelete, onCancel, onRecordManual, recordingId }) => {
   const [open, setOpen] = useState(false);
+  const [showManual, setShowManual] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    amount: '',
+    payment_method: 'gpay',
+    payer_name: req.recipient_name || req.payer_name || '',
+    payer_email: req.recipient_email || req.payer_email || '',
+    reference: '',
+    notes: '',
+    paid_at: new Date().toISOString().slice(0, 10),
+  });
   const sym = CUR_SYMBOL[req.currency?.toLowerCase()] || req.currency?.toUpperCase() + ' ';
+  const dueAmount = checkoutAmountDue(req);
+  const isRecording = recordingId === req.id;
+
+  const openManualForm = (e) => {
+    e?.stopPropagation();
+    setShowManual(true);
+    setOpen(true);
+    setManualForm((f) => ({
+      ...f,
+      amount: String(dueAmount || req.amount || ''),
+      payer_name: req.recipient_name || req.payer_name || f.payer_name,
+      payer_email: req.recipient_email || req.payer_email || f.payer_email,
+    }));
+  };
+
+  const submitManual = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await onRecordManual(req.id, {
+      amount: parseFloat(manualForm.amount) || dueAmount,
+      payment_method: manualForm.payment_method,
+      payer_name: manualForm.payer_name.trim(),
+      payer_email: manualForm.payer_email.trim(),
+      reference: manualForm.reference.trim(),
+      notes: manualForm.notes.trim(),
+      paid_at: manualForm.paid_at ? `${manualForm.paid_at}T12:00:00Z` : undefined,
+    });
+    setShowManual(false);
+  };
 
   return (
     <div className={`border rounded-xl overflow-hidden transition-shadow hover:shadow-sm ${req.status === 'paid' ? 'border-emerald-200' : req.status === 'cancelled' ? 'border-gray-200 opacity-60' : req.status === 'partially_paid' ? 'border-amber-200' : 'border-purple-100'}`}>
@@ -296,14 +362,94 @@ const RequestRow = ({ req, onDelete, onCancel }) => {
 
           {req.installments_enabled && Array.isArray(req.installment_payments) && req.installment_payments.length > 0 && (
             <div className="text-xs text-gray-600 space-y-1">
-              <p className="font-medium text-gray-700">Installments received</p>
+              <p className="font-medium text-gray-700">Payments received</p>
               {req.installment_payments.map((p) => (
-                <p key={p.stripe_session_id || p.number} className="font-mono text-[10px]">
+                <p key={p.stripe_session_id || p.transaction_id || p.number} className="text-[10px]">
                   #{p.number}: {sym}{Number(p.amount || 0).toLocaleString()}
+                  {' · '}{paymentMethodLabel(p)}
+                  {p.manual_reference ? ` · ref ${p.manual_reference}` : ''}
                   {p.paid_at ? ` · ${new Date(p.paid_at).toLocaleDateString('en-GB')}` : ''}
                 </p>
               ))}
             </div>
+          )}
+
+          {!req.installments_enabled && req.status === 'paid' && Array.isArray(req.installment_payments) && req.installment_payments.length > 0 && (
+            <div className="text-xs text-gray-600 space-y-1">
+              <p className="font-medium text-gray-700">Payment recorded</p>
+              {req.installment_payments.map((p) => (
+                <p key={p.stripe_session_id || p.transaction_id} className="text-[10px]">
+                  {sym}{Number(p.amount || 0).toLocaleString()} · {paymentMethodLabel(p)}
+                  {p.manual_reference ? ` · ref ${p.manual_reference}` : ''}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {showManual && (req.status === 'active' || req.status === 'partially_paid') && (
+            <form
+              onSubmit={submitManual}
+              onClick={(e) => e.stopPropagation()}
+              className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 space-y-2"
+            >
+              <p className="text-xs font-semibold text-amber-900 flex items-center gap-1.5">
+                <Banknote size={14} /> Record manual payment
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[10px]">Amount ({req.currency?.toUpperCase()})</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={manualForm.amount}
+                    onChange={(e) => setManualForm((f) => ({ ...f, amount: e.target.value }))}
+                    className="mt-0.5 h-8 text-xs"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px]">Payment method</Label>
+                  <select
+                    value={manualForm.payment_method}
+                    onChange={(e) => setManualForm((f) => ({ ...f, payment_method: e.target.value }))}
+                    className="mt-0.5 w-full h-8 border rounded-md text-xs px-2 bg-white"
+                  >
+                    {MANUAL_PAYMENT_METHODS.map((m) => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-[10px]">Payer name</Label>
+                  <Input value={manualForm.payer_name} onChange={(e) => setManualForm((f) => ({ ...f, payer_name: e.target.value }))} className="mt-0.5 h-8 text-xs" />
+                </div>
+                <div>
+                  <Label className="text-[10px]">Payer email</Label>
+                  <Input type="email" value={manualForm.payer_email} onChange={(e) => setManualForm((f) => ({ ...f, payer_email: e.target.value }))} className="mt-0.5 h-8 text-xs" />
+                </div>
+                <div>
+                  <Label className="text-[10px]">Reference (UTR / receipt #)</Label>
+                  <Input value={manualForm.reference} onChange={(e) => setManualForm((f) => ({ ...f, reference: e.target.value }))} className="mt-0.5 h-8 text-xs" placeholder="Optional" />
+                </div>
+                <div>
+                  <Label className="text-[10px]">Payment date</Label>
+                  <Input type="date" value={manualForm.paid_at} onChange={(e) => setManualForm((f) => ({ ...f, paid_at: e.target.value }))} className="mt-0.5 h-8 text-xs" />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-[10px]">Notes</Label>
+                  <Input value={manualForm.notes} onChange={(e) => setManualForm((f) => ({ ...f, notes: e.target.value }))} className="mt-0.5 h-8 text-xs" placeholder="Optional internal note" />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button type="submit" size="sm" disabled={isRecording} className="h-8 text-xs bg-amber-700 hover:bg-amber-800">
+                  {isRecording ? 'Saving…' : 'Save payment'}
+                </Button>
+                <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => setShowManual(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
           )}
 
           {/* Payment link */}
@@ -316,7 +462,16 @@ const RequestRow = ({ req, onDelete, onCancel }) => {
           )}
 
           {/* Actions */}
-          <div className="flex gap-2 pt-1">
+          <div className="flex flex-wrap gap-2 pt-1">
+            {(req.status === 'active' || req.status === 'partially_paid') && !showManual && (
+              <button
+                type="button"
+                onClick={openManualForm}
+                className="text-xs text-amber-800 hover:text-amber-950 transition-colors flex items-center gap-1 font-medium"
+              >
+                <Banknote size={12} /> Record manual payment
+              </button>
+            )}
             {req.status === 'active' || req.status === 'partially_paid' ? (
               <button
                 type="button"
@@ -353,6 +508,7 @@ export default function PaymentRequestsTab() {
   const [programs, setPrograms]   = useState([]);
   const [sessions, setSessions]   = useState([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [recordingId, setRecordingId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -530,6 +686,28 @@ export default function PaymentRequestsTab() {
     }
   };
 
+  const handleRecordManual = async (id, payload) => {
+    setRecordingId(id);
+    try {
+      const r = await axios.post(`${API}/payment-requests/${id}/record-manual-payment`, payload, {
+        headers: adminHeaders(),
+      });
+      await load();
+      toast({
+        title: r.data?.status === 'paid' ? 'Payment recorded — link fully paid' : 'Manual payment recorded',
+        description: r.data?.enrollment_id ? 'Added to Enrollments tab.' : undefined,
+      });
+    } catch (err) {
+      toast({
+        title: 'Could not record payment',
+        description: err.response?.data?.detail || err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setRecordingId(null);
+    }
+  };
+
   /* Stats */
   const totalPaid = requests.filter(r => r.status === 'paid').length;
   const totalActive = requests.filter(r => r.status === 'active' || r.status === 'partially_paid').length;
@@ -562,7 +740,7 @@ export default function PaymentRequestsTab() {
             Custom Payment Links
           </h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Create a titled payment request, share the link, and track when it's paid.
+            Share Stripe links or record GPay, cash, and bank payments manually — all tracked in Enrollments.
           </p>
         </div>
         <div className="flex gap-2">
@@ -904,7 +1082,7 @@ export default function PaymentRequestsTab() {
           />
         </div>
         <div className="flex gap-1">
-          {['all', 'active', 'paid', 'cancelled'].map(s => (
+          {['all', 'active', 'partially_paid', 'paid', 'cancelled'].map(s => (
             <button
               key={s}
               type="button"
@@ -930,7 +1108,14 @@ export default function PaymentRequestsTab() {
       ) : (
         <div className="space-y-2">
           {visible.map(r => (
-            <RequestRow key={r.id} req={r} onDelete={handleDelete} onCancel={handleCancel} />
+            <RequestRow
+              key={r.id}
+              req={r}
+              onDelete={handleDelete}
+              onCancel={handleCancel}
+              onRecordManual={handleRecordManual}
+              recordingId={recordingId}
+            />
           ))}
         </div>
       )}

@@ -64,6 +64,17 @@ async def _razorpay_keys() -> tuple[str, str]:
 
 CURRENCY_SYMBOLS = {"aed": "AED ", "usd": "$", "inr": "₹", "eur": "€", "gbp": "£"}
 
+MANUAL_PAYMENT_METHODS = frozenset({"stripe", "gpay", "cash", "bank", "exly", "other"})
+
+MANUAL_PAYMENT_METHOD_LABELS = {
+    "stripe": "Card / Stripe",
+    "gpay": "GPay / UPI",
+    "cash": "Cash",
+    "bank": "Bank transfer",
+    "exly": "Exly",
+    "other": "Other",
+}
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -206,6 +217,17 @@ class RazorpayVerifyBody(BaseModel):
 class StripeCheckoutBody(BaseModel):
     payer_name: Optional[str] = ""
     payer_email: Optional[str] = ""
+
+
+class RecordManualPaymentBody(BaseModel):
+    """Admin: record offline payment (GPay, cash, bank, etc.) against a payment link."""
+    amount: Optional[float] = None
+    payment_method: str = "cash"
+    payer_name: Optional[str] = ""
+    payer_email: Optional[str] = ""
+    reference: Optional[str] = ""
+    notes: Optional[str] = ""
+    paid_at: Optional[str] = ""
 
 
 # ── CRUD ─────────────────────────────────────────────────────────────────────
@@ -424,6 +446,89 @@ async def create_stripe_checkout(
     return {"url": session.url, "session_id": session.id}
 
 
+async def _settle_payment_request_tx(
+    req_id: str,
+    tx: dict,
+    *,
+    payer_name: str = "",
+    payer_email: str = "",
+    session_key: str = "",
+) -> None:
+    """Update payment_request status after a paid transaction (Stripe or manual)."""
+    req = await db.payment_requests.find_one({"id": req_id}, {"_id": 0})
+    if not req:
+        return
+    st = (req.get("status") or "").lower()
+    if st in ("paid", "cancelled"):
+        return
+
+    sid = (session_key or tx.get("stripe_session_id") or "").strip()
+    payer_email = (payer_email or tx.get("booker_email") or "").strip().lower()
+    payer_name = (payer_name or tx.get("booker_name") or "").strip()
+    now = tx.get("paid_at") or _now_iso()
+
+    payments = list(req.get("installment_payments") or [])
+    if sid and any(isinstance(p, dict) and p.get("stripe_session_id") == sid for p in payments):
+        return
+
+    inst_n = int(tx.get("installment_number") or 0) or (_installments_paid_count(req) + 1)
+    pay_method = str(tx.get("payment_method") or "stripe").strip().lower()
+    pay_provider = str(tx.get("payment_provider") or "stripe").strip().lower()
+
+    payment_entry = {
+        "number": inst_n,
+        "amount": round(float(tx.get("amount") or 0), 2),
+        "paid_at": now,
+        "transaction_id": tx.get("id"),
+        "stripe_session_id": sid,
+        "payment_method": pay_method,
+        "payment_provider": pay_provider,
+        "manual_reference": tx.get("manual_reference") or "",
+    }
+
+    if req.get("installments_enabled"):
+        payments.append(payment_entry)
+        paid_count = len(payments)
+        n_total = int(req.get("num_installments") or len(_installment_amounts_for_row(req)))
+        new_status = "paid" if paid_count >= n_total else "partially_paid"
+        patch: Dict[str, Any] = {
+            "installments_paid": paid_count,
+            "installment_payments": payments,
+            "status": new_status,
+            "payer_name": payer_name or req.get("recipient_name", ""),
+            "payer_email": payer_email or req.get("recipient_email", ""),
+            "payment_transaction_id": tx.get("id"),
+        }
+        if sid:
+            patch["stripe_session_id"] = sid
+        if new_status == "paid":
+            patch["paid_at"] = now
+        await db.payment_requests.update_one({"id": req_id}, {"$set": patch})
+    elif st == "active":
+        await db.payment_requests.update_one(
+            {"id": req_id},
+            {"$set": {
+                "status": "paid",
+                "paid_at": now,
+                "payer_name": payer_name or req.get("recipient_name", ""),
+                "payer_email": payer_email or req.get("recipient_email", ""),
+                "payment_transaction_id": tx.get("id"),
+                **({"stripe_session_id": sid} if sid else {}),
+                "installment_payments": [payment_entry],
+            }},
+        )
+    else:
+        return
+
+    try:
+        from utils.payment_request_enrollment import ensure_enrollment_for_payment_request_tx
+
+        tx_fresh = await db.payment_transactions.find_one({"id": tx.get("id")}, {"_id": 0}) or tx
+        await ensure_enrollment_for_payment_request_tx(db, {**tx_fresh, "payment_status": "paid"})
+    except Exception as exc:
+        logger.warning("payment link enrollment after settle: %s", exc)
+
+
 # ── Stripe webhook top-up (called by existing webhook route) ─────────────────
 # The existing Stripe webhook already marks payment_transactions as paid.
 # When that happens we also need to mark the payment_request paid.
@@ -477,64 +582,101 @@ async def mark_payment_request_paid_by_session(session_id: str, payer_name: str 
     if st in ("paid", "cancelled"):
         return
 
-    payments = list(req.get("installment_payments") or [])
-    if any(isinstance(p, dict) and p.get("stripe_session_id") == session_id for p in payments):
-        return
+    await _settle_payment_request_tx(
+        req_id,
+        tx,
+        payer_name=payer_name,
+        payer_email=payer_email,
+        session_key=session_id,
+    )
 
+
+@router.post("/{req_id}/record-manual-payment")
+async def record_manual_payment(req_id: str, body: RecordManualPaymentBody, request: Request):
+    """
+    Admin: record an offline payment (GPay, cash, bank transfer, etc.) on a custom link.
+    Creates a paid transaction and enrollment row for tracking.
+    """
+    await assert_admin_session_or_password(request, None)
+
+    row = await db.payment_requests.find_one({"id": req_id}, {"_id": 0})
+    if not row:
+        raise HTTPException(404, "Payment request not found")
+    if not _can_checkout_payment_request(row):
+        raise HTTPException(400, f"Cannot record payment — link status is {row.get('status')}")
+
+    method = str(body.payment_method or "cash").strip().lower()
+    if method not in MANUAL_PAYMENT_METHODS:
+        raise HTTPException(400, f"Invalid payment_method. Use one of: {', '.join(sorted(MANUAL_PAYMENT_METHODS))}")
+
+    checkout = _checkout_state_for_row(row)
+    amount = round(float(body.amount if body.amount is not None else checkout["checkout_amount"]), 2)
+    if amount <= 0:
+        raise HTTPException(400, "Amount must be greater than zero")
+
+    payer_name = (body.payer_name or row.get("recipient_name") or row.get("payer_name") or "").strip()
+    payer_email = (body.payer_email or row.get("recipient_email") or row.get("payer_email") or "").strip().lower()
+    paid_at = (body.paid_at or "").strip() or _now_iso()
+
+    inst_n = int(checkout.get("installment_current") or 1)
+    inst_total = int(checkout.get("num_installments") or 1)
+    session_id = f"manual_{uuid.uuid4().hex[:20]}"
+    tx_id = str(uuid.uuid4())
     now = _now_iso()
-    inst_n = int(tx.get("installment_number") or 0) or (_installments_paid_count(req) + 1)
 
-    if req.get("installments_enabled"):
-        payments.append({
-            "number": inst_n,
-            "amount": round(float(tx.get("amount") or 0), 2),
-            "paid_at": now,
-            "transaction_id": tx.get("id"),
-            "stripe_session_id": session_id,
-        })
-        paid_count = len(payments)
-        n_total = int(req.get("num_installments") or len(_installment_amounts_for_row(req)))
-        new_status = "paid" if paid_count >= n_total else "partially_paid"
-        patch: Dict[str, Any] = {
-            "installments_paid": paid_count,
-            "installment_payments": payments,
-            "status": new_status,
-            "payer_name": payer_name or req.get("recipient_name", ""),
-            "payer_email": payer_email or req.get("recipient_email", ""),
-            "payment_transaction_id": tx.get("id"),
-            "stripe_session_id": session_id,
-        }
-        if new_status == "paid":
-            patch["paid_at"] = now
-        await db.payment_requests.update_one({"id": req_id}, {"$set": patch})
-        try:
-            from utils.payment_request_enrollment import ensure_enrollment_for_payment_request_tx
+    tx_doc = {
+        "id": tx_id,
+        "stripe_session_id": session_id,
+        "payment_provider": "manual",
+        "payment_method": method,
+        "payment_status": "paid",
+        "item_type": "payment_request",
+        "item_id": req_id,
+        "item_title": row["title"],
+        "amount": amount,
+        "currency": row["currency"],
+        "booker_name": payer_name,
+        "booker_email": payer_email,
+        "payment_request_id": req_id,
+        "created_via": "payment_request",
+        "installment_number": inst_n,
+        "num_installments": inst_total,
+        "payment_request_total": round(float(row.get("amount") or 0), 2),
+        "catalog_item_type": row.get("item_type") or "",
+        "catalog_item_id": row.get("item_id") or "",
+        "catalog_item_title": row.get("item_title") or "",
+        "tier_index": row.get("tier_index"),
+        "chosen_start_date": row.get("chosen_start_date") or "",
+        "chosen_end_date": row.get("chosen_end_date") or "",
+        "chosen_tier_label": row.get("chosen_tier_label") or "",
+        "session_date": row.get("session_date") or "",
+        "manual_reference": (body.reference or "").strip(),
+        "manual_notes": (body.notes or "").strip(),
+        "recorded_by": "admin",
+        "paid_at": paid_at,
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.payment_transactions.insert_one(tx_doc)
 
-            tx_fresh = await db.payment_transactions.find_one({"stripe_session_id": session_id}, {"_id": 0}) or tx
-            await ensure_enrollment_for_payment_request_tx(db, {**tx_fresh, "payment_status": "paid"})
-        except Exception as exc:
-            logger.warning("payment link enrollment (installment): %s", exc)
-        return
+    await _settle_payment_request_tx(
+        req_id,
+        tx_doc,
+        payer_name=payer_name,
+        payer_email=payer_email,
+        session_key=session_id,
+    )
 
-    if st == "active":
-        await db.payment_requests.update_one(
-            {"id": req_id},
-            {"$set": {
-                "status": "paid",
-                "paid_at": now,
-                "payer_name": payer_name or req.get("recipient_name", ""),
-                "payer_email": payer_email or req.get("recipient_email", ""),
-                "payment_transaction_id": tx.get("id"),
-                "stripe_session_id": session_id,
-            }},
-        )
-        try:
-            from utils.payment_request_enrollment import ensure_enrollment_for_payment_request_tx
-
-            tx_fresh = await db.payment_transactions.find_one({"stripe_session_id": session_id}, {"_id": 0}) or tx
-            await ensure_enrollment_for_payment_request_tx(db, {**tx_fresh, "payment_status": "paid"})
-        except Exception as exc:
-            logger.warning("payment link enrollment: %s", exc)
+    updated = await db.payment_requests.find_one({"id": req_id}, {"_id": 0})
+    enrollment_id = (updated or {}).get("enrollment_id")
+    return {
+        "ok": True,
+        "status": (updated or {}).get("status"),
+        "transaction_id": tx_id,
+        "enrollment_id": enrollment_id,
+        "payment_method": method,
+        "amount": amount,
+    }
 
 
 # ── Stripe success poll ────────────────────────────────────────────────────────

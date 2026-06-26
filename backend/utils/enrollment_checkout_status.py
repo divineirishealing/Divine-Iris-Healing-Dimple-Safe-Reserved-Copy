@@ -57,11 +57,13 @@ def effective_enrollment_status(enrollment: dict, txn: Optional[dict]) -> str:
 
 def payment_method_from_transaction(txn: dict) -> str:
     provider = str(txn.get("payment_provider") or "").strip().lower()
+    method = str(txn.get("payment_method") or "").strip().lower()
+    if method in ("stripe", "razorpay", "india_bank", "manual_proof", "exly", "gpay", "cash", "bank", "other"):
+        return method
     if provider == "razorpay":
         return "razorpay"
-    method = str(txn.get("payment_method") or "").strip().lower()
-    if method in ("stripe", "razorpay", "india_bank", "manual_proof", "exly"):
-        return method
+    if provider == "manual":
+        return method or "cash"
     return "stripe"
 
 

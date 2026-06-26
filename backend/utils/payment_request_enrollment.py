@@ -99,7 +99,15 @@ async def ensure_enrollment_for_payment_request_tx(db, tx: dict) -> Optional[str
     enroll_status = _enrollment_status_from_request(req, tx)
     paid_at = tx.get("paid_at") or req.get("paid_at") or _now_iso()
     provider = str(tx.get("payment_provider") or "stripe").strip().lower()
-    payment_method = "razorpay" if provider == "razorpay" else "stripe"
+    method = str(tx.get("payment_method") or "").strip().lower()
+    if method in ("gpay", "cash", "bank", "exly", "other", "stripe", "razorpay", "manual_proof"):
+        payment_method = method
+    elif provider == "razorpay":
+        payment_method = "razorpay"
+    elif provider == "manual":
+        payment_method = method or "cash"
+    else:
+        payment_method = "stripe"
 
     participant = {"name": booker_name, "email": booker_email}
     patch: Dict[str, Any] = {

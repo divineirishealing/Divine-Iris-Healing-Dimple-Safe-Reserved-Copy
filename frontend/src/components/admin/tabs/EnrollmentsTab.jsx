@@ -40,6 +40,11 @@ function getEffectiveEnrollmentStatus(enrollment) {
 
 const PAYMENT_MODE_MAP = {
   stripe: { label: 'Stripe', icon: CreditCard, color: 'text-blue-600 bg-blue-50' },
+  gpay: { label: 'GPay / UPI', icon: CreditCard, color: 'text-green-700 bg-green-50' },
+  cash: { label: 'Cash', icon: CreditCard, color: 'text-emerald-800 bg-emerald-50' },
+  bank: { label: 'Bank Transfer', icon: Building2, color: 'text-green-600 bg-green-50' },
+  exly: { label: 'Exly', icon: Globe, color: 'text-purple-600 bg-purple-50' },
+  other: { label: 'Other', icon: CreditCard, color: 'text-gray-600 bg-gray-50' },
   india_bank: { label: 'Bank Transfer', icon: Building2, color: 'text-green-600 bg-green-50' },
   india_exly: { label: 'Exly', icon: Globe, color: 'text-purple-600 bg-purple-50' },
   manual_proof: { label: 'Manual Proof', icon: Upload, color: 'text-amber-600 bg-amber-50' },
@@ -49,6 +54,11 @@ const PAYMENT_MODE_MAP = {
 /** Short labels for dense tables (no horizontal scroll). */
 const PAYMENT_MODE_SHORT = {
   stripe: 'Card',
+  gpay: 'GPay',
+  cash: 'Cash',
+  bank: 'Bank',
+  exly: 'Exly',
+  other: 'Other',
   india_bank: 'Bank',
   india_exly: 'Exly',
   manual_proof: 'Proof',
@@ -611,14 +621,16 @@ function enrollmentAmountToInr(amount, currency, rates) {
 }
 
 const getPaymentMode = (enrollment) => {
-  // Check explicit payment_method first
   const method = enrollment.payment_method || enrollment.payment?.payment_method || '';
+  if (['gpay', 'cash', 'bank', 'exly', 'other'].includes(method)) return method;
   if (method === 'stripe') return 'stripe';
   if (method === 'manual_proof') return 'manual_proof';
   if (method === 'india_bank') return 'india_bank';
   if (method === 'exly') return 'india_exly';
   if (method === 'razorpay') return 'razorpay';
-  // Fallback detection
+  if (enrollment.payment?.payment_provider === 'manual') {
+    return method || 'cash';
+  }
   const status = enrollment.status || '';
   if (status.includes('india_payment')) return 'india_bank';
   if (enrollment.payment?.stripe_session_id || enrollment.stripe_session_id) return 'stripe';
