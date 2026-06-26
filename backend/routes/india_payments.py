@@ -124,7 +124,9 @@ async def _transactions_grouped_by_enrollment(enrollment_ids: List[str]) -> Dict
 
 
 def _enrollment_origin(e: dict) -> str:
-    """Rough source: student dashboard annual flow vs public site (cart / program / session pages)."""
+    """Rough source: dashboard, custom payment link, or public website checkout."""
+    if e.get("payment_request_id") or e.get("enrollment_origin") == "payment_link":
+        return "payment_link"
     if e.get("dashboard_checkout_ready") or e.get("dashboard_mixed_total") is not None:
         return "dashboard"
     return "website"
@@ -2738,6 +2740,9 @@ async def _enrich_enrollment_row_with_payment(e: dict, by_e: Dict[str, List[dict
 @router.get("/admin/enrollments")
 async def list_enrollments():
     """Admin: list all enrollments with payment details (all checkout paths use `enrollments`)."""
+    from utils.payment_request_enrollment import backfill_payment_link_enrollments
+
+    await backfill_payment_link_enrollments(db, limit=200)
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)
@@ -2819,6 +2824,9 @@ async def participant_enrollment_rows(paid_completed_only: bool = False):
     including notify, relationship, city/state, attendance, referral, participant email, etc.
     Payment amount/currency is the checkout total (repeated on each row for multi-seat enrollments).
     """
+    from utils.payment_request_enrollment import backfill_payment_link_enrollments
+
+    await backfill_payment_link_enrollments(db, limit=200)
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)

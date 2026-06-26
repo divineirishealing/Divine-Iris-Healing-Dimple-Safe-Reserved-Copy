@@ -507,6 +507,13 @@ async def mark_payment_request_paid_by_session(session_id: str, payer_name: str 
         if new_status == "paid":
             patch["paid_at"] = now
         await db.payment_requests.update_one({"id": req_id}, {"$set": patch})
+        try:
+            from utils.payment_request_enrollment import ensure_enrollment_for_payment_request_tx
+
+            tx_fresh = await db.payment_transactions.find_one({"stripe_session_id": session_id}, {"_id": 0}) or tx
+            await ensure_enrollment_for_payment_request_tx(db, {**tx_fresh, "payment_status": "paid"})
+        except Exception as exc:
+            logger.warning("payment link enrollment (installment): %s", exc)
         return
 
     if st == "active":
@@ -521,6 +528,13 @@ async def mark_payment_request_paid_by_session(session_id: str, payer_name: str 
                 "stripe_session_id": session_id,
             }},
         )
+        try:
+            from utils.payment_request_enrollment import ensure_enrollment_for_payment_request_tx
+
+            tx_fresh = await db.payment_transactions.find_one({"stripe_session_id": session_id}, {"_id": 0}) or tx
+            await ensure_enrollment_for_payment_request_tx(db, {**tx_fresh, "payment_status": "paid"})
+        except Exception as exc:
+            logger.warning("payment link enrollment: %s", exc)
 
 
 # ── Stripe success poll ────────────────────────────────────────────────────────
@@ -694,4 +708,11 @@ async def verify_razorpay_payment(req_id: str, body: RazorpayVerifyBody):
             "payment_transaction_id": tx["id"] if tx else None,
         }}
     )
+    if tx:
+        try:
+            from utils.payment_request_enrollment import ensure_enrollment_for_payment_request_tx
+
+            await ensure_enrollment_for_payment_request_tx(db, {**tx, "payment_status": "paid"})
+        except Exception as exc:
+            logger.warning("payment link enrollment (razorpay): %s", exc)
     return {"status": "paid"}

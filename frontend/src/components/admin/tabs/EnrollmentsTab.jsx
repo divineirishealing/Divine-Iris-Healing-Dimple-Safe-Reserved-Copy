@@ -17,6 +17,7 @@ const STATUS_MAP = {
   paid: { label: 'Paid', color: 'bg-green-100 text-green-700' },
   pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700' },
   checkout_started: { label: 'Checkout Started', color: 'bg-blue-100 text-blue-700' },
+  partially_paid: { label: 'Partially Paid', color: 'bg-amber-100 text-amber-800' },
   india_payment_proof_submitted: { label: 'Proof Submitted', color: 'bg-indigo-100 text-indigo-700' },
   india_payment_approved: { label: 'Approved', color: 'bg-green-100 text-green-700' },
   india_payment_rejected: { label: 'Rejected', color: 'bg-red-100 text-red-700' },
@@ -199,7 +200,13 @@ function columnPickerMeta(viewMode) {
 
 function enrollmentOriginKey(originish) {
   const o = String(originish || '').toLowerCase();
-  return o === 'dashboard' ? 'dashboard' : 'website';
+  if (o === 'dashboard') return 'dashboard';
+  if (o === 'payment_link') return 'payment_link';
+  return 'website';
+}
+
+function isPaymentLinkEnrollment(e) {
+  return !!(e?.payment_request_id || e?.enrollment_origin === 'payment_link' || e?.item_type === 'payment_link');
 }
 
 /** Admin analytics: normalize participant attendance for checkout-level summary. */
@@ -1771,6 +1778,7 @@ const EnrollmentsTab = () => {
             { k: 'all', label: 'All' },
             { k: 'dashboard', label: 'Dashboard' },
             { k: 'website', label: 'Website' },
+            { k: 'payment_link', label: 'Pay link' },
           ].map(({ k, label }) => (
             <button
               key={k}
@@ -1829,6 +1837,7 @@ const EnrollmentsTab = () => {
                 const payShort = mode ? (PAYMENT_MODE_SHORT[mode] || (modeInfo ? modeInfo.label.split(' ')[0] : mode)) : '—';
                 const tc = 'px-1 sm:px-2 py-1.5 align-top min-w-0';
                 const isSponsor = !!e._isSponsor;
+                const isPayLink = isPaymentLinkEnrollment(e);
 
                 return (
                   <React.Fragment key={e.id}>
@@ -1836,6 +1845,8 @@ const EnrollmentsTab = () => {
                       className={`cursor-pointer transition-colors ${
                         isSponsor
                           ? 'bg-blue-50 border-l-4 border-blue-400 hover:bg-blue-100/70'
+                          : isPayLink
+                            ? 'bg-emerald-50/80 border-l-4 border-emerald-500 hover:bg-emerald-100/60'
                           : 'odd:bg-white even:bg-violet-50/30 hover:bg-amber-50/40'
                       }`}
                       onClick={() => setExpandedId(isExpanded ? null : e.id)}
@@ -1866,6 +1877,11 @@ const EnrollmentsTab = () => {
                                       SPONSOR
                                     </span>
                                   )}
+                                  {isPayLink && (
+                                    <span className="inline-block text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800 flex-shrink-0">
+                                      PAY LINK
+                                    </span>
+                                  )}
                                   <p className="text-gray-800 leading-snug line-clamp-2" title={e.item_title || ''}>{e.item_title || '-'}</p>
                                 </div>
                                 {isSponsor && e._anonymous && (
@@ -1877,8 +1893,14 @@ const EnrollmentsTab = () => {
                           case 'origin':
                             return (
                               <td key={def.id} className={tc}>
-                                <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-md font-medium ${e.enrollment_origin === 'dashboard' ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
-                                  {e.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
+                                <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-md font-medium ${
+                                  e.enrollment_origin === 'dashboard'
+                                    ? 'bg-amber-100 text-amber-900'
+                                    : e.enrollment_origin === 'payment_link'
+                                      ? 'bg-emerald-100 text-emerald-900'
+                                      : 'bg-slate-100 text-slate-700'
+                                }`}>
+                                  {e.enrollment_origin === 'dashboard' ? 'Dash' : e.enrollment_origin === 'payment_link' ? 'Link' : 'Web'}
                                 </span>
                               </td>
                             );
