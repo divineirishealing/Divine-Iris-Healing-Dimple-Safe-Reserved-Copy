@@ -173,7 +173,7 @@ class CreatePaymentRequestBody(BaseModel):
     recipient_email: Optional[str] = ""
     note: Optional[str] = ""       # internal admin note
     # Optional catalog link (program batch or workshop date)
-    item_type: Optional[str] = ""  # program | session | ""
+    item_type: Optional[str] = ""  # program | session | annual_package | ""
     item_id: Optional[str] = ""
     item_title: Optional[str] = ""
     tier_index: Optional[int] = None
@@ -239,7 +239,7 @@ async def create_payment_request(body: CreatePaymentRequestBody, request: Reques
     if body.amount <= 0:
         raise HTTPException(400, "Amount must be > 0")
     item_type = (body.item_type or "").strip().lower()
-    if item_type not in ("program", "session", ""):
+    if item_type not in ("program", "session", "annual_package", ""):
         item_type = ""
     installments_enabled = bool(body.installments_enabled)
     num_installments = int(body.num_installments or 2) if installments_enabled else 1

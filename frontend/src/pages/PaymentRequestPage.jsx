@@ -20,7 +20,9 @@ function paymentCatalogLine(req) {
   if (!req?.item_type) return '';
   const parts = [];
   if (req.item_title) parts.push(req.item_title);
-  if (req.chosen_tier_label) parts.push(req.chosen_tier_label);
+  if (req.item_type === 'annual_package' && req.chosen_tier_label) {
+    parts.push(req.chosen_tier_label);
+  } else if (req.chosen_tier_label) parts.push(req.chosen_tier_label);
   if (req.chosen_start_date) {
     parts.push(formatBatchYmd(req.chosen_start_date));
     if (req.chosen_end_date) parts.push(`→ ${formatBatchYmd(req.chosen_end_date)}`);

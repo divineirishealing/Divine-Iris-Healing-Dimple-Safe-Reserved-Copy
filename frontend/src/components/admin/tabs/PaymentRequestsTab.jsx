@@ -16,7 +16,8 @@ import {
   Clock, CheckCircle2, XCircle,
   RefreshCw, Search, ChevronDown, ChevronUp, Calendar, Banknote,
 } from 'lucide-react';
-import { formatDateDMonYyyyUpper } from '@/lib/utils';
+import { formatDateDMonYyyyUpper, addMonthsSubscriptionEnd } from '@/lib/utils';
+import { packageTaxDecimal } from '../../../lib/annualPackagePricing';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const SITE_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
@@ -49,7 +50,7 @@ const MANUAL_METHOD_LABEL = Object.fromEntries(MANUAL_PAYMENT_METHODS.map((m) =>
 const BLANK = {
   title: '', description: '', amount: '', currency: 'aed',
   recipient_name: '', recipient_email: '', note: '',
-  link_kind: '', item_id: '', tier_index: '', session_date: '',
+  link_kind: '', item_id: '', tier_index: '', session_date: '', custom_batch_start: '',
   installments_enabled: false, num_installments: '3',
 };
 
@@ -164,8 +165,58 @@ function buildTierOptions(program) {
   return [{ tier_index: 0, label: 'Standard', start_date: '', end_date: '' }];
 }
 
+function isAnnualProgramTier(tier) {
+  if (!tier) return false;
+  const label = (tier.label || '').toLowerCase();
+  return label.includes('annual') || label.includes('year') || tier.duration_unit === 'year';
+}
+
+function tierDurationMonths(tier) {
+  if (!tier) return 12;
+  const unit = (tier.duration_unit || 'month').toLowerCase();
+  const val = parseInt(tier.duration_value, 10);
+  const n = Number.isFinite(val) && val > 0 ? val : 1;
+  if (unit.startsWith('year')) return n * 12;
+  if (unit.startsWith('month')) return n;
+  const label = (tier.label || '').toLowerCase();
+  if (label.includes('annual') || label.includes('year')) return 12;
+  const m = label.match(/(\d+)\s*month/);
+  if (m) return parseInt(m[1], 10);
+  return 12;
+}
+
+/** Batch dates stored on the payment link — annual tiers skip catalog batch unless custom start is set. */
+function programTierBatchDates(tier, customBatchStart) {
+  if (!tier) return { start: '', end: '' };
+  if (isAnnualProgramTier(tier)) {
+    const start = (customBatchStart || '').trim().slice(0, 10);
+    if (!start) return { start: '', end: '' };
+    const end = addMonthsSubscriptionEnd(start, tierDurationMonths(tier)) || '';
+    return { start, end };
+  }
+  return {
+    start: (tier.start_date || '').slice(0, 10),
+    end: (tier.end_date || '').slice(0, 10),
+  };
+}
+
+function programLinkTitle(program, tier, customBatchStart) {
+  if (!program || !tier) return '';
+  const label = tier.label || 'Tier';
+  if (isAnnualProgramTier(tier)) {
+    const { start, end } = programTierBatchDates(tier, customBatchStart);
+    if (start) {
+      return `${program.title} — ${label} · ${formatProgramYmd(start)}${end ? ` → ${formatProgramYmd(end)}` : ''}`;
+    }
+    return `${program.title} — ${label}`;
+  }
+  return `${program.title} — ${formatTierOption(tier)}`;
+}
+
 function formatTierOption(t) {
-  const parts = [t.label || 'Tier'];
+  const label = t.label || 'Tier';
+  if (isAnnualProgramTier(t)) return label;
+  const parts = [label];
   if (t.start_date) parts.push(formatProgramYmd(t.start_date));
   if (t.end_date) parts.push(`→ ${formatProgramYmd(t.end_date)}`);
   return parts.join(' · ');
@@ -191,9 +242,35 @@ function sessionPrice(session, currency) {
   return price > 0 ? price : 0;
 }
 
+function annualPackagePrice(pkg, currency) {
+  if (!pkg) return 0;
+  const cur = (currency || 'inr').toUpperCase();
+  const override = pkg.offer_total?.[cur];
+  if (override != null && parseFloat(override) > 0) {
+    return Math.round(parseFloat(override) * 100) / 100;
+  }
+  const lines = pkg.included_programs || [];
+  const sumOffer = lines.reduce(
+    (s, p) => s + ((p.offer_per_unit?.[cur] || 0) * (p.duration_value || 0)),
+    0,
+  );
+  const addl = pkg.additional_discount_pct || 0;
+  const afterDisc = sumOffer - (sumOffer * addl / 100);
+  const taxRate = packageTaxDecimal(pkg, cur);
+  return Math.round((afterDisc + afterDisc * taxRate) * 100) / 100;
+}
+
+function annualPackageValidWindow(pkg) {
+  const from = (pkg?.valid_from || '').slice(0, 10);
+  const to = (pkg?.valid_to || '').slice(0, 10);
+  if (!from && !to) return 'Any date';
+  return [from, to].filter(Boolean).join(' → ');
+}
+
 function catalogSummary(req) {
   if (!req?.item_type || !req?.item_id) return '';
-  const parts = [req.item_title || req.item_type];
+  const typeLabel = req.item_type === 'annual_package' ? 'Annual' : null;
+  const parts = [req.item_title || typeLabel || req.item_type];
   if (req.chosen_tier_label) parts.push(req.chosen_tier_label);
   if (req.chosen_start_date) {
     parts.push(formatProgramYmd(req.chosen_start_date));
@@ -507,6 +584,7 @@ export default function PaymentRequestsTab() {
   const [filterStatus, setFilter] = useState('all');
   const [programs, setPrograms]   = useState([]);
   const [sessions, setSessions]   = useState([]);
+  const [annualPackages, setAnnualPackages] = useState([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [recordingId, setRecordingId] = useState(null);
 
@@ -530,13 +608,21 @@ export default function PaymentRequestsTab() {
     Promise.all([
       axios.get(`${API}/programs`),
       axios.get(`${API}/sessions`),
+      axios.get(`${API}/admin/subscribers/packages`),
     ])
-      .then(([pRes, sRes]) => {
+      .then(([pRes, sRes, pkgRes]) => {
         setPrograms(Array.isArray(pRes.data) ? pRes.data : []);
         setSessions(Array.isArray(sRes.data) ? sRes.data : []);
+        const pkgs = Array.isArray(pkgRes.data) ? pkgRes.data : [];
+        pkgs.sort((a, b) => {
+          if (a.is_active && !b.is_active) return -1;
+          if (!a.is_active && b.is_active) return 1;
+          return String(a.package_name || '').localeCompare(String(b.package_name || ''));
+        });
+        setAnnualPackages(pkgs);
       })
       .catch(() => {
-        toast({ title: 'Could not load programs/sessions', variant: 'destructive' });
+        toast({ title: 'Could not load programs/sessions/packages', variant: 'destructive' });
       })
       .finally(() => setCatalogLoading(false));
   }, [showForm, toast]);
@@ -549,8 +635,14 @@ export default function PaymentRequestsTab() {
   const selectedTier = tierOptions.find((t) => String(t.tier_index) === String(form.tier_index))
     || tierOptions[0]
     || null;
+  const programBatch = selectedTier
+    ? programTierBatchDates(selectedTier, form.custom_batch_start)
+    : { start: '', end: '' };
   const selectedSession = form.link_kind === 'session'
     ? sessions.find((s) => String(s.id) === String(form.item_id))
+    : null;
+  const selectedAnnualPackage = form.link_kind === 'annual_package'
+    ? annualPackages.find((p) => String(p.package_id) === String(form.item_id))
     : null;
   const sessionDates = (selectedSession?.available_dates || []).slice().sort((a, b) => String(b).localeCompare(String(a)));
 
@@ -563,6 +655,7 @@ export default function PaymentRequestsTab() {
       item_id: '',
       tier_index: '',
       session_date: '',
+      custom_batch_start: '',
     }));
   };
 
@@ -575,7 +668,8 @@ export default function PaymentRequestsTab() {
       ...f,
       item_id: programId,
       tier_index: tier != null ? String(tier.tier_index) : '',
-      title: f.title.trim() || (prog && tier ? `${prog.title} — ${formatTierOption(tier)}` : f.title),
+      custom_batch_start: '',
+      title: f.title.trim() || (prog && tier ? programLinkTitle(prog, tier, '') : f.title),
       amount: price > 0 ? String(price) : f.amount,
     }));
   };
@@ -583,15 +677,28 @@ export default function PaymentRequestsTab() {
   const handleTierChange = (tierIndex) => {
     const tier = tierOptions.find((t) => String(t.tier_index) === String(tierIndex));
     if (!selectedProgram || !tier) {
-      set('tier_index', tierIndex);
+      setForm((f) => ({ ...f, tier_index: tierIndex, custom_batch_start: '' }));
       return;
     }
     const price = tierPrice(tier, selectedProgram, form.currency);
     setForm((f) => ({
       ...f,
       tier_index: tierIndex,
+      custom_batch_start: '',
       amount: price > 0 ? String(price) : f.amount,
-      title: f.title.trim() || `${selectedProgram.title} — ${formatTierOption(tier)}`,
+      title: f.title.trim() || programLinkTitle(selectedProgram, tier, ''),
+    }));
+  };
+
+  const handleCustomBatchStart = (startYmd) => {
+    if (!selectedProgram || !selectedTier) {
+      set('custom_batch_start', startYmd);
+      return;
+    }
+    setForm((f) => ({
+      ...f,
+      custom_batch_start: startYmd,
+      title: f.title.trim() || programLinkTitle(selectedProgram, selectedTier, startYmd),
     }));
   };
 
@@ -609,6 +716,21 @@ export default function PaymentRequestsTab() {
     }));
   };
 
+  const handleAnnualPackageChange = (packageId) => {
+    const pkg = annualPackages.find((p) => String(p.package_id) === String(packageId));
+    const price = pkg ? annualPackagePrice(pkg, form.currency) : 0;
+    const months = pkg?.duration_months || 12;
+    const name = pkg?.package_name || 'Annual program';
+    setForm((f) => ({
+      ...f,
+      item_id: packageId,
+      tier_index: '',
+      session_date: '',
+      title: f.title.trim() || `${name} — annual membership`,
+      amount: price > 0 ? String(price) : f.amount,
+    }));
+  };
+
   const handleCreate = async () => {
     if (!form.title.trim())   { toast({ title: 'Title is required', variant: 'destructive' }); return; }
     if (!form.amount || parseFloat(form.amount) <= 0) { toast({ title: 'Enter a valid amount', variant: 'destructive' }); return; }
@@ -618,6 +740,10 @@ export default function PaymentRequestsTab() {
     }
     if (form.link_kind === 'session' && !form.item_id) {
       toast({ title: 'Select a workshop/session', variant: 'destructive' });
+      return;
+    }
+    if (form.link_kind === 'annual_package' && !form.item_id) {
+      toast({ title: 'Select an annual program', variant: 'destructive' });
       return;
     }
     setSaving(true);
@@ -636,14 +762,20 @@ export default function PaymentRequestsTab() {
         payload.item_id = String(selectedProgram.id);
         payload.item_title = selectedProgram.title || '';
         payload.tier_index = selectedTier ? Number(selectedTier.tier_index) : undefined;
-        payload.chosen_start_date = selectedTier?.start_date || '';
-        payload.chosen_end_date = selectedTier?.end_date || '';
+        payload.chosen_start_date = programBatch.start;
+        payload.chosen_end_date = programBatch.end;
         payload.chosen_tier_label = selectedTier?.label || '';
       } else if (form.link_kind === 'session' && selectedSession) {
         payload.item_type = 'session';
         payload.item_id = String(selectedSession.id);
         payload.item_title = selectedSession.title || '';
         payload.session_date = form.session_date || '';
+      } else if (form.link_kind === 'annual_package' && selectedAnnualPackage) {
+        payload.item_type = 'annual_package';
+        payload.item_id = String(selectedAnnualPackage.package_id);
+        payload.item_title = selectedAnnualPackage.package_name || '';
+        const months = selectedAnnualPackage.duration_months || 12;
+        payload.chosen_tier_label = `${months}-month annual`;
       }
       payload.installments_enabled = !!form.installments_enabled;
       if (form.installments_enabled) {
@@ -794,10 +926,10 @@ export default function PaymentRequestsTab() {
               <div className="md:col-span-2 border border-purple-100 rounded-xl p-4 bg-purple-50/40 space-y-3">
                 <div className="flex items-center gap-2">
                   <Calendar size={14} className="text-purple-700" />
-                  <Label className="text-xs font-semibold text-purple-900">Link to program or workshop (optional)</Label>
+                  <Label className="text-xs font-semibold text-purple-900">Link to program, workshop, or annual offer (optional)</Label>
                 </div>
                 <p className="text-[10px] text-gray-500">
-                  Pick flagship, upcoming, or past program batches — or a workshop date. Amount can auto-fill from catalog pricing.
+                  Pick a program batch, workshop date, or Home Coming annual package. Amount can auto-fill from catalog pricing.
                 </p>
                 <div className="grid md:grid-cols-2 gap-3">
                   <div>
@@ -810,6 +942,7 @@ export default function PaymentRequestsTab() {
                       <option value="">Custom amount only</option>
                       <option value="program">Program (flagship / batch)</option>
                       <option value="session">Workshop / healing session</option>
+                      <option value="annual_package">Annual program (Home Coming)</option>
                     </select>
                   </div>
                   {form.link_kind === 'program' && (
@@ -869,6 +1002,25 @@ export default function PaymentRequestsTab() {
                       </select>
                     </div>
                   )}
+                  {form.link_kind === 'annual_package' && (
+                    <div>
+                      <Label className="text-xs">Annual program *</Label>
+                      <select
+                        value={form.item_id}
+                        onChange={(e) => handleAnnualPackageChange(e.target.value)}
+                        disabled={catalogLoading}
+                        className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                      >
+                        <option value="">{catalogLoading ? 'Loading…' : '— Select annual package —'}</option>
+                        {annualPackages.map((pkg) => (
+                          <option key={pkg.package_id} value={pkg.package_id}>
+                            {pkg.package_name || pkg.package_id}
+                            {pkg.is_retired ? ' (retired)' : !pkg.is_active ? ' (inactive)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 {form.link_kind === 'program' && selectedProgram && (
@@ -885,12 +1037,31 @@ export default function PaymentRequestsTab() {
                         </option>
                       ))}
                     </select>
-                    {selectedTier?.start_date && (
+                    {selectedTier && isAnnualProgramTier(selectedTier) ? (
+                      <div className="mt-3 space-y-1">
+                        <Label className="text-xs">Client batch start (optional)</Label>
+                        <Input
+                          type="date"
+                          value={form.custom_batch_start}
+                          onChange={(e) => handleCustomBatchStart(e.target.value)}
+                          className="mt-1"
+                        />
+                        <p className="text-[10px] text-gray-500">
+                          Annual is not tied to the website batch. Leave blank for no dates, or enter when this client&apos;s cohort started (e.g. May 2026).
+                        </p>
+                        {programBatch.start && (
+                          <p className="text-[10px] text-teal-700 font-mono">
+                            Batch {formatProgramYmd(programBatch.start)}
+                            {programBatch.end ? ` → ${formatProgramYmd(programBatch.end)}` : ''}
+                          </p>
+                        )}
+                      </div>
+                    ) : selectedTier?.start_date ? (
                       <p className="text-[10px] text-teal-700 mt-1 font-mono">
                         Batch {formatProgramYmd(selectedTier.start_date)}
                         {selectedTier.end_date ? ` → ${formatProgramYmd(selectedTier.end_date)}` : ''}
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 )}
 
@@ -914,6 +1085,22 @@ export default function PaymentRequestsTab() {
                         onChange={(e) => set('session_date', e.target.value)}
                         className="mt-1"
                       />
+                    )}
+                  </div>
+                )}
+
+                {form.link_kind === 'annual_package' && selectedAnnualPackage && (
+                  <div className="rounded-lg border border-teal-100 bg-teal-50/60 p-3 text-[11px] text-teal-900 space-y-1">
+                    <p className="font-semibold">{selectedAnnualPackage.package_name}</p>
+                    <p>
+                      {(selectedAnnualPackage.duration_months || 12)}-month annual membership
+                      {' · '}
+                      Offer window: {annualPackageValidWindow(selectedAnnualPackage)}
+                    </p>
+                    {(selectedAnnualPackage.included_programs || []).length > 0 && (
+                      <p className="text-teal-800">
+                        Includes: {(selectedAnnualPackage.included_programs || []).map((p) => p.name).filter(Boolean).join(', ')}
+                      </p>
                     )}
                   </div>
                 )}
@@ -949,6 +1136,10 @@ export default function PaymentRequestsTab() {
                       } else if (f.link_kind === 'session' && f.item_id) {
                         const sess = sessions.find((s) => String(s.id) === String(f.item_id));
                         const p = sess ? sessionPrice(sess, cur) : 0;
+                        if (p > 0) next.amount = String(p);
+                      } else if (f.link_kind === 'annual_package' && f.item_id) {
+                        const pkg = annualPackages.find((p) => String(p.package_id) === String(f.item_id));
+                        const p = pkg ? annualPackagePrice(pkg, cur) : 0;
                         if (p > 0) next.amount = String(p);
                       }
                       return next;
@@ -1048,14 +1239,24 @@ export default function PaymentRequestsTab() {
                     {form.num_installments} installments via Stripe · first payment {CUR_SYMBOL[form.currency]}{installmentPreviewParts[0].toLocaleString()}
                   </span>
                 )}
-                {form.link_kind === 'program' && selectedTier?.start_date && (
+                {form.link_kind === 'program' && programBatch.start && (
                   <span className="block mt-1 text-teal-700">
-                    Batch: {formatProgramYmd(selectedTier.start_date)}
-                    {selectedTier.end_date ? ` → ${formatProgramYmd(selectedTier.end_date)}` : ''}
+                    Batch: {formatProgramYmd(programBatch.start)}
+                    {programBatch.end ? ` → ${formatProgramYmd(programBatch.end)}` : ''}
                   </span>
+                )}
+                {form.link_kind === 'program' && selectedTier && isAnnualProgramTier(selectedTier) && !programBatch.start && (
+                  <span className="block mt-1 text-teal-700">Annual tier — no batch dates</span>
                 )}
                 {form.link_kind === 'session' && form.session_date && (
                   <span className="block mt-1 text-teal-700">Date: {formatProgramYmd(form.session_date)}</span>
+                )}
+                {form.link_kind === 'annual_package' && selectedAnnualPackage && (
+                  <span className="block mt-1 text-teal-700">
+                    Annual: {selectedAnnualPackage.package_name}
+                    {' · '}
+                    {(selectedAnnualPackage.duration_months || 12)} months
+                  </span>
                 )}
               </div>
             )}

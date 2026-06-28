@@ -40,7 +40,7 @@ def _resolve_catalog_fields(req: dict, tx: dict) -> Dict[str, Any]:
     cat_title = str(req.get("item_title") or tx.get("catalog_item_title") or "").strip()
     link_title = str(req.get("title") or tx.get("item_title") or "").strip()
 
-    if cat_type in ("program", "session") and cat_id:
+    if cat_type in ("program", "session", "annual_package") and cat_id:
         item_type = cat_type
         item_id = cat_id
         item_title = cat_title or link_title
