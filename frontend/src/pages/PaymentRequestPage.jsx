@@ -19,10 +19,30 @@ function formatBatchYmd(iso) {
 function installmentStepLabel(req, n) {
   const plan = (req?.installment_plan || 'equal').toLowerCase();
   if (plan === 'quarter_then_monthly') {
-    if (n === 1) return 'Quarter (3 months)';
-    return `Monthly ${n - 1} of 9`;
+    if (n === 1) return 'Down payment (25%)';
+    const emiTotal = req?.installment_emi_count || 9;
+    return `EMI ${n - 1} of ${emiTotal}`;
+  }
+  if (plan === 'down_then_emi') {
+    if (n === 1) {
+      const pct = req?.installment_down_pct != null ? Number(req.installment_down_pct) : 25;
+      return `Down payment (${pct}%)`;
+    }
+    const emiTotal = req?.installment_emi_count || 9;
+    return `EMI ${n - 1} of ${emiTotal}`;
   }
   return `Installment ${n}`;
+}
+
+function installmentScheduleHint(req) {
+  const plan = (req?.installment_plan || 'equal').toLowerCase();
+  if (plan === 'quarter_then_monthly') return '25% down payment, then 9 equal monthly EMIs';
+  if (plan === 'down_then_emi') {
+    const pct = req?.installment_down_pct != null ? Number(req.installment_down_pct) : 25;
+    const emi = req?.installment_emi_count || 9;
+    return `${pct}% down payment, then ${emi} equal EMIs`;
+  }
+  return '';
 }
 
 function paymentCatalogLine(req) {
@@ -217,7 +237,8 @@ export default function PaymentRequestPage() {
   const instTotal = req.num_installments || 1;
   const instPaid = req.installments_paid || 0;
   const instStepLabel = installmentStepLabel(req, instCurrent);
-  const isAnnualEmi = (req.installment_plan || '').toLowerCase() === 'quarter_then_monthly';
+  const scheduleHint = installmentScheduleHint(req);
+  const isDownEmi = ['quarter_then_monthly', 'down_then_emi'].includes((req.installment_plan || '').toLowerCase());
 
   return (
     <>
@@ -249,9 +270,9 @@ export default function PaymentRequestPage() {
                     <span className="block text-sm font-medium text-white/70 mt-1">
                       {instStepLabel} · {instCurrent} of {instTotal}
                     </span>
-                    {isAnnualEmi && (
+                    {isDownEmi && scheduleHint && (
                       <span className="block text-[10px] font-normal text-white/45 mt-0.5">
-                        Annual EMI — 1 quarter then 9 monthly payments
+                        {scheduleHint}
                       </span>
                     )}
                     <span className="block text-[10px] font-normal text-white/50 mt-0.5">

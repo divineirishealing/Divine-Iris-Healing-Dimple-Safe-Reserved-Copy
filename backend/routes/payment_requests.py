@@ -80,8 +80,26 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-INSTALLMENT_PLANS = frozenset({"equal", "quarter_then_monthly"})
+INSTALLMENT_PLANS = frozenset({"equal", "quarter_then_monthly", "down_then_emi"})
 ANNUAL_QUARTER_THEN_MONTHLY_COUNT = 10
+ANNUAL_PRESET_DOWN_PCT = 25.0
+ANNUAL_PRESET_EMI_COUNT = 9
+
+
+def _normalize_down_pct(raw: Optional[float]) -> float:
+    try:
+        pct = float(raw if raw is not None else ANNUAL_PRESET_DOWN_PCT)
+    except (TypeError, ValueError):
+        pct = ANNUAL_PRESET_DOWN_PCT
+    return max(1.0, min(90.0, pct))
+
+
+def _normalize_emi_count(raw: Optional[int]) -> int:
+    try:
+        n = int(raw if raw is not None else ANNUAL_PRESET_EMI_COUNT)
+    except (TypeError, ValueError):
+        n = ANNUAL_PRESET_EMI_COUNT
+    return max(1, min(11, n))
 
 
 def _split_installment_amounts(total: float, n: int) -> List[float]:
@@ -95,22 +113,44 @@ def _split_installment_amounts(total: float, n: int) -> List[float]:
     return [round((base + (1 if i < extra else 0)) / 100.0, 2) for i in range(n)]
 
 
-def _quarter_plus_nine_monthly_amounts(total: float) -> List[float]:
-    """Annual EMI: payment 1 = one quarter (3 months), payments 2–10 = nine monthly shares."""
+def _down_then_emi_amounts(total: float, down_pct: float, emi_count: int) -> List[float]:
+    """First payment = down_pct % of total; remainder split across emi_count equal EMIs."""
     cents_total = int(round(float(total) * 100))
+    n_emi = _normalize_emi_count(emi_count)
     if cents_total <= 0:
-        return [0.0] * ANNUAL_QUARTER_THEN_MONTHLY_COUNT
-    monthly = cents_total // 12
-    quarter = monthly * 3
-    amounts = [quarter] + [monthly] * 9
-    amounts[0] += cents_total - sum(amounts)
-    return [round(c / 100.0, 2) for c in amounts]
+        return [0.0] * (1 + n_emi)
+    pct = _normalize_down_pct(down_pct)
+    down_cents = int(round(cents_total * pct / 100.0))
+    down_cents = max(1, min(cents_total - n_emi, down_cents))
+    remainder = cents_total - down_cents
+    base = remainder // n_emi
+    extra = remainder % n_emi
+    emis = [base + (1 if i < extra else 0) for i in range(n_emi)]
+    return [round(c / 100.0, 2) for c in [down_cents] + emis]
 
 
-def _installment_amounts_for_plan(total: float, plan: str, num_installments: int) -> List[float]:
+def _quarter_plus_nine_monthly_amounts(total: float) -> List[float]:
+    """Annual preset: 25% down + 9 monthly EMIs (10 payments)."""
+    return _down_then_emi_amounts(total, ANNUAL_PRESET_DOWN_PCT, ANNUAL_PRESET_EMI_COUNT)
+
+
+def _installment_amounts_for_plan(
+    total: float,
+    plan: str,
+    num_installments: int,
+    *,
+    down_pct: Optional[float] = None,
+    emi_count: Optional[int] = None,
+) -> List[float]:
     p = (plan or "equal").strip().lower()
     if p == "quarter_then_monthly":
         return _quarter_plus_nine_monthly_amounts(total)
+    if p == "down_then_emi":
+        return _down_then_emi_amounts(
+            total,
+            _normalize_down_pct(down_pct),
+            _normalize_emi_count(emi_count),
+        )
     return _split_installment_amounts(total, num_installments)
 
 
@@ -121,7 +161,13 @@ def _installment_amounts_for_row(row: dict) -> List[float]:
     if row.get("installments_enabled"):
         plan = (row.get("installment_plan") or "equal").strip().lower()
         n = int(row.get("num_installments") or 2)
-        return _installment_amounts_for_plan(float(row.get("amount") or 0), plan, n)
+        return _installment_amounts_for_plan(
+            float(row.get("amount") or 0),
+            plan,
+            n,
+            down_pct=row.get("installment_down_pct"),
+            emi_count=row.get("installment_emi_count"),
+        )
     return [round(float(row.get("amount") or 0), 2)]
 
 
@@ -207,7 +253,9 @@ class CreatePaymentRequestBody(BaseModel):
     session_date: Optional[str] = ""
     installments_enabled: Optional[bool] = False
     num_installments: Optional[int] = None
-    installment_plan: Optional[str] = "equal"  # equal | quarter_then_monthly
+    installment_plan: Optional[str] = "equal"  # equal | quarter_then_monthly | down_then_emi
+    installment_down_pct: Optional[float] = None
+    installment_emi_count: Optional[int] = None
 
 
 class UpdatePaymentRequestBody(BaseModel):
@@ -230,6 +278,8 @@ class UpdatePaymentRequestBody(BaseModel):
     installments_enabled: Optional[bool] = None
     num_installments: Optional[int] = None
     installment_plan: Optional[str] = None
+    installment_down_pct: Optional[float] = None
+    installment_emi_count: Optional[int] = None
 
 
 class RazorpayVerifyBody(BaseModel):
@@ -272,13 +322,27 @@ async def create_payment_request(body: CreatePaymentRequestBody, request: Reques
     if installment_plan not in INSTALLMENT_PLANS:
         installment_plan = "equal"
     num_installments = int(body.num_installments or 2) if installments_enabled else 1
+    installment_down_pct: Optional[float] = None
+    installment_emi_count: Optional[int] = None
     if installments_enabled:
-        if installment_plan == "quarter_then_monthly":
-            num_installments = ANNUAL_QUARTER_THEN_MONTHLY_COUNT
+        if installment_plan in ("quarter_then_monthly", "down_then_emi"):
+            if installment_plan == "quarter_then_monthly":
+                installment_down_pct = ANNUAL_PRESET_DOWN_PCT
+                installment_emi_count = ANNUAL_PRESET_EMI_COUNT
+            else:
+                installment_down_pct = _normalize_down_pct(body.installment_down_pct)
+                installment_emi_count = _normalize_emi_count(body.installment_emi_count)
+            num_installments = 1 + int(installment_emi_count)
         elif num_installments < 2 or num_installments > 12:
             raise HTTPException(400, "Installments must be between 2 and 12")
     installment_amounts = (
-        _installment_amounts_for_plan(round(body.amount, 2), installment_plan, num_installments)
+        _installment_amounts_for_plan(
+            round(body.amount, 2),
+            installment_plan,
+            num_installments,
+            down_pct=installment_down_pct,
+            emi_count=installment_emi_count,
+        )
         if installments_enabled
         else []
     )
@@ -301,6 +365,8 @@ async def create_payment_request(body: CreatePaymentRequestBody, request: Reques
         "session_date": (body.session_date or "").strip()[:10],
         "installments_enabled": installments_enabled,
         "installment_plan": installment_plan if installments_enabled else "equal",
+        "installment_down_pct": installment_down_pct,
+        "installment_emi_count": installment_emi_count,
         "num_installments": num_installments if installments_enabled else 1,
         "installment_amounts": installment_amounts,
         "installments_paid": 0,

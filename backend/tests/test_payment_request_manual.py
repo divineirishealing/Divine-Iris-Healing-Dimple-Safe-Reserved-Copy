@@ -1,6 +1,7 @@
 from routes.payment_requests import (
     MANUAL_PAYMENT_METHODS,
     _checkout_state_for_row,
+    _down_then_emi_amounts,
     _quarter_plus_nine_monthly_amounts,
 )
 
@@ -37,3 +38,11 @@ def test_checkout_state_annual_emi_first_is_quarter():
     state = _checkout_state_for_row(row)
     assert state["checkout_amount"] == 300.0
     assert state["num_installments"] == 10
+
+
+def test_down_then_emi_custom_percent():
+    amounts = _down_then_emi_amounts(1000.0, 30.0, 6)
+    assert len(amounts) == 7
+    assert amounts[0] == 300.0
+    assert sum(amounts) == 1000.0
+    assert len(set(amounts[1:])) <= 2  # equal EMIs ± cent remainder

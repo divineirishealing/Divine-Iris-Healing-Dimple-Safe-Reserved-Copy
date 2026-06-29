@@ -52,6 +52,7 @@ const BLANK = {
   recipient_name: '', recipient_email: '', note: '',
   link_kind: '', item_id: '', tier_index: '', session_date: '', custom_batch_start: '',
   installments_enabled: false, num_installments: '3', installment_plan: 'equal',
+  installment_down_pct: '25', installment_emi_count: '9',
 };
 
 function splitInstallmentAmounts(total, n) {
@@ -63,29 +64,67 @@ function splitInstallmentAmounts(total, n) {
   return Array.from({ length: count }, (_, i) => (base + (i < extra ? 1 : 0)) / 100);
 }
 
-function quarterPlusNineMonthlyAmounts(total) {
+function clampDownPct(raw) {
+  const n = parseFloat(raw);
+  if (!Number.isFinite(n)) return 25;
+  return Math.max(1, Math.min(90, n));
+}
+
+function clampEmiCount(raw) {
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n)) return 9;
+  return Math.max(1, Math.min(11, n));
+}
+
+function downThenEmiAmounts(total, downPct, emiCount) {
   const centsTotal = Math.round((parseFloat(total) || 0) * 100);
-  if (centsTotal <= 0) return Array(10).fill(0);
-  const monthly = Math.floor(centsTotal / 12);
-  const quarter = monthly * 3;
-  const amounts = [quarter, ...Array(9).fill(monthly)];
-  amounts[0] += centsTotal - amounts.reduce((a, b) => a + b, 0);
-  return amounts.map((c) => c / 100);
+  const nEmi = clampEmiCount(emiCount);
+  if (centsTotal <= 0) return Array(1 + nEmi).fill(0);
+  const pct = clampDownPct(downPct);
+  let downCents = Math.round(centsTotal * pct / 100);
+  downCents = Math.max(1, Math.min(centsTotal - nEmi, downCents));
+  const remainder = centsTotal - downCents;
+  const base = Math.floor(remainder / nEmi);
+  const extra = remainder % nEmi;
+  const emis = Array.from({ length: nEmi }, (_, i) => base + (i < extra ? 1 : 0));
+  return [downCents, ...emis].map((c) => c / 100);
 }
 
-function buildInstallmentPreview(amount, numInstallments, plan) {
-  if ((plan || 'equal') === 'quarter_then_monthly') {
-    return quarterPlusNineMonthlyAmounts(amount);
+function quarterPlusNineMonthlyAmounts(total) {
+  return downThenEmiAmounts(total, 25, 9);
+}
+
+function buildInstallmentPreview(amount, opts = {}) {
+  const plan = opts.plan || 'equal';
+  if (plan === 'quarter_then_monthly') return quarterPlusNineMonthlyAmounts(amount);
+  if (plan === 'down_then_emi') {
+    return downThenEmiAmounts(amount, opts.downPct, opts.emiCount);
   }
-  return splitInstallmentAmounts(amount, numInstallments);
+  return splitInstallmentAmounts(amount, opts.numInstallments);
 }
 
-function installmentPartLabel(plan, index) {
-  if ((plan || 'equal') === 'quarter_then_monthly') {
-    if (index === 0) return 'Q1 (3 mo)';
-    return `Mo ${index}`;
+function isDownEmiPlan(plan) {
+  return plan === 'down_then_emi' || plan === 'quarter_then_monthly';
+}
+
+function installmentPartLabel(plan, index, downPct) {
+  if (isDownEmiPlan(plan)) {
+    if (index === 0) {
+      const pct = plan === 'quarter_then_monthly' ? 25 : clampDownPct(downPct);
+      return `Down ${pct}%`;
+    }
+    return `EMI ${index}`;
   }
   return `#${index + 1}`;
+}
+
+function installmentPlanSummary(req) {
+  const plan = (req?.installment_plan || 'equal').toLowerCase();
+  if (plan === 'quarter_then_monthly') return '25% down + 9 EMI';
+  if (plan === 'down_then_emi') {
+    return `${clampDownPct(req?.installment_down_pct)}% down + ${clampEmiCount(req?.installment_emi_count)} EMI`;
+  }
+  return '';
 }
 
 function checkoutAmountDue(req) {
@@ -94,7 +133,12 @@ function checkoutAmountDue(req) {
   const amounts = req.installment_amounts || [];
   if (amounts.length > paid && amounts[paid] != null) return Number(amounts[paid]) || 0;
   const total = parseFloat(req.amount) || 0;
-  const parts = buildInstallmentPreview(total, req.num_installments, req.installment_plan);
+  const parts = buildInstallmentPreview(total, {
+    plan: req.installment_plan,
+    numInstallments: req.num_installments,
+    downPct: req.installment_down_pct,
+    emiCount: req.installment_emi_count,
+  });
   return parts[paid] ?? parts[0] ?? total;
 }
 
@@ -109,8 +153,8 @@ function installmentSummary(req) {
   const total = req.num_installments || req.installment_amounts?.length || 0;
   if (!total) return '';
   const plan = (req.installment_plan || 'equal').toLowerCase();
-  const planTag = plan === 'quarter_then_monthly' ? 'Annual EMI · ' : '';
-  return `${planTag}${paid}/${total} installments`;
+  const planTag = installmentPlanSummary(req);
+  return planTag ? `${planTag} · ${paid}/${total} paid` : `${paid}/${total} installments`;
 }
 
 function formatProgramYmd(iso) {
@@ -812,9 +856,17 @@ export default function PaymentRequestsTab() {
       payload.installments_enabled = !!form.installments_enabled;
       if (form.installments_enabled) {
         payload.installment_plan = form.installment_plan || 'equal';
-        payload.num_installments = form.installment_plan === 'quarter_then_monthly'
-          ? 10
-          : (parseInt(form.num_installments, 10) || 3);
+        if (form.installment_plan === 'quarter_then_monthly') {
+          payload.installment_down_pct = 25;
+          payload.installment_emi_count = 9;
+          payload.num_installments = 10;
+        } else if (form.installment_plan === 'down_then_emi') {
+          payload.installment_down_pct = clampDownPct(form.installment_down_pct);
+          payload.installment_emi_count = clampEmiCount(form.installment_emi_count);
+          payload.num_installments = 1 + payload.installment_emi_count;
+        } else {
+          payload.num_installments = parseInt(form.num_installments, 10) || 3;
+        }
       }
       await axios.post(`${API}/payment-requests`, payload, { headers: adminHeaders() });
       toast({ title: 'Payment link created!' });
@@ -894,9 +946,16 @@ export default function PaymentRequestsTab() {
   });
 
   const installmentPreviewParts = form.installments_enabled && form.amount
-    ? buildInstallmentPreview(form.amount, form.num_installments, form.installment_plan)
+    ? buildInstallmentPreview(form.amount, {
+      plan: form.installment_plan,
+      numInstallments: form.num_installments,
+      downPct: form.installment_down_pct,
+      emiCount: form.installment_emi_count,
+    })
     : [];
   const showAnnualEmiPlan = isAnnualPaymentLinkContext(form.link_kind, selectedTier, selectedAnnualPackage);
+  const showDownEmiFields = form.installment_plan === 'down_then_emi';
+  const hideEqualCount = isDownEmiPlan(form.installment_plan);
 
   return (
     <div className="space-y-6">
@@ -1205,30 +1264,65 @@ export default function PaymentRequestsTab() {
                 </label>
                 {form.installments_enabled && (
                   <div className="grid sm:grid-cols-2 gap-3">
-                    {showAnnualEmiPlan && (
-                      <div className="sm:col-span-2">
-                        <Label className="text-xs">Installment schedule</Label>
-                        <select
-                          value={form.installment_plan || 'equal'}
-                          onChange={(e) => {
-                            const plan = e.target.value;
-                            setForm((f) => ({
-                              ...f,
-                              installment_plan: plan,
-                              num_installments: plan === 'quarter_then_monthly' ? '10' : f.num_installments,
-                            }));
-                          }}
-                          className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
-                        >
-                          <option value="equal">Equal installments</option>
-                          <option value="quarter_then_monthly">Annual EMI — 1 quarter, then 9 monthly (10 payments)</option>
-                        </select>
-                        <p className="text-[10px] text-gray-500 mt-1">
-                          First payment covers 3 months; payments 2–10 are equal monthly shares of the remaining 9 months.
+                    <div className="sm:col-span-2">
+                      <Label className="text-xs">Installment schedule</Label>
+                      <select
+                        value={form.installment_plan || 'equal'}
+                        onChange={(e) => {
+                          const plan = e.target.value;
+                          setForm((f) => ({
+                            ...f,
+                            installment_plan: plan,
+                            num_installments: plan === 'quarter_then_monthly'
+                              ? '10'
+                              : plan === 'down_then_emi'
+                                ? String(1 + clampEmiCount(f.installment_emi_count))
+                                : f.num_installments,
+                          }));
+                        }}
+                        className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                      >
+                        <option value="equal">Equal installments</option>
+                        <option value="down_then_emi">Down payment % + EMI</option>
+                        {showAnnualEmiPlan && (
+                          <option value="quarter_then_monthly">Annual preset — 25% down + 9 monthly</option>
+                        )}
+                      </select>
+                    </div>
+                    {showDownEmiFields && (
+                      <>
+                        <div>
+                          <Label className="text-xs">Down payment %</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="90"
+                            step="1"
+                            value={form.installment_down_pct}
+                            onChange={(e) => set('installment_down_pct', e.target.value)}
+                            className="mt-1"
+                            placeholder="25"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">EMI payments (after down)</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="11"
+                            step="1"
+                            value={form.installment_emi_count}
+                            onChange={(e) => set('installment_emi_count', e.target.value)}
+                            className="mt-1"
+                            placeholder="9"
+                          />
+                        </div>
+                        <p className="sm:col-span-2 text-[10px] text-gray-500">
+                          {clampDownPct(form.installment_down_pct)}% due first, then {clampEmiCount(form.installment_emi_count)} equal EMIs on the balance ({1 + clampEmiCount(form.installment_emi_count)} payments total).
                         </p>
-                      </div>
+                      </>
                     )}
-                    {form.installment_plan !== 'quarter_then_monthly' && (
+                    {!hideEqualCount && (
                       <div>
                         <Label className="text-xs">Number of installments</Label>
                         <select
@@ -1243,13 +1337,13 @@ export default function PaymentRequestsTab() {
                       </div>
                     )}
                     {installmentPreviewParts.length > 0 && (
-                      <div className={`text-[10px] text-amber-900 ${form.installment_plan === 'quarter_then_monthly' ? 'sm:col-span-2' : ''}`}>
+                      <div className={`text-[10px] text-amber-900 ${hideEqualCount ? 'sm:col-span-2' : ''}`}>
                         <p className="font-medium mb-1">Payment schedule</p>
                         <p className="font-mono leading-relaxed">
                           {installmentPreviewParts.map((a, i) => (
                             <span key={i}>
                               {i > 0 ? ' · ' : ''}
-                              {installmentPartLabel(form.installment_plan, i)} {CUR_SYMBOL[form.currency]}{a.toLocaleString()}
+                              {installmentPartLabel(form.installment_plan, i, form.installment_down_pct)} {CUR_SYMBOL[form.currency]}{a.toLocaleString()}
                             </span>
                           ))}
                         </p>
@@ -1297,8 +1391,8 @@ export default function PaymentRequestsTab() {
                 <span className="font-bold">{CUR_SYMBOL[form.currency]}{parseFloat(form.amount || 0).toLocaleString()}</span>
                 {form.installments_enabled && installmentPreviewParts.length > 0 && (
                   <span className="block mt-1 text-amber-800">
-                    {form.installment_plan === 'quarter_then_monthly'
-                      ? `Annual EMI: 1 quarter + 9 monthly · first payment ${CUR_SYMBOL[form.currency]}${installmentPreviewParts[0].toLocaleString()}`
+                    {isDownEmiPlan(form.installment_plan)
+                      ? `${installmentPlanSummary({ installment_plan: form.installment_plan, installment_down_pct: form.installment_down_pct, installment_emi_count: form.installment_emi_count })} · first ${CUR_SYMBOL[form.currency]}${installmentPreviewParts[0].toLocaleString()}`
                       : `${form.num_installments} installments via Stripe · first payment ${CUR_SYMBOL[form.currency]}${installmentPreviewParts[0].toLocaleString()}`}
                   </span>
                 )}
