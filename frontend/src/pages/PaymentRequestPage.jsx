@@ -19,9 +19,8 @@ function formatBatchYmd(iso) {
 function installmentStepLabel(req, n) {
   const plan = (req?.installment_plan || 'equal').toLowerCase();
   if (plan === 'quarter_then_monthly') {
-    if (n === 1) return 'Down payment (25%)';
-    const emiTotal = req?.installment_emi_count || 9;
-    return `EMI ${n - 1} of ${emiTotal}`;
+    if (n === 1) return 'EMI 1 (25%)';
+    return `EMI ${n} of 10`;
   }
   if (plan === 'down_then_emi') {
     if (n === 1) {
@@ -36,7 +35,9 @@ function installmentStepLabel(req, n) {
 
 function installmentScheduleHint(req) {
   const plan = (req?.installment_plan || 'equal').toLowerCase();
-  if (plan === 'quarter_then_monthly') return '25% down payment, then 9 equal monthly EMIs';
+  if (plan === 'quarter_then_monthly') {
+    return 'EMI 1 is 25% of total; EMIs 2–10 split the remaining 75% equally';
+  }
   if (plan === 'down_then_emi') {
     const pct = req?.installment_down_pct != null ? Number(req.installment_down_pct) : 25;
     const emi = req?.installment_emi_count || 9;

@@ -108,10 +108,13 @@ function isDownEmiPlan(plan) {
 }
 
 function installmentPartLabel(plan, index, downPct) {
-  if (isDownEmiPlan(plan)) {
+  if (plan === 'quarter_then_monthly') {
+    if (index === 0) return 'EMI 1 (25%)';
+    return `EMI ${index + 1}`;
+  }
+  if (plan === 'down_then_emi') {
     if (index === 0) {
-      const pct = plan === 'quarter_then_monthly' ? 25 : clampDownPct(downPct);
-      return `Down ${pct}%`;
+      return `Down ${clampDownPct(downPct)}%`;
     }
     return `EMI ${index}`;
   }
@@ -120,11 +123,15 @@ function installmentPartLabel(plan, index, downPct) {
 
 function installmentPlanSummary(req) {
   const plan = (req?.installment_plan || 'equal').toLowerCase();
-  if (plan === 'quarter_then_monthly') return '25% down + 9 EMI';
+  if (plan === 'quarter_then_monthly') return 'Annual EMI · 25% + 9 monthly';
   if (plan === 'down_then_emi') {
     return `${clampDownPct(req?.installment_down_pct)}% down + ${clampEmiCount(req?.installment_emi_count)} EMI`;
   }
   return '';
+}
+
+function isAnnualEmiPlan(plan) {
+  return (plan || '') === 'quarter_then_monthly';
 }
 
 function checkoutAmountDue(req) {
@@ -245,6 +252,16 @@ function isAnnualPaymentLinkContext(linkKind, selectedTier, selectedAnnualPackag
   if (linkKind === 'annual_package' && selectedAnnualPackage) return true;
   if (linkKind === 'program' && selectedTier && isAnnualProgramTier(selectedTier)) return true;
   return false;
+}
+
+function annualEmiInstallmentPatch(installmentsEnabled) {
+  if (!installmentsEnabled) return {};
+  return {
+    installment_plan: 'quarter_then_monthly',
+    num_installments: '10',
+    installment_down_pct: '25',
+    installment_emi_count: '9',
+  };
 }
 
 function tierDurationMonths(tier) {
@@ -757,12 +774,14 @@ export default function PaymentRequestsTab() {
       return;
     }
     const price = tierPrice(tier, selectedProgram, form.currency);
+    const annualEmi = isAnnualProgramTier(tier);
     setForm((f) => ({
       ...f,
       tier_index: tierIndex,
       custom_batch_start: '',
       amount: price > 0 ? String(price) : f.amount,
       title: f.title.trim() || programLinkTitle(selectedProgram, tier, ''),
+      ...(annualEmi && f.installments_enabled ? annualEmiInstallmentPatch(true) : {}),
     }));
   };
 
@@ -804,6 +823,7 @@ export default function PaymentRequestsTab() {
       session_date: '',
       title: f.title.trim() || `${name} — annual membership`,
       amount: price > 0 ? String(price) : f.amount,
+      ...(f.installments_enabled ? annualEmiInstallmentPatch(true) : {}),
     }));
   };
 
@@ -855,12 +875,15 @@ export default function PaymentRequestsTab() {
       }
       payload.installments_enabled = !!form.installments_enabled;
       if (form.installments_enabled) {
-        payload.installment_plan = form.installment_plan || 'equal';
-        if (form.installment_plan === 'quarter_then_monthly') {
+        const annualCtx = isAnnualPaymentLinkContext(form.link_kind, selectedTier, selectedAnnualPackage);
+        let plan = form.installment_plan || (annualCtx ? 'quarter_then_monthly' : 'equal');
+        if (annualCtx && plan === 'down_then_emi') plan = 'quarter_then_monthly';
+        payload.installment_plan = plan;
+        if (plan === 'quarter_then_monthly') {
           payload.installment_down_pct = 25;
           payload.installment_emi_count = 9;
           payload.num_installments = 10;
-        } else if (form.installment_plan === 'down_then_emi') {
+        } else if (plan === 'down_then_emi') {
           payload.installment_down_pct = clampDownPct(form.installment_down_pct);
           payload.installment_emi_count = clampEmiCount(form.installment_emi_count);
           payload.num_installments = 1 + payload.installment_emi_count;
@@ -954,7 +977,7 @@ export default function PaymentRequestsTab() {
     })
     : [];
   const showAnnualEmiPlan = isAnnualPaymentLinkContext(form.link_kind, selectedTier, selectedAnnualPackage);
-  const showDownEmiFields = form.installment_plan === 'down_then_emi';
+  const showDownEmiFields = !showAnnualEmiPlan && form.installment_plan === 'down_then_emi';
   const hideEqualCount = isDownEmiPlan(form.installment_plan);
 
   return (
@@ -1254,7 +1277,19 @@ export default function PaymentRequestsTab() {
                   <input
                     type="checkbox"
                     checked={!!form.installments_enabled}
-                    onChange={(e) => set('installments_enabled', e.target.checked)}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      const annual = isAnnualPaymentLinkContext(
+                        form.link_kind,
+                        selectedTier,
+                        selectedAnnualPackage,
+                      );
+                      setForm((f) => ({
+                        ...f,
+                        installments_enabled: enabled,
+                        ...(annual && enabled ? annualEmiInstallmentPatch(true) : {}),
+                      }));
+                    }}
                     className="mt-0.5"
                   />
                   <span>
@@ -1282,12 +1317,23 @@ export default function PaymentRequestsTab() {
                         }}
                         className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
                       >
-                        <option value="equal">Equal installments</option>
-                        <option value="down_then_emi">Down payment % + EMI</option>
-                        {showAnnualEmiPlan && (
-                          <option value="quarter_then_monthly">Annual preset — 25% down + 9 monthly</option>
+                        {showAnnualEmiPlan ? (
+                          <>
+                            <option value="quarter_then_monthly">Annual EMI — 25% first, then 9 EMIs on balance</option>
+                            <option value="equal">Equal installments</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value="equal">Equal installments</option>
+                            <option value="down_then_emi">Down payment % + EMI</option>
+                          </>
                         )}
                       </select>
+                      {showAnnualEmiPlan && isAnnualEmiPlan(form.installment_plan) && (
+                        <p className="text-[10px] text-gray-500 mt-1">
+                          EMI 1 is 25% of the total; EMIs 2–10 split the remaining 75% equally (10 payments via Stripe).
+                        </p>
+                      )}
                     </div>
                     {showDownEmiFields && (
                       <>
@@ -1391,9 +1437,11 @@ export default function PaymentRequestsTab() {
                 <span className="font-bold">{CUR_SYMBOL[form.currency]}{parseFloat(form.amount || 0).toLocaleString()}</span>
                 {form.installments_enabled && installmentPreviewParts.length > 0 && (
                   <span className="block mt-1 text-amber-800">
-                    {isDownEmiPlan(form.installment_plan)
-                      ? `${installmentPlanSummary({ installment_plan: form.installment_plan, installment_down_pct: form.installment_down_pct, installment_emi_count: form.installment_emi_count })} · first ${CUR_SYMBOL[form.currency]}${installmentPreviewParts[0].toLocaleString()}`
-                      : `${form.num_installments} installments via Stripe · first payment ${CUR_SYMBOL[form.currency]}${installmentPreviewParts[0].toLocaleString()}`}
+                    {isAnnualEmiPlan(form.installment_plan)
+                      ? `Annual EMI · first ${CUR_SYMBOL[form.currency]}${installmentPreviewParts[0].toLocaleString()} (25%), then 9 EMIs on balance`
+                      : isDownEmiPlan(form.installment_plan)
+                        ? `${installmentPlanSummary({ installment_plan: form.installment_plan, installment_down_pct: form.installment_down_pct, installment_emi_count: form.installment_emi_count })} · first ${CUR_SYMBOL[form.currency]}${installmentPreviewParts[0].toLocaleString()}`
+                        : `${form.num_installments} installments via Stripe · first payment ${CUR_SYMBOL[form.currency]}${installmentPreviewParts[0].toLocaleString()}`}
                   </span>
                 )}
                 {form.link_kind === 'program' && programBatch.start && (
