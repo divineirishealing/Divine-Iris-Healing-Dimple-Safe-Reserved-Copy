@@ -16,6 +16,15 @@ function formatBatchYmd(iso) {
   return formatDateDMonYyyyUpper(iso) || '';
 }
 
+function installmentStepLabel(req, n) {
+  const plan = (req?.installment_plan || 'equal').toLowerCase();
+  if (plan === 'quarter_then_monthly') {
+    if (n === 1) return 'Quarter (3 months)';
+    return `Monthly ${n - 1} of 9`;
+  }
+  return `Installment ${n}`;
+}
+
 function paymentCatalogLine(req) {
   if (!req?.item_type) return '';
   const parts = [];
@@ -207,6 +216,8 @@ export default function PaymentRequestPage() {
   const instCurrent = req.installment_current || 1;
   const instTotal = req.num_installments || 1;
   const instPaid = req.installments_paid || 0;
+  const instStepLabel = installmentStepLabel(req, instCurrent);
+  const isAnnualEmi = (req.installment_plan || '').toLowerCase() === 'quarter_then_monthly';
 
   return (
     <>
@@ -236,8 +247,13 @@ export default function PaymentRequestPage() {
                   <>
                     {symbol}{Number(checkoutAmount).toLocaleString()}
                     <span className="block text-sm font-medium text-white/70 mt-1">
-                      Installment {instCurrent} of {instTotal}
+                      {instStepLabel} · {instCurrent} of {instTotal}
                     </span>
+                    {isAnnualEmi && (
+                      <span className="block text-[10px] font-normal text-white/45 mt-0.5">
+                        Annual EMI — 1 quarter then 9 monthly payments
+                      </span>
+                    )}
                     <span className="block text-[10px] font-normal text-white/50 mt-0.5">
                       Total {symbol}{Number(req.total_amount ?? req.amount).toLocaleString()}
                       {instPaid > 0 ? ` · ${instPaid} paid` : ''}
@@ -291,7 +307,7 @@ export default function PaymentRequestPage() {
                     <>
                       <CreditCard size={16} />
                       {showInstallments
-                        ? `Pay installment ${instCurrent} of ${instTotal} · ${symbol}${Number(checkoutAmount).toLocaleString()}`
+                        ? `Pay ${instStepLabel.toLowerCase()} · ${symbol}${Number(checkoutAmount).toLocaleString()}`
                         : `Pay with Stripe · ${symbol}${Number(checkoutAmount).toLocaleString()}`}
                     </>
                   )}

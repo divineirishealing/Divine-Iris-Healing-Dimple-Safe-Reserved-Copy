@@ -51,7 +51,7 @@ const BLANK = {
   title: '', description: '', amount: '', currency: 'aed',
   recipient_name: '', recipient_email: '', note: '',
   link_kind: '', item_id: '', tier_index: '', session_date: '', custom_batch_start: '',
-  installments_enabled: false, num_installments: '3',
+  installments_enabled: false, num_installments: '3', installment_plan: 'equal',
 };
 
 function splitInstallmentAmounts(total, n) {
@@ -63,14 +63,38 @@ function splitInstallmentAmounts(total, n) {
   return Array.from({ length: count }, (_, i) => (base + (i < extra ? 1 : 0)) / 100);
 }
 
+function quarterPlusNineMonthlyAmounts(total) {
+  const centsTotal = Math.round((parseFloat(total) || 0) * 100);
+  if (centsTotal <= 0) return Array(10).fill(0);
+  const monthly = Math.floor(centsTotal / 12);
+  const quarter = monthly * 3;
+  const amounts = [quarter, ...Array(9).fill(monthly)];
+  amounts[0] += centsTotal - amounts.reduce((a, b) => a + b, 0);
+  return amounts.map((c) => c / 100);
+}
+
+function buildInstallmentPreview(amount, numInstallments, plan) {
+  if ((plan || 'equal') === 'quarter_then_monthly') {
+    return quarterPlusNineMonthlyAmounts(amount);
+  }
+  return splitInstallmentAmounts(amount, numInstallments);
+}
+
+function installmentPartLabel(plan, index) {
+  if ((plan || 'equal') === 'quarter_then_monthly') {
+    if (index === 0) return 'Q1 (3 mo)';
+    return `Mo ${index}`;
+  }
+  return `#${index + 1}`;
+}
+
 function checkoutAmountDue(req) {
   if (!req?.installments_enabled) return parseFloat(req?.amount) || 0;
   const paid = req.installments_paid ?? (req.installment_payments?.length || 0);
   const amounts = req.installment_amounts || [];
-  if (amounts[paid] != null) return Number(amounts[paid]) || 0;
+  if (amounts.length > paid && amounts[paid] != null) return Number(amounts[paid]) || 0;
   const total = parseFloat(req.amount) || 0;
-  const n = req.num_installments || 2;
-  const parts = splitInstallmentAmounts(total, n);
+  const parts = buildInstallmentPreview(total, req.num_installments, req.installment_plan);
   return parts[paid] ?? parts[0] ?? total;
 }
 
@@ -84,7 +108,9 @@ function installmentSummary(req) {
   const paid = req.installments_paid ?? (req.installment_payments?.length || 0);
   const total = req.num_installments || req.installment_amounts?.length || 0;
   if (!total) return '';
-  return `${paid}/${total} installments`;
+  const plan = (req.installment_plan || 'equal').toLowerCase();
+  const planTag = plan === 'quarter_then_monthly' ? 'Annual EMI · ' : '';
+  return `${planTag}${paid}/${total} installments`;
 }
 
 function formatProgramYmd(iso) {
@@ -169,6 +195,12 @@ function isAnnualProgramTier(tier) {
   if (!tier) return false;
   const label = (tier.label || '').toLowerCase();
   return label.includes('annual') || label.includes('year') || tier.duration_unit === 'year';
+}
+
+function isAnnualPaymentLinkContext(linkKind, selectedTier, selectedAnnualPackage) {
+  if (linkKind === 'annual_package' && selectedAnnualPackage) return true;
+  if (linkKind === 'program' && selectedTier && isAnnualProgramTier(selectedTier)) return true;
+  return false;
 }
 
 function tierDurationMonths(tier) {
@@ -779,7 +811,10 @@ export default function PaymentRequestsTab() {
       }
       payload.installments_enabled = !!form.installments_enabled;
       if (form.installments_enabled) {
-        payload.num_installments = parseInt(form.num_installments, 10) || 3;
+        payload.installment_plan = form.installment_plan || 'equal';
+        payload.num_installments = form.installment_plan === 'quarter_then_monthly'
+          ? 10
+          : (parseInt(form.num_installments, 10) || 3);
       }
       await axios.post(`${API}/payment-requests`, payload, { headers: adminHeaders() });
       toast({ title: 'Payment link created!' });
@@ -859,8 +894,9 @@ export default function PaymentRequestsTab() {
   });
 
   const installmentPreviewParts = form.installments_enabled && form.amount
-    ? splitInstallmentAmounts(form.amount, form.num_installments)
+    ? buildInstallmentPreview(form.amount, form.num_installments, form.installment_plan)
     : [];
+  const showAnnualEmiPlan = isAnnualPaymentLinkContext(form.link_kind, selectedTier, selectedAnnualPackage);
 
   return (
     <div className="space-y-6">
@@ -1169,26 +1205,51 @@ export default function PaymentRequestsTab() {
                 </label>
                 {form.installments_enabled && (
                   <div className="grid sm:grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs">Number of installments</Label>
-                      <select
-                        value={form.num_installments}
-                        onChange={(e) => set('num_installments', e.target.value)}
-                        className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
-                      >
-                        {[2, 3, 4, 5, 6, 8, 10, 12].map((n) => (
-                          <option key={n} value={String(n)}>{n} payments</option>
-                        ))}
-                      </select>
-                    </div>
+                    {showAnnualEmiPlan && (
+                      <div className="sm:col-span-2">
+                        <Label className="text-xs">Installment schedule</Label>
+                        <select
+                          value={form.installment_plan || 'equal'}
+                          onChange={(e) => {
+                            const plan = e.target.value;
+                            setForm((f) => ({
+                              ...f,
+                              installment_plan: plan,
+                              num_installments: plan === 'quarter_then_monthly' ? '10' : f.num_installments,
+                            }));
+                          }}
+                          className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                        >
+                          <option value="equal">Equal installments</option>
+                          <option value="quarter_then_monthly">Annual EMI — 1 quarter, then 9 monthly (10 payments)</option>
+                        </select>
+                        <p className="text-[10px] text-gray-500 mt-1">
+                          First payment covers 3 months; payments 2–10 are equal monthly shares of the remaining 9 months.
+                        </p>
+                      </div>
+                    )}
+                    {form.installment_plan !== 'quarter_then_monthly' && (
+                      <div>
+                        <Label className="text-xs">Number of installments</Label>
+                        <select
+                          value={form.num_installments}
+                          onChange={(e) => set('num_installments', e.target.value)}
+                          className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                        >
+                          {[2, 3, 4, 5, 6, 8, 10, 12].map((n) => (
+                            <option key={n} value={String(n)}>{n} payments</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     {installmentPreviewParts.length > 0 && (
-                      <div className="text-[10px] text-amber-900">
-                        <p className="font-medium mb-1">Each installment (approx.)</p>
-                        <p className="font-mono">
+                      <div className={`text-[10px] text-amber-900 ${form.installment_plan === 'quarter_then_monthly' ? 'sm:col-span-2' : ''}`}>
+                        <p className="font-medium mb-1">Payment schedule</p>
+                        <p className="font-mono leading-relaxed">
                           {installmentPreviewParts.map((a, i) => (
                             <span key={i}>
                               {i > 0 ? ' · ' : ''}
-                              #{i + 1} {CUR_SYMBOL[form.currency]}{a.toLocaleString()}
+                              {installmentPartLabel(form.installment_plan, i)} {CUR_SYMBOL[form.currency]}{a.toLocaleString()}
                             </span>
                           ))}
                         </p>
@@ -1236,7 +1297,9 @@ export default function PaymentRequestsTab() {
                 <span className="font-bold">{CUR_SYMBOL[form.currency]}{parseFloat(form.amount || 0).toLocaleString()}</span>
                 {form.installments_enabled && installmentPreviewParts.length > 0 && (
                   <span className="block mt-1 text-amber-800">
-                    {form.num_installments} installments via Stripe · first payment {CUR_SYMBOL[form.currency]}{installmentPreviewParts[0].toLocaleString()}
+                    {form.installment_plan === 'quarter_then_monthly'
+                      ? `Annual EMI: 1 quarter + 9 monthly · first payment ${CUR_SYMBOL[form.currency]}${installmentPreviewParts[0].toLocaleString()}`
+                      : `${form.num_installments} installments via Stripe · first payment ${CUR_SYMBOL[form.currency]}${installmentPreviewParts[0].toLocaleString()}`}
                   </span>
                 )}
                 {form.link_kind === 'program' && programBatch.start && (

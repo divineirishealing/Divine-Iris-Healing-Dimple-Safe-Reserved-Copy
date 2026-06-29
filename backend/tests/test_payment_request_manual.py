@@ -1,4 +1,8 @@
-from routes.payment_requests import MANUAL_PAYMENT_METHODS, _checkout_state_for_row
+from routes.payment_requests import (
+    MANUAL_PAYMENT_METHODS,
+    _checkout_state_for_row,
+    _quarter_plus_nine_monthly_amounts,
+)
 
 
 def test_manual_payment_methods_include_gpay_cash():
@@ -11,3 +15,25 @@ def test_checkout_state_single_payment():
     row = {"amount": 100, "installments_enabled": False, "status": "active"}
     state = _checkout_state_for_row(row)
     assert state["checkout_amount"] == 100
+
+
+def test_quarter_plus_nine_monthly_splits_twelve_months():
+    amounts = _quarter_plus_nine_monthly_amounts(1200.0)
+    assert len(amounts) == 10
+    assert amounts[0] == 300.0
+    assert amounts[1] == 100.0
+    assert sum(amounts) == 1200.0
+
+
+def test_checkout_state_annual_emi_first_is_quarter():
+    row = {
+        "amount": 1200,
+        "installments_enabled": True,
+        "installment_plan": "quarter_then_monthly",
+        "num_installments": 10,
+        "installment_amounts": _quarter_plus_nine_monthly_amounts(1200),
+        "installments_paid": 0,
+    }
+    state = _checkout_state_for_row(row)
+    assert state["checkout_amount"] == 300.0
+    assert state["num_installments"] == 10

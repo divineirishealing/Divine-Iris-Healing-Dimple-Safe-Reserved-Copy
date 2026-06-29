@@ -80,6 +80,10 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+INSTALLMENT_PLANS = frozenset({"equal", "quarter_then_monthly"})
+ANNUAL_QUARTER_THEN_MONTHLY_COUNT = 10
+
+
 def _split_installment_amounts(total: float, n: int) -> List[float]:
     """Split total into *n* installments (remainder cents on earliest payments)."""
     n = max(2, min(12, int(n)))
@@ -91,13 +95,33 @@ def _split_installment_amounts(total: float, n: int) -> List[float]:
     return [round((base + (1 if i < extra else 0)) / 100.0, 2) for i in range(n)]
 
 
+def _quarter_plus_nine_monthly_amounts(total: float) -> List[float]:
+    """Annual EMI: payment 1 = one quarter (3 months), payments 2–10 = nine monthly shares."""
+    cents_total = int(round(float(total) * 100))
+    if cents_total <= 0:
+        return [0.0] * ANNUAL_QUARTER_THEN_MONTHLY_COUNT
+    monthly = cents_total // 12
+    quarter = monthly * 3
+    amounts = [quarter] + [monthly] * 9
+    amounts[0] += cents_total - sum(amounts)
+    return [round(c / 100.0, 2) for c in amounts]
+
+
+def _installment_amounts_for_plan(total: float, plan: str, num_installments: int) -> List[float]:
+    p = (plan or "equal").strip().lower()
+    if p == "quarter_then_monthly":
+        return _quarter_plus_nine_monthly_amounts(total)
+    return _split_installment_amounts(total, num_installments)
+
+
 def _installment_amounts_for_row(row: dict) -> List[float]:
     stored = row.get("installment_amounts") or []
     if isinstance(stored, list) and len(stored) >= 2:
         return [round(float(x), 2) for x in stored]
     if row.get("installments_enabled"):
+        plan = (row.get("installment_plan") or "equal").strip().lower()
         n = int(row.get("num_installments") or 2)
-        return _split_installment_amounts(float(row.get("amount") or 0), n)
+        return _installment_amounts_for_plan(float(row.get("amount") or 0), plan, n)
     return [round(float(row.get("amount") or 0), 2)]
 
 
@@ -183,6 +207,7 @@ class CreatePaymentRequestBody(BaseModel):
     session_date: Optional[str] = ""
     installments_enabled: Optional[bool] = False
     num_installments: Optional[int] = None
+    installment_plan: Optional[str] = "equal"  # equal | quarter_then_monthly
 
 
 class UpdatePaymentRequestBody(BaseModel):
@@ -204,6 +229,7 @@ class UpdatePaymentRequestBody(BaseModel):
     session_date: Optional[str] = None
     installments_enabled: Optional[bool] = None
     num_installments: Optional[int] = None
+    installment_plan: Optional[str] = None
 
 
 class RazorpayVerifyBody(BaseModel):
@@ -242,12 +268,17 @@ async def create_payment_request(body: CreatePaymentRequestBody, request: Reques
     if item_type not in ("program", "session", "annual_package", ""):
         item_type = ""
     installments_enabled = bool(body.installments_enabled)
+    installment_plan = (body.installment_plan or "equal").strip().lower()
+    if installment_plan not in INSTALLMENT_PLANS:
+        installment_plan = "equal"
     num_installments = int(body.num_installments or 2) if installments_enabled else 1
     if installments_enabled:
-        if num_installments < 2 or num_installments > 12:
+        if installment_plan == "quarter_then_monthly":
+            num_installments = ANNUAL_QUARTER_THEN_MONTHLY_COUNT
+        elif num_installments < 2 or num_installments > 12:
             raise HTTPException(400, "Installments must be between 2 and 12")
     installment_amounts = (
-        _split_installment_amounts(round(body.amount, 2), num_installments)
+        _installment_amounts_for_plan(round(body.amount, 2), installment_plan, num_installments)
         if installments_enabled
         else []
     )
@@ -269,6 +300,7 @@ async def create_payment_request(body: CreatePaymentRequestBody, request: Reques
         "chosen_tier_label": (body.chosen_tier_label or "").strip(),
         "session_date": (body.session_date or "").strip()[:10],
         "installments_enabled": installments_enabled,
+        "installment_plan": installment_plan if installments_enabled else "equal",
         "num_installments": num_installments if installments_enabled else 1,
         "installment_amounts": installment_amounts,
         "installments_paid": 0,
