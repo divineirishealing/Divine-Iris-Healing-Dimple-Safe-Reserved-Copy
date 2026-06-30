@@ -180,33 +180,30 @@ function shiftCalendarMonths(year, month0, delta) {
   return { y: yy, m0: mm };
 }
 
+function homeComingInstallmentDueYmd(startYmd, installmentIndex0, mode) {
+  if (!startYmd || !/^\d{4}-\d{2}-\d{2}$/.test(startYmd)) return '';
+  const [ys, ms] = startYmd.split('-').map(Number);
+  let offsetMonths = HOME_COMING_EMI_FIRST_MONTH_OFFSET;
+  if (mode === 'emi_monthly') offsetMonths = HOME_COMING_EMI_FIRST_MONTH_OFFSET + installmentIndex0;
+  else if (mode === 'emi_quarterly') offsetMonths = HOME_COMING_EMI_FIRST_MONTH_OFFSET + installmentIndex0 * 3;
+  else offsetMonths = HOME_COMING_EMI_FIRST_MONTH_OFFSET + installmentIndex0 * 12;
+  const { y, m0 } = shiftCalendarMonths(ys, ms - 1, offsetMonths);
+  return utcYmdWithDom(y, m0, HOME_COMING_EMI_DUE_DOM);
+}
+
 function buildEmiPreview(mode, total, startYmd, durationMonths) {
   if (!total || total <= 0 || mode === 'full' || mode === 'emi_flexi') return [];
   const n = emiInstallmentCount(mode, durationMonths);
   const amounts = splitAmountsEqually(total, n);
-  let startY;
-  let startM0;
-  if (startYmd && /^\d{4}-\d{2}-\d{2}$/.test(startYmd)) {
-    const [ys, ms] = startYmd.split('-').map(Number);
-    startY = ys;
-    startM0 = ms - 1;
-  } else {
-    const now = new Date();
-    now.setHours(12, 0, 0, 0);
-    startY = now.getFullYear();
-    startM0 = now.getMonth();
-  }
+  const basisYmd =
+    startYmd && /^\d{4}-\d{2}-\d{2}$/.test(startYmd)
+      ? anchorHomeComingBundleStartYmd(startYmd)
+      : new Date().toISOString().slice(0, 10);
   const out = [];
   for (let i = 0; i < n; i += 1) {
-    let offsetMonths = HOME_COMING_EMI_FIRST_MONTH_OFFSET;
-    if (mode === 'emi_monthly') offsetMonths = HOME_COMING_EMI_FIRST_MONTH_OFFSET + i;
-    else if (mode === 'emi_quarterly') offsetMonths = HOME_COMING_EMI_FIRST_MONTH_OFFSET + i * 3;
-    else offsetMonths = HOME_COMING_EMI_FIRST_MONTH_OFFSET + i * 12;
-    const { y, m0 } = shiftCalendarMonths(startY, startM0, offsetMonths);
-    const due = utcYmdWithDom(y, m0, HOME_COMING_EMI_DUE_DOM);
     out.push({
       n: i + 1,
-      due,
+      due: homeComingInstallmentDueYmd(basisYmd, i, mode),
       amount: amounts[i] ?? 0,
     });
   }
@@ -214,17 +211,28 @@ function buildEmiPreview(mode, total, startYmd, durationMonths) {
 }
 
 /** Live EMI rows from Sacred Exchange (`GET /student/home` financials.emis), sorted by installment #. */
-function buildPaymentScheduleRowsFromCrmEmis(emis) {
+function buildPaymentScheduleRowsFromCrmEmis(emis, scheduleBasisYmd, paymentMode = 'emi_monthly') {
   const list = Array.isArray(emis) ? emis : [];
   const sorted = [...list].sort((a, b) => Number(a.number) - Number(b.number));
-  return sorted.map((e) => ({
-    key: `emi-${e.number}`,
-    n: Number(e.number),
-    due: (e.due_date || '').toString().slice(0, 10),
-    dueDisplay: null,
-    amount: Number(e.amount) || 0,
-    amountDisplay: null,
-  }));
+  const basis =
+    scheduleBasisYmd && /^\d{4}-\d{2}-\d{2}$/.test(scheduleBasisYmd)
+      ? anchorHomeComingBundleStartYmd(scheduleBasisYmd)
+      : '';
+  return sorted.map((e) => {
+    const n = Number(e.number);
+    const idx = Number.isFinite(n) && n > 0 ? n - 1 : 0;
+    const due = basis
+      ? homeComingInstallmentDueYmd(basis, idx, paymentMode)
+      : (e.due_date || '').toString().slice(0, 10);
+    return {
+      key: `emi-${e.number}`,
+      n,
+      due,
+      dueDisplay: null,
+      amount: Number(e.amount) || 0,
+      amountDisplay: null,
+    };
+  });
 }
 
 function scaleScheduleRowsToTarget(rows, targetTotal) {
@@ -1236,9 +1244,15 @@ export default function AnnualPackagePurchasePage() {
   ]);
 
   const scheduleBasisYmd = useMemo(() => {
-    const raw = /^\d{4}-\d{2}-\d{2}$/.test(cycleDisplayStart) ? cycleDisplayStart : desiredStart;
-    return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? anchorHomeComingBundleStartYmd(raw) : raw;
-  }, [cycleDisplayStart, desiredStart]);
+    const pick = (...vals) =>
+      vals
+        .map((s) => String(s || '').trim().slice(0, 10))
+        .filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s));
+    const candidates = pick(desiredStart, cycleDisplayStart, recordStartYmd);
+    if (!candidates.length) return '';
+    const raw = candidates.sort().slice(-1)[0];
+    return anchorHomeComingBundleStartYmd(raw);
+  }, [cycleDisplayStart, desiredStart, recordStartYmd]);
 
   const useCrmMonthlyEmiSchedule = useMemo(() => {
     if (paymentMode !== 'emi_monthly') return false;
@@ -1249,7 +1263,7 @@ export default function AnnualPackagePurchasePage() {
 
   const paymentScheduleRows = useMemo(() => {
     if (useCrmMonthlyEmiSchedule) {
-      const rows = buildPaymentScheduleRowsFromCrmEmis(emis);
+      const rows = buildPaymentScheduleRowsFromCrmEmis(emis, scheduleBasisYmd, paymentMode);
       if (onFileCourtesyAdjustedTotal != null && Number(fin.total_fee || 0) > 0) {
         return scaleScheduleRowsToTarget(rows, onFileCourtesyAdjustedTotal);
       }
