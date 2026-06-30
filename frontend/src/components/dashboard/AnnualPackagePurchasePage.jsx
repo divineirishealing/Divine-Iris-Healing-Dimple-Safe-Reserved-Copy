@@ -199,17 +199,21 @@ function homeComingDueOneMonthEarlier(ymd) {
   return utcYmdWithDom(y, m0, HOME_COMING_EMI_DUE_DOM);
 }
 
-/** When EMI 1 falls in the batch-start month, shift the whole schedule one month earlier. */
-function alignHomeComingEmiScheduleAdvance(rows, batchStartYmd) {
-  if (!batchStartYmd || !/^\d{4}-\d{2}-\d{2}$/.test(batchStartYmd)) return rows;
-  const first = rows.find((r) => String(r.key || '').startsWith('emi-') && r.due);
-  if (!first?.due || !/^\d{4}-\d{2}-\d{2}$/.test(first.due)) return rows;
-  const batchMonth = batchStartYmd.slice(0, 7);
-  if (first.due.slice(0, 7) !== batchMonth) return rows;
-  return rows.map((r) => ({
-    ...r,
-    due: r.due && /^\d{4}-\d{2}-\d{2}$/.test(r.due) ? homeComingDueOneMonthEarlier(r.due) : r.due,
-  }));
+/** If a row still shows the raw CRM due date, shift one month earlier for advance billing. */
+function applyHomeComingCrmDueAdvanceShift(rows, emis) {
+  const list = Array.isArray(emis) ? emis : [];
+  if (!list.length) return rows;
+  const crmDueByN = new Map(
+    list.map((e) => [Number(e.number), String(e.due_date || '').trim().slice(0, 10)]),
+  );
+  return rows.map((r) => {
+    if (!String(r.key || '').startsWith('emi-') || !r.due || !/^\d{4}-\d{2}-\d{2}$/.test(r.due)) return r;
+    const crmDue = crmDueByN.get(r.n);
+    if (crmDue && crmDue === r.due) {
+      return { ...r, due: homeComingDueOneMonthEarlier(r.due) };
+    }
+    return r;
+  });
 }
 
 function buildEmiPreview(mode, total, startYmd, durationMonths) {
@@ -242,9 +246,14 @@ function buildPaymentScheduleRowsFromCrmEmis(emis, scheduleBasisYmd, paymentMode
   return sorted.map((e) => {
     const n = Number(e.number);
     const idx = Number.isFinite(n) && n > 0 ? n - 1 : 0;
-    const due = basis
-      ? homeComingInstallmentDueYmd(basis, idx, paymentMode)
-      : homeComingDueOneMonthEarlier((e.due_date || '').toString().slice(0, 10));
+    const crmDue = (e.due_date || '').toString().slice(0, 10);
+    let due = basis ? homeComingInstallmentDueYmd(basis, idx, paymentMode) : '';
+    if (!due || (crmDue && due === crmDue)) {
+      due =
+        crmDue && /^\d{4}-\d{2}-\d{2}$/.test(crmDue)
+          ? homeComingDueOneMonthEarlier(crmDue)
+          : crmDue;
+    }
     return {
       key: `emi-${e.number}`,
       n,
@@ -1297,8 +1306,8 @@ export default function AnnualPackagePurchasePage() {
     } else {
       rows = buildPaymentScheduleRows(paymentMode, scheduleSplitTotal, scheduleBasisYmd, durationMonths);
     }
-    if (paymentMode === 'emi_monthly' && scheduleBasisYmd) {
-      rows = alignHomeComingEmiScheduleAdvance(rows, scheduleBasisYmd);
+    if (paymentMode === 'emi_monthly') {
+      rows = applyHomeComingCrmDueAdvanceShift(rows, emis);
     }
     return rows;
   }, [
