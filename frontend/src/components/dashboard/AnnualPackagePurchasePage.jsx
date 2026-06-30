@@ -191,6 +191,27 @@ function homeComingInstallmentDueYmd(startYmd, installmentIndex0, mode) {
   return utcYmdWithDom(y, m0, HOME_COMING_EMI_DUE_DOM);
 }
 
+/** CRM rows often land on the batch month (e.g. 27 May); display one month earlier (27 Apr). */
+function homeComingDueOneMonthEarlier(ymd) {
+  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return ymd;
+  const [ys, ms] = ymd.split('-').map(Number);
+  const { y, m0 } = shiftCalendarMonths(ys, ms - 1, -1);
+  return utcYmdWithDom(y, m0, HOME_COMING_EMI_DUE_DOM);
+}
+
+/** When EMI 1 falls in the batch-start month, shift the whole schedule one month earlier. */
+function alignHomeComingEmiScheduleAdvance(rows, batchStartYmd) {
+  if (!batchStartYmd || !/^\d{4}-\d{2}-\d{2}$/.test(batchStartYmd)) return rows;
+  const first = rows.find((r) => String(r.key || '').startsWith('emi-') && r.due);
+  if (!first?.due || !/^\d{4}-\d{2}-\d{2}$/.test(first.due)) return rows;
+  const batchMonth = batchStartYmd.slice(0, 7);
+  if (first.due.slice(0, 7) !== batchMonth) return rows;
+  return rows.map((r) => ({
+    ...r,
+    due: r.due && /^\d{4}-\d{2}-\d{2}$/.test(r.due) ? homeComingDueOneMonthEarlier(r.due) : r.due,
+  }));
+}
+
 function buildEmiPreview(mode, total, startYmd, durationMonths) {
   if (!total || total <= 0 || mode === 'full' || mode === 'emi_flexi') return [];
   const n = emiInstallmentCount(mode, durationMonths);
@@ -223,7 +244,7 @@ function buildPaymentScheduleRowsFromCrmEmis(emis, scheduleBasisYmd, paymentMode
     const idx = Number.isFinite(n) && n > 0 ? n - 1 : 0;
     const due = basis
       ? homeComingInstallmentDueYmd(basis, idx, paymentMode)
-      : (e.due_date || '').toString().slice(0, 10);
+      : homeComingDueOneMonthEarlier((e.due_date || '').toString().slice(0, 10));
     return {
       key: `emi-${e.number}`,
       n,
@@ -1244,15 +1265,20 @@ export default function AnnualPackagePurchasePage() {
   ]);
 
   const scheduleBasisYmd = useMemo(() => {
-    const pick = (...vals) =>
-      vals
-        .map((s) => String(s || '').trim().slice(0, 10))
-        .filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s));
-    const candidates = pick(desiredStart, cycleDisplayStart, recordStartYmd);
-    if (!candidates.length) return '';
-    const raw = candidates.sort().slice(-1)[0];
-    return anchorHomeComingBundleStartYmd(raw);
-  }, [cycleDisplayStart, desiredStart, recordStartYmd]);
+    const ymd = (s) => {
+      const v = String(s || '').trim().slice(0, 10);
+      return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
+    };
+    const ds = ymd(desiredStart);
+    const cds = ymd(cycleDisplayStart);
+    const rs = ymd(recordStartYmd);
+    const re = ymd(recordEndYmd);
+    if (ds && re && ds > re) return anchorHomeComingBundleStartYmd(ds);
+    if (cds) return anchorHomeComingBundleStartYmd(cds);
+    if (ds) return anchorHomeComingBundleStartYmd(ds);
+    if (rs) return anchorHomeComingBundleStartYmd(rs);
+    return '';
+  }, [cycleDisplayStart, desiredStart, recordStartYmd, recordEndYmd]);
 
   const useCrmMonthlyEmiSchedule = useMemo(() => {
     if (paymentMode !== 'emi_monthly') return false;
@@ -1262,14 +1288,19 @@ export default function AnnualPackagePurchasePage() {
   }, [paymentMode, fin.payment_mode, emis.length, preferCrmAnnualScheduleTotal]);
 
   const paymentScheduleRows = useMemo(() => {
+    let rows;
     if (useCrmMonthlyEmiSchedule) {
-      const rows = buildPaymentScheduleRowsFromCrmEmis(emis, scheduleBasisYmd, paymentMode);
+      rows = buildPaymentScheduleRowsFromCrmEmis(emis, scheduleBasisYmd, paymentMode);
       if (onFileCourtesyAdjustedTotal != null && Number(fin.total_fee || 0) > 0) {
-        return scaleScheduleRowsToTarget(rows, onFileCourtesyAdjustedTotal);
+        rows = scaleScheduleRowsToTarget(rows, onFileCourtesyAdjustedTotal);
       }
-      return rows;
+    } else {
+      rows = buildPaymentScheduleRows(paymentMode, scheduleSplitTotal, scheduleBasisYmd, durationMonths);
     }
-    return buildPaymentScheduleRows(paymentMode, scheduleSplitTotal, scheduleBasisYmd, durationMonths);
+    if (paymentMode === 'emi_monthly' && scheduleBasisYmd) {
+      rows = alignHomeComingEmiScheduleAdvance(rows, scheduleBasisYmd);
+    }
+    return rows;
   }, [
     useCrmMonthlyEmiSchedule,
     emis,
