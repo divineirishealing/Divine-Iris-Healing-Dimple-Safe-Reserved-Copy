@@ -325,6 +325,24 @@ function programTitleWithoutBatchSuffix(raw) {
   return s.replace(/\s*·\s*batch\s+.+$/i, '').trim() || '(Untitled program)';
 }
 
+const PROGRAM_BATCH_NO_DATES_KEY = '__none__';
+
+/** Stable key for a program batch window (start + end ISO dates). */
+function programBatchWindowKey(row) {
+  const start = String(row?.chosen_start_date || '').trim().slice(0, 10);
+  const end = String(row?.chosen_end_date || '').trim().slice(0, 10);
+  if (!start && !end) return PROGRAM_BATCH_NO_DATES_KEY;
+  return `${start}|${end}`;
+}
+
+function programBatchWindowLabel(key) {
+  if (!key || key === PROGRAM_BATCH_NO_DATES_KEY) return '(No batch dates)';
+  const [start, end] = key.split('|');
+  const startLabel = start ? formatProgramYmd(start) : '—';
+  const endLabel = end ? formatProgramYmd(end) : '';
+  return endLabel && endLabel !== '—' ? `${startLabel} → ${endLabel}` : startLabel;
+}
+
 /** Single-participant row: human-readable attendance from stored mode. */
 function participantAttendanceLabel(mode) {
   const b = attendanceBucket(mode);
@@ -654,6 +672,8 @@ const EnrollmentsTab = () => {
   const [loadingParticipants, setLoadingParticipants] = useState(false);
   /** null = all programs (no title filter); string[] = only those program titles */
   const [selectedProgramTitles, setSelectedProgramTitles] = useState(null);
+  /** null = all batches; string[] = programBatchWindowKey values */
+  const [selectedBatchKeys, setSelectedBatchKeys] = useState(null);
   const [paidOnlyReport, setPaidOnlyReport] = useState(false);
   const [participantSearch, setParticipantSearch] = useState('');
   const [autoReport, setAutoReport] = useState({
@@ -977,6 +997,47 @@ const EnrollmentsTab = () => {
     });
   }, [viewMode, programBatchTitles]);
 
+  useEffect(() => {
+    if (viewMode !== 'program_analytics' && viewMode !== 'program_three_month') return;
+    setSelectedBatchKeys(null);
+  }, [viewMode, selectedProgramTitles]);
+
+  const programBatchWindowOptions = useMemo(() => {
+    if (viewMode !== 'program_analytics' && viewMode !== 'program_three_month') return [];
+    const map = new Map();
+    participantRows.forEach((row) => {
+      const filterKey = programTitleWithoutBatchSuffix((row.program || '').trim() || '(Untitled program)');
+      if (
+        selectedProgramTitles != null &&
+        selectedProgramTitles.length > 0 &&
+        !selectedProgramTitles.includes(filterKey)
+      ) {
+        return;
+      }
+      if (originFilter !== 'all' && enrollmentOriginKey(row.enrollment_origin) !== originFilter) {
+        return;
+      }
+      const key = programBatchWindowKey(row);
+      map.set(key, programBatchWindowLabel(key));
+    });
+    return [...map.entries()].sort((a, b) => {
+      if (a[0] === PROGRAM_BATCH_NO_DATES_KEY) return 1;
+      if (b[0] === PROGRAM_BATCH_NO_DATES_KEY) return -1;
+      return a[1].localeCompare(b[1]);
+    });
+  }, [participantRows, selectedProgramTitles, originFilter, viewMode]);
+
+  useEffect(() => {
+    if (viewMode !== 'program_analytics' && viewMode !== 'program_three_month') return;
+    if (programBatchWindowOptions.length === 0) return;
+    setSelectedBatchKeys((prev) => {
+      if (prev == null) return null;
+      const valid = new Set(programBatchWindowOptions.map(([k]) => k));
+      const next = prev.filter((k) => valid.has(k));
+      return next.length === 0 ? null : next;
+    });
+  }, [viewMode, programBatchWindowOptions]);
+
   const programBatchBaseRows = useMemo(() => {
     if (viewMode !== 'program_analytics' && viewMode !== 'program_three_month') return [];
     return participantRows.filter((row) => {
@@ -991,6 +1052,9 @@ const EnrollmentsTab = () => {
       }
       if (originFilter !== 'all' && enrollmentOriginKey(row.enrollment_origin) !== originFilter) {
         return false;
+      }
+      if (selectedBatchKeys != null && selectedBatchKeys.length > 0) {
+        if (!selectedBatchKeys.includes(programBatchWindowKey(row))) return false;
       }
       if (!participantSearch.trim()) return true;
       const q = participantSearch.toLowerCase();
@@ -1010,7 +1074,7 @@ const EnrollmentsTab = () => {
         formatEnrollReportDateTime(row.paid_at),
       ].filter(Boolean).some((f) => String(f).toLowerCase().includes(q));
     });
-  }, [participantRows, selectedProgramTitles, participantSearch, originFilter, viewMode]);
+  }, [participantRows, selectedProgramTitles, selectedBatchKeys, participantSearch, originFilter, viewMode]);
 
   const programBatchColumnFilteredRows = useMemo(() => {
     if (viewMode !== 'program_analytics') return [];
@@ -1048,6 +1112,19 @@ const EnrollmentsTab = () => {
     }
     return `${selectedProgramTitles.length} programs`;
   }, [programBatchTitles.length, selectedProgramTitles]);
+
+  const programBatchWindowFilterLabel = useMemo(() => {
+    if (programBatchWindowOptions.length === 0) return '—';
+    if (selectedBatchKeys == null) return 'All batches';
+    if (selectedBatchKeys.length === 0) return 'All batches';
+    if (selectedBatchKeys.length === 1) {
+      const label =
+        programBatchWindowOptions.find(([k]) => k === selectedBatchKeys[0])?.[1] ||
+        programBatchWindowLabel(selectedBatchKeys[0]);
+      return label.length > 36 ? `${label.slice(0, 34)}…` : label;
+    }
+    return `${selectedBatchKeys.length} batches`;
+  }, [programBatchWindowOptions, selectedBatchKeys]);
 
   const programBatchCsvSlug = useMemo(() => {
     if (selectedProgramTitles == null || selectedProgramTitles.length === 0) return 'all_programs';
@@ -1541,7 +1618,7 @@ const EnrollmentsTab = () => {
         <>
           {viewMode === 'program_analytics' && (
             <p className="text-[10px] text-gray-500 mb-2">
-              <strong>Program batch:</strong> roster + running Σ (INR); each payment counted once (seat 1). Filter by origin below; hide columns from the Columns button.{' '}
+              <strong>Program batch:</strong> roster + running Σ (INR); each payment counted once (seat 1). Filter by program, batch window, and origin below; hide columns from the Columns button.{' '}
               <span className="text-gray-600">
                 <strong>Program</strong> prefers the label the member saw at checkout (e.g. Home Coming Annual Program) when it was stored on the enrollment; the underlying catalog row may still be AWRP.
               </span>
@@ -1691,6 +1768,79 @@ const EnrollmentsTab = () => {
                           className="mt-0.5"
                         />
                         <span className="break-words">{t}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] text-gray-600 whitespace-nowrap">Batch</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  id="program-batch-window-select"
+                  data-testid="program-batch-window-select"
+                  disabled={programBatchWindowOptions.length === 0}
+                  className="flex items-center justify-between gap-2 text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white min-w-[200px] max-w-md text-left hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="truncate text-gray-900">{programBatchWindowFilterLabel}</span>
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-gray-500" aria-hidden />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[min(22rem,calc(100vw-2rem))] p-0" align="start">
+                <div className="p-2 border-b border-gray-100 space-y-2">
+                  <label className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-50 cursor-pointer text-xs font-medium text-gray-900">
+                    <Checkbox
+                      checked={selectedBatchKeys == null}
+                      onCheckedChange={(c) => {
+                        if (c === true) setSelectedBatchKeys(null);
+                        else if (programBatchWindowOptions.length > 0) {
+                          setSelectedBatchKeys([programBatchWindowOptions[0][0]]);
+                        }
+                      }}
+                    />
+                    All batches
+                  </label>
+                  <button
+                    type="button"
+                    className="text-[10px] text-violet-700 hover:underline px-2 text-left disabled:opacity-40"
+                    onClick={() => setSelectedBatchKeys(programBatchWindowOptions.map(([k]) => k))}
+                    disabled={programBatchWindowOptions.length === 0}
+                  >
+                    Select every batch in the list (then untick to narrow)
+                  </button>
+                </div>
+                <div className="max-h-60 overflow-y-auto p-2 space-y-0.5">
+                  {programBatchWindowOptions.map(([key, label]) => {
+                    const checked = selectedBatchKeys != null && selectedBatchKeys.includes(key);
+                    return (
+                      <label
+                        key={key}
+                        className="flex items-start gap-2 px-2 py-1.5 rounded-md hover:bg-gray-50 cursor-pointer text-[11px] text-gray-800 leading-snug"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(c) => {
+                            if (c === true) {
+                              setSelectedBatchKeys((prev) => {
+                                if (prev == null) return [key];
+                                if (prev.includes(key)) return prev;
+                                return [...prev, key];
+                              });
+                            } else {
+                              setSelectedBatchKeys((prev) => {
+                                if (prev == null) return null;
+                                const next = prev.filter((x) => x !== key);
+                                return next.length === 0 ? null : next;
+                              });
+                            }
+                          }}
+                          className="mt-0.5"
+                        />
+                        <span className="break-words">{label}</span>
                       </label>
                     );
                   })}
