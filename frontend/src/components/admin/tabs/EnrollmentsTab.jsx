@@ -129,6 +129,7 @@ const PROGRAM_BATCH_COLUMN_DEFS = [
   { id: 'progEnd', label: 'End', weight: 7, headClass: 'text-left leading-tight' },
   { id: 'mode', label: 'Mode', weight: 7, headClass: 'text-left' },
   { id: 'origin', label: 'Src', weight: 6, headClass: 'text-left' },
+  { id: 'pay', label: 'Pay', weight: 7, headClass: 'text-left leading-tight' },
   { id: 'status', label: 'Status', weight: 9, headClass: 'text-left leading-tight' },
   { id: 'paidWhen', label: 'Paid when', weight: 10, headClass: 'text-left leading-tight' },
   { id: 'amt', label: 'Amt', weight: 7, headClass: 'text-right leading-tight' },
@@ -217,6 +218,35 @@ function enrollmentOriginKey(originish) {
 
 function isPaymentLinkEnrollment(e) {
   return !!(e?.payment_request_id || e?.enrollment_origin === 'payment_link' || e?.item_type === 'payment_link');
+}
+
+function participantOriginBadge(row) {
+  const o = row?.enrollment_origin;
+  const isLink = isPaymentLinkEnrollment(row);
+  if (o === 'dashboard') return { label: 'Dash', className: 'bg-amber-100 text-amber-900' };
+  if (o === 'payment_link' || isLink) return { label: 'Link', className: 'bg-emerald-100 text-emerald-900' };
+  return { label: 'Web', className: 'bg-slate-100 text-slate-700' };
+}
+
+function getParticipantPaymentMode(row) {
+  const method = String(row?.payment_method || '').toLowerCase();
+  if (['gpay', 'cash', 'bank', 'exly', 'other'].includes(method)) return method;
+  if (method === 'stripe') return 'stripe';
+  if (method === 'manual_proof') return 'manual_proof';
+  if (method === 'india_bank') return 'india_bank';
+  if (method === 'india_exly') return 'india_exly';
+  if (method === 'razorpay') return 'razorpay';
+  if (String(row?.payment_provider || '').toLowerCase() === 'manual') return method || 'cash';
+  const status = row?.enrollment_status || row?.payment_status || '';
+  if (String(status).includes('india_payment')) return 'india_bank';
+  return null;
+}
+
+function isManuallyTrackedParticipantRow(row) {
+  const prov = String(row?.payment_provider || '').toLowerCase();
+  if (prov === 'manual') return true;
+  const mode = getParticipantPaymentMode(row);
+  return !!(mode && mode !== 'stripe' && mode !== 'razorpay');
 }
 
 /** Admin analytics: normalize participant attendance for checkout-level summary. */
@@ -355,6 +385,7 @@ function participantAttendanceLabel(mode) {
 function originLabel(origin) {
   const o = String(origin || '').toLowerCase();
   if (o === 'dashboard') return 'Dashboard';
+  if (o === 'payment_link') return 'Pay link';
   return 'Website';
 }
 
@@ -420,7 +451,12 @@ function getProgramBatchFilterValue(row, colId, fxRates = {}) {
     case 'mode':
       return programBatchBlankOr(participantAttendanceLabel(row.attendance_mode));
     case 'origin':
-      return row.enrollment_origin === 'dashboard' ? 'Dash' : 'Web';
+      return participantOriginBadge(row).label;
+    case 'pay': {
+      const mode = getParticipantPaymentMode(row);
+      if (!mode) return FILTER_BLANKS;
+      return PAYMENT_MODE_SHORT[mode] || PAYMENT_MODE_MAP[mode]?.label?.split(' ')[0] || mode;
+    }
     case 'status':
       return programBatchStatusLabel(row);
     case 'paidWhen':
@@ -1245,6 +1281,7 @@ const EnrollmentsTab = () => {
       'End (DD-MON-YYYY)',
       'Mode',
       'Origin',
+      'Pay',
       'Status',
       'Paid when',
       'Amount',
@@ -1281,6 +1318,7 @@ const EnrollmentsTab = () => {
             esc(formatProgramYmd(row.chosen_end_date)),
             esc(participantAttendanceLabel(row.attendance_mode)),
             esc(originLabel(row.enrollment_origin)),
+            esc(getProgramBatchFilterValue(row, 'pay', fxRates)),
             esc(row.enrollment_status || row.payment_status),
             esc(formatEnrollReportDateTime(row.paid_at)),
             amt > 0 ? String(amt) : '0',
@@ -2274,10 +2312,16 @@ const EnrollmentsTab = () => {
                       slot = String(pIdx);
                     }
                     const pc = 'px-1 sm:px-1.5 py-1.5 align-top min-w-0 break-words';
+                    const isPayLink = isPaymentLinkEnrollment(row);
+                    const originBadge = participantOriginBadge(row);
                     return (
                       <tr
                         key={`${row.enrollment_id}-${row.participant_index ?? row.participant_name}-${row.participant_email}`}
-                        className="odd:bg-white even:bg-violet-50/25 hover:bg-amber-50/35 transition-colors"
+                        className={`transition-colors ${
+                          isPayLink
+                            ? 'bg-emerald-50/80 border-l-4 border-emerald-500 hover:bg-emerald-100/60'
+                            : 'odd:bg-white even:bg-violet-50/25 hover:bg-amber-50/35'
+                        }`}
                       >
                         {visParticipantCols.map((def) => {
                           switch (def.id) {
@@ -2341,8 +2385,8 @@ const EnrollmentsTab = () => {
                             case 'origin':
                               return (
                                 <td key={def.id} className={pc}>
-                                  <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium ${row.enrollment_origin === 'dashboard' ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
-                                    {row.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
+                                  <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium ${originBadge.className}`}>
+                                    {originBadge.label}
                                   </span>
                                 </td>
                               );
@@ -2427,10 +2471,21 @@ const EnrollmentsTab = () => {
                     const st = (row.enrollment_status || row.payment_status || '—').toLowerCase();
                     const stInfo = STATUS_MAP[st] || { label: row.enrollment_status || row.payment_status || '—', color: 'bg-gray-100 text-gray-600' };
                     const bc = 'px-1 sm:px-2 py-1.5 align-top min-w-0';
+                    const isPayLink = isPaymentLinkEnrollment(row);
+                    const originBadge = participantOriginBadge(row);
+                    const payMode = getParticipantPaymentMode(row);
+                    const payModeInfo = payMode ? PAYMENT_MODE_MAP[payMode] : null;
+                    const PayModeIcon = payModeInfo?.icon || CreditCard;
+                    const payShort = payMode ? (PAYMENT_MODE_SHORT[payMode] || (payModeInfo ? payModeInfo.label.split(' ')[0] : payMode)) : null;
+                    const manualTracked = isManuallyTrackedParticipantRow(row);
                     return (
                       <tr
                         key={`${row.enrollment_id}-${row.participant_index ?? row.participant_name}-${row.participant_email}-${serial}`}
-                        className={`odd:bg-white even:bg-violet-50/25 hover:bg-amber-50/35 transition-colors ${countsForRunning ? '' : 'opacity-[0.92]'}`}
+                        className={`transition-colors ${countsForRunning ? '' : 'opacity-[0.92]'} ${
+                          isPayLink
+                            ? 'bg-emerald-50/80 border-l-4 border-emerald-500 hover:bg-emerald-100/60'
+                            : 'odd:bg-white even:bg-violet-50/25 hover:bg-amber-50/35'
+                        }`}
                       >
                         {visProgramBatchCols.map((def) => {
                           switch (def.id) {
@@ -2443,7 +2498,18 @@ const EnrollmentsTab = () => {
                                 </td>
                               );
                             case 'name':
-                              return <td key={def.id} className={`${bc} font-medium text-gray-900`} title={row.participant_name || ''}>{row.participant_name || '—'}</td>;
+                              return (
+                                <td key={def.id} className={`${bc} font-medium text-gray-900`} title={row.participant_name || ''}>
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    {isPayLink && (
+                                      <span className="inline-block text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800 flex-shrink-0">
+                                        PAY LINK
+                                      </span>
+                                    )}
+                                    <span>{row.participant_name || '—'}</span>
+                                  </div>
+                                </td>
+                              );
                             case 'age':
                               return <td key={def.id} className={`${bc} text-gray-700 tabular-nums`}>{row.age !== '' && row.age != null ? row.age : '—'}</td>;
                             case 'gender':
@@ -2510,9 +2576,29 @@ const EnrollmentsTab = () => {
                             case 'origin':
                               return (
                                 <td key={def.id} className={bc}>
-                                  <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium ${row.enrollment_origin === 'dashboard' ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
-                                    {row.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
+                                  <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium ${originBadge.className}`}>
+                                    {originBadge.label}
                                   </span>
+                                </td>
+                              );
+                            case 'pay':
+                              return (
+                                <td key={def.id} className={bc}>
+                                  {payModeInfo ? (
+                                    <span
+                                      className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-md font-medium max-w-full ${payModeInfo.color}`}
+                                      title={manualTracked ? `${payModeInfo.label} (manually tracked)` : payModeInfo.label}
+                                    >
+                                      <PayModeIcon size={10} className="shrink-0 opacity-80" />
+                                      <span className="truncate min-w-0">{payShort}</span>
+                                    </span>
+                                  ) : manualTracked ? (
+                                    <span className="inline-block text-[9px] px-1 py-0.5 rounded-md font-medium bg-amber-100 text-amber-900" title="Manually tracked">
+                                      Manual
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-400 text-[9px]">—</span>
+                                  )}
                                 </td>
                               );
                             case 'status':
@@ -2599,10 +2685,16 @@ const EnrollmentsTab = () => {
                   {threeMonthMonthlyRows.map((row, idx) => {
                     const serial = idx + 1;
                     const bc = 'px-1 sm:px-2 py-1.5 align-top min-w-0';
+                    const isPayLink = isPaymentLinkEnrollment(row);
+                    const originBadge = participantOriginBadge(row);
                     return (
                       <tr
                         key={row._explodeKey || `${row.enrollment_id}-${row.participant_index}-${row.eligibility_month}`}
-                        className="odd:bg-white even:bg-violet-50/25 hover:bg-amber-50/35 transition-colors"
+                        className={`transition-colors ${
+                          isPayLink
+                            ? 'bg-emerald-50/80 border-l-4 border-emerald-500 hover:bg-emerald-100/60'
+                            : 'odd:bg-white even:bg-violet-50/25 hover:bg-amber-50/35'
+                        }`}
                       >
                         {visProgramThreeMoCols.map((def) => {
                           switch (def.id) {
@@ -2680,8 +2772,8 @@ const EnrollmentsTab = () => {
                             case 'origin':
                               return (
                                 <td key={def.id} className={bc}>
-                                  <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium ${row.enrollment_origin === 'dashboard' ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
-                                    {row.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
+                                  <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium ${originBadge.className}`}>
+                                    {originBadge.label}
                                   </span>
                                 </td>
                               );

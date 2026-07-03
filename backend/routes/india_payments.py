@@ -132,6 +132,17 @@ def _enrollment_origin(e: dict) -> str:
     return "website"
 
 
+def _payment_tracking_fields_for_report(e: dict, txn: Optional[dict]) -> dict:
+    """Payment link + manual-tracking fields for participant report rows."""
+    pm = _clean_str((txn or {}).get("payment_method")) or _clean_str(e.get("payment_method"))
+    return {
+        "payment_request_id": _clean_str(e.get("payment_request_id")),
+        "payment_method": pm,
+        "payment_provider": _clean_str((txn or {}).get("payment_provider")),
+        "created_via": _clean_str((txn or {}).get("created_via")),
+    }
+
+
 def _clean_str(val: Any) -> str:
     if val is None:
         return ""
@@ -1489,6 +1500,7 @@ def build_participant_report_rows(
                     "payment_status": pay_st or _clean_str(e.get("status")),
                     "created_at": created,
                     "paid_at": paid_at,
+                    **_payment_tracking_fields_for_report(e, txn),
                 }
                 row.update(tier_fields)
                 rows.append(row)
@@ -1539,6 +1551,7 @@ def build_participant_report_rows(
                 "payment_status": pay_st or _clean_str(e.get("status")),
                 "created_at": created,
                 "paid_at": paid_at,
+                **_payment_tracking_fields_for_report(e, txn),
             }
             row_tf = dict(tier_fields)
             if emi_ctx and _participant_seat_is_home_coming(p):
