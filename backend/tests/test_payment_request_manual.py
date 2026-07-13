@@ -18,6 +18,21 @@ def test_checkout_state_single_payment():
     assert state["checkout_amount"] == 100
 
 
+def test_checkout_state_pay_as_you_wish():
+    row = {
+        "amount": 500,
+        "pay_as_you_wish": True,
+        "minimum_amount": 100,
+        "installments_enabled": False,
+        "status": "active",
+    }
+    state = _checkout_state_for_row(row)
+    assert state["pay_as_you_wish"] is True
+    assert state["suggested_amount"] == 500
+    assert state["minimum_amount"] == 100
+    assert state["checkout_amount"] == 0
+
+
 def test_quarter_plus_nine_monthly_splits_twelve_months():
     amounts = _quarter_plus_nine_monthly_amounts(1200.0)
     assert len(amounts) == 10

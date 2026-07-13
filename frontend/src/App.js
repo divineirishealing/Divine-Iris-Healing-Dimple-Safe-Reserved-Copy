@@ -61,6 +61,7 @@ import { Analytics } from '@vercel/analytics/react';
 import SeoHead from './components/SeoHead';
 import BackendStatusBanner from './components/BackendStatusBanner';
 import PageAnalyticsBeacon from './components/PageAnalyticsBeacon';
+import TrustSplitLayoutPreviewPage from './pages/TrustSplitLayoutPreviewPage';
 import { resolveImageUrl } from './lib/imageUtils';
 
 const CurrencyGate = ({ children }) => {
@@ -103,6 +104,9 @@ const AppContent = () => {
       <SeoHead />
       <Routes>
       <Route path="/" element={<HomePage />} />
+      {process.env.NODE_ENV === 'development' && (
+        <Route path="/preview/trust-split" element={<TrustSplitLayoutPreviewPage />} />
+      )}
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/programs" element={<AllProgramsPage />} />
       <Route path="/program/:id" element={<ProgramDetailPage />} />

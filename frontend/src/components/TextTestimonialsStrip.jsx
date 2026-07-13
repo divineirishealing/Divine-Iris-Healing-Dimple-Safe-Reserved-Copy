@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { CONTAINER, GOLD } from '../lib/designTokens';
 import { applySectionStyle } from '../lib/designTokens';
+import { resolveImageUrl } from '../lib/imageUtils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -168,7 +169,128 @@ const BoldFirstLetters = ({ text }) => (
   </>
 );
 
-const TextTestimonialsStrip = ({ sectionConfig }) => {
+const BeforeAfterPhoto = ({ src, label, tall }) => (
+  <div className="relative flex-1 min-w-0">
+    <div
+      className="overflow-hidden mx-auto"
+      style={{
+        maxWidth: tall ? 220 : 180,
+        aspectRatio: '4/5',
+        borderRadius: '50%',
+        border: '3px solid rgba(212,175,55,0.35)',
+        boxShadow: '0 10px 28px rgba(139,92,246,0.12)',
+      }}
+    >
+      <img src={src} alt={label} className="w-full h-full object-cover" />
+    </div>
+    {label && (
+      <span
+        className="absolute font-medium italic"
+        style={{
+          fontFamily: "'Cormorant Garamond', Georgia, serif",
+          fontSize: tall ? '1rem' : '0.75rem',
+          color: '#8b6914',
+          top: tall ? -4 : -2,
+          left: tall ? 8 : 4,
+          transform: 'rotate(-12deg)',
+        }}
+      >
+        {label}
+      </span>
+    )}
+  </div>
+);
+
+const BeforeAfterShowcase = ({ items = [] }) => {
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    if (items.length <= 1) return undefined;
+    const timer = setInterval(() => setActive((p) => (p + 1) % items.length), 7000);
+    return () => clearInterval(timer);
+  }, [items.length]);
+
+  if (items.length === 0) {
+    return (
+      <div
+        className="h-full min-h-[420px] rounded-2xl border border-dashed flex flex-col items-center justify-center text-center px-8"
+        style={{ borderColor: 'rgba(212,175,55,0.35)', background: 'linear-gradient(160deg, #faf8ff 0%, #fff 100%)' }}
+        data-testid="before-after-placeholder"
+      >
+        <p style={{ fontFamily: "'Cinzel', serif", color: '#8b6914', fontSize: '1.1rem', fontWeight: 600 }}>Before &amp; After</p>
+        <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", color: '#888', fontSize: '0.95rem', fontStyle: 'italic', marginTop: 8, maxWidth: 280 }}>
+          Transformation photos from your testimonials library will appear here in the split layout.
+        </p>
+      </div>
+    );
+  }
+
+  const t = items[active] || items[0];
+  const photos = Array.isArray(t.photos) && t.photos.length >= 2
+    ? t.photos
+    : [t.before_image, t.image].filter(Boolean);
+  const beforeSrc = resolveImageUrl(photos[0]);
+  const afterSrc = resolveImageUrl(photos[1] || photos[0]);
+
+  return (
+    <div
+      className="h-full min-h-[420px] rounded-2xl px-5 py-6 md:px-7 md:py-8 flex flex-col"
+      style={{ background: 'linear-gradient(160deg, #faf8ff 0%, #f5f0ff 35%, #fdf8f3 100%)', border: '1px solid rgba(212,175,55,0.15)' }}
+      data-testid="before-after-showcase"
+    >
+      <div className="text-center mb-5">
+        <p
+          style={{
+            fontFamily: "'Lato', sans-serif",
+            fontSize: '0.7rem',
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: '#aaa',
+          }}
+        >
+          Real transformations
+        </p>
+        <h3 style={{ fontFamily: "'Cinzel', serif", fontWeight: 700, color: '#1a1a1a', fontSize: 'clamp(1.1rem, 2vw, 1.45rem)', marginTop: 4 }}>
+          Before &amp; After
+        </h3>
+        <div className="w-10 h-0.5 mx-auto mt-3" style={{ background: GOLD }} />
+      </div>
+
+      <div className="flex-1 flex items-center justify-center gap-4 md:gap-6">
+        {beforeSrc && <BeforeAfterPhoto src={beforeSrc} label="Before" tall />}
+        {afterSrc && <BeforeAfterPhoto src={afterSrc} label={beforeSrc ? 'After' : null} tall />}
+      </div>
+
+      {(t.name || t.role) && (
+        <div className="text-center mt-5 pt-4" style={{ borderTop: '1px solid rgba(212,175,55,0.12)' }}>
+          {t.name && (
+            <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 600, fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#444' }}>
+              {t.name}
+            </p>
+          )}
+          {t.role && <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.72rem', color: '#888', marginTop: 4 }}>{t.role}</p>}
+        </div>
+      )}
+
+      {items.length > 1 && (
+        <div className="flex justify-center gap-2 mt-4" data-testid="before-after-dots">
+          {items.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setActive(i)}
+              className="rounded-full transition-all duration-500"
+              style={{ width: i === active ? '22px' : '6px', height: '6px', background: i === active ? GOLD : '#d1cbc2' }}
+              aria-label={`Show transformation ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const TextTestimonialsStrip = ({ sectionConfig, transformationShowcase = [] }) => {
   const [quotes, setQuotes] = useState([]);
   const [active, setActive] = useState(0);
   const [fade, setFade] = useState(true);
@@ -216,6 +338,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
   }, [next, quotes.length]);
 
   const q = quotes[active];
+  const splitLayout = sectionConfig?.layout_mode === 'split_before_after';
 
   const quoteFont = style?.quote_font || 'Cormorant Garamond';
   const quoteSize = style?.quote_size || '20px';
@@ -301,83 +424,152 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
           </div>
         )}
 
-        {/* ── Row 1: Trust Metrics ── */}
+        {/* ── Trust metrics + philosophy (default rows or split preview) ── */}
         <div className={CONTAINER}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-8 max-w-5xl mx-auto mb-10" data-testid="trust-strip">
-            {trustCards.map((card, i) => {
-              const valStyle = applySectionStyle(card.value_style, {
-                fontFamily: "'Cinzel', serif",
-                fontSize: 'clamp(1.6rem, 3vw, 2.2rem)',
-                fontWeight: 700,
-                color: GOLD,
-                lineHeight: 1.1,
-              });
-              // Both rows use Lato, normal weight with bold first letter per word
-              const titleDefaults = { fontFamily: "'Lato', sans-serif", fontWeight: 400, fontSize: '0.72rem', color: '#1a1a1a', lineHeight: 1.3, letterSpacing: '0.04em' };
-              const globalTitle = applySectionStyle(trustConfig.global_title_style, titleDefaults);
-              const lblStyle = applySectionStyle(card.label_style, globalTitle);
-
-              // Cascade: defaults → global desc style → per-card desc style
-              const descDefaults = { fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.78rem', color: '#888', lineHeight: 1.6, fontWeight: 400, fontStyle: 'italic' };
-              const globalDesc = applySectionStyle(trustConfig.global_description_style, descDefaults);
-              const descStyle = applySectionStyle(card.description_style, globalDesc);
-
-              const showIcon = card.show_icon !== false;
-              const IconComp = METRIC_ICONS[card.icon];
-              const desc = card.description || '';
-              return (
-                <div key={i} className="trust-card flex flex-col items-center text-center cursor-pointer" data-testid={`trust-item-${i}`}
-                  onClick={() => { if (card.icon === 'google' && trustConfig.google_review_link) window.open(trustConfig.google_review_link, '_blank'); }}
-                >
-                  <div style={{ height: 56 }} className="flex flex-col items-center justify-end">
-                    {showIcon && (card.icon === 'google' ? <GoogleIcon /> : IconComp ? <IconComp /> : <TrustIcon />)}
-                    {card.icon === 'google' && <GoogleStars />}
-                  </div>
-                  {card.value && <p style={valStyle} className="mt-1">{card.value}</p>}
-                  <h3 style={lblStyle} className="card-title mt-2 mb-1 max-w-[180px]"><BoldFirstLetters text={card.label} /></h3>
-                  {desc && (
-                    <div className="desc-reveal mt-1">
-                      <div><p style={descStyle} className="max-w-[180px] pt-1">{desc}</p></div>
-                    </div>
-                  )}
+          {splitLayout ? (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-stretch mb-10" data-testid="trust-split-layout">
+              <div className="lg:col-span-5">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:gap-y-6" data-testid="trust-strip">
+                  {trustCards.map((card, i) => {
+                    const valStyle = applySectionStyle(card.value_style, {
+                      fontFamily: "'Cinzel', serif",
+                      fontSize: 'clamp(1.25rem, 2.2vw, 1.7rem)',
+                      fontWeight: 700,
+                      color: GOLD,
+                      lineHeight: 1.1,
+                    });
+                    const titleDefaults = { fontFamily: "'Lato', sans-serif", fontWeight: 400, fontSize: '0.68rem', color: '#1a1a1a', lineHeight: 1.25, letterSpacing: '0.04em' };
+                    const globalTitle = applySectionStyle(trustConfig.global_title_style, titleDefaults);
+                    const lblStyle = applySectionStyle(card.label_style, globalTitle);
+                    const descDefaults = { fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.72rem', color: '#888', lineHeight: 1.5, fontWeight: 400, fontStyle: 'italic' };
+                    const globalDesc = applySectionStyle(trustConfig.global_description_style, descDefaults);
+                    const descStyle = applySectionStyle(card.description_style, globalDesc);
+                    const showIcon = card.show_icon !== false;
+                    const IconComp = METRIC_ICONS[card.icon];
+                    const desc = card.description || '';
+                    return (
+                      <div
+                        key={`metric-${i}`}
+                        className="trust-card flex flex-col items-center text-center cursor-pointer px-2 py-3"
+                        data-testid={`trust-item-${i}`}
+                        onClick={() => { if (card.icon === 'google' && trustConfig.google_review_link) window.open(trustConfig.google_review_link, '_blank'); }}
+                      >
+                        <div style={{ height: 48 }} className="flex flex-col items-center justify-end">
+                          {showIcon && (card.icon === 'google' ? <GoogleIcon /> : IconComp ? <IconComp /> : <TrustIcon />)}
+                          {card.icon === 'google' && <GoogleStars />}
+                        </div>
+                        {card.value && <p style={valStyle} className="mt-0.5">{card.value}</p>}
+                        <h3 style={lblStyle} className="card-title mt-1.5 mb-0.5 max-w-[150px]"><BoldFirstLetters text={card.label} /></h3>
+                        {desc && (
+                          <div className="desc-reveal mt-0.5">
+                            <div><p style={descStyle} className="max-w-[150px] pt-1">{desc}</p></div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {philosophyCards.map((card, i) => {
+                    const PhiloIcon = PHILOSOPHY_ICONS[card.icon] || TrustIcon;
+                    const showIcon = card.show_icon !== false;
+                    const titleDefaults = { fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', fontWeight: 400, color: '#1a1a1a', lineHeight: 1.25, letterSpacing: '0.04em' };
+                    const globalTitle = applySectionStyle(trustConfig.global_title_style, titleDefaults);
+                    const tStyle = applySectionStyle(card.title_style, globalTitle);
+                    const descDefaults = { fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.72rem', color: '#888', lineHeight: 1.5, fontWeight: 400, fontStyle: 'italic' };
+                    const globalDesc = applySectionStyle(trustConfig.global_description_style, descDefaults);
+                    const dStyle = applySectionStyle(card.description_style, globalDesc);
+                    const desc = card.description || '';
+                    return (
+                      <div key={`philo-${i}`} className="trust-card flex flex-col items-center text-center cursor-pointer px-2 py-3" data-testid={`philosophy-card-${i}`}>
+                        {showIcon && <PhiloIcon />}
+                        <h3 style={tStyle} className="card-title mt-1 mb-0.5 max-w-[150px]">
+                          {(card.title || '').split('\n').map((line, li) => (
+                            <span key={li}>{li > 0 && <br />}<BoldFirstLetters text={line} /></span>
+                          ))}
+                        </h3>
+                        {desc && (
+                          <div className="desc-reveal">
+                            <div><p style={dStyle} className="max-w-[150px] pt-1">{desc}</p></div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
-
-          {/* ── Row 2: Philosophy / Why Us ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-x-6 gap-y-8 max-w-5xl mx-auto mb-10" data-testid="philosophy-cards">
-            {philosophyCards.map((card, i) => {
-              const PhiloIcon = PHILOSOPHY_ICONS[card.icon] || TrustIcon;
-              const showIcon = card.show_icon !== false;
-
-              // Cascade: defaults → global title style → per-card title style
-              const titleDefaults = { fontFamily: "'Lato', sans-serif", fontSize: '0.72rem', fontWeight: 400, color: '#1a1a1a', lineHeight: 1.3, letterSpacing: '0.04em' };
-              const globalTitle = applySectionStyle(trustConfig.global_title_style, titleDefaults);
-              const tStyle = applySectionStyle(card.title_style, globalTitle);
-
-              // Cascade: defaults → global desc style → per-card desc style
-              const descDefaults = { fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.78rem', color: '#888', lineHeight: 1.6, fontWeight: 400, fontStyle: 'italic' };
-              const globalDesc = applySectionStyle(trustConfig.global_description_style, descDefaults);
-              const dStyle = applySectionStyle(card.description_style, globalDesc);
-              const desc = card.description || '';
-              return (
-                <div key={i} className="trust-card flex flex-col items-center text-center cursor-pointer" data-testid={`philosophy-card-${i}`}>
-                  {showIcon && <PhiloIcon />}
-                  <h3 style={tStyle} className="card-title mb-1 max-w-[180px]">
-                    {(card.title || '').split('\n').map((line, li) => (
-                      <span key={li}>{li > 0 && <br />}<BoldFirstLetters text={line} /></span>
-                    ))}
-                  </h3>
-                  {desc && (
-                    <div className="desc-reveal">
-                      <div><p style={dStyle} className="max-w-[190px] pt-1">{desc}</p></div>
+              </div>
+              <div className="lg:col-span-7 lg:sticky lg:top-24">
+                <BeforeAfterShowcase items={transformationShowcase} />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-8 max-w-5xl mx-auto mb-10" data-testid="trust-strip">
+                {trustCards.map((card, i) => {
+                  const valStyle = applySectionStyle(card.value_style, {
+                    fontFamily: "'Cinzel', serif",
+                    fontSize: 'clamp(1.6rem, 3vw, 2.2rem)',
+                    fontWeight: 700,
+                    color: GOLD,
+                    lineHeight: 1.1,
+                  });
+                  const titleDefaults = { fontFamily: "'Lato', sans-serif", fontWeight: 400, fontSize: '0.72rem', color: '#1a1a1a', lineHeight: 1.3, letterSpacing: '0.04em' };
+                  const globalTitle = applySectionStyle(trustConfig.global_title_style, titleDefaults);
+                  const lblStyle = applySectionStyle(card.label_style, globalTitle);
+                  const descDefaults = { fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.78rem', color: '#888', lineHeight: 1.6, fontWeight: 400, fontStyle: 'italic' };
+                  const globalDesc = applySectionStyle(trustConfig.global_description_style, descDefaults);
+                  const descStyle = applySectionStyle(card.description_style, globalDesc);
+                  const showIcon = card.show_icon !== false;
+                  const IconComp = METRIC_ICONS[card.icon];
+                  const desc = card.description || '';
+                  return (
+                    <div key={i} className="trust-card flex flex-col items-center text-center cursor-pointer" data-testid={`trust-item-${i}`}
+                      onClick={() => { if (card.icon === 'google' && trustConfig.google_review_link) window.open(trustConfig.google_review_link, '_blank'); }}
+                    >
+                      <div style={{ height: 56 }} className="flex flex-col items-center justify-end">
+                        {showIcon && (card.icon === 'google' ? <GoogleIcon /> : IconComp ? <IconComp /> : <TrustIcon />)}
+                        {card.icon === 'google' && <GoogleStars />}
+                      </div>
+                      {card.value && <p style={valStyle} className="mt-1">{card.value}</p>}
+                      <h3 style={lblStyle} className="card-title mt-2 mb-1 max-w-[180px]"><BoldFirstLetters text={card.label} /></h3>
+                      {desc && (
+                        <div className="desc-reveal mt-1">
+                          <div><p style={descStyle} className="max-w-[180px] pt-1">{desc}</p></div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-x-6 gap-y-8 max-w-5xl mx-auto mb-10" data-testid="philosophy-cards">
+                {philosophyCards.map((card, i) => {
+                  const PhiloIcon = PHILOSOPHY_ICONS[card.icon] || TrustIcon;
+                  const showIcon = card.show_icon !== false;
+                  const titleDefaults = { fontFamily: "'Lato', sans-serif", fontSize: '0.72rem', fontWeight: 400, color: '#1a1a1a', lineHeight: 1.3, letterSpacing: '0.04em' };
+                  const globalTitle = applySectionStyle(trustConfig.global_title_style, titleDefaults);
+                  const tStyle = applySectionStyle(card.title_style, globalTitle);
+                  const descDefaults = { fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.78rem', color: '#888', lineHeight: 1.6, fontWeight: 400, fontStyle: 'italic' };
+                  const globalDesc = applySectionStyle(trustConfig.global_description_style, descDefaults);
+                  const dStyle = applySectionStyle(card.description_style, globalDesc);
+                  const desc = card.description || '';
+                  return (
+                    <div key={i} className="trust-card flex flex-col items-center text-center cursor-pointer" data-testid={`philosophy-card-${i}`}>
+                      {showIcon && <PhiloIcon />}
+                      <h3 style={tStyle} className="card-title mb-1 max-w-[180px]">
+                        {(card.title || '').split('\n').map((line, li) => (
+                          <span key={li}>{li > 0 && <br />}<BoldFirstLetters text={line} /></span>
+                        ))}
+                      </h3>
+                      {desc && (
+                        <div className="desc-reveal">
+                          <div><p style={dStyle} className="max-w-[190px] pt-1">{desc}</p></div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
 
         {/* ── Divider before testimonial ── */}

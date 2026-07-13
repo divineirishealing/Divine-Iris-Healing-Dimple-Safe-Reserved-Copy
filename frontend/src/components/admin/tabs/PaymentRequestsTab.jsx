@@ -53,6 +53,7 @@ const BLANK = {
   link_kind: '', item_id: '', tier_index: '', session_date: '', custom_batch_start: '',
   installments_enabled: false, num_installments: '3', installment_plan: 'equal',
   installment_down_pct: '25', installment_emi_count: '9',
+  pay_as_you_wish: false, minimum_amount: '1',
 };
 
 function splitInstallmentAmounts(total, n) {
@@ -829,7 +830,20 @@ export default function PaymentRequestsTab() {
 
   const handleCreate = async () => {
     if (!form.title.trim())   { toast({ title: 'Title is required', variant: 'destructive' }); return; }
-    if (!form.amount || parseFloat(form.amount) <= 0) { toast({ title: 'Enter a valid amount', variant: 'destructive' }); return; }
+    const payAsYouWish = !!form.pay_as_you_wish;
+    const minAmt = parseFloat(form.minimum_amount);
+    if (!payAsYouWish && (!form.amount || parseFloat(form.amount) <= 0)) {
+      toast({ title: 'Enter a valid amount', variant: 'destructive' });
+      return;
+    }
+    if (payAsYouWish && (form.amount !== '' && parseFloat(form.amount) < 0)) {
+      toast({ title: 'Suggested amount cannot be negative', variant: 'destructive' });
+      return;
+    }
+    if (payAsYouWish && (!Number.isFinite(minAmt) || minAmt <= 0)) {
+      toast({ title: 'Enter a valid minimum amount', variant: 'destructive' });
+      return;
+    }
     if (form.link_kind === 'program' && !form.item_id) {
       toast({ title: 'Select a program', variant: 'destructive' });
       return;
@@ -847,11 +861,14 @@ export default function PaymentRequestsTab() {
       const payload = {
         title: form.title,
         description: form.description,
-        amount: parseFloat(form.amount),
+        amount: payAsYouWish ? (parseFloat(form.amount) || 0) : parseFloat(form.amount),
         currency: form.currency,
         recipient_name: form.recipient_name,
         recipient_email: form.recipient_email,
         note: form.note,
+        pay_as_you_wish: payAsYouWish,
+        minimum_amount: payAsYouWish ? minAmt : undefined,
+        installments_enabled: payAsYouWish ? false : form.installments_enabled,
       };
       if (form.link_kind === 'program' && selectedProgram) {
         payload.item_type = 'program';
@@ -873,8 +890,8 @@ export default function PaymentRequestsTab() {
         const months = selectedAnnualPackage.duration_months || 12;
         payload.chosen_tier_label = `${months}-month annual`;
       }
-      payload.installments_enabled = !!form.installments_enabled;
-      if (form.installments_enabled) {
+      payload.installments_enabled = payAsYouWish ? false : !!form.installments_enabled;
+      if (!payAsYouWish && form.installments_enabled) {
         const annualCtx = isAnnualPaymentLinkContext(form.link_kind, selectedTier, selectedAnnualPackage);
         let plan = form.installment_plan || (annualCtx ? 'quarter_then_monthly' : 'equal');
         if (annualCtx && plan === 'down_then_emi') plan = 'quarter_then_monthly';
@@ -1224,9 +1241,57 @@ export default function PaymentRequestsTab() {
                 )}
               </div>
 
+              {/* Pay as you wish */}
+              <div className="md:col-span-2 border border-emerald-100 rounded-xl p-4 bg-emerald-50/40 space-y-3">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!form.pay_as_you_wish}
+                    onChange={(e) => setForm((f) => ({
+                      ...f,
+                      pay_as_you_wish: e.target.checked,
+                      installments_enabled: e.target.checked ? false : f.installments_enabled,
+                    }))}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="text-xs font-semibold text-emerald-900 block">Pay as you wish</span>
+                    <span className="text-[10px] text-gray-600">Client enters their own amount on the payment page (e.g. Cord Cutting workshop).</span>
+                  </span>
+                </label>
+                {form.pay_as_you_wish && (
+                  <div className="grid md:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <Label className="text-xs">Suggested amount (optional)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={form.amount}
+                        onChange={(e) => set('amount', e.target.value)}
+                        placeholder="Shown as a guide only"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Minimum amount *</Label>
+                      <Input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={form.minimum_amount}
+                        onChange={(e) => set('minimum_amount', e.target.value)}
+                        placeholder="1"
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Amount + Currency */}
               <div>
-                <Label className="text-xs">Amount *</Label>
+                <Label className="text-xs">{form.pay_as_you_wish ? 'Fixed amount (disabled)' : 'Amount *'}</Label>
                 <Input
                   type="number"
                   min="0"
@@ -1235,6 +1300,7 @@ export default function PaymentRequestsTab() {
                   onChange={e => set('amount', e.target.value)}
                   placeholder="0.00"
                   className="mt-1"
+                  disabled={!!form.pay_as_you_wish}
                 />
               </div>
               <div>
@@ -1272,7 +1338,7 @@ export default function PaymentRequestsTab() {
               </div>
 
               {/* Installments */}
-              <div className="md:col-span-2 border border-amber-100 rounded-xl p-4 bg-amber-50/50 space-y-3">
+              <div className={`md:col-span-2 border border-amber-100 rounded-xl p-4 bg-amber-50/50 space-y-3 ${form.pay_as_you_wish ? 'opacity-50 pointer-events-none' : ''}`}>
                 <label className="flex items-start gap-2 cursor-pointer">
                   <input
                     type="checkbox"

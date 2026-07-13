@@ -128,6 +128,7 @@ export default function PaymentRequestPage() {
 
   const [name, setName]   = useState('');
   const [email, setEmail] = useState('');
+  const [payerAmount, setPayerAmount] = useState('');
 
   useEffect(() => {
     axios.get(`${API}/payment-requests/${id}`)
@@ -135,6 +136,10 @@ export default function PaymentRequestPage() {
         setReq(r.data);
         if (r.data.recipient_name) setName(r.data.recipient_name);
         if (r.data.recipient_email) setEmail(r.data.recipient_email);
+        const suggested = r.data.pay_as_you_wish
+          ? (r.data.suggested_amount ?? r.data.amount ?? '')
+          : '';
+        if (suggested) setPayerAmount(String(suggested));
         if (r.data.status === 'paid') setSuccess(true);
       })
       .catch(() => setError('This payment link is invalid or has expired.'))
@@ -167,12 +172,22 @@ export default function PaymentRequestPage() {
       setPayError('Please enter your name and email.');
       return;
     }
+    const payAsYouWish = !!req?.pay_as_you_wish;
+    const amountNum = parseFloat(payerAmount);
+    if (payAsYouWish) {
+      const min = Number(req?.minimum_amount) || 1;
+      if (!Number.isFinite(amountNum) || amountNum < min) {
+        setPayError(`Please enter an amount of at least ${min}.`);
+        return;
+      }
+    }
     setPayError('');
     setPaying(true);
     try {
       const r = await axios.post(`${API}/payment-requests/${id}/checkout`, {
         payer_name: name.trim(),
         payer_email: email.trim(),
+        ...(payAsYouWish ? { payer_amount: amountNum } : {}),
       });
       if (r.data?.url) {
         window.location.href = r.data.url;
@@ -232,8 +247,9 @@ export default function PaymentRequestPage() {
   }
 
   const symbol = CUR_SYMBOL[req.currency?.toLowerCase()] || `${req.currency?.toUpperCase()} `;
-  const checkoutAmount = req.checkout_amount ?? req.amount;
-  const showInstallments = req.installments_enabled && (req.num_installments || 0) > 1;
+  const payAsYouWish = !!req.pay_as_you_wish;
+  const checkoutAmount = payAsYouWish ? (parseFloat(payerAmount) || 0) : (req.checkout_amount ?? req.amount);
+  const showInstallments = !payAsYouWish && req.installments_enabled && (req.num_installments || 0) > 1;
   const instCurrent = req.installment_current || 1;
   const instTotal = req.num_installments || 1;
   const instPaid = req.installments_paid || 0;
@@ -265,7 +281,19 @@ export default function PaymentRequestPage() {
                 <p className="text-white/70 text-sm leading-relaxed">{req.description}</p>
               )}
               <div className="mt-4 text-3xl font-bold" style={{ color: '#D4AF37' }}>
-                {showInstallments ? (
+                {payAsYouWish ? (
+                  <>
+                    <span className="block text-lg font-semibold text-white/85">Pay as you wish</span>
+                    {(req.suggested_amount ?? req.amount) > 0 && (
+                      <span className="block text-sm font-medium text-white/60 mt-1">
+                        Suggested {symbol}{Number(req.suggested_amount ?? req.amount).toLocaleString()}
+                      </span>
+                    )}
+                    <span className="block text-[10px] font-normal text-white/45 mt-1">
+                      Minimum {symbol}{Number(req.minimum_amount || 1).toLocaleString()}
+                    </span>
+                  </>
+                ) : showInstallments ? (
                   <>
                     {symbol}{Number(checkoutAmount).toLocaleString()}
                     <span className="block text-sm font-medium text-white/70 mt-1">
@@ -310,6 +338,22 @@ export default function PaymentRequestPage() {
                 />
               </div>
 
+              {payAsYouWish && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Your contribution *</label>
+                  <input
+                    type="number"
+                    min={req.minimum_amount || 1}
+                    step="0.01"
+                    value={payerAmount}
+                    onChange={e => setPayerAmount(e.target.value)}
+                    placeholder={`Min ${symbol}${Number(req.minimum_amount || 1).toLocaleString()}`}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">Choose any amount you wish — thank you for your generosity.</p>
+                </div>
+              )}
+
               {payError && (
                 <p className="text-red-500 text-xs flex items-center gap-1">
                   <AlertTriangle size={12} /> {payError}
@@ -328,7 +372,9 @@ export default function PaymentRequestPage() {
                   : (
                     <>
                       <CreditCard size={16} />
-                      {showInstallments
+                      {payAsYouWish
+                        ? `Pay with Stripe · ${symbol}${Number(checkoutAmount).toLocaleString()}`
+                        : showInstallments
                         ? `Pay ${instStepLabel.toLowerCase()} · ${symbol}${Number(checkoutAmount).toLocaleString()}`
                         : `Pay with Stripe · ${symbol}${Number(checkoutAmount).toLocaleString()}`}
                     </>

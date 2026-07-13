@@ -178,9 +178,42 @@ def _installments_paid_count(row: dict) -> int:
     return int(row.get("installments_paid") or 0)
 
 
+def _minimum_amount_for_row(row: dict) -> float:
+    return round(max(0.01, float(row.get("minimum_amount") or 1)), 2)
+
+
+def _resolve_client_charge_amount(row: dict, payer_amount: Optional[float]) -> float:
+    """Fixed/installment links ignore payer_amount; pay-as-you-wish requires it."""
+    if row.get("pay_as_you_wish"):
+        if payer_amount is None:
+            raise HTTPException(400, "Enter the amount you wish to pay.")
+        charge = round(float(payer_amount), 2)
+        minimum = _minimum_amount_for_row(row)
+        if charge < minimum:
+            raise HTTPException(400, f"Amount must be at least {minimum}")
+        return charge
+    checkout = _checkout_state_for_row(row)
+    return round(float(checkout["checkout_amount"]), 2)
+
+
 def _checkout_state_for_row(row: dict) -> Dict[str, Any]:
     """Derive what the client pays next on a payment link."""
     total = round(float(row.get("amount") or 0), 2)
+    if row.get("pay_as_you_wish"):
+        minimum = _minimum_amount_for_row(row)
+        return {
+            "pay_as_you_wish": True,
+            "suggested_amount": total,
+            "minimum_amount": minimum,
+            "installments_enabled": False,
+            "total_amount": total,
+            "checkout_amount": 0.0,
+            "installment_current": 1,
+            "num_installments": 1,
+            "installments_paid": 0,
+            "installments_remaining": 0,
+            "installment_amounts": [],
+        }
     if not row.get("installments_enabled"):
         return {
             "installments_enabled": False,
@@ -256,6 +289,8 @@ class CreatePaymentRequestBody(BaseModel):
     installment_plan: Optional[str] = "equal"  # equal | quarter_then_monthly | down_then_emi
     installment_down_pct: Optional[float] = None
     installment_emi_count: Optional[int] = None
+    pay_as_you_wish: Optional[bool] = False
+    minimum_amount: Optional[float] = 1.0
 
 
 class UpdatePaymentRequestBody(BaseModel):
@@ -280,6 +315,8 @@ class UpdatePaymentRequestBody(BaseModel):
     installment_plan: Optional[str] = None
     installment_down_pct: Optional[float] = None
     installment_emi_count: Optional[int] = None
+    pay_as_you_wish: Optional[bool] = None
+    minimum_amount: Optional[float] = None
 
 
 class RazorpayVerifyBody(BaseModel):
@@ -293,6 +330,7 @@ class RazorpayVerifyBody(BaseModel):
 class StripeCheckoutBody(BaseModel):
     payer_name: Optional[str] = ""
     payer_email: Optional[str] = ""
+    payer_amount: Optional[float] = None
 
 
 class RecordManualPaymentBody(BaseModel):
@@ -312,12 +350,15 @@ class RecordManualPaymentBody(BaseModel):
 async def create_payment_request(body: CreatePaymentRequestBody, request: Request):
     """Admin: create a new payment request link."""
     await assert_admin_session_or_password(request, None)
-    if body.amount <= 0:
+    pay_as_you_wish = bool(body.pay_as_you_wish)
+    if not pay_as_you_wish and body.amount <= 0:
         raise HTTPException(400, "Amount must be > 0")
+    if pay_as_you_wish and body.amount < 0:
+        raise HTTPException(400, "Suggested amount cannot be negative")
     item_type = (body.item_type or "").strip().lower()
     if item_type not in ("program", "session", "annual_package", ""):
         item_type = ""
-    installments_enabled = bool(body.installments_enabled)
+    installments_enabled = bool(body.installments_enabled) and not pay_as_you_wish
     installment_plan = (body.installment_plan or "equal").strip().lower()
     if installment_plan not in INSTALLMENT_PLANS:
         installment_plan = "equal"
@@ -371,6 +412,8 @@ async def create_payment_request(body: CreatePaymentRequestBody, request: Reques
         "installment_amounts": installment_amounts,
         "installments_paid": 0,
         "installment_payments": [],
+        "pay_as_you_wish": pay_as_you_wish,
+        "minimum_amount": _minimum_amount_for_row({"minimum_amount": body.minimum_amount}),
         "status": "active",          # active | partially_paid | paid | cancelled
         "created_at": _now_iso(),
         "paid_at": None,
@@ -448,7 +491,7 @@ async def create_stripe_checkout(
     payer_email = (body.payer_email or "").strip().lower() or (row.get("recipient_email") or "").strip().lower()
 
     checkout = _checkout_state_for_row(row)
-    charge_amount = round(float(checkout["checkout_amount"]), 2)
+    charge_amount = _resolve_client_charge_amount(row, body.payer_amount)
     inst_n = int(checkout["installment_current"])
     inst_total = int(checkout["num_installments"])
 
@@ -490,7 +533,8 @@ async def create_stripe_checkout(
             "payer_email": payer_email[:200],
             "installment_number": str(inst_n),
             "num_installments": str(inst_total),
-            "total_amount": str(round(float(row.get("amount") or 0), 2)),
+            "total_amount": str(charge_amount if row.get("pay_as_you_wish") else round(float(row.get("amount") or 0), 2)),
+            "pay_as_you_wish": "1" if row.get("pay_as_you_wish") else "0",
         },
         "billing_address_collection": "required",
     }
@@ -603,18 +647,18 @@ async def _settle_payment_request_tx(
             patch["paid_at"] = now
         await db.payment_requests.update_one({"id": req_id}, {"$set": patch})
     elif st == "active":
-        await db.payment_requests.update_one(
-            {"id": req_id},
-            {"$set": {
-                "status": "paid",
-                "paid_at": now,
-                "payer_name": payer_name or req.get("recipient_name", ""),
-                "payer_email": payer_email or req.get("recipient_email", ""),
-                "payment_transaction_id": tx.get("id"),
-                **({"stripe_session_id": sid} if sid else {}),
-                "installment_payments": [payment_entry],
-            }},
-        )
+        paid_patch: Dict[str, Any] = {
+            "status": "paid",
+            "paid_at": now,
+            "payer_name": payer_name or req.get("recipient_name", ""),
+            "payer_email": payer_email or req.get("recipient_email", ""),
+            "payment_transaction_id": tx.get("id"),
+            **({"stripe_session_id": sid} if sid else {}),
+            "installment_payments": [payment_entry],
+        }
+        if req.get("pay_as_you_wish"):
+            paid_patch["amount"] = round(float(tx.get("amount") or 0), 2)
+        await db.payment_requests.update_one({"id": req_id}, {"$set": paid_patch})
     else:
         return
 
