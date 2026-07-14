@@ -276,130 +276,161 @@ async def enrollment_checkout_prepare(
                 pricing_resp["pricing"]["total"] = total
                 pricing_resp["pricing"]["participant_count"] = participant_count
 
-    promo_discount = 0
-    if enrollment.get("dashboard_mixed_total") is None and data.promo_code:
-        try:
-            from utils.promotion_scope import (
-                build_cart_lines_from_payload,
-                eligible_participant_units_for_fixed_promo,
-                fixed_promo_scales_with_participants,
-                promo_applies_to_cart_lines,
-            )
-
-            promo = await db.promotions.find_one({"code": data.promo_code.strip().upper(), "active": True}, {"_id": 0})
-            if promo:
-                ci = data.cart_items or []
-                scope_payload = (
-                    {"cart_items": ci}
-                    if ci
-                    else {"program_id": data.item_id, "tier_index": data.tier_index}
+    pay_as_you_wish_checkout = False
+    if (
+        enrollment.get("dashboard_mixed_total") is None
+        and data.item_type == "session"
+        and currency == "inr"
+    ):
+        sess = await db.sessions.find_one(
+            {"id": data.item_id},
+            {"_id": 0, "pay_as_you_wish": 1, "pay_as_you_wish_minimum_inr": 1},
+        )
+        if sess and sess.get("pay_as_you_wish"):
+            pay_as_you_wish_checkout = True
+            if data.client_chosen_amount is None:
+                raise HTTPException(status_code=400, detail="Enter the amount you wish to pay.")
+            chosen = round(float(data.client_chosen_amount), 2)
+            minimum = round(float(sess.get("pay_as_you_wish_minimum_inr") or 450), 2)
+            if chosen < minimum:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Amount must be at least ₹{minimum:.0f}.",
                 )
-                lines = build_cart_lines_from_payload(scope_payload)
-                ok_scope, err_scope = promo_applies_to_cart_lines(promo, lines)
-                if not ok_scope:
-                    logger.info("Promo not applied (scope): %s", err_scope)
-                    promo = None
-            if promo:
-                discount_type = promo.get("discount_type", "percentage")
-                if discount_type == "percentage":
-                    pct = promo.get("discount_percentage", 0)
-                    promo_discount = round(total * pct / 100, 2)
-                else:
-                    base = float(promo.get(f"discount_{currency}", promo.get("discount_aed", 0)))
-                    pl = {
-                        "cart_items": data.cart_items or [],
-                        "program_id": data.item_id,
-                        "tier_index": data.tier_index,
-                        "participant_count": participant_count,
-                    }
-                    units_fp = eligible_participant_units_for_fixed_promo(
-                        promo, pl, fallback_participants=participant_count
-                    )
-                    mult = units_fp if fixed_promo_scales_with_participants(promo) else 1
-                    promo_discount = round(base * mult, 2)
-        except Exception as e:
-            logger.warning("Promo code error: %s", e)
+            total = round(chosen * max(1, int(participant_count or 1)), 2)
+            pricing_resp["pricing"]["total"] = total
+            pricing_resp["pricing"]["final_per_person"] = chosen
+            pricing_resp["pricing"]["pay_as_you_wish"] = True
+            pricing_resp["pricing"]["minimum_amount"] = minimum
 
+    promo_discount = 0
     disc_result: dict = {}
     auto_discount = 0.0
-    try:
-        from routes.discounts import calculate_discounts as _calc_discounts
-
-        cart_lines_dc = data.cart_items or []
-        num_programs_dc = len(cart_lines_dc) if cart_lines_dc else 1
-        num_participants_dc = participant_count
-        if cart_lines_dc:
-            npc_sum = sum(int(ci.get("participants_count") or 0) for ci in cart_lines_dc)
-            if npc_sum > 0:
-                num_participants_dc = npc_sum
-        program_ids_dc = [str(ci.get("program_id")) for ci in cart_lines_dc if ci.get("program_id")]
-        disc_result = await _calc_discounts(
-            {
-                "num_programs": num_programs_dc,
-                "num_participants": num_participants_dc,
-                "subtotal": total,
-                "email": enrollment.get("booker_email", ""),
-                "currency": currency,
-                "program_ids": program_ids_dc,
-                "cart_items": cart_lines_dc,
-            }
-        )
-        auto_discount = float(disc_result.get("total_discount", 0))
-    except Exception as e:
-        logger.warning("Auto discount calc error: %s", e)
-        disc_result = {}
-        auto_discount = 0.0
-
     vip_discount = 0
     vip_offer_name = ""
-    try:
-        settings_so = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "special_offers": 1})
-        special_offers = (settings_so or {}).get("special_offers", [])
-        booker_email_v = (enrollment.get("booker_email") or "").lower().strip()
-        booker_phone = (enrollment.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0")
-        participants = enrollment.get("participants", [])
-        all_emails = {booker_email_v} | {(p.get("email") or "").lower().strip() for p in participants}
-        all_phones = {booker_phone} | {
-            (p.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0") for p in participants
-        }
-        all_emails.discard("")
-        all_phones.discard("")
 
-        for offer in special_offers:
-            if not offer.get("enabled", True):
-                continue
-            offer_programs = offer.get("program_ids", [])
-            if offer_programs and data.item_id and str(data.item_id) not in [str(p) for p in offer_programs]:
-                continue
-            offer_people = offer.get("people", [])
-            matched = False
-            for person in offer_people:
-                person_email = (person.get("email") or "").lower().strip()
-                person_phone = (person.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0")
-                if person_email and person_email in all_emails:
-                    matched = True
-                    break
-                if person_phone and person_phone in all_phones:
-                    matched = True
-                    break
-            if matched:
-                if offer.get("discount_type") == "fixed":
-                    vip_discount = float(offer.get("discount_amount", 0))
-                else:
-                    vip_discount = round(total * float(offer.get("discount_pct", 0)) / 100, 2)
-                vip_offer_name = offer.get("label", offer.get("code", "VIP"))
-                logger.info("VIP offer '%s' matched: -%s", vip_offer_name, vip_discount)
-                break
-    except Exception as e:
-        logger.warning("VIP offer check error: %s", e)
-
-    # Cart UI stacks promo + group/combo/loyalty/cross-sell. VIP/special offer stays exclusive (single best).
-    if vip_discount > 0:
-        after_cart_deals = max(0.0, round(float(total) - float(vip_discount), 2))
+    if pay_as_you_wish_checkout:
+        after_cart_deals = float(total)
     else:
-        promo_d = float(promo_discount or 0)
-        auto_d = float(disc_result.get("total_discount", 0)) if disc_result else 0.0
-        after_cart_deals = max(0.0, round(float(total) - promo_d - auto_d, 2))
+        if enrollment.get("dashboard_mixed_total") is None and data.promo_code:
+            try:
+                from utils.promotion_scope import (
+                    build_cart_lines_from_payload,
+                    eligible_participant_units_for_fixed_promo,
+                    fixed_promo_scales_with_participants,
+                    promo_applies_to_cart_lines,
+                )
+
+                promo = await db.promotions.find_one({"code": data.promo_code.strip().upper(), "active": True}, {"_id": 0})
+                if promo:
+                    ci = data.cart_items or []
+                    scope_payload = (
+                        {"cart_items": ci}
+                        if ci
+                        else {"program_id": data.item_id, "tier_index": data.tier_index}
+                    )
+                    lines = build_cart_lines_from_payload(scope_payload)
+                    ok_scope, err_scope = promo_applies_to_cart_lines(promo, lines)
+                    if not ok_scope:
+                        logger.info("Promo not applied (scope): %s", err_scope)
+                        promo = None
+                if promo:
+                    discount_type = promo.get("discount_type", "percentage")
+                    if discount_type == "percentage":
+                        pct = promo.get("discount_percentage", 0)
+                        promo_discount = round(total * pct / 100, 2)
+                    else:
+                        base = float(promo.get(f"discount_{currency}", promo.get("discount_aed", 0)))
+                        pl = {
+                            "cart_items": data.cart_items or [],
+                            "program_id": data.item_id,
+                            "tier_index": data.tier_index,
+                            "participant_count": participant_count,
+                        }
+                        units_fp = eligible_participant_units_for_fixed_promo(
+                            promo, pl, fallback_participants=participant_count
+                        )
+                        mult = units_fp if fixed_promo_scales_with_participants(promo) else 1
+                        promo_discount = round(base * mult, 2)
+            except Exception as e:
+                logger.warning("Promo code error: %s", e)
+
+        try:
+            from routes.discounts import calculate_discounts as _calc_discounts
+
+            cart_lines_dc = data.cart_items or []
+            num_programs_dc = len(cart_lines_dc) if cart_lines_dc else 1
+            num_participants_dc = participant_count
+            if cart_lines_dc:
+                npc_sum = sum(int(ci.get("participants_count") or 0) for ci in cart_lines_dc)
+                if npc_sum > 0:
+                    num_participants_dc = npc_sum
+            program_ids_dc = [str(ci.get("program_id")) for ci in cart_lines_dc if ci.get("program_id")]
+            disc_result = await _calc_discounts(
+                {
+                    "num_programs": num_programs_dc,
+                    "num_participants": num_participants_dc,
+                    "subtotal": total,
+                    "email": enrollment.get("booker_email", ""),
+                    "currency": currency,
+                    "program_ids": program_ids_dc,
+                    "cart_items": cart_lines_dc,
+                }
+            )
+            auto_discount = float(disc_result.get("total_discount", 0))
+        except Exception as e:
+            logger.warning("Auto discount calc error: %s", e)
+            disc_result = {}
+            auto_discount = 0.0
+
+        try:
+            settings_so = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "special_offers": 1})
+            special_offers = (settings_so or {}).get("special_offers", [])
+            booker_email_v = (enrollment.get("booker_email") or "").lower().strip()
+            booker_phone = (enrollment.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0")
+            participants = enrollment.get("participants", [])
+            all_emails = {booker_email_v} | {(p.get("email") or "").lower().strip() for p in participants}
+            all_phones = {booker_phone} | {
+                (p.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0") for p in participants
+            }
+            all_emails.discard("")
+            all_phones.discard("")
+
+            for offer in special_offers:
+                if not offer.get("enabled", True):
+                    continue
+                offer_programs = offer.get("program_ids", [])
+                if offer_programs and data.item_id and str(data.item_id) not in [str(p) for p in offer_programs]:
+                    continue
+                offer_people = offer.get("people", [])
+                matched = False
+                for person in offer_people:
+                    person_email = (person.get("email") or "").lower().strip()
+                    person_phone = (person.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0")
+                    if person_email and person_email in all_emails:
+                        matched = True
+                        break
+                    if person_phone and person_phone in all_phones:
+                        matched = True
+                        break
+                if matched:
+                    if offer.get("discount_type") == "fixed":
+                        vip_discount = float(offer.get("discount_amount", 0))
+                    else:
+                        vip_discount = round(total * float(offer.get("discount_pct", 0)) / 100, 2)
+                    vip_offer_name = offer.get("label", offer.get("code", "VIP"))
+                    logger.info("VIP offer '%s' matched: -%s", vip_offer_name, vip_discount)
+                    break
+        except Exception as e:
+            logger.warning("VIP offer check error: %s", e)
+
+        # Cart UI stacks promo + group/combo/loyalty/cross-sell. VIP/special offer stays exclusive (single best).
+        if vip_discount > 0:
+            after_cart_deals = max(0.0, round(float(total) - float(vip_discount), 2))
+        else:
+            promo_d = float(promo_discount or 0)
+            auto_d = float(disc_result.get("total_discount", 0)) if disc_result else 0.0
+            after_cart_deals = max(0.0, round(float(total) - promo_d - auto_d, 2))
 
     final_total = float(after_cart_deals)
 

@@ -369,21 +369,30 @@ function SessionDetailPage() {
       </h1>
     ),
     gold_line: <div key="line" className="w-16 h-0.5 mb-4" style={{ background: `linear-gradient(90deg, ${accentColor}, transparent)` }} />,
-    price: (session.show_pricing !== false && formatPrice(getPrice(session))) ? (
+    price: (session.show_pricing !== false && (session.pay_as_you_wish || formatPrice(getPrice(session)))) ? (
       <div key="price" className="flex items-center gap-3 flex-wrap">
-        {activeOffer && (
-          <span className="text-[9px] px-2.5 py-1 rounded-full font-bold animate-pulse"
-            style={{ background: offerBadgeBg, color: offerBadgeText }} data-testid="hero-offer-badge">
-            {activeOffer}
-          </span>
-        )}
-        {sessionOfferPrice > 0 ? (
+        {session.pay_as_you_wish ? (
           <>
-            <span className="text-2xl font-bold tabular-nums md:text-3xl lg:text-4xl" style={applyStyle(sessionTpl.hero_price_style, { color: accentColor })}>{formatPrice(sessionOfferPrice)}</span>
-            <span className="text-lg text-white/40 line-through md:text-xl">{formatPrice(getPrice(session))}</span>
+            <span className="text-2xl font-bold tabular-nums md:text-3xl lg:text-4xl" style={applyStyle(sessionTpl.hero_price_style, { color: accentColor })}>Pay as you wish</span>
+            <span className="text-sm text-white/60">min ₹{Math.max(450, parseFloat(session.pay_as_you_wish_minimum_inr) || 450).toLocaleString()}</span>
           </>
         ) : (
-          <span className="text-2xl font-bold tabular-nums md:text-3xl lg:text-4xl" style={applyStyle(sessionTpl.hero_price_style, { color: accentColor })}>{formatPrice(getPrice(session))}</span>
+          <>
+            {activeOffer && (
+              <span className="text-[9px] px-2.5 py-1 rounded-full font-bold animate-pulse"
+                style={{ background: offerBadgeBg, color: offerBadgeText }} data-testid="hero-offer-badge">
+                {activeOffer}
+              </span>
+            )}
+            {sessionOfferPrice > 0 ? (
+              <>
+                <span className="text-2xl font-bold tabular-nums md:text-3xl lg:text-4xl" style={applyStyle(sessionTpl.hero_price_style, { color: accentColor })}>{formatPrice(sessionOfferPrice)}</span>
+                <span className="text-lg text-white/40 line-through md:text-xl">{formatPrice(getPrice(session))}</span>
+              </>
+            ) : (
+              <span className="text-2xl font-bold tabular-nums md:text-3xl lg:text-4xl" style={applyStyle(sessionTpl.hero_price_style, { color: accentColor })}>{formatPrice(getPrice(session))}</span>
+            )}
+          </>
         )}
       </div>
     ) : null,

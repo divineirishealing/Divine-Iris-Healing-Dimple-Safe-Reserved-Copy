@@ -26,6 +26,7 @@ const PRICING_SESSION_FIELD_KEYS = [
   'visible', 'enable_online', 'enable_offline', 'enable_in_person', 'show_pricing',
   'price_aed', 'price_inr', 'price_usd',
   'offer_price_aed', 'offer_price_inr', 'offer_price_usd', 'offer_text',
+  'pay_as_you_wish', 'pay_as_you_wish_minimum_inr', 'pay_as_you_wish_suggested_inr',
 ];
 
 function mergeDurationTiersForPricingSave(serverTiers = [], localTiers = []) {
@@ -351,6 +352,9 @@ const PricingHubTab = () => {
                 <th className="px-1 py-2 font-semibold text-teal-600 w-16" title="Enable Offline mode"><div className="flex items-center justify-center gap-0.5"><Wifi size={11} /><span className="text-[9px]">Offline</span></div></th>
                 <th className="px-1 py-2 font-semibold text-orange-600 w-16" title="Enable In-Person mode"><div className="flex items-center justify-center gap-0.5"><MapPin size={11} /><span className="text-[9px]">In-Person</span></div></th>
                 <th className="px-1 py-2 font-semibold text-purple-600 w-12" title="Show pricing on session card & page">Pricing</th>
+                <th className="px-1 py-2 font-semibold text-emerald-700 w-14" title="Client chooses INR amount at checkout">Pay wish</th>
+                <th className="px-1 py-2 font-semibold text-emerald-600 min-w-[62px]" title="Minimum INR when pay-as-you-wish is on">Min ₹</th>
+                <th className="px-1 py-2 font-semibold text-emerald-500 min-w-[62px]" title="Suggested INR (optional)">Sugg ₹</th>
                 <th className="px-1 py-2 font-semibold text-blue-700 min-w-[70px]">AED</th>
                 <th className="px-1 py-2 font-semibold text-green-700 min-w-[70px]">INR</th>
                 <th className="px-1 py-2 font-semibold text-purple-700 min-w-[70px]">USD</th>
@@ -373,6 +377,9 @@ const PricingHubTab = () => {
                   <td className="px-1 py-1 text-center"><Switch checked={s.enable_offline !== false} onCheckedChange={v => updateSession(i, 'enable_offline', v)} /></td>
                   <td className="px-1 py-1 text-center"><Switch checked={s.enable_in_person === true} onCheckedChange={v => updateSession(i, 'enable_in_person', v)} /></td>
                   <td className="px-1 py-1 text-center"><Switch checked={s.show_pricing !== false} onCheckedChange={v => updateSession(i, 'show_pricing', v)} /></td>
+                  <td className="px-1 py-1 text-center"><Switch checked={!!s.pay_as_you_wish} onCheckedChange={v => updateSession(i, 'pay_as_you_wish', v)} /></td>
+                  <td className="px-1 py-1"><Cell value={s.pay_as_you_wish_minimum_inr ?? 450} onChange={v => updateSession(i, 'pay_as_you_wish_minimum_inr', v)} className={s.pay_as_you_wish ? '' : 'opacity-40'} /></td>
+                  <td className="px-1 py-1"><Cell value={s.pay_as_you_wish_suggested_inr ?? 0} onChange={v => updateSession(i, 'pay_as_you_wish_suggested_inr', v)} className={s.pay_as_you_wish ? '' : 'opacity-40'} /></td>
                   <td className="px-1 py-1"><Cell value={s.price_aed} onChange={v => updateSession(i, 'price_aed', v)} /></td>
                   <td className="px-1 py-1"><Cell value={s.price_inr} onChange={v => updateSession(i, 'price_inr', v)} /></td>
                   <td className="px-1 py-1"><Cell value={s.price_usd} onChange={v => updateSession(i, 'price_usd', v)} /></td>

@@ -210,6 +210,8 @@ class EnrollmentSubmit(BaseModel):
     home_coming_pay_installment_n: Optional[int] = None
     # True when paying from Sacred Home Home Coming package page (catalog bundle), not Upcoming tier checkout.
     home_coming_catalog_checkout: Optional[bool] = None
+    # Session pay-as-you-wish (INR): amount chosen by client on enrollment checkout.
+    client_chosen_amount: Optional[float] = None
 
 
 def _ordinal(n: int) -> str:
@@ -639,6 +641,35 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
     per_person = offer_price if offer_price > 0 else price
     total = round(per_person * participant_count, 2)
 
+    pricing_block = {
+        "currency": allowed_currency,
+        "symbol": symbol,
+        "price_per_person": price,
+        "offer_price_per_person": offer_price if offer_price > 0 else None,
+        "final_per_person": per_person,
+        "participant_count": participant_count,
+        "total": total,
+        "offer_text": item.get("offer_text", ""),
+    }
+
+    if (
+        item_type == "session"
+        and item.get("pay_as_you_wish")
+        and allowed_currency == "inr"
+    ):
+        minimum = round(float(item.get("pay_as_you_wish_minimum_inr") or 450), 2)
+        suggested = round(float(item.get("pay_as_you_wish_suggested_inr") or 0), 2)
+        if suggested <= 0 and offer_inr > 0:
+            suggested = round(float(offer_inr), 2)
+        per_wish = suggested if suggested > 0 else minimum
+        pricing_block.update({
+            "pay_as_you_wish": True,
+            "minimum_amount": minimum,
+            "suggested_amount": suggested,
+            "final_per_person": per_wish,
+            "total": round(per_wish * participant_count, 2),
+        })
+
     return {
         "enrollment_id": enrollment_id,
         "item": {
@@ -646,17 +677,11 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
             "title": item.get("title"),
             "description": item.get("description"),
             "image": item.get("image"),
+            "pay_as_you_wish": bool(item.get("pay_as_you_wish")),
+            "pay_as_you_wish_minimum_inr": item.get("pay_as_you_wish_minimum_inr"),
+            "pay_as_you_wish_suggested_inr": item.get("pay_as_you_wish_suggested_inr"),
         },
-        "pricing": {
-            "currency": allowed_currency,
-            "symbol": symbol,
-            "price_per_person": price,
-            "offer_price_per_person": offer_price if offer_price > 0 else None,
-            "final_per_person": per_person,
-            "participant_count": participant_count,
-            "total": total,
-            "offer_text": item.get("offer_text", ""),
-        },
+        "pricing": pricing_block,
         "security": {
             "vpn_blocked": vpn_blocked,
             "fraud_warning": fraud_warning,

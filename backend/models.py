@@ -248,6 +248,9 @@ class Session(BaseModel):
     enable_online: bool = True
     enable_offline: bool = True
     enable_in_person: bool = False
+    pay_as_you_wish: bool = False
+    pay_as_you_wish_minimum_inr: float = 450.0
+    pay_as_you_wish_suggested_inr: float = 0.0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class SessionCreate(BaseModel):
@@ -276,6 +279,9 @@ class SessionCreate(BaseModel):
     enable_online: Optional[bool] = True
     enable_offline: Optional[bool] = True
     enable_in_person: Optional[bool] = False
+    pay_as_you_wish: Optional[bool] = False
+    pay_as_you_wish_minimum_inr: Optional[float] = 450.0
+    pay_as_you_wish_suggested_inr: Optional[float] = 0.0
 
 class SessionTestimonial(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
