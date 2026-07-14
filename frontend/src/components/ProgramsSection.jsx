@@ -8,7 +8,7 @@ import { useToast } from '../hooks/use-toast';
 import { ShoppingCart, Check } from 'lucide-react';
 import { HEADING, BODY, CONTAINER, applySectionStyle } from '../lib/designTokens';
 import { UpcomingCard } from './UpcomingProgramsSection';
-import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInr } from '../lib/payAsYouWish';
+import { catalogPayAsYouWishEnabled } from '../lib/payAsYouWish';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -25,7 +25,6 @@ const SimpleFlagshipCard = ({ program }) => {
   const showTiers = tiers.length > 0 && program.show_tiers_on_card !== false;
   const showPricing = program.show_pricing_on_card !== false;
   const payWishEnabled = catalogPayAsYouWishEnabled(program);
-  const payWishMin = payWishEnabled ? catalogPayAsYouWishMinimumInr(program) : 0;
   const tier = showTiers ? tiers[selectedTier] : null;
   const isAnnual = tier && (tier.label.toLowerCase().includes('annual') || tier.label.toLowerCase().includes('year'));
   const price = getPrice(program, showTiers ? selectedTier : null);
@@ -124,7 +123,7 @@ const SimpleFlagshipCard = ({ program }) => {
             ) : payWishEnabled ? (
               <div className="flex flex-col gap-0.5">
                 <span className="text-lg font-bold text-emerald-700">Pay as you wish</span>
-                <span className="text-[10px] text-gray-500">min ₹{payWishMin.toLocaleString()}</span>
+                <span className="text-[10px] text-gray-500">Choose your contribution at checkout</span>
               </div>
             ) : (
               <div className="flex flex-col gap-0.5">

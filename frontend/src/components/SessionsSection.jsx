@@ -418,13 +418,11 @@ const SessionsSection = ({ sectionConfig }) => {
                     const offerPrc = getOfferPrice(selectedSession);
                     const originalPrc = getPrice(selectedSession);
                     const offerBadge = isOfferActive(selectedSession);
-                    const payWishMin = Math.max(450, parseFloat(selectedSession.pay_as_you_wish_minimum_inr) || 450);
                     return (
                       <div key="price">
                         {selectedSession.pay_as_you_wish ? (
                           <div className="flex items-baseline gap-2 flex-wrap">
                             <span className="text-2xl font-bold text-purple-700">Pay as you wish</span>
-                            <span className="text-gray-500 text-sm">min ₹{payWishMin.toLocaleString()}</span>
                             <span className="text-gray-400 text-xs w-full">per session</span>
                           </div>
                         ) : (

@@ -297,7 +297,7 @@ async def enrollment_checkout_prepare(
             if chosen < minimum:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Amount must be at least ₹{minimum:.0f}.",
+                    detail="Please enter a higher contribution amount.",
                 )
             total = round(chosen * max(1, int(participant_count or 1)), 2)
             pricing_resp["pricing"]["total"] = total

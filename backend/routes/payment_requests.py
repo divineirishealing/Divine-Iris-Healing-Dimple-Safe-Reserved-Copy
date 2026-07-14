@@ -190,7 +190,7 @@ def _resolve_client_charge_amount(row: dict, payer_amount: Optional[float]) -> f
         charge = round(float(payer_amount), 2)
         minimum = _minimum_amount_for_row(row)
         if charge < minimum:
-            raise HTTPException(400, f"Amount must be at least {minimum}")
+            raise HTTPException(400, "Please enter a higher contribution amount.")
         return charge
     checkout = _checkout_state_for_row(row)
     return round(float(checkout["checkout_amount"]), 2)

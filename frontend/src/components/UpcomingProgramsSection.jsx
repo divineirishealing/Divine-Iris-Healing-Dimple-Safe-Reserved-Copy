@@ -7,7 +7,7 @@ import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
 import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart, Gift, Users } from 'lucide-react';
 import { cn, formatDateDdMonYyyy } from '../lib/utils';
-import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInr } from '../lib/payAsYouWish';
+import { catalogPayAsYouWishEnabled } from '../lib/payAsYouWish';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -226,7 +226,6 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   const price = getPrice(program, hasTiers ? selectedTier : null);
   const offerPrice = getOfferPrice(program, hasTiers ? selectedTier : null);
   const payWishEnabled = catalogPayAsYouWishEnabled(program);
-  const payWishMin = payWishEnabled ? catalogPayAsYouWishMinimumInr(program) : 0;
 
   const showContact = isAnnual && price === 0;
   const inCart = items.some(i => i.programId === program.id && i.tierIndex === selectedTier);
@@ -491,7 +490,7 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
                       {payWishEnabled ? (
                         <>
                           <span className="text-xl font-bold text-emerald-700">Pay as you wish</span>
-                          <span className="text-xs text-gray-500">min ₹{payWishMin.toLocaleString()}</span>
+                          <span className="text-xs text-gray-500">Choose your contribution at checkout</span>
                         </>
                       ) : offerPrice > 0 ? (
                         <>

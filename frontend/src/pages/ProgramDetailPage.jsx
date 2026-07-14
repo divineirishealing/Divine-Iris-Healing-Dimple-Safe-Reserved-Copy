@@ -24,7 +24,7 @@ import {
   isStandardProgramSection,
 } from '../lib/programPageSections';
 import { computeProgramHeroLayout, computeProgramCtaLayout } from '../lib/programHeroLayout';
-import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInr } from '../lib/payAsYouWish';
+import { catalogPayAsYouWishEnabled } from '../lib/payAsYouWish';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
@@ -293,7 +293,6 @@ function ProgramDetailPage() {
   const heroPriceBase = tiersLen > 0 ? getPrice(program, 0) : getPrice(program);
   const heroPriceOffer = tiersLen > 0 ? getOfferPrice(program, 0) : getOfferPrice(program);
   const payWishEnabled = catalogPayAsYouWishEnabled(program);
-  const payWishMin = payWishEnabled ? catalogPayAsYouWishMinimumInr(program) : 0;
   const heroHasAmount = payWishEnabled || heroPriceOffer > 0 || heroPriceBase > 0;
 
   const heroStart = heroScheduleItems.find((r) => r.key === 'sd');
@@ -531,7 +530,7 @@ function ProgramDetailPage() {
                             <span className="text-lg font-semibold md:text-xl" style={{ ...globalPricingStyle, color: heroAccent, opacity: 0.9 }}>
                               Pay as you wish
                             </span>
-                            <span className="text-xs text-white/50 md:text-sm">min ₹{payWishMin.toLocaleString()}</span>
+                            <span className="text-xs text-white/50 md:text-sm">Choose your contribution at checkout</span>
                           </>
                         ) : heroPriceOffer > 0 ? (
                           <>
@@ -605,7 +604,7 @@ function ProgramDetailPage() {
                           <span className="shrink-0 text-base font-semibold md:text-lg" style={{ ...globalPricingStyle, color: heroAccent }}>
                             Pay as you wish
                           </span>
-                          <span className="shrink-0 text-xs text-white/50">min ₹{payWishMin.toLocaleString()}</span>
+                          <span className="shrink-0 text-xs text-white/50">Choose at checkout</span>
                           <button
                             type="button"
                             data-testid={`hero-tier-${tIdx}`}
@@ -732,7 +731,7 @@ function ProgramDetailPage() {
                           ) : payWishEnabled ? (
                             <div><div className="mb-3">
                               <p className="text-base font-semibold text-emerald-700">Pay as you wish</p>
-                              <p className="text-[10px] text-gray-500 mt-1">min ₹{payWishMin.toLocaleString()}</p>
+                              <p className="text-[10px] text-gray-500 mt-1">Choose your contribution at checkout</p>
                             </div><span className="inline-block bg-gray-900 text-white text-[10px] py-2 px-6 tracking-[0.15em] uppercase transition-colors">Select</span></div>
                           ) : (
                             <div><div className="mb-3">
@@ -793,7 +792,7 @@ function ProgramDetailPage() {
                       return (
                         <div className="mb-4">
                           <p className="text-2xl font-semibold text-emerald-700">Pay as you wish</p>
-                          <p className="text-sm text-gray-500 mt-1">min ₹{payWishMin.toLocaleString()}</p>
+                          <p className="text-sm text-gray-500 mt-1">Choose your contribution at checkout</p>
                         </div>
                       );
                     }

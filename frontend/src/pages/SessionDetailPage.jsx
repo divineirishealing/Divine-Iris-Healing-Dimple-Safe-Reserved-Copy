@@ -374,7 +374,7 @@ function SessionDetailPage() {
         {session.pay_as_you_wish ? (
           <>
             <span className="text-2xl font-bold tabular-nums md:text-3xl lg:text-4xl" style={applyStyle(sessionTpl.hero_price_style, { color: accentColor })}>Pay as you wish</span>
-            <span className="text-sm text-white/60">min ₹{Math.max(450, parseFloat(session.pay_as_you_wish_minimum_inr) || 450).toLocaleString()}</span>
+            <span className="text-sm text-white/60">Choose your contribution at checkout</span>
           </>
         ) : (
           <>

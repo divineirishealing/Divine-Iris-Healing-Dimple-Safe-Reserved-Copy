@@ -136,10 +136,6 @@ export default function PaymentRequestPage() {
         setReq(r.data);
         if (r.data.recipient_name) setName(r.data.recipient_name);
         if (r.data.recipient_email) setEmail(r.data.recipient_email);
-        const suggested = r.data.pay_as_you_wish
-          ? (r.data.suggested_amount ?? r.data.amount ?? '')
-          : '';
-        if (suggested) setPayerAmount(String(suggested));
         if (r.data.status === 'paid') setSuccess(true);
       })
       .catch(() => setError('This payment link is invalid or has expired.'))
@@ -177,7 +173,7 @@ export default function PaymentRequestPage() {
     if (payAsYouWish) {
       const min = Number(req?.minimum_amount) || 1;
       if (!Number.isFinite(amountNum) || amountNum < min) {
-        setPayError(`Please enter an amount of at least ${min}.`);
+        setPayError('Please enter a higher contribution amount.');
         return;
       }
     }
@@ -284,13 +280,8 @@ export default function PaymentRequestPage() {
                 {payAsYouWish ? (
                   <>
                     <span className="block text-lg font-semibold text-white/85">Pay as you wish</span>
-                    {(req.suggested_amount ?? req.amount) > 0 && (
-                      <span className="block text-sm font-medium text-white/60 mt-1">
-                        Suggested {symbol}{Number(req.suggested_amount ?? req.amount).toLocaleString()}
-                      </span>
-                    )}
                     <span className="block text-[10px] font-normal text-white/45 mt-1">
-                      Minimum {symbol}{Number(req.minimum_amount || 1).toLocaleString()}
+                      Choose your contribution below
                     </span>
                   </>
                 ) : showInstallments ? (
@@ -343,11 +334,10 @@ export default function PaymentRequestPage() {
                   <label className="block text-xs font-medium text-gray-600 mb-1">Your contribution *</label>
                   <input
                     type="number"
-                    min={req.minimum_amount || 1}
                     step="0.01"
                     value={payerAmount}
                     onChange={e => setPayerAmount(e.target.value)}
-                    placeholder={`Min ${symbol}${Number(req.minimum_amount || 1).toLocaleString()}`}
+                    placeholder="Enter amount"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                   />
                   <p className="text-[10px] text-gray-500 mt-1">Choose any amount you wish — thank you for your generosity.</p>
