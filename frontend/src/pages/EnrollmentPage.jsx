@@ -25,7 +25,7 @@ import {
   findCrossSellRuleForTarget,
   normalizeCartItemTierIndex,
 } from '../lib/crossSellPricing';
-import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInr, catalogPayAsYouWishSuggestedInr } from '../lib/payAsYouWish';
+import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInr } from '../lib/payAsYouWish';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -637,7 +637,6 @@ function EnrollmentPage() {
     String(priceCurrency).toLowerCase() === 'inr' &&
     cartItems.length === 0;
   const payWishMinimum = catalogPayAsYouWishMinimumInr(item);
-  const payWishDefaultPerPerson = item ? catalogPayAsYouWishSuggestedInr(item, payWishMinimum) : payWishMinimum;
   const payWishEnteredNum = parseFloat(clientPayWishAmount);
   const hasPayWishEntry =
     clientPayWishAmount.trim() !== '' && Number.isFinite(payWishEnteredNum) && payWishEnteredNum > 0;
@@ -656,14 +655,15 @@ function EnrollmentPage() {
     if (!clientPayWishAmount.trim()) {
       toast({
         title: 'Enter your contribution',
-        description: `Choose an amount of at least ₹${payWishMinimum.toLocaleString()}.`,
+        description: 'Please enter the amount you wish to pay.',
         variant: 'destructive',
       });
       return false;
     }
     if (!payWishAmountValid) {
       toast({
-        title: `Minimum contribution is ₹${payWishMinimum.toLocaleString()}`,
+        title: 'Amount too low',
+        description: 'Please enter a higher contribution amount.',
         variant: 'destructive',
       });
       return false;
@@ -972,7 +972,7 @@ function EnrollmentPage() {
 
   const handleCheckout = async () => {
     if (isPayAsYouWishCheckout && !payWishAmountValid) {
-      toast({ title: `Minimum contribution is ₹${payWishMinimum.toLocaleString()}`, variant: 'destructive' });
+      ensurePayWishAmount();
       return;
     }
     setProcessing(true);
@@ -1000,7 +1000,7 @@ function EnrollmentPage() {
   const handleRazorpayCheckout = async () => {
     if (!razorpayEligible || !enrollmentId) return;
     if (isPayAsYouWishCheckout && !payWishAmountValid) {
-      toast({ title: `Minimum contribution is ₹${payWishMinimum.toLocaleString()}`, variant: 'destructive' });
+      ensurePayWishAmount();
       return;
     }
     setRazorpayBusy(true);
@@ -1205,22 +1205,16 @@ function EnrollmentPage() {
                           <Input
                             id="enroll-pay-wish-amount"
                             type="number"
-                            min={payWishMinimum}
                             step="1"
                             value={clientPayWishAmount}
                             onChange={(e) => setClientPayWishAmount(e.target.value)}
-                            placeholder={`Min ₹${payWishMinimum.toLocaleString()}`}
+                            placeholder="Enter amount (INR)"
                             className="text-sm h-9"
                             data-testid="enroll-pay-wish-amount"
                           />
-                          <p className="text-[10px] text-emerald-700/80">
-                            Pay as you wish · minimum ₹{payWishMinimum.toLocaleString()}
-                            {payWishDefaultPerPerson > payWishMinimum
-                              ? ` · suggested ₹${payWishDefaultPerPerson.toLocaleString()}`
-                              : ''}
-                          </p>
+                          <p className="text-[10px] text-emerald-700/80">Pay as you wish — choose any amount that feels right for you.</p>
                           {!payWishAmountValid && clientPayWishAmount !== '' && (
-                            <p className="text-[10px] text-red-600">Minimum contribution is ₹{payWishMinimum.toLocaleString()}</p>
+                            <p className="text-[10px] text-red-600">Please enter a higher contribution amount.</p>
                           )}
                         </div>
                       </>
