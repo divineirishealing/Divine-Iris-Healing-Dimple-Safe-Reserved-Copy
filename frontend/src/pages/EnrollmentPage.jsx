@@ -638,18 +638,38 @@ function EnrollmentPage() {
     cartItems.length === 0;
   const payWishMinimum = catalogPayAsYouWishMinimumInr(item);
   const payWishDefaultPerPerson = item ? catalogPayAsYouWishSuggestedInr(item, payWishMinimum) : payWishMinimum;
-  const parsedPayWishPerPerson = (() => {
-    const n = parseFloat(clientPayWishAmount);
-    if (Number.isFinite(n) && n > 0) return n;
-    return payWishDefaultPerPerson;
-  })();
-  const payWishAmountValid = parsedPayWishPerPerson >= payWishMinimum;
+  const payWishEnteredNum = parseFloat(clientPayWishAmount);
+  const hasPayWishEntry =
+    clientPayWishAmount.trim() !== '' && Number.isFinite(payWishEnteredNum) && payWishEnteredNum > 0;
+  const parsedPayWishPerPerson = hasPayWishEntry ? payWishEnteredNum : 0;
+  const payWishAmountValid = hasPayWishEntry && parsedPayWishPerPerson >= payWishMinimum;
+  const payWishAwaitingAmount = isPayAsYouWishCheckout && !payWishAmountValid;
 
   useEffect(() => {
     if (isPayAsYouWishCheckout) {
-      setClientPayWishAmount(String(payWishDefaultPerPerson));
+      setClientPayWishAmount('');
     }
-  }, [isPayAsYouWishCheckout, item?.id, payWishDefaultPerPerson]);
+  }, [isPayAsYouWishCheckout, item?.id]);
+
+  const ensurePayWishAmount = () => {
+    if (!isPayAsYouWishCheckout) return true;
+    if (!clientPayWishAmount.trim()) {
+      toast({
+        title: 'Enter your contribution',
+        description: `Choose an amount of at least ₹${payWishMinimum.toLocaleString()}.`,
+        variant: 'destructive',
+      });
+      return false;
+    }
+    if (!payWishAmountValid) {
+      toast({
+        title: `Minimum contribution is ₹${payWishMinimum.toLocaleString()}`,
+        variant: 'destructive',
+      });
+      return false;
+    }
+    return true;
+  };
 
   // Cross-sell: "buy" program in cart → discount only on seats whose participant is also on that buy line
   const crossSellDiscount = computeCrossSellDiscount(
@@ -744,7 +764,9 @@ function EnrollmentPage() {
     : (autoDiscounts.group_discount || 0) + (autoDiscounts.combo_discount || 0) + (autoDiscounts.loyalty_discount || 0);
   const total = Math.max(0, subtotal - discount - totalAutoDiscount);
 
-  const payWishCheckoutExtra = isPayAsYouWishCheckout ? { client_chosen_amount: parsedPayWishPerPerson } : {};
+  const payWishCheckoutExtra = isPayAsYouWishCheckout && payWishAmountValid
+    ? { client_chosen_amount: parsedPayWishPerPerson }
+    : {};
 
   useEffect(() => {
     if (step !== 1 || !enrollmentId || total <= 0) {
@@ -917,8 +939,8 @@ function EnrollmentPage() {
     try {
       await axios.post(`${API}/enrollment/${enrollmentId}/verify-otp`, { email: bookerEmail, otp });
       setEmailVerified(true); toast({ title: 'Email verified!' });
-      // If total is $0, auto-complete registration (skip payment step)
-      if (total <= 0) {
+      // If total is $0, auto-complete registration (skip payment step) — not for pay-as-you-wish awaiting amount
+      if (total <= 0 && !isPayAsYouWishCheckout) {
         setProcessing(true);
         try {
           const res = await axios.post(`${API}/enrollment/${enrollmentId}/checkout`, {
@@ -938,6 +960,10 @@ function EnrollmentPage() {
           toast({ title: 'Error completing registration', variant: 'destructive' });
           setProcessing(false);
         }
+      }
+      if (!ensurePayWishAmount()) {
+        setLoading(false);
+        return;
       }
       setStep(1);
     } catch (err) { toast({ title: err.response?.data?.detail || 'Wrong code', variant: 'destructive' }); }
@@ -1172,11 +1198,31 @@ function EnrollmentPage() {
                   <div className="border-t pt-4 mt-4 space-y-1.5">
                     {isPayAsYouWishCheckout ? (
                       <>
-                        <div className="flex justify-between text-xs text-gray-600">
-                          <span>Your contribution</span>
-                          <span className="font-bold text-emerald-700">₹ {parsedPayWishPerPerson.toLocaleString()}</span>
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-gray-600 block" htmlFor="enroll-pay-wish-amount">
+                            Your contribution *
+                          </label>
+                          <Input
+                            id="enroll-pay-wish-amount"
+                            type="number"
+                            min={payWishMinimum}
+                            step="1"
+                            value={clientPayWishAmount}
+                            onChange={(e) => setClientPayWishAmount(e.target.value)}
+                            placeholder={`Min ₹${payWishMinimum.toLocaleString()}`}
+                            className="text-sm h-9"
+                            data-testid="enroll-pay-wish-amount"
+                          />
+                          <p className="text-[10px] text-emerald-700/80">
+                            Pay as you wish · minimum ₹{payWishMinimum.toLocaleString()}
+                            {payWishDefaultPerPerson > payWishMinimum
+                              ? ` · suggested ₹${payWishDefaultPerPerson.toLocaleString()}`
+                              : ''}
+                          </p>
+                          {!payWishAmountValid && clientPayWishAmount !== '' && (
+                            <p className="text-[10px] text-red-600">Minimum contribution is ₹{payWishMinimum.toLocaleString()}</p>
+                          )}
                         </div>
-                        <p className="text-[10px] text-emerald-700/80">Pay as you wish · minimum ₹{payWishMinimum.toLocaleString()}</p>
                       </>
                     ) : (
                     <div className="flex justify-between text-xs text-gray-600">
@@ -1236,7 +1282,11 @@ function EnrollmentPage() {
                     <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2">
                       <span className="text-gray-900">Total</span>
                       <span className="text-[#D4AF37]">
-                        {displayCheckoutTotal <= 0 ? 'FREE' : `${effectiveSymbol} ${displayCheckoutTotal.toLocaleString()}`}
+                        {payWishAwaitingAmount
+                          ? <span className="text-sm font-normal text-gray-400">Enter amount above</span>
+                          : displayCheckoutTotal <= 0
+                            ? 'FREE'
+                            : `${effectiveSymbol} ${displayCheckoutTotal.toLocaleString()}`}
                       </span>
                     </div>
                   </div>
@@ -1389,7 +1439,7 @@ function EnrollmentPage() {
                             <ShieldCheck size={14} className="text-green-600" />
                             <span className="text-xs text-green-700 font-medium">{bookerEmail} — Verified</span>
                           </div>
-                          <Button data-testid="step0-next" onClick={() => setStep(1)}
+                          <Button data-testid="step0-next" onClick={() => { if (ensurePayWishAmount()) setStep(1); }}
                             className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full mt-3">
                             Continue to Payment <ChevronRight size={16} className="ml-1" />
                           </Button>
@@ -1402,7 +1452,7 @@ function EnrollmentPage() {
                 {/* Step 1: Pay */}
                 {step === 1 && (
                   <div data-testid="step-payment">
-                    {total <= 0 ? (
+                    {total <= 0 && !isPayAsYouWishCheckout ? (
                       /* Free enrollment — simplified confirmation */
                       <>
                         <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><ShieldCheck size={16} className="text-green-600" /> Confirm Registration</h2>
@@ -1432,28 +1482,6 @@ function EnrollmentPage() {
                       <p><strong>Email:</strong> {bookerEmail} <span className="text-green-600">Verified</span></p>
                       {phone && <p><strong>Phone:</strong> {countryCode}{phone}</p>}
                     </div>
-
-                    {isPayAsYouWishCheckout && (
-                      <div className="border border-emerald-200 rounded-lg p-4 mb-3 bg-emerald-50/50" data-testid="enroll-pay-as-you-wish">
-                        <p className="text-xs font-semibold text-gray-900 mb-1">Your contribution</p>
-                        <p className="text-[10px] text-gray-600 mb-2">
-                          Choose any amount you wish — minimum ₹{payWishMinimum.toLocaleString()}
-                          {payWishDefaultPerPerson > payWishMinimum ? ` · suggested ₹${payWishDefaultPerPerson.toLocaleString()}` : ''}
-                        </p>
-                        <Input
-                          type="number"
-                          min={payWishMinimum}
-                          step="1"
-                          value={clientPayWishAmount}
-                          onChange={(e) => setClientPayWishAmount(e.target.value)}
-                          className="text-sm"
-                          data-testid="enroll-pay-wish-amount"
-                        />
-                        {!payWishAmountValid && clientPayWishAmount !== '' && (
-                          <p className="text-[10px] text-red-600 mt-1">Minimum contribution is ₹{payWishMinimum.toLocaleString()}</p>
-                        )}
-                      </div>
-                    )}
 
                     {pointsSummary?.enabled && total > 0 && pointsSummary.redeem_blocked && (
                       <div className="border border-amber-200 rounded-lg p-3 mb-3 bg-amber-50/60" data-testid="enroll-points-flagship-block">
