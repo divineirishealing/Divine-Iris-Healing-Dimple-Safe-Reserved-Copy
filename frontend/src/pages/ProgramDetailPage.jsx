@@ -291,7 +291,10 @@ function ProgramDetailPage() {
   const tiersLen = program.duration_tiers?.length || 0;
   const heroPriceBase = tiersLen > 0 ? getPrice(program, 0) : getPrice(program);
   const heroPriceOffer = tiersLen > 0 ? getOfferPrice(program, 0) : getOfferPrice(program);
-  const heroHasAmount = heroPriceOffer > 0 || heroPriceBase > 0;
+  const payWishMin = program.pay_as_you_wish
+    ? Math.max(450, parseFloat(program.pay_as_you_wish_minimum_inr) || 450)
+    : 0;
+  const heroHasAmount = program.pay_as_you_wish || heroPriceOffer > 0 || heroPriceBase > 0;
 
   const heroStart = heroScheduleItems.find((r) => r.key === 'sd');
   const heroEnd = heroScheduleItems.find((r) => r.key === 'ed');
@@ -523,7 +526,14 @@ function ProgramDetailPage() {
                     <div>
                       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-snug md:text-base">
                         <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>Investment:</span>
-                        {heroPriceOffer > 0 ? (
+                        {program.pay_as_you_wish ? (
+                          <>
+                            <span className="text-lg font-semibold md:text-xl" style={{ ...globalPricingStyle, color: heroAccent, opacity: 0.9 }}>
+                              Pay as you wish
+                            </span>
+                            <span className="text-xs text-white/50 md:text-sm">min ₹{payWishMin.toLocaleString()}</span>
+                          </>
+                        ) : heroPriceOffer > 0 ? (
                           <>
                             <span
                               className="text-lg font-semibold tabular-nums md:text-xl"
@@ -590,7 +600,26 @@ function ProgramDetailPage() {
                       <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>
                         {tier.label}:
                       </span>
-                      {showHeroTierPricing && tierOffer > 0 ? (
+                      {program.pay_as_you_wish && showHeroTierPricing ? (
+                        <>
+                          <span className="shrink-0 text-base font-semibold md:text-lg" style={{ ...globalPricingStyle, color: heroAccent }}>
+                            Pay as you wish
+                          </span>
+                          <span className="shrink-0 text-xs text-white/50">min ₹{payWishMin.toLocaleString()}</span>
+                          <button
+                            type="button"
+                            data-testid={`hero-tier-${tIdx}`}
+                            onClick={() => {
+                              setHeroTierIdx(tIdx);
+                              navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`);
+                            }}
+                            className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90"
+                            style={{ color: heroAccent, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                          >
+                            SELECT
+                          </button>
+                        </>
+                      ) : showHeroTierPricing && tierOffer > 0 ? (
                         <>
                           <span className="shrink-0 text-base font-semibold tabular-nums md:text-lg" style={{ ...globalPricingStyle, color: heroAccent }}>
                             {symbol} {tierOffer.toLocaleString()}

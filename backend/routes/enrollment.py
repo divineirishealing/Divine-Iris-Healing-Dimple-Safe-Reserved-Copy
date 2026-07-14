@@ -653,7 +653,7 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
     }
 
     if (
-        item_type == "session"
+        item_type in ("session", "program")
         and item.get("pay_as_you_wish")
         and allowed_currency == "inr"
     ):

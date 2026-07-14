@@ -118,6 +118,11 @@ const SimpleFlagshipCard = ({ program }) => {
           <div className="mb-2">
             {showContact ? (
               <p className="text-gray-500 text-[10px]">Custom pricing — contact us</p>
+            ) : program.pay_as_you_wish ? (
+              <div className="flex flex-col gap-0.5">
+                <span className="text-lg font-bold text-emerald-700">Pay as you wish</span>
+                <span className="text-[10px] text-gray-500">min ₹{Math.max(450, parseFloat(program.pay_as_you_wish_minimum_inr) || 450).toLocaleString()}</span>
+              </div>
             ) : (
               <div className="flex flex-col gap-0.5">
                 <div className="flex items-baseline gap-2 flex-wrap">
@@ -139,7 +144,7 @@ const SimpleFlagshipCard = ({ program }) => {
 
         {/* Buttons */}
         <div className="border-t pt-3 mt-auto">
-          {enrollStatus === 'open' && showPricing && price > 0 && !showContact ? (
+          {enrollStatus === 'open' && showPricing && (price > 0 || program.pay_as_you_wish) && !showContact ? (
             <div className="flex gap-1.5">
               <button onClick={() => navigate(`/program/${program.id}`)}
                 data-testid={`know-more-btn-${program.id}`}

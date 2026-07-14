@@ -485,7 +485,12 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
                 <>
                   <div className="flex flex-col gap-0.5 mb-2">
                     <div className="flex items-baseline gap-2 flex-wrap">
-                      {offerPrice > 0 ? (
+                      {program.pay_as_you_wish ? (
+                        <>
+                          <span className="text-xl font-bold text-emerald-700">Pay as you wish</span>
+                          <span className="text-xs text-gray-500">min ₹{Math.max(450, parseFloat(program.pay_as_you_wish_minimum_inr) || 450).toLocaleString()}</span>
+                        </>
+                      ) : offerPrice > 0 ? (
                         <>
                           <span className="text-xl font-bold text-[#D4AF37]">{symbol} {offerPrice.toLocaleString()}</span>
                           <span className="text-xs text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
@@ -502,7 +507,7 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
                       className="flex-1 bg-[#1a1a1a] hover:bg-[#333] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
                       Know More
                     </button>
-                    {price > 0 && (
+                    {price > 0 || program.pay_as_you_wish ? (
                       <button onClick={handleAddToCart} data-testid={`upcoming-add-cart-${program.id}`}
                         disabled={inCart || justAdded}
                         className={`flex items-center justify-center px-2.5 py-2 rounded-full text-[10px] transition-all font-medium border ${

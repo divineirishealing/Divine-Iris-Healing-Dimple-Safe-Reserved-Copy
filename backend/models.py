@@ -109,6 +109,9 @@ class Program(BaseModel):
     india_tax_percent: float = 18.0
     india_tax_label: str = "GST"
     india_tax_visible_on_dashboard: bool = True
+    pay_as_you_wish: bool = False
+    pay_as_you_wish_minimum_inr: float = 450.0
+    pay_as_you_wish_suggested_inr: float = 0.0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ProgramCreate(BaseModel):
@@ -174,6 +177,9 @@ class ProgramCreate(BaseModel):
     show_start_date_on_card: Optional[bool] = True
     show_end_date_on_card: Optional[bool] = True
     show_timing_on_card: Optional[bool] = True
+    pay_as_you_wish: Optional[bool] = False
+    pay_as_you_wish_minimum_inr: Optional[float] = 450.0
+    pay_as_you_wish_suggested_inr: Optional[float] = 0.0
 
 
 class Promotion(BaseModel):

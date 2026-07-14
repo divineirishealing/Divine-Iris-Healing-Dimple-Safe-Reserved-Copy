@@ -279,19 +279,21 @@ async def enrollment_checkout_prepare(
     pay_as_you_wish_checkout = False
     if (
         enrollment.get("dashboard_mixed_total") is None
-        and data.item_type == "session"
+        and data.item_type in ("session", "program")
         and currency == "inr"
+        and not (data.cart_items or [])
     ):
-        sess = await db.sessions.find_one(
+        coll = "sessions" if data.item_type == "session" else "programs"
+        catalog_item = await db[coll].find_one(
             {"id": data.item_id},
             {"_id": 0, "pay_as_you_wish": 1, "pay_as_you_wish_minimum_inr": 1},
         )
-        if sess and sess.get("pay_as_you_wish"):
+        if catalog_item and catalog_item.get("pay_as_you_wish"):
             pay_as_you_wish_checkout = True
             if data.client_chosen_amount is None:
                 raise HTTPException(status_code=400, detail="Enter the amount you wish to pay.")
             chosen = round(float(data.client_chosen_amount), 2)
-            minimum = round(float(sess.get("pay_as_you_wish_minimum_inr") or 450), 2)
+            minimum = round(float(catalog_item.get("pay_as_you_wish_minimum_inr") or 450), 2)
             if chosen < minimum:
                 raise HTTPException(
                     status_code=400,

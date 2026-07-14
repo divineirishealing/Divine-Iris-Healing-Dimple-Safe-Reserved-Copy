@@ -630,8 +630,11 @@ function EnrollmentPage() {
   const effectiveUnitPrice = offerUnitPrice > 0 ? offerUnitPrice : unitPrice;
   const pCount = participants.length;
 
-  const isPayAsYouWishSession =
-    type === 'session' && !!item?.pay_as_you_wish && String(priceCurrency).toLowerCase() === 'inr';
+  const isPayAsYouWishCheckout =
+    (type === 'session' || type === 'program') &&
+    !!item?.pay_as_you_wish &&
+    String(priceCurrency).toLowerCase() === 'inr' &&
+    cartItems.length === 0;
   const payWishMinimum = Math.max(450, parseFloat(item?.pay_as_you_wish_minimum_inr) || 450);
   const payWishDefaultPerPerson = (() => {
     if (!item) return payWishMinimum;
@@ -647,10 +650,10 @@ function EnrollmentPage() {
   const payWishAmountValid = parsedPayWishPerPerson >= payWishMinimum;
 
   useEffect(() => {
-    if (isPayAsYouWishSession) {
+    if (isPayAsYouWishCheckout) {
       setClientPayWishAmount(String(payWishDefaultPerPerson));
     }
-  }, [isPayAsYouWishSession, item?.id, payWishDefaultPerPerson]);
+  }, [isPayAsYouWishCheckout, item?.id, payWishDefaultPerPerson]);
 
   // Cross-sell: "buy" program in cart → discount only on seats whose participant is also on that buy line
   const crossSellDiscount = computeCrossSellDiscount(
@@ -703,11 +706,11 @@ function EnrollmentPage() {
   const subtotalRawBase = useVipNotCross
     ? Math.max(0, effectiveUnitPrice - vipDiscount) * pCount
     : subtotalAfterCross;
-  const subtotalRaw = isPayAsYouWishSession
+  const subtotalRaw = isPayAsYouWishCheckout
     ? parsedPayWishPerPerson * pCount
     : subtotalRawBase;
   const afterDiscountPrice = pCount > 0 ? subtotalRaw / pCount : 0;
-  const displayUnitPrice = isPayAsYouWishSession ? parsedPayWishPerPerson : effectiveUnitPrice;
+  const displayUnitPrice = isPayAsYouWishCheckout ? parsedPayWishPerPerson : effectiveUnitPrice;
   const bestDiscount = useVipNotCross
     ? { type: 'vip', amount: vipDiscount }
     : crossTotalSaved > 0 && crossSellDiscount
@@ -717,7 +720,7 @@ function EnrollmentPage() {
   const [autoDiscounts, setAutoDiscounts] = useState({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 });
 
   useEffect(() => {
-    if (subtotalRaw <= 0 || isPayAsYouWishSession) return;
+    if (subtotalRaw <= 0 || isPayAsYouWishCheckout) return;
     const fetchDiscounts = async () => {
       try {
         const res = await axios.post(`${API}/discounts/calculate`, {
@@ -731,21 +734,21 @@ function EnrollmentPage() {
     };
     const timer = setTimeout(fetchDiscounts, 300);
     return () => clearTimeout(timer);
-  }, [subtotalRaw, pCount, bookerEmail, priceCurrency, isPayAsYouWishSession]);
+  }, [subtotalRaw, pCount, bookerEmail, priceCurrency, isPayAsYouWishCheckout]);
 
-  const discount = isPayAsYouWishSession ? 0 : (() => {
+  const discount = isPayAsYouWishCheckout ? 0 : (() => {
     if (!promoResult) return 0;
     if (promoResult.discount_type === 'percentage') return Math.round(subtotalRaw * promoResult.discount_percentage / 100);
     return promoResult[`discount_${priceCurrency}`] || promoResult.discount_aed || 0;
   })();
   const subtotal = subtotalRaw;
   // Exclude cross_sell from auto discounts — it's already applied per-program via finalUnitPrice
-  const totalAutoDiscount = isPayAsYouWishSession
+  const totalAutoDiscount = isPayAsYouWishCheckout
     ? 0
     : (autoDiscounts.group_discount || 0) + (autoDiscounts.combo_discount || 0) + (autoDiscounts.loyalty_discount || 0);
   const total = Math.max(0, subtotal - discount - totalAutoDiscount);
 
-  const payWishCheckoutExtra = isPayAsYouWishSession ? { client_chosen_amount: parsedPayWishPerPerson } : {};
+  const payWishCheckoutExtra = isPayAsYouWishCheckout ? { client_chosen_amount: parsedPayWishPerPerson } : {};
 
   useEffect(() => {
     if (step !== 1 || !enrollmentId || total <= 0) {
@@ -946,7 +949,7 @@ function EnrollmentPage() {
   };
 
   const handleCheckout = async () => {
-    if (isPayAsYouWishSession && !payWishAmountValid) {
+    if (isPayAsYouWishCheckout && !payWishAmountValid) {
       toast({ title: `Minimum contribution is ₹${payWishMinimum.toLocaleString()}`, variant: 'destructive' });
       return;
     }
@@ -974,7 +977,7 @@ function EnrollmentPage() {
 
   const handleRazorpayCheckout = async () => {
     if (!razorpayEligible || !enrollmentId) return;
-    if (isPayAsYouWishSession && !payWishAmountValid) {
+    if (isPayAsYouWishCheckout && !payWishAmountValid) {
       toast({ title: `Minimum contribution is ₹${payWishMinimum.toLocaleString()}`, variant: 'destructive' });
       return;
     }
@@ -1171,7 +1174,7 @@ function EnrollmentPage() {
 
                   {/* Price summary */}
                   <div className="border-t pt-4 mt-4 space-y-1.5">
-                    {isPayAsYouWishSession ? (
+                    {isPayAsYouWishCheckout ? (
                       <>
                         <div className="flex justify-between text-xs text-gray-600">
                           <span>Your contribution</span>
@@ -1193,13 +1196,13 @@ function EnrollmentPage() {
                       </span>
                     </div>
                     )}
-                    {bestDiscount.type === 'crosssell' && !isPayAsYouWishSession && (
+                    {bestDiscount.type === 'crosssell' && !isPayAsYouWishCheckout && (
                       <div className="flex justify-between text-xs text-green-600">
                         <span className="flex items-center gap-1"><Gift size={10} /> {bestDiscount.label || 'Cross-sell'}</span>
                         <span>-{bestDiscount.value}{bestDiscount.discount_type === 'percentage' ? '%' : ` ${symbol}`}</span>
                       </div>
                     )}
-                    {bestDiscount.type === 'vip' && !isPayAsYouWishSession && (
+                    {bestDiscount.type === 'vip' && !isPayAsYouWishCheckout && (
                       <div className="flex justify-between text-xs text-purple-600">
                         <span className="flex items-center gap-1"><Star size={10} /> {vipOffer?.label || 'VIP Offer'}</span>
                         <span>-{symbol} {vipDiscount.toLocaleString()}</span>
@@ -1208,22 +1211,22 @@ function EnrollmentPage() {
                     <div className="flex justify-between text-xs text-gray-600">
                       <span>Participants</span><span>{pCount}</span>
                     </div>
-                    {discount > 0 && !isPayAsYouWishSession && (
+                    {discount > 0 && !isPayAsYouWishCheckout && (
                       <div className="flex justify-between text-xs text-green-600">
                         <span>Promo</span><span>-{symbol} {discount.toLocaleString()}</span>
                       </div>
                     )}
-                    {autoDiscounts.group_discount > 0 && !isPayAsYouWishSession && (
+                    {autoDiscounts.group_discount > 0 && !isPayAsYouWishCheckout && (
                       <div className="flex justify-between text-xs text-green-600" data-testid="enroll-discount-group">
                         <span>Group Discount ({pCount} people)</span><span>-{symbol} {autoDiscounts.group_discount.toLocaleString()}</span>
                       </div>
                     )}
-                    {autoDiscounts.combo_discount > 0 && bestDiscount.type === 'none' && !isPayAsYouWishSession && (
+                    {autoDiscounts.combo_discount > 0 && bestDiscount.type === 'none' && !isPayAsYouWishCheckout && (
                       <div className="flex justify-between text-xs text-green-600" data-testid="enroll-discount-combo">
                         <span>Combo Discount</span><span>-{symbol} {autoDiscounts.combo_discount.toLocaleString()}</span>
                       </div>
                     )}
-                    {autoDiscounts.loyalty_discount > 0 && !isPayAsYouWishSession && (
+                    {autoDiscounts.loyalty_discount > 0 && !isPayAsYouWishCheckout && (
                       <div className="flex justify-between text-xs text-green-600" data-testid="enroll-discount-loyalty">
                         <span>Loyalty Discount</span><span>-{symbol} {autoDiscounts.loyalty_discount.toLocaleString()}</span>
                       </div>
@@ -1325,7 +1328,7 @@ function EnrollmentPage() {
                     </button>
 
                     {/* Promo Code (hidden when admin turns off; link ?promo= still applies) */}
-                    {(showCheckoutPromo || promoResult) && !isPayAsYouWishSession && (
+                    {(showCheckoutPromo || promoResult) && !isPayAsYouWishCheckout && (
                     <div className="border-t pt-4 mt-2 mb-4">
                       {showCheckoutPromo ? (
                         <>
@@ -1434,7 +1437,7 @@ function EnrollmentPage() {
                       {phone && <p><strong>Phone:</strong> {countryCode}{phone}</p>}
                     </div>
 
-                    {isPayAsYouWishSession && (
+                    {isPayAsYouWishCheckout && (
                       <div className="border border-emerald-200 rounded-lg p-4 mb-3 bg-emerald-50/50" data-testid="enroll-pay-as-you-wish">
                         <p className="text-xs font-semibold text-gray-900 mb-1">Your contribution</p>
                         <p className="text-[10px] text-gray-600 mb-2">
@@ -1606,7 +1609,7 @@ function EnrollmentPage() {
 
                     <div className="flex gap-3">
                       <Button variant="outline" onClick={goBackFromPayStep} className="rounded-full"><ChevronLeft size={16} /></Button>
-                      <Button data-testid="pay-now-btn" onClick={handleCheckout} disabled={processing || razorpayBusy || (isPayAsYouWishSession && !payWishAmountValid)}
+                      <Button data-testid="pay-now-btn" onClick={handleCheckout} disabled={processing || razorpayBusy || (isPayAsYouWishCheckout && !payWishAmountValid)}
                         className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
                         {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {displayCheckoutTotal <= 0 ? 'Registering...' : 'Redirecting...'}</> : displayCheckoutTotal <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {effectiveSymbol} {displayCheckoutTotal.toLocaleString()}</>}
                       </Button>

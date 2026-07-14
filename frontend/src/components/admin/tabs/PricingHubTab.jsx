@@ -14,6 +14,7 @@ const PRICING_PROGRAM_FIELD_KEYS = [
   'show_pricing_on_card', 'show_tiers_on_card',
   'price_aed', 'price_inr', 'price_usd',
   'offer_price_aed', 'offer_price_inr', 'offer_price_usd', 'offer_text',
+  'pay_as_you_wish', 'pay_as_you_wish_minimum_inr', 'pay_as_you_wish_suggested_inr',
 ];
 
 const TIER_PRICING_FIELD_KEYS = [
@@ -211,6 +212,9 @@ const PricingHubTab = () => {
                 <th className="px-1 py-2 font-semibold text-orange-600 w-16" title="Enable In-Person mode"><div className="flex items-center justify-center gap-0.5"><MapPin size={11} /><span className="text-[9px]">In-Person</span></div></th>
                 <th className="px-1 py-2 font-semibold text-purple-600 w-12" title="Show pricing on homepage & program page">Pricing</th>
                 <th className="px-1 py-2 font-semibold text-purple-600 w-12" title="Show tier selector on homepage & program page">Tiers</th>
+                <th className="px-1 py-2 font-semibold text-emerald-700 w-14" title="Client chooses INR amount at checkout">Pay wish</th>
+                <th className="px-1 py-2 font-semibold text-emerald-600 min-w-[62px]" title="Minimum INR when pay-as-you-wish is on">Min ₹</th>
+                <th className="px-1 py-2 font-semibold text-emerald-500 min-w-[62px]" title="Suggested INR (optional)">Sugg ₹</th>
                 <th className="px-1 py-2 font-semibold text-blue-700 min-w-[70px]">AED</th>
                 <th className="px-1 py-2 font-semibold text-green-700 min-w-[70px]">INR</th>
                 <th className="px-1 py-2 font-semibold text-purple-700 min-w-[70px]">USD</th>
@@ -245,6 +249,9 @@ const PricingHubTab = () => {
                       <td className="px-1 py-1 text-center"><Switch checked={p.enable_in_person === true} onCheckedChange={v => updateProgram(i, 'enable_in_person', v)} /></td>
                       <td className="px-1 py-1 text-center"><Switch checked={p.show_pricing_on_card !== false} onCheckedChange={v => updateProgram(i, 'show_pricing_on_card', v)} /></td>
                       <td className="px-1 py-1 text-center"><Switch checked={p.show_tiers_on_card !== false} onCheckedChange={v => updateProgram(i, 'show_tiers_on_card', v)} /></td>
+                      <td className="px-1 py-1 text-center"><Switch checked={!!p.pay_as_you_wish} onCheckedChange={v => updateProgram(i, 'pay_as_you_wish', v)} /></td>
+                      <td className="px-1 py-1"><Cell value={p.pay_as_you_wish_minimum_inr ?? 450} onChange={v => updateProgram(i, 'pay_as_you_wish_minimum_inr', v)} className={p.pay_as_you_wish ? '' : 'opacity-40'} /></td>
+                      <td className="px-1 py-1"><Cell value={p.pay_as_you_wish_suggested_inr ?? 0} onChange={v => updateProgram(i, 'pay_as_you_wish_suggested_inr', v)} className={p.pay_as_you_wish ? '' : 'opacity-40'} /></td>
                       {!hasTiers ? (
                         <>
                           <td className="px-1 py-1"><Cell value={p.price_aed} onChange={v => updateProgram(i, 'price_aed', v)} /></td>
@@ -274,7 +281,7 @@ const PricingHubTab = () => {
                             </select>
                           </div>
                         </td>
-                        <td colSpan={6}></td>
+                        <td colSpan={9}></td>
                         <td className="px-1 py-1"><Cell value={t.price_aed} onChange={v => updateTier(i, ti, 'price_aed', v)} /></td>
                         <td className="px-1 py-1"><Cell value={t.price_inr} onChange={v => updateTier(i, ti, 'price_inr', v)} /></td>
                         <td className="px-1 py-1"><Cell value={t.price_usd} onChange={v => updateTier(i, ti, 'price_usd', v)} /></td>
@@ -307,6 +314,9 @@ const PricingHubTab = () => {
                 <tr className="bg-emerald-50 border-b">
                   <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[180px] sticky left-0 bg-emerald-50 z-10">Name</th>
                   <th className="px-1 py-2 font-semibold text-gray-600 w-12">Show</th>
+                  <th className="px-1 py-2 font-semibold text-emerald-700 w-14" title="Client chooses INR amount at checkout">Pay wish</th>
+                  <th className="px-1 py-2 font-semibold text-emerald-600 min-w-[62px]" title="Minimum INR when pay-as-you-wish is on">Min ₹</th>
+                  <th className="px-1 py-2 font-semibold text-emerald-500 min-w-[62px]" title="Suggested INR (optional)">Sugg ₹</th>
                   <th className="px-1 py-2 font-semibold text-blue-700 min-w-[70px]">AED</th>
                   <th className="px-1 py-2 font-semibold text-green-700 min-w-[70px]">INR</th>
                   <th className="px-1 py-2 font-semibold text-purple-700 min-w-[70px]">USD</th>
@@ -323,6 +333,9 @@ const PricingHubTab = () => {
                     <tr key={p.id} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'} hover:bg-emerald-50/50`} data-testid={`pricing-group-${p.id}`}>
                       <td className="px-2 py-1.5 sticky left-0 bg-inherit z-10"><div className="truncate max-w-[180px] font-medium" title={p.title}>{p.title}</div></td>
                       <td className="px-1 py-1 text-center"><Switch checked={p.visible !== false} onCheckedChange={v => updateProgram(i, 'visible', v)} /></td>
+                      <td className="px-1 py-1 text-center"><Switch checked={!!p.pay_as_you_wish} onCheckedChange={v => updateProgram(i, 'pay_as_you_wish', v)} /></td>
+                      <td className="px-1 py-1"><Cell value={p.pay_as_you_wish_minimum_inr ?? 450} onChange={v => updateProgram(i, 'pay_as_you_wish_minimum_inr', v)} className={p.pay_as_you_wish ? '' : 'opacity-40'} /></td>
+                      <td className="px-1 py-1"><Cell value={p.pay_as_you_wish_suggested_inr ?? 0} onChange={v => updateProgram(i, 'pay_as_you_wish_suggested_inr', v)} className={p.pay_as_you_wish ? '' : 'opacity-40'} /></td>
                       <td className="px-1 py-1"><Cell value={p.price_aed} onChange={v => updateProgram(i, 'price_aed', v)} /></td>
                       <td className="px-1 py-1"><Cell value={p.price_inr} onChange={v => updateProgram(i, 'price_inr', v)} /></td>
                       <td className="px-1 py-1"><Cell value={p.price_usd} onChange={v => updateProgram(i, 'price_usd', v)} /></td>
