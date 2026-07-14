@@ -24,6 +24,7 @@ import {
   isStandardProgramSection,
 } from '../lib/programPageSections';
 import { computeProgramHeroLayout, computeProgramCtaLayout } from '../lib/programHeroLayout';
+import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInr } from '../lib/payAsYouWish';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
@@ -284,17 +285,16 @@ function ProgramDetailPage() {
     String(program.enrollment_status || 'open').toLowerCase() === 'closed';
 
   const showHeroPrice =
-    program.show_pricing_on_card !== false &&
+    (program.show_pricing_on_card !== false || catalogPayAsYouWishEnabled(program)) &&
     !enrollmentExpiredByDeadline &&
     program.enrollment_open !== false &&
     String(program.enrollment_status || 'open').toLowerCase() !== 'closed';
   const tiersLen = program.duration_tiers?.length || 0;
   const heroPriceBase = tiersLen > 0 ? getPrice(program, 0) : getPrice(program);
   const heroPriceOffer = tiersLen > 0 ? getOfferPrice(program, 0) : getOfferPrice(program);
-  const payWishMin = program.pay_as_you_wish
-    ? Math.max(450, parseFloat(program.pay_as_you_wish_minimum_inr) || 450)
-    : 0;
-  const heroHasAmount = program.pay_as_you_wish || heroPriceOffer > 0 || heroPriceBase > 0;
+  const payWishEnabled = catalogPayAsYouWishEnabled(program);
+  const payWishMin = payWishEnabled ? catalogPayAsYouWishMinimumInr(program) : 0;
+  const heroHasAmount = payWishEnabled || heroPriceOffer > 0 || heroPriceBase > 0;
 
   const heroStart = heroScheduleItems.find((r) => r.key === 'sd');
   const heroEnd = heroScheduleItems.find((r) => r.key === 'ed');
@@ -526,7 +526,7 @@ function ProgramDetailPage() {
                     <div>
                       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-snug md:text-base">
                         <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>Investment:</span>
-                        {program.pay_as_you_wish ? (
+                        {payWishEnabled ? (
                           <>
                             <span className="text-lg font-semibold md:text-xl" style={{ ...globalPricingStyle, color: heroAccent, opacity: 0.9 }}>
                               Pay as you wish
@@ -600,7 +600,7 @@ function ProgramDetailPage() {
                       <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>
                         {tier.label}:
                       </span>
-                      {program.pay_as_you_wish && showHeroTierPricing ? (
+                      {payWishEnabled && showHeroTierPricing ? (
                         <>
                           <span className="shrink-0 text-base font-semibold md:text-lg" style={{ ...globalPricingStyle, color: heroAccent }}>
                             Pay as you wish
@@ -729,6 +729,11 @@ function ProgramDetailPage() {
                           {showContact ? (
                             <div><p className="text-gray-400 text-[10px] mb-3">Contact for customised pricing</p>
                               <span className="inline-block text-white text-[10px] py-2 px-6 tracking-[0.15em] uppercase" style={{ background: heroAccent }}>Contact Us</span></div>
+                          ) : payWishEnabled ? (
+                            <div><div className="mb-3">
+                              <p className="text-base font-semibold text-emerald-700">Pay as you wish</p>
+                              <p className="text-[10px] text-gray-500 mt-1">min ₹{payWishMin.toLocaleString()}</p>
+                            </div><span className="inline-block bg-gray-900 text-white text-[10px] py-2 px-6 tracking-[0.15em] uppercase transition-colors">Select</span></div>
                           ) : (
                             <div><div className="mb-3">
                               {tierOffer > 0 ? (<><p className="text-base font-semibold" style={{ ...globalPricingStyle, fontSize: '1rem' }}>{symbol} {tierOffer.toLocaleString()}</p><p className="text-[10px] text-gray-400 line-through">{symbol} {tierPrice.toLocaleString()}</p></>) : tierPrice > 0 ? (<p className="text-base font-semibold" style={{ ...globalPricingStyle, fontSize: '1rem' }}>{symbol} {tierPrice.toLocaleString()}</p>) : (<p className="text-xs text-gray-400 italic">Contact for customised pricing</p>)}
@@ -784,6 +789,14 @@ function ProgramDetailPage() {
                     const basePrice = getPrice(program);
                     const offerP = getOfferPrice(program);
                     const pricingStyle = { ...globalPricingStyle, color: heroAccent };
+                    if (payWishEnabled) {
+                      return (
+                        <div className="mb-4">
+                          <p className="text-2xl font-semibold text-emerald-700">Pay as you wish</p>
+                          <p className="text-sm text-gray-500 mt-1">min ₹{payWishMin.toLocaleString()}</p>
+                        </div>
+                      );
+                    }
                     return offerP > 0 ? (
                       <div className="mb-4">
                         <p className="text-2xl font-semibold" style={pricingStyle}>{symbol} {offerP.toLocaleString()}</p>

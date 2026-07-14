@@ -25,6 +25,7 @@ import {
   findCrossSellRuleForTarget,
   normalizeCartItemTierIndex,
 } from '../lib/crossSellPricing';
+import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInr, catalogPayAsYouWishSuggestedInr } from '../lib/payAsYouWish';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -632,16 +633,11 @@ function EnrollmentPage() {
 
   const isPayAsYouWishCheckout =
     (type === 'session' || type === 'program') &&
-    !!item?.pay_as_you_wish &&
+    catalogPayAsYouWishEnabled(item) &&
     String(priceCurrency).toLowerCase() === 'inr' &&
     cartItems.length === 0;
-  const payWishMinimum = Math.max(450, parseFloat(item?.pay_as_you_wish_minimum_inr) || 450);
-  const payWishDefaultPerPerson = (() => {
-    if (!item) return payWishMinimum;
-    let sug = parseFloat(item.pay_as_you_wish_suggested_inr) || 0;
-    if (sug <= 0 && parseFloat(item.offer_price_inr) > 0) sug = parseFloat(item.offer_price_inr);
-    return sug > 0 ? sug : payWishMinimum;
-  })();
+  const payWishMinimum = catalogPayAsYouWishMinimumInr(item);
+  const payWishDefaultPerPerson = item ? catalogPayAsYouWishSuggestedInr(item, payWishMinimum) : payWishMinimum;
   const parsedPayWishPerPerson = (() => {
     const n = parseFloat(clientPayWishAmount);
     if (Number.isFinite(n) && n > 0) return n;

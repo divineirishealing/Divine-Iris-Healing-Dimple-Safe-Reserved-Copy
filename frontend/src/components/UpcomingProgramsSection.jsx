@@ -7,6 +7,7 @@ import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
 import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart, Gift, Users } from 'lucide-react';
 import { cn, formatDateDdMonYyyy } from '../lib/utils';
+import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInr } from '../lib/payAsYouWish';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -224,6 +225,8 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   const isAnnual = tier && (tier.label.toLowerCase().includes('annual') || tier.label.toLowerCase().includes('year') || tier.duration_unit === 'year');
   const price = getPrice(program, hasTiers ? selectedTier : null);
   const offerPrice = getOfferPrice(program, hasTiers ? selectedTier : null);
+  const payWishEnabled = catalogPayAsYouWishEnabled(program);
+  const payWishMin = payWishEnabled ? catalogPayAsYouWishMinimumInr(program) : 0;
 
   const showContact = isAnnual && price === 0;
   const inCart = items.some(i => i.programId === program.id && i.tierIndex === selectedTier);
@@ -485,10 +488,10 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
                 <>
                   <div className="flex flex-col gap-0.5 mb-2">
                     <div className="flex items-baseline gap-2 flex-wrap">
-                      {program.pay_as_you_wish ? (
+                      {payWishEnabled ? (
                         <>
                           <span className="text-xl font-bold text-emerald-700">Pay as you wish</span>
-                          <span className="text-xs text-gray-500">min ₹{Math.max(450, parseFloat(program.pay_as_you_wish_minimum_inr) || 450).toLocaleString()}</span>
+                          <span className="text-xs text-gray-500">min ₹{payWishMin.toLocaleString()}</span>
                         </>
                       ) : offerPrice > 0 ? (
                         <>
@@ -507,7 +510,7 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
                       className="flex-1 bg-[#1a1a1a] hover:bg-[#333] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
                       Know More
                     </button>
-                    {(price > 0 || program.pay_as_you_wish) && (
+                    {(price > 0 || payWishEnabled) && (
                       <button onClick={handleAddToCart} data-testid={`upcoming-add-cart-${program.id}`}
                         disabled={inCart || justAdded}
                         className={`flex items-center justify-center px-2.5 py-2 rounded-full text-[10px] transition-all font-medium border ${
@@ -518,7 +521,7 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
                     )}
                     <button onClick={() => navigate(`/enroll/program/${program.id}?tier=${selectedTier}`)} data-testid={`upcoming-enroll-${program.id}`}
                       className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
-                      {price > 0 ? 'Enroll Now' : 'Register Free'}
+                      {payWishEnabled || price > 0 ? 'Enroll Now' : 'Register Free'}
                     </button>
                   </div>
                 </>
