@@ -46,6 +46,7 @@ import {
   upcomingSessionStorageKey,
 } from '../../lib/dashboardUpcomingSessionStorage';
 import { getAuthHeaders } from '../../lib/authHeaders';
+import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInr } from '../../lib/payAsYouWish';
 import DashboardUpcomingProgramRowItem from './DashboardUpcomingProgramRowItem';
 import { CrossSellBanner } from '../UpcomingProgramsSection';
 import { Button } from '../ui/button';
@@ -145,6 +146,9 @@ function sanitizeSeatDraftFromSession(v) {
       };
     });
     if (Object.keys(gf).length) row.guestSeatForm = gf;
+  }
+  if (typeof v.clientPayWishAmount === 'string') {
+    row.clientPayWishAmount = v.clientPayWishAmount;
   }
   return row;
 }
@@ -1742,11 +1746,15 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       partial.guestSeatForm !== undefined ||
       partial.bookerJoinsProgram !== undefined ||
       partial.familyPaidTierIndex !== undefined ||
-      partial.memberTierById !== undefined;
+      partial.memberTierById !== undefined ||
+      partial.clientPayWishAmount !== undefined;
     if (touchesDraft) {
       setSeatDraftsByProgram((prev) => {
         const cur = { ...(prev[programId] || createEmptySeatDraft()) };
         if (partial.bookerJoinsProgram !== undefined) cur.bookerJoinsProgram = partial.bookerJoinsProgram;
+        if (partial.clientPayWishAmount !== undefined) {
+          cur.clientPayWishAmount = String(partial.clientPayWishAmount ?? '');
+        }
         if (partial.bookerSeatMode !== undefined) {
           cur.bookerSeatMode = partial.bookerSeatMode === 'offline' ? 'offline' : 'online';
         }
@@ -2032,12 +2040,26 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     }
 
     const guestBucketById = buildGuestBucketByIdFromSelection(selectedIds, bucketLookupMembers);
+    const payWishPerPerson = (() => {
+      if (!catalogPayAsYouWishEnabled(program) || String(portalQuoteCurrency).toLowerCase() !== 'inr') {
+        return null;
+      }
+      const n = parseFloat(draft?.clientPayWishAmount);
+      const min = catalogPayAsYouWishMinimumInr(program);
+      return Number.isFinite(n) && n >= min ? n : null;
+    })();
     syncProgramLineItem(program, tierIdx, participants, {
       familyIds: selectedIds.map(String),
       bookerJoins: included ? false : draft?.bookerJoinsProgram !== false,
       annualIncluded: !!included,
-      portalQuoteTotal: annualQuotes[programId]?.total != null ? Number(annualQuotes[programId].total) : null,
+      portalQuoteTotal:
+        payWishPerPerson != null
+          ? payWishPerPerson * Math.max(1, participants.length)
+          : annualQuotes[programId]?.total != null
+            ? Number(annualQuotes[programId].total)
+            : null,
       guestBucketById,
+      ...(payWishPerPerson != null ? { clientChosenAmount: payWishPerPerson } : {}),
     });
 
     toast({

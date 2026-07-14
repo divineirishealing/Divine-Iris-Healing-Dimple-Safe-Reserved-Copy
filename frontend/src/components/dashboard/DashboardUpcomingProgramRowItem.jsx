@@ -36,6 +36,8 @@ import {
 } from '../../lib/dashboardCartPrefill';
 import { getAuthHeaders } from '../../lib/authHeaders';
 import { useAuth } from '../../context/AuthContext';
+import { Input } from '../ui/input';
+import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInr } from '../../lib/payAsYouWish';
 
 const API_ROOT = process.env.REACT_APP_BACKEND_URL;
 
@@ -77,6 +79,9 @@ function AnnualQuoteBreakdown({
   cohortPortalQuotePricing = false,
   /** Program is on admin annual-package list (MMM, AWRP, …) — used for non-annual payer copy. */
   programOnAnnualPackageList = false,
+  /** INR pay-as-you-wish: per-person amount when valid; null while awaiting entry. */
+  payWishPerPerson = null,
+  payWishAwaitingAmount = false,
 }) {
   if (!aq) {
     return <p className="text-[11px] text-slate-500 italic">Calculating total…</p>;
@@ -107,10 +112,28 @@ function AnnualQuoteBreakdown({
     ) : null;
 
   if (layout === 'table') {
-    const selfOffer = Number(aq.self_after_promos ?? 0);
-    const ahOfferEach = ahPay > 0 ? Number(aq.annual_household_after_promos ?? 0) / ahPay : null;
-    const immOfferEach = immOnly > 0 ? Number(aq.immediate_family_only_after_promos ?? 0) / immOnly : null;
-    const extOfferEach = ext > 0 ? Number(aq.extended_guests_after_promos ?? 0) / ext : null;
+    const selfOffer =
+      payWishPerPerson != null && showSelf
+        ? payWishPerPerson
+        : Number(aq.self_after_promos ?? 0);
+    const ahOfferEach =
+      payWishPerPerson != null && ahPay > 0
+        ? payWishPerPerson
+        : ahPay > 0
+          ? Number(aq.annual_household_after_promos ?? 0) / ahPay
+          : null;
+    const immOfferEach =
+      payWishPerPerson != null && immOnly > 0
+        ? payWishPerPerson
+        : immOnly > 0
+          ? Number(aq.immediate_family_only_after_promos ?? 0) / immOnly
+          : null;
+    const extOfferEach =
+      payWishPerPerson != null && ext > 0
+        ? payWishPerPerson
+        : ext > 0
+          ? Number(aq.extended_guests_after_promos ?? 0) / ext
+          : null;
     const rowClass = 'flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[11px] text-slate-800';
     const tierGuestParts = (aq._tierQuoteParts || []).filter(
       (tp) => tp && !tp.include_self && tp.guestSeats > 0,
@@ -149,9 +172,15 @@ function AnnualQuoteBreakdown({
                 {annualDashboardAccess ? 'You (Annual Member)' : 'You'}
               </span>
               <span className="font-semibold tabular-nums text-slate-900 text-right">
-                {symbol}
-                {selfOffer.toLocaleString()}
-                <span className="text-slate-500 font-normal text-[10px] ml-1">· 1 seat</span>
+                {payWishAwaitingAmount ? (
+                  <span className="text-slate-400 font-normal italic text-[10px]">Enter amount above</span>
+                ) : (
+                  <>
+                    {symbol}
+                    {selfOffer.toLocaleString()}
+                    <span className="text-slate-500 font-normal text-[10px] ml-1">· 1 seat</span>
+                  </>
+                )}
               </span>
             </div>
           ) : null}
@@ -529,6 +558,23 @@ export default function DashboardUpcomingProgramRowItem({
   const selIds = selectedFamilyByProgram[p.id] || [];
   const selCount = selIds.length;
 
+  const isPayAsYouWish =
+    catalogPayAsYouWishEnabled(p) && String(currency).toLowerCase() === 'inr';
+  const payWishMinimum = catalogPayAsYouWishMinimumInr(p);
+  const clientPayWishAmount = annualSeatUi?.draft?.clientPayWishAmount ?? '';
+  const payWishEnteredNum = parseFloat(clientPayWishAmount);
+  const hasPayWishEntry =
+    clientPayWishAmount.trim() !== '' && Number.isFinite(payWishEnteredNum) && payWishEnteredNum > 0;
+  const parsedPayWishPerPerson = hasPayWishEntry ? payWishEnteredNum : 0;
+  const payWishAmountValid = hasPayWishEntry && parsedPayWishPerPerson >= payWishMinimum;
+  const payWishAwaitingAmount = isPayAsYouWish && !payWishAmountValid;
+  const bookerEnrollingSelf = annualSeatUi?.draft?.bookerJoinsProgram !== false;
+  const payingSeatCount = includedPkg
+    ? selCount
+    : (bookerEnrollingSelf ? 1 : 0) + selCount;
+  const payWishSelectionTotal =
+    isPayAsYouWish && payWishAmountValid ? parsedPayWishPerPerson * payingSeatCount : 0;
+
   const onlyBookerIncludedNoGuestSeats =
     includedPkg &&
     selIds.length === 0 &&
@@ -644,7 +690,6 @@ export default function DashboardUpcomingProgramRowItem({
     needsFamilyPaidTier && (guestTierIncomplete || portalQuoteAwaitingFamilyTier);
   const hasPortalTotal =
     aq != null && typeof aq.total === 'number' && !portalQuoteAwaitingFamilyTier;
-  const bookerEnrollingSelf = annualSeatUi?.draft?.bookerJoinsProgram !== false;
   /**
    * Paying seats: quote total &gt; 0. Guest-only with no one selected yet: allow Update if the line is already
    * in the cart so the booker can remove themselves / clear the line without re-checking the box.
@@ -655,7 +700,9 @@ export default function DashboardUpcomingProgramRowItem({
     !bookerEnrollingSelf &&
     selCount === 0 &&
     isInCart;
-  /** Included package: total can be 0 (member seat only). Otherwise require a positive quote total, or cart clear path above. */
+  /** Included package: total can be 0 (member seat only). Pay-as-you-wish: valid contribution counts as payable. */
+  const hasPayableSelectionTotal =
+    isPayAsYouWish && payWishAmountValid && payWishSelectionTotal > 0 && payingSeatCount > 0;
   const canAddToDivineCart = showContact
     ? Boolean(canSaveGuestOnlyClear)
     : familyPaidTierQuoteBlocked
@@ -663,10 +710,10 @@ export default function DashboardUpcomingProgramRowItem({
       : hasPortalTotal
         ? Boolean(
             (includedPkg && Number(aq.total) >= 0) ||
-              (!includedPkg && aq.total > 0) ||
+              (!includedPkg && (Number(aq.total) > 0 || hasPayableSelectionTotal)) ||
               canSaveGuestOnlyClear,
           )
-        : Boolean(enrollStatus === 'open' && !showContact);
+        : Boolean(enrollStatus === 'open' && !showContact && (hasPayableSelectionTotal || !isPayAsYouWish));
 
   const [addingToCheckout, setAddingToCheckout] = useState(false);
   const [annualPricingOpen, setAnnualPricingOpen] = useState(true);
@@ -784,6 +831,11 @@ export default function DashboardUpcomingProgramRowItem({
       if (!desiredNormTiers.has(nt)) removeItem(item.id);
     }
 
+    const payWishLineMeta =
+      isPayAsYouWish && payWishAmountValid
+        ? { clientChosenAmount: parsedPayWishPerPerson }
+        : {};
+
     if (useSingleLine) {
       const lineTier =
         !bookerJoinsSeat && selIds.length > 0
@@ -794,8 +846,14 @@ export default function DashboardUpcomingProgramRowItem({
         familyIds: selIds.map(String),
         bookerJoins: bookerJoinsSeat,
         annualIncluded: !!includedPkg,
-        portalQuoteTotal: aq?.total != null ? Number(aq.total) : null,
+        portalQuoteTotal:
+          isPayAsYouWish && payWishAmountValid
+            ? payWishSelectionTotal
+            : aq?.total != null
+              ? Number(aq.total)
+              : null,
         guestBucketById,
+        ...payWishLineMeta,
       });
       return 'synced';
     }
@@ -823,8 +881,12 @@ export default function DashboardUpcomingProgramRowItem({
           familyIds: [],
           bookerJoins: true,
           annualIncluded: !!includedPkg,
-          portalQuoteTotal: tierPartTotal(normalizedBookerTier, true),
+          portalQuoteTotal:
+            isPayAsYouWish && payWishAmountValid
+              ? parsedPayWishPerPerson * bookerParticipants.length
+              : tierPartTotal(normalizedBookerTier, true),
           guestBucketById: {},
+          ...payWishLineMeta,
         });
       }
     }
@@ -854,8 +916,12 @@ export default function DashboardUpcomingProgramRowItem({
         familyIds: gids.map(String),
         bookerJoins: false,
         annualIncluded: !!includedPkg,
-        portalQuoteTotal: tierPartTotal(nt, false),
+        portalQuoteTotal:
+          isPayAsYouWish && payWishAmountValid
+            ? parsedPayWishPerPerson * gp.length
+            : tierPartTotal(nt, false),
         guestBucketById: gb,
+        ...payWishLineMeta,
       });
     }
 
@@ -866,6 +932,24 @@ export default function DashboardUpcomingProgramRowItem({
 
   const handleAddToDivineCart = async (e) => {
     e.stopPropagation();
+    if (isPayAsYouWish && payingSeatCount > 0) {
+      if (!clientPayWishAmount.trim()) {
+        toast({
+          title: 'Enter your contribution',
+          description: 'Please enter the amount you wish to pay.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (!payWishAmountValid) {
+        toast({
+          title: 'Amount too low',
+          description: 'Please enter a higher contribution amount.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
     setAddingToCheckout(true);
     try {
       const action = await syncThisProgramToDivineCart();
@@ -1227,6 +1311,17 @@ export default function DashboardUpcomingProgramRowItem({
                       1&nbsp;Month / 3&nbsp;Months) in Divine Cart if those fit you.
                     </span>
                   </div>
+                ) : isPayAsYouWish ? (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xl font-bold text-[#D4AF37] leading-tight">Pay as you wish</span>
+                    {payWishAmountValid ? (
+                      <span className="text-sm text-slate-600 tabular-nums">
+                        {symbol}{parsedPayWishPerPerson.toLocaleString()} per seat
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-500">Enter your contribution below</span>
+                    )}
+                  </div>
                 ) : portalSelfHeroOffer != null ? (
                   <>
                     <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
@@ -1334,6 +1429,35 @@ export default function DashboardUpcomingProgramRowItem({
               </button>
               {annualPricingOpen ? (
                 <div className="min-w-0 w-full pt-2">
+                  {isPayAsYouWish && !includedPkg ? (
+                    <div className="space-y-1.5 mb-3">
+                      <label
+                        className="text-[10px] font-semibold text-slate-700 block"
+                        htmlFor={`dash-pay-wish-${p.id}`}
+                      >
+                        Your contribution *
+                      </label>
+                      <Input
+                        id={`dash-pay-wish-${p.id}`}
+                        type="number"
+                        step="1"
+                        value={clientPayWishAmount}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          annualSeatUi?.onPatchDraft?.(p.id, { clientPayWishAmount: e.target.value });
+                        }}
+                        placeholder="Enter amount (INR)"
+                        className="text-sm h-9"
+                        data-testid={`dashboard-pay-wish-amount-${p.id}`}
+                      />
+                      <p className="text-[10px] text-emerald-700/80">
+                        Pay as you wish — choose any amount that feels right for you.
+                      </p>
+                      {!payWishAmountValid && clientPayWishAmount !== '' ? (
+                        <p className="text-[10px] text-red-600">Please enter a higher contribution amount.</p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {aq ? (
                     showContact ? (
                       <div className="rounded-md border border-amber-200 bg-amber-50/90 px-3 py-2.5 text-[11px] text-slate-800 leading-snug space-y-1.5">
@@ -1371,13 +1495,19 @@ export default function DashboardUpcomingProgramRowItem({
                         programOnAnnualPackageList={programOnAnnualPackageList}
                         suppressIntro
                         layout="table"
+                        payWishPerPerson={payWishAmountValid ? parsedPayWishPerPerson : null}
+                        payWishAwaitingAmount={isPayAsYouWish && payWishAwaitingAmount}
                       />
                     )
                   ) : (() => {
                     const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
                     const seatPriceBase = showSpecialPromo ? afterPromo : dashboardSeatUnit;
                     const seatPrice =
-                      crossUnitAdj > 0 ? Math.max(0, seatPriceBase - crossUnitAdj) : seatPriceBase;
+                      isPayAsYouWish && payWishAmountValid
+                        ? parsedPayWishPerPerson
+                        : crossUnitAdj > 0
+                          ? Math.max(0, seatPriceBase - crossUnitAdj)
+                          : seatPriceBase;
                     const immMemberIds = new Set(
                       [...(members || []), ...(annualHouseholdPeers || [])]
                         .map((m) => (m.id ? String(m.id) : null))
@@ -1403,17 +1533,24 @@ export default function DashboardUpcomingProgramRowItem({
                               Already included in your annual package
                             </span>
                           </div>
-                        ) : bookerJoins && seatPrice > 0 ? (
+                        ) : bookerJoins && (seatPrice > 0 || (isPayAsYouWish && payWishAwaitingAmount)) ? (
                           <div className={rowClass}>
                             <span className="font-medium text-slate-800">Your seat</span>
                             <span className="font-semibold tabular-nums text-slate-900 text-right">
-                              {symbol}{seatPrice.toLocaleString()}
-                              {offerPrice > 0 &&
-                                price > offerPrice &&
-                                !showSpecialPromo && (
-                                <span className="text-slate-400 line-through ml-1.5 text-[10px] font-normal">{symbol}{price.toLocaleString()}</span>
+                              {isPayAsYouWish && payWishAwaitingAmount ? (
+                                <span className="text-slate-400 italic text-[10px] font-normal">Enter amount above</span>
+                              ) : (
+                                <>
+                                  {symbol}{seatPrice.toLocaleString()}
+                                  {offerPrice > 0 &&
+                                    price > offerPrice &&
+                                    !showSpecialPromo &&
+                                    !isPayAsYouWish && (
+                                    <span className="text-slate-400 line-through ml-1.5 text-[10px] font-normal">{symbol}{price.toLocaleString()}</span>
+                                  )}
+                                  <span className="text-slate-500 font-normal text-[10px] ml-1">· 1 seat</span>
+                                </>
                               )}
-                              <span className="text-slate-500 font-normal text-[10px] ml-1">· 1 seat</span>
                             </span>
                           </div>
                         ) : bookerJoins ? (
@@ -1496,10 +1633,15 @@ export default function DashboardUpcomingProgramRowItem({
                       <span className="font-semibold text-emerald-700">
                         Already included in your annual package (no charge for your seat)
                       </span>
+                    ) : payWishAwaitingAmount ? (
+                      <span className="font-normal text-gray-400 italic">Enter amount above</span>
                     ) : (
                       <span className="font-semibold text-slate-800 tabular-nums">
                         {symbol}{' '}
-                        {Math.max(0, Number(aq.total ?? 0) - crossSellLineDeduction).toLocaleString()}
+                        {(isPayAsYouWish && payWishAmountValid
+                          ? payWishSelectionTotal
+                          : Math.max(0, Number(aq.total ?? 0) - crossSellLineDeduction)
+                        ).toLocaleString()}
                       </span>
                     )}
                   </p>
@@ -1514,13 +1656,20 @@ export default function DashboardUpcomingProgramRowItem({
                 const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
                 const seatPriceBase = showSpecialPromo ? afterPromo : dashboardSeatUnit;
                 const seatPrice =
-                  crossUnitAdj > 0 ? Math.max(0, seatPriceBase - crossUnitAdj) : seatPriceBase;
+                  isPayAsYouWish && payWishAmountValid
+                    ? parsedPayWishPerPerson
+                    : crossUnitAdj > 0
+                      ? Math.max(0, seatPriceBase - crossUnitAdj)
+                      : seatPriceBase;
                 const immCount = selIds.filter((id) =>
                   [...(members || []), ...(annualHouseholdPeers || [])].some((m) => String(m.id) === id),
                 ).length;
                 const extCount = selIds.filter(id => otherMembers.some(m => String(m.id) === id)).length;
-                const grandTotal =
-                  (price > 0 || offerPrice > 0)
+                const grandTotal = isPayAsYouWish
+                  ? payWishAmountValid
+                    ? payWishSelectionTotal
+                    : 0
+                  : (price > 0 || offerPrice > 0)
                     ? (bookerJoins ? seatPrice : 0) + (immCount + extCount) * seatPrice
                     : 0;
                 const hasGuests = immCount > 0 || extCount > 0;
@@ -1536,9 +1685,13 @@ export default function DashboardUpcomingProgramRowItem({
                     ) : (
                       <>
                         Your selection total{hasGuests ? ' (guests & add-ons)' : ''}:{' '}
-                        <span className="font-semibold text-slate-800 tabular-nums">
-                          {symbol} {grandTotal.toLocaleString()}
-                        </span>
+                        {isPayAsYouWish && payWishAwaitingAmount ? (
+                          <span className="font-normal text-gray-400 italic">Enter amount above</span>
+                        ) : (
+                          <span className="font-semibold text-slate-800 tabular-nums">
+                            {symbol} {grandTotal.toLocaleString()}
+                          </span>
+                        )}
                       </>
                     )}
                   </p>
@@ -2005,9 +2158,11 @@ export default function DashboardUpcomingProgramRowItem({
                         : hasPortalTotal
                           ? includedPkg && selCount < 1
                             ? 'Select family members to join or wait for pricing.'
-                            : !bookerEnrollingSelf && selCount === 0 && !isInCart
+                              : !bookerEnrollingSelf && selCount === 0 && !isInCart
                               ? 'Select family guests or check “I am enrolling myself”, then add to Divine Cart.'
-                              : (aq.total || 0) <= 0
+                              : isPayAsYouWish && payWishAwaitingAmount
+                                ? 'Enter your contribution amount first.'
+                              : (aq.total || 0) <= 0 && !hasPayableSelectionTotal
                                 ? 'No amount due for this selection.'
                                 : ''
                           : showContact

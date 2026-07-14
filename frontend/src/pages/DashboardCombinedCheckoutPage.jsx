@@ -43,6 +43,7 @@ import {
   effectiveParticipantEmail,
 } from '../lib/dashboardCartPrefill';
 import { programIncludedInAnnualPackage } from '../components/dashboard/dashboardUpcomingHelpers';
+import { catalogPayAsYouWishMinimumInr } from '../lib/payAsYouWish';
 import { formatDateDdMonYyyy } from '../lib/utils';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -92,6 +93,28 @@ function dashboardQuoteParamsFromCartItem(item) {
     bookerJoins: hasBookerRow,
     orderedGuestIds,
   };
+}
+
+function countPayingCartParticipants(item) {
+  const meta = item?.portalLineMeta || {};
+  let c = 0;
+  for (const p of item.participants || []) {
+    const selfIncluded = meta.annualIncluded && String(p.relationship || '').trim() === 'Myself';
+    if (selfIncluded) continue;
+    c += 1;
+  }
+  return c;
+}
+
+/** INR pay-as-you-wish line total from Sacred Home contribution (per person × paying seats). */
+function cartLinePayWishTotalBase(item) {
+  if (!item?.pay_as_you_wish || String(item.portalLineMeta?.clientChosenAmount ?? '') === '') {
+    return null;
+  }
+  const per = parseFloat(item.portalLineMeta?.clientChosenAmount);
+  if (!Number.isFinite(per) || per <= 0) return null;
+  const seats = countPayingCartParticipants(item);
+  return seats > 0 ? Math.round(per * seats * 100) / 100 : null;
 }
 
 function combinedAttendanceLabel(p) {
@@ -912,6 +935,15 @@ export default function DashboardCombinedCheckoutPage() {
     let sum = 0;
     let allQuoted = true;
     for (const item of items) {
+      const payWishLineTotal = cartLinePayWishTotalBase(item);
+      if (payWishLineTotal != null) {
+        sum += payWishLineTotal;
+        continue;
+      }
+      if (item.pay_as_you_wish) {
+        allQuoted = false;
+        continue;
+      }
       const lineQuote = annualQuotesByProgram[annualPortalQuoteMapKey(item)];
       if (!lineQuote) {
         allQuoted = false;
@@ -1089,7 +1121,10 @@ export default function DashboardCombinedCheckoutPage() {
   });
 
   useEffect(() => {
-    if (subtotal <= 0) return;
+    const hasPayAsYouWishInr = items.some(
+      (i) => i.pay_as_you_wish && String(currency).toLowerCase() === 'inr',
+    );
+    if (subtotal <= 0 || hasPayAsYouWishInr) return;
     const fetchDiscounts = async () => {
       try {
         const res = await axios.post(`${API}/discounts/calculate`, {
@@ -1448,6 +1483,22 @@ export default function DashboardCombinedCheckoutPage() {
 
   const validateAndProceed = useCallback(() => {
     for (const item of items) {
+      if (
+        item.pay_as_you_wish &&
+        String(currency).toLowerCase() === 'inr' &&
+        countPayingCartParticipants(item) > 0
+      ) {
+        const per = parseFloat(item.portalLineMeta?.clientChosenAmount);
+        const min = catalogPayAsYouWishMinimumInr(item);
+        if (!Number.isFinite(per) || per < min) {
+          toast({
+            title: `${item.programTitle}: enter your contribution`,
+            description: 'Please enter a higher contribution amount on Sacred Home before checkout.',
+            variant: 'destructive',
+          });
+          return false;
+        }
+      }
       for (let i = 0; i < item.participants.length; i++) {
         const p = item.participants[i];
         if (!p.name.trim()) {

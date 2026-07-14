@@ -565,8 +565,13 @@ export function reconcileSeatDraftsFromPortalCart(prevByPid, upcomingPrograms, c
     let bookerSeatMode = cur.bookerSeatMode;
     let bookerSeatNotify = cur.bookerSeatNotify;
     const bookerJoinsProgram = lines.every((item) => item.portalLineMeta?.bookerJoins !== false);
+    let clientPayWishAmount = cur.clientPayWishAmount;
 
     for (const item of lines) {
+      const chosen = item.portalLineMeta?.clientChosenAmount;
+      if (chosen != null && String(chosen).trim() !== '') {
+        clientPayWishAmount = String(chosen);
+      }
       const tier = normalizeCartProgramTier(item, item.tierIndex);
       for (const p of item.participants || []) {
         const rel = String(p.relationship || '').trim();
@@ -593,6 +598,7 @@ export function reconcileSeatDraftsFromPortalCart(prevByPid, upcomingPrograms, c
     next[pid] = {
       ...cur,
       bookerJoinsProgram,
+      ...(typeof clientPayWishAmount === 'string' ? { clientPayWishAmount } : {}),
       memberTierById: Object.keys(memberTierById).length ? memberTierById : undefined,
       guestSeatForm: Object.keys(guestSeatForm).length ? guestSeatForm : undefined,
       ...(bookerSeatMode !== undefined ? { bookerSeatMode } : {}),

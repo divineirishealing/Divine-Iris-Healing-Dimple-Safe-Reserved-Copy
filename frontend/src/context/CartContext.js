@@ -138,6 +138,8 @@ export const CartProvider = ({ children }) => {
       enable_online: program.enable_online !== false,
       enable_offline: program.enable_offline !== false,
       enable_in_person: program.enable_in_person || false,
+      pay_as_you_wish: !!program.pay_as_you_wish,
+      pay_as_you_wish_minimum_inr: program.pay_as_you_wish_minimum_inr,
       participants,
     };
     setItems(prev => [...prev, newItem]);
@@ -196,6 +198,8 @@ export const CartProvider = ({ children }) => {
       enable_online: program.enable_online !== false,
       enable_offline: program.enable_offline !== false,
       enable_in_person: program.enable_in_person || false,
+      pay_as_you_wish: !!program.pay_as_you_wish,
+      pay_as_you_wish_minimum_inr: program.pay_as_you_wish_minimum_inr,
       participants,
       ...(portalLineMeta && typeof portalLineMeta === 'object' ? { portalLineMeta } : {}),
     };
