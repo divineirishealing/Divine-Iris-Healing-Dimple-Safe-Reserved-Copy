@@ -47,6 +47,98 @@ def snapshot_chosen_tier_from_program(program: Optional[dict], tier_index: Any) 
     return out
 
 
+async def _apply_pay_as_you_wish_gate(
+    db: "AsyncIOMotorDatabase",
+    data: Any,
+    *,
+    currency: str,
+    final_total: float,
+    participant_count: int,
+) -> float:
+    """
+    Block zero-payment checkout for pay-as-you-wish catalog items on every path
+    (public AED/USD, Divine Cart, cart lines). INR only; requires client amount.
+    """
+    queued: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+
+    def queue(item_type: str, item_id: Any) -> None:
+        iid = str(item_id or "").strip()
+        if not iid or item_type not in ("session", "program"):
+            return
+        key = (item_type, iid)
+        if key in seen:
+            return
+        seen.add(key)
+        queued.append(key)
+
+    if getattr(data, "item_type", None) in ("session", "program") and getattr(data, "item_id", None):
+        queue(str(data.item_type), data.item_id)
+    for ci in getattr(data, "cart_items", None) or []:
+        if isinstance(ci, dict) and ci.get("program_id"):
+            queue("program", ci.get("program_id"))
+
+    paw_docs: list[dict] = []
+    for item_type, item_id in queued:
+        coll = "sessions" if item_type == "session" else "programs"
+        doc = await db[coll].find_one(
+            {"id": item_id, "pay_as_you_wish": True},
+            {"_id": 0, "pay_as_you_wish_minimum_inr": 1},
+        )
+        if doc:
+            paw_docs.append(doc)
+
+    if not paw_docs:
+        return final_total
+
+    from routes.currency import convert_amount, fetch_live_rates
+
+    cur = str(currency or "").lower()
+    minimum_inr = max(round(float(d.get("pay_as_you_wish_minimum_inr") or 450), 2) for d in paw_docs)
+    pc = max(1, int(participant_count or 1))
+    rates = await fetch_live_rates()
+
+    def _meets_minimum_inr(per_person: float) -> bool:
+        if cur == "inr":
+            return per_person >= minimum_inr
+        equiv = convert_amount(per_person, cur, "inr", rates)
+        return bool(equiv and float(equiv) >= minimum_inr)
+
+    def _min_total_in_checkout_currency() -> float:
+        if cur == "inr":
+            return round(minimum_inr * pc, 2)
+        per_min = convert_amount(minimum_inr, "inr", cur, rates)
+        if not per_min or float(per_min) <= 0:
+            return 0.0
+        return round(float(per_min) * pc, 2)
+
+    min_total = _min_total_in_checkout_currency()
+    ft = round(float(final_total), 2)
+    if min_total > 0 and ft >= min_total:
+        return ft
+
+    per_person: Optional[float] = None
+    if getattr(data, "client_chosen_amount", None) is not None:
+        try:
+            per_person = round(float(data.client_chosen_amount), 2)
+        except (TypeError, ValueError):
+            per_person = None
+    if per_person is None and getattr(data, "client_declared_payable", None) is not None:
+        try:
+            declared = float(data.client_declared_payable)
+            if declared > 0:
+                per_person = round(declared / pc, 2)
+        except (TypeError, ValueError):
+            per_person = None
+
+    if per_person is None:
+        raise HTTPException(status_code=400, detail="Enter the amount you wish to pay.")
+    if not _meets_minimum_inr(per_person):
+        raise HTTPException(status_code=400, detail="Please enter a higher contribution amount.")
+
+    return round(per_person * pc, 2)
+
+
 async def enrollment_run_free_checkout(
     db: "AsyncIOMotorDatabase",
     prep: dict,
@@ -280,7 +372,6 @@ async def enrollment_checkout_prepare(
     if (
         enrollment.get("dashboard_mixed_total") is None
         and data.item_type in ("session", "program")
-        and currency == "inr"
         and not (data.cart_items or [])
     ):
         coll = "sessions" if data.item_type == "session" else "programs"
@@ -289,12 +380,21 @@ async def enrollment_checkout_prepare(
             {"_id": 0, "pay_as_you_wish": 1, "pay_as_you_wish_minimum_inr": 1},
         )
         if catalog_item and catalog_item.get("pay_as_you_wish"):
+            from routes.currency import convert_amount, fetch_live_rates
+
             pay_as_you_wish_checkout = True
             if data.client_chosen_amount is None:
                 raise HTTPException(status_code=400, detail="Enter the amount you wish to pay.")
             chosen = round(float(data.client_chosen_amount), 2)
-            minimum = round(float(catalog_item.get("pay_as_you_wish_minimum_inr") or 450), 2)
-            if chosen < minimum:
+            minimum_inr = round(float(catalog_item.get("pay_as_you_wish_minimum_inr") or 450), 2)
+            cur = str(currency or "inr").lower()
+            if cur == "inr":
+                meets_min = chosen >= minimum_inr
+            else:
+                rates = await fetch_live_rates()
+                equiv_inr = convert_amount(chosen, cur, "inr", rates)
+                meets_min = bool(equiv_inr and float(equiv_inr) >= minimum_inr)
+            if not meets_min:
                 raise HTTPException(
                     status_code=400,
                     detail="Please enter a higher contribution amount.",
@@ -303,7 +403,7 @@ async def enrollment_checkout_prepare(
             pricing_resp["pricing"]["total"] = total
             pricing_resp["pricing"]["final_per_person"] = chosen
             pricing_resp["pricing"]["pay_as_you_wish"] = True
-            pricing_resp["pricing"]["minimum_amount"] = minimum
+            pricing_resp["pricing"]["minimum_amount"] = minimum_inr
 
     promo_discount = 0
     disc_result: dict = {}
@@ -571,6 +671,16 @@ async def enrollment_checkout_prepare(
         {"id": enrollment_id},
         {"$set": item_set},
     )
+
+    final_total = await _apply_pay_as_you_wish_gate(
+        db,
+        data,
+        currency=currency,
+        final_total=final_total,
+        participant_count=participant_count,
+    )
+    if isinstance(pricing_resp.get("pricing"), dict):
+        pricing_resp["pricing"]["total"] = final_total
 
     if final_total <= 0:
         return {

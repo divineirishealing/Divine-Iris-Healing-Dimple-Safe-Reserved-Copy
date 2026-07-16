@@ -25,7 +25,7 @@ import {
   findCrossSellRuleForTarget,
   normalizeCartItemTierIndex,
 } from '../lib/crossSellPricing';
-import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInr } from '../lib/payAsYouWish';
+import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInCurrency } from '../lib/payAsYouWish';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -330,6 +330,7 @@ function EnrollmentPage() {
   const [loading, setLoading] = useState(false);
   const [item, setItem] = useState(null);
   const [clientPayWishAmount, setClientPayWishAmount] = useState('');
+  const [payWishFxRates, setPayWishFxRates] = useState({});
 
   // Default to tier 0 if program has tiers and no tier selected
   useEffect(() => {
@@ -634,15 +635,22 @@ function EnrollmentPage() {
   const isPayAsYouWishCheckout =
     (type === 'session' || type === 'program') &&
     catalogPayAsYouWishEnabled(item) &&
-    String(priceCurrency).toLowerCase() === 'inr' &&
     cartItems.length === 0;
-  const payWishMinimum = catalogPayAsYouWishMinimumInr(item);
+  const payWishMinimum = catalogPayAsYouWishMinimumInCurrency(item, priceCurrency, payWishFxRates);
   const payWishEnteredNum = parseFloat(clientPayWishAmount);
   const hasPayWishEntry =
     clientPayWishAmount.trim() !== '' && Number.isFinite(payWishEnteredNum) && payWishEnteredNum > 0;
   const parsedPayWishPerPerson = hasPayWishEntry ? payWishEnteredNum : 0;
   const payWishAmountValid = hasPayWishEntry && parsedPayWishPerPerson >= payWishMinimum;
   const payWishAwaitingAmount = isPayAsYouWishCheckout && !payWishAmountValid;
+
+  useEffect(() => {
+    if (!isPayAsYouWishCheckout) return;
+    axios
+      .get(`${API}/currency/exchange-rates`)
+      .then((r) => setPayWishFxRates(r.data?.rates || {}))
+      .catch(() => setPayWishFxRates({}));
+  }, [isPayAsYouWishCheckout]);
 
   useEffect(() => {
     if (isPayAsYouWishCheckout) {
@@ -1208,7 +1216,7 @@ function EnrollmentPage() {
                             step="1"
                             value={clientPayWishAmount}
                             onChange={(e) => setClientPayWishAmount(e.target.value)}
-                            placeholder="Enter amount (INR)"
+                            placeholder={`Enter amount (${String(priceSymbol || priceCurrency || '').trim() || 'INR'})`}
                             className="text-sm h-9"
                             data-testid="enroll-pay-wish-amount"
                           />
