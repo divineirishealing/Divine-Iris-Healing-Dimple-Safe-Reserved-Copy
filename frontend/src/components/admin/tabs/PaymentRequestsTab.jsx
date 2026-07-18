@@ -18,14 +18,10 @@ import {
 } from 'lucide-react';
 import { formatDateDMonYyyyUpper, addMonthsSubscriptionEnd } from '@/lib/utils';
 import { packageTaxDecimal } from '../../../lib/annualPackagePricing';
+import { adminHeaders, isAdminSessionError } from '../../../lib/adminSession';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const SITE_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
-
-function adminHeaders() {
-  const t = typeof localStorage !== 'undefined' ? localStorage.getItem('admin_token') : '';
-  return t ? { 'X-Admin-Session': t } : {};
-}
 
 const CUR_SYMBOL  = { aed: 'AED ', usd: '$', inr: '₹', eur: '€', gbp: '£' };
 const CURRENCIES  = ['aed', 'inr', 'usd', 'eur', 'gbp'];
@@ -687,8 +683,16 @@ export default function PaymentRequestsTab() {
     try {
       const r = await axios.get(`${API}/payment-requests`, { headers: adminHeaders() });
       setRequests(Array.isArray(r.data) ? r.data : []);
-    } catch {
-      toast({ title: 'Failed to load payment requests', variant: 'destructive' });
+    } catch (err) {
+      if (isAdminSessionError(err)) {
+        toast({
+          title: 'Admin session expired',
+          description: 'Please sign in again to manage payment links.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: 'Failed to load payment requests', variant: 'destructive' });
+      }
     } finally {
       setLoading(false);
     }

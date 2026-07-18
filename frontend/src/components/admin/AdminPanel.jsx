@@ -135,7 +135,7 @@ function normalizeSessionsFromApi(data) {
     .filter((s) => s && s.id);
 }
 
-const AdminPanel = () => {
+const AdminPanel = ({ onLogout }) => {
   const { toast } = useToast();
   const { refreshSettings } = useSiteSettings();
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('admin_active_tab') || 'hero');
@@ -570,6 +570,9 @@ const AdminPanel = () => {
           <button onClick={() => setShowChangePassword(true)} className="text-xs text-gray-400 hover:text-[#D4AF37] flex items-center gap-1"><Settings size={12} /> Change Password</button>
           <a href={`${API}/admin/guide`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#D4AF37]"><FileText size={13} /> Guide</a>
           <a href="/" className="text-xs text-gray-400 hover:text-[#D4AF37]">View Site</a>
+          {onLogout && (
+            <button type="button" onClick={onLogout} className="text-xs text-gray-400 hover:text-red-400">Sign Out</button>
+          )}
         </div>
       </div>
 

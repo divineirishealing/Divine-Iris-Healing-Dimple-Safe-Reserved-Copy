@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -20,30 +20,14 @@ const AdminLogin = ({ onLogin }) => {
     setError('');
     try {
       const res = await axios.post(`${API}/admin/clients/login`, { username, password });
-      if (res.data?.success) {
-        localStorage.setItem('admin_token', res.data.token || 'authenticated');
+      if (res.data?.success && res.data.token) {
+        localStorage.setItem('admin_token', res.data.token);
         onLogin(true);
       } else {
         setError('Invalid username or password');
       }
     } catch (err) {
-      // Fallback to local check if backend endpoint doesn't exist yet
-      const storedHash = localStorage.getItem('admin_password_hash');
-      const defaultPass = 'divineadmin2024';
-      const checkPass = storedHash || defaultPass;
-      if (username === 'admin' && password === checkPass) {
-        try {
-          const res2 = await axios.post(`${API}/admin/clients/login`, { username, password });
-          if (res2.data?.success && res2.data.token) {
-            localStorage.setItem('admin_token', res2.data.token);
-          }
-        } catch {
-          /* offline or API still unavailable — impersonation may require password until next login */
-        }
-        onLogin(true);
-      } else {
-        setError('Invalid username or password');
-      }
+      setError(err.response?.data?.detail || 'Invalid username or password');
     }
     setLoading(false);
   };

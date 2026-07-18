@@ -250,6 +250,13 @@ async def dashboard_pricing_preview_post(
     return await _dashboard_pricing_snapshot_response(client_id, currency)
 
 
+@router.get("/session")
+async def admin_session_check(request: Request):
+    """Lightweight check that X-Admin-Session is still valid (used on admin panel load)."""
+    await assert_admin_session_or_password(request, None)
+    return {"valid": True}
+
+
 # Admin login — returns a server-side session token for impersonation (X-Admin-Session) without re-entering password.
 @router.post("/login")
 async def admin_login(data: dict):

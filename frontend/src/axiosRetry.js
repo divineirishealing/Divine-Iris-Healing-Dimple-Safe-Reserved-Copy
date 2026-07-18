@@ -5,6 +5,7 @@
  */
 import axios from 'axios';
 import { getAuthHeaders } from './lib/authHeaders';
+import { handleAdminSessionExpired, isAdminSessionError } from './lib/adminSession';
 
 /** Attach Bearer token when present so API calls work without cross-site cookies (incognito / Safari). */
 axios.interceptors.request.use((config) => {
@@ -26,6 +27,11 @@ axios.interceptors.response.use(
   (response) => response,
   async (error) => {
     const config = error.config;
+    if (isAdminSessionError(error)) {
+      const hadAdmin = config?.headers?.['X-Admin-Session'] || config?.headers?.['x-admin-session'];
+      if (hadAdmin) handleAdminSessionExpired();
+      return Promise.reject(error);
+    }
     if (!config || config.__retryCount >= MAX_GET_RETRIES) {
       return Promise.reject(error);
     }
