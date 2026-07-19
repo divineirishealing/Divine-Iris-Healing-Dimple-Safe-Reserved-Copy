@@ -5,16 +5,14 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import DocxHtmlMirror from '../components/DocxHtmlMirror';
-import { HEADING, BODY, GOLD, CONTAINER, SECTION_PY, LABEL } from '../lib/designTokens';
+import { BODY, CONTAINER, SECTION_PY } from '../lib/designTokens';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { useSeoPage } from '../context/SeoPageContext';
 import { renderMarkdown } from '../lib/renderMarkdown';
-import { isDocxHtmlBody, extractDocxHtml, stripDuplicateDocxTitle } from '../lib/docxHtml';
-import { formatDateDMonYyyyUpper } from '../lib/utils';
+import { isDocxHtmlBody, extractDocxHtml } from '../lib/docxHtml';
 import { ArrowLeft } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const JOURNAL_PURPLE = '#534AB7';
 
 export default function BlogPostDetailPage() {
   const { slug } = useParams();
@@ -56,7 +54,7 @@ export default function BlogPostDetailPage() {
       <div className="min-h-screen bg-white">
         <Header />
         <div className={`${CONTAINER} ${SECTION_PY} text-left`}>
-          <h1 style={{ ...HEADING, color: JOURNAL_PURPLE }}>Article not found</h1>
+          <h1 className="text-2xl font-serif text-[#534AB7]">Article not found</h1>
           <Link to="/blog" className="inline-flex items-center gap-2 mt-6 text-purple-700 font-semibold">
             <ArrowLeft size={16} /> Back to blog
           </Link>
@@ -67,54 +65,22 @@ export default function BlogPostDetailPage() {
   }
 
   const heroSrc = resolveImageUrl(post.hero_image);
-  const dateLabel = post.published_at ? formatDateDMonYyyyUpper(post.published_at) : '';
   const bodyIsDocx = isDocxHtmlBody(post.body);
-  const docxHtml = bodyIsDocx
-    ? stripDuplicateDocxTitle(extractDocxHtml(post.body), post.title)
-    : '';
+  const docxHtml = bodyIsDocx ? extractDocxHtml(post.body) : '';
   const showCoverBanner = heroSrc && !bodyIsDocx;
 
   return (
-    <div className="min-h-screen bg-[#faf9fc]" data-testid={`blog-post-detail-${post.slug}`}>
+    <div className="min-h-screen bg-white" data-testid={`blog-post-detail-${post.slug}`}>
       <Header />
 
-      <section
-        className="relative pt-24 pb-10 md:pb-12 px-6 border-b border-[#ebe6f2] bg-white"
-      >
+      <section className="relative pt-24 pb-4 px-6 bg-white border-b border-[#ebe6f2]">
         <div className={`${CONTAINER} max-w-4xl text-left`}>
           <Link
             to="/blog"
-            className="inline-flex items-center gap-2 text-[#7c6fa8] hover:text-[#534AB7] text-sm mb-8 transition-colors"
+            className="inline-flex items-center gap-2 text-[#7c6fa8] hover:text-[#534AB7] text-sm transition-colors"
           >
             <ArrowLeft size={14} /> Back to the journal
           </Link>
-
-          {(dateLabel || post.author) && (
-            <p style={{ ...LABEL, color: GOLD, marginBottom: 14, letterSpacing: '0.22em' }}>
-              {[dateLabel, post.author].filter(Boolean).join(' · ')}
-            </p>
-          )}
-
-          <h1
-            style={{
-              ...HEADING,
-              fontSize: 'clamp(1.75rem, 3.5vw, 2.35rem)',
-              color: JOURNAL_PURPLE,
-              lineHeight: 1.25,
-              marginBottom: post.excerpt && !bodyIsDocx ? 16 : 0,
-            }}
-          >
-            {post.title}
-          </h1>
-
-          {post.excerpt && !bodyIsDocx && (
-            <p
-              className="max-w-2xl"
-              style={{ ...BODY, fontSize: '1.05rem', lineHeight: 1.75, color: '#5c5c5c' }}
-            >
-              {post.excerpt}
-            </p>
-          )}
         </div>
       </section>
 
@@ -152,18 +118,6 @@ export default function BlogPostDetailPage() {
           )}
         </section>
       )}
-
-      <section className="py-12 px-6 bg-[#faf9fc] border-t border-[#ebe6f2]">
-        <div className={`${CONTAINER} max-w-4xl text-left`}>
-          <Link
-            to="/blog"
-            className="inline-flex items-center gap-2 text-sm font-semibold tracking-wide uppercase transition-colors hover:opacity-80"
-            style={{ color: JOURNAL_PURPLE, letterSpacing: '0.12em' }}
-          >
-            <ArrowLeft size={14} /> More from the journal
-          </Link>
-        </div>
-      </section>
 
       <Footer />
       <FloatingButtons />
