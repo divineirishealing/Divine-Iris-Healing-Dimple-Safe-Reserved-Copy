@@ -446,7 +446,7 @@ def _trim_cover_preamble(
     return blocks[i:]
 
 
-def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False) -> str:
+def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False, landing: bool = True) -> str:
     """Render the full document body as HTML with inline Word typography."""
     try:
         with zipfile.ZipFile(BytesIO(data)) as zf:
@@ -533,13 +533,15 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False) -> str:
     if trim_preamble:
         html_blocks = _trim_cover_preamble(html_blocks, align_flags, heading_levels)
 
-    html_blocks = _structure_document_html(html_blocks, align_flags, heading_levels)
+    if landing:
+        html_blocks = _structure_document_html(html_blocks, align_flags, heading_levels)
 
     if not html_blocks:
         raise ValueError("Document is empty")
 
+    mirror_class = "docx-mirror-landing" if landing else "docx-mirror-article"
     return (
-        '<article class="docx-mirror docx-mirror-landing" '
+        f'<article class="docx-mirror {mirror_class}" '
         "style=\"font-family:Georgia,'Times New Roman',Times,serif;"
         'font-size:11pt;color:#1a1a2e;line-height:1.45;width:100%;">'
         + "".join(html_blocks)
@@ -547,5 +549,5 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False) -> str:
     )
 
 
-def docx_html_document_body(data: bytes) -> str:
-    return DOCX_HTML_MARKER + docx_bytes_to_html(data)
+def docx_html_document_body(data: bytes, *, landing: bool = True) -> str:
+    return DOCX_HTML_MARKER + docx_bytes_to_html(data, landing=landing)

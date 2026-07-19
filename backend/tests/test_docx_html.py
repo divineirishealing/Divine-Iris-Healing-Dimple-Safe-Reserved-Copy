@@ -18,6 +18,13 @@ def test_heading_uses_georgia_and_color():
     assert "#2a1f5e" in html.lower() or "#2A1F5E".lower() in html.lower()
 
 
+def test_article_mode_skips_landing_structure():
+    html = docx_bytes_to_html(_minimal_docx(), landing=False)
+    assert "docx-mirror-article" in html
+    assert "docx-cover-stage" not in html
+    assert "docx-section-major" not in html
+
+
 def test_amrp_fixture_html_matches_full_word_document():
     src = Path(__file__).resolve().parent / "fixtures" / "AMRP_Program_Writeup.docx"
     if not src.exists():

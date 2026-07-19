@@ -30,16 +30,22 @@ export function stripDuplicateDocxTitle(html, title) {
   });
 }
 
+const DOCX_ARTICLE_STYLE =
+  'font-family:Georgia,\'Times New Roman\',Times,serif;'
+  + 'font-size:11pt;color:#1a1a2e;line-height:1.45;width:100%;';
+
 /** Ensure split or partial HTML fragments still get mirror wrapper + styles. */
-export function wrapDocxHtmlFragment(html) {
+export function wrapDocxHtmlFragment(html, variant = 'landing') {
   const s = String(html || '').trim();
   if (!s) return '';
 
+  const mirrorSuffix = variant === 'article' ? 'article' : 'landing';
   const hasOpeningArticle = /^<article[^>]*docx-mirror/i.test(s);
   const hasClosingArticle = /<\/article>\s*$/i.test(s);
 
   if (hasOpeningArticle) {
-    return hasClosingArticle ? s : `${s}</article>`;
+    const normalized = s.replace(/docx-mirror-(?:landing|article)/g, `docx-mirror-${mirrorSuffix}`);
+    return hasClosingArticle ? normalized : `${normalized}</article>`;
   }
 
   const inner = s
@@ -48,9 +54,7 @@ export function wrapDocxHtmlFragment(html) {
     .trim();
 
   return (
-    '<article class="docx-mirror docx-mirror-landing" '
-    + 'style="font-family:Georgia,\'Times New Roman\',Times,serif;'
-    + 'font-size:11pt;color:#1a1a2e;line-height:1.45;width:100%;">'
+    `<article class="docx-mirror docx-mirror-${mirrorSuffix}" style="${DOCX_ARTICLE_STYLE}">`
     + `${inner}</article>`
   );
 }

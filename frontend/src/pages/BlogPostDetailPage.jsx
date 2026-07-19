@@ -69,7 +69,7 @@ export default function BlogPostDetailPage() {
 
   const heroSrc = resolveImageUrl(post.hero_image);
   const bodyIsDocx = isDocxHtmlBody(post.body);
-  const docxHtml = bodyIsDocx ? wrapDocxHtmlFragment(extractDocxHtml(post.body)) : '';
+  const docxHtml = bodyIsDocx ? wrapDocxHtmlFragment(extractDocxHtml(post.body), 'article') : '';
   const showCoverBanner = heroSrc && !bodyIsDocx;
 
   return (
@@ -101,7 +101,7 @@ export default function BlogPostDetailPage() {
 
       {post.body && (
         bodyIsDocx ? (
-          <DocxHtmlMirror html={docxHtml} accent="#C9962A" continuation />
+          <DocxHtmlMirror html={docxHtml} variant="article" continuation />
         ) : (
           <section className={`${SECTION_PY} bg-white`}>
             <div className={DOC_COLUMN}>

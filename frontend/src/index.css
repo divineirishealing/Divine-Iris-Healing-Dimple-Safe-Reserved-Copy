@@ -835,3 +835,89 @@ html {
   flex: 1;
   min-width: 10rem;
 }
+
+/* Blog journal — plain Word typography (no program landing bands) */
+.docx-html-article .docx-mirror,
+.docx-html-article .docx-mirror-article {
+  font-family: Georgia, 'Times New Roman', Times, serif !important;
+  font-size: 1.05rem;
+  line-height: 1.85;
+  color: #374151;
+}
+
+.docx-html-article .docx-h1,
+.docx-html-article .docx-h1 span {
+  color: #1a1a1a !important;
+  font-size: 1.75rem !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  text-align: left !important;
+  margin: 0 0 1.25rem !important;
+}
+
+.docx-html-article .docx-h2,
+.docx-html-article .docx-h2 span,
+.docx-html-article .docx-h3,
+.docx-html-article .docx-h3 span {
+  color: #1a1a1a !important;
+  font-size: 1.15rem !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  text-align: left !important;
+  margin: 2rem 0 0.75rem !important;
+}
+
+.docx-html-article .docx-p,
+.docx-html-article .docx-p span {
+  color: #374151 !important;
+  text-align: left !important;
+  margin-bottom: 1rem !important;
+}
+
+.docx-html-article .docx-cover-stage,
+.docx-html-article .docx-intro-body {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  text-align: left !important;
+}
+
+.docx-html-article .docx-cover-stage .docx-p,
+.docx-html-article .docx-cover-stage img,
+.docx-html-article .docx-cover-stage svg,
+.docx-html-article .docx-cover-stage .docx-rule-wrap,
+.docx-html-article .docx-cover-stage .docx-spacer {
+  display: none !important;
+}
+
+.docx-html-article .docx-section-major,
+.docx-html-article .docx-section-minor {
+  margin: 0 !important;
+}
+
+.docx-html-article .docx-section-major-inner,
+.docx-html-article .docx-section-minor-inner {
+  border: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+.docx-html-article .docx-section-major-inner .docx-h1,
+.docx-html-article .docx-section-minor-inner .docx-h2,
+.docx-html-article .docx-section-minor-inner .docx-h3 {
+  margin-top: 0 !important;
+  margin-bottom: 0.75rem !important;
+}
+
+.docx-html-article .docx-word-quote {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 1rem 0 !important;
+  max-width: none !important;
+  font-style: italic;
+}
