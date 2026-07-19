@@ -26,6 +26,13 @@ def test_article_mode_skips_landing_structure():
     assert "Lato" in html
 
 
+def test_blog_layout_wraps_lead_and_sections():
+    html = docx_bytes_to_html(_blog_layout_docx(), landing=False, blog_layout=True)
+    assert "blog-article-lead" in html
+    assert "blog-article-section" in html
+    assert "534ab7" in html.lower()
+
+
 def test_theme_color_resolved_in_html():
     html = docx_bytes_to_html(_docx_with_theme_color())
     assert "4472c4" in html.lower() or "#4472C4".lower() in html.lower()
@@ -62,6 +69,45 @@ def test_build_draft_sections_stores_html_body():
     doc = next(s for s in sections if s["id"] == "doc_main")
     assert is_docx_html_body(doc["body"])
     assert doc.get("subtitle") == "docx-html"
+
+
+def _blog_layout_docx():
+    import zipfile
+    from io import BytesIO
+
+    inner = (
+        '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr>'
+        '<w:r><w:rPr><w:rFonts w:ascii="Lato" w:hAnsi="Lato"/>'
+        '<w:color w:val="534AB7"/><w:sz w:val="36"/><w:b/></w:rPr>'
+        '<w:t>Why Do We Need Healing?</w:t></w:r></w:p>'
+        '<w:p><w:r><w:t>Intro paragraph one.</w:t></w:r></w:p>'
+        '<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr>'
+        '<w:r><w:rPr><w:rFonts w:ascii="Lato" w:hAnsi="Lato"/>'
+        '<w:color w:val="534AB7"/><w:b/></w:rPr>'
+        '<w:t>The Cup That Keeps Filling</w:t></w:r></w:p>'
+        '<w:p><w:r><w:t>Section body text.</w:t></w:r></w:p>'
+    )
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        f"<w:body>{inner}</w:body></w:document>"
+    )
+    styles = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        '<w:docDefaults><w:rPrDefault><w:rPr>'
+        '<w:rFonts w:ascii="Lato" w:hAnsi="Lato"/><w:sz w:val="22"/>'
+        '</w:rPr></w:rPrDefault></w:docDefaults>'
+        '<w:style w:type="paragraph" w:styleId="Heading1">'
+        '<w:name w:val="heading 1"/></w:style>'
+        '<w:style w:type="paragraph" w:styleId="Heading2">'
+        '<w:name w:val="heading 2"/></w:style></w:styles>'
+    )
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("word/document.xml", xml)
+        zf.writestr("word/styles.xml", styles)
+    return buf.getvalue()
 
 
 def _docx_with_theme_color():

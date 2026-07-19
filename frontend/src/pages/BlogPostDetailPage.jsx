@@ -4,7 +4,7 @@ import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
-import DocxHtmlMirror from '../components/DocxHtmlMirror';
+import BlogArticleRenderer from '../components/BlogArticleRenderer';
 import { BODY, CONTAINER, SECTION_PY } from '../lib/designTokens';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { useSeoPage } from '../context/SeoPageContext';
@@ -101,7 +101,7 @@ export default function BlogPostDetailPage() {
 
       {post.body && (
         bodyIsDocx ? (
-          <DocxHtmlMirror html={docxHtml} continuation />
+          <BlogArticleRenderer html={docxHtml} title={post.title} continuation />
         ) : (
           <section className={`${SECTION_PY} bg-white`}>
             <div className={DOC_COLUMN}>

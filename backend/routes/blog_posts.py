@@ -5,7 +5,7 @@ import uuid
 import re
 
 from models import BlogPost, BlogPostCreate
-from utils.docx_html import docx_html_document_body
+from utils.docx_html import docx_html_blog_document_body
 
 router = APIRouter(prefix="/api/blog-posts", tags=["Blog Posts"])
 
@@ -40,7 +40,7 @@ async def _parse_docx_upload(file: UploadFile) -> str:
     if len(raw) > 15 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large (max 15 MB)")
     try:
-        return docx_html_document_body(raw, landing=False)
+        return docx_html_blog_document_body(raw)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

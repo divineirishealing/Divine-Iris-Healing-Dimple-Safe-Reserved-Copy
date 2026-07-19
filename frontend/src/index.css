@@ -836,9 +836,120 @@ html {
   min-width: 10rem;
 }
 
-/* Faithful Word mirror — preserve inline typography from the .docx import */
-.docx-html-shell .docx-mirror-article {
+/* Blog journal article — structured docx layout */
+.docx-html-blog .docx-mirror-article {
   font-family: 'Lato', sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.85;
+  color: #555555;
+}
+
+/* Unified lead card: title + illustration from the Word doc */
+.docx-html-blog .blog-article-lead {
+  margin-bottom: 2.25rem;
+  padding: 2rem 1.75rem 1.75rem;
+  background: linear-gradient(165deg, #f0ecf8 0%, #faf8fc 55%, #ffffff 100%);
+  border: 1px solid rgba(83, 74, 183, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 6px 28px rgba(83, 74, 183, 0.07);
+}
+
+.docx-html-blog .blog-article-title,
+.docx-html-blog .blog-article-lead .docx-h1,
+.docx-html-blog .docx-h1 {
+  font-family: 'Lato', sans-serif !important;
+  font-size: clamp(1.85rem, 4.5vw, 2.35rem) !important;
+  font-weight: 700 !important;
+  color: #534ab7 !important;
+  line-height: 1.22 !important;
+  letter-spacing: -0.01em;
+  margin: 0 0 1.25rem !important;
+  text-align: left !important;
+}
+
+.docx-html-blog .blog-article-title span,
+.docx-html-blog .blog-article-lead .docx-h1 span,
+.docx-html-blog .docx-h1 span {
+  color: inherit !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+}
+
+.docx-html-blog .blog-article-lead .blog-article-figure,
+.docx-html-blog .blog-article-lead .docx-figure {
+  margin: 0;
+  padding: 1.25rem 1rem 0.5rem;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  text-align: center;
+}
+
+.docx-html-blog .blog-article-figure,
+.docx-html-blog .docx-figure {
+  margin: 1.5rem 0;
+  padding: 1.75rem 1.5rem;
+  background: linear-gradient(165deg, #f0ecf8 0%, #faf8fc 55%, #ffffff 100%);
+  border: 1px solid rgba(83, 74, 183, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(83, 74, 183, 0.06);
+  text-align: center;
+}
+
+.docx-html-blog .docx-image {
+  max-width: min(200px, 72%);
+  max-height: 180px;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+  display: block;
+  object-fit: contain;
+}
+
+.docx-html-blog .blog-article-section {
+  margin-top: 0.25rem;
+}
+
+.docx-html-blog .blog-article-section-title,
+.docx-html-blog .docx-h2,
+.docx-html-blog .docx-h3 {
+  font-family: 'Lato', sans-serif !important;
+  font-size: 1.2rem !important;
+  font-weight: 700 !important;
+  color: #534ab7 !important;
+  line-height: 1.35 !important;
+  margin: 2.25rem 0 0.85rem !important;
+  text-align: left !important;
+}
+
+.docx-html-blog .blog-article-section-title span,
+.docx-html-blog .docx-h2 span,
+.docx-html-blog .docx-h3 span {
+  color: inherit !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+}
+
+.docx-html-blog .docx-p {
+  margin-bottom: 1.15rem !important;
+  color: #555555 !important;
+  text-align: left !important;
+  font-family: 'Lato', sans-serif;
+}
+
+.docx-html-blog .docx-p span {
+  font-family: inherit;
+  color: inherit;
+}
+
+.docx-html-blog .blog-article-pull,
+.docx-html-blog .docx-p.blog-article-pull {
+  font-style: italic;
+  color: #444444 !important;
+  margin: 1.25rem 0 1.5rem !important;
 }
 
 .docx-html-shell .docx-mirror-article .docx-h1,

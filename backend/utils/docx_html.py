@@ -531,7 +531,13 @@ def _resolve_media_path(target: str) -> str:
     return f"word/{cleaned.replace('../', '')}"
 
 
-def _image_html_for_embed(embed_id: str, zf: zipfile.ZipFile, rels: Dict[str, str]) -> str:
+def _image_html_for_embed(
+    embed_id: str,
+    zf: zipfile.ZipFile,
+    rels: Dict[str, str],
+    *,
+    persist_images: bool = False,
+) -> str:
     target = rels.get(embed_id)
     if not target:
         return ""
@@ -547,14 +553,31 @@ def _image_html_for_embed(embed_id: str, zf: zipfile.ZipFile, rels: Dict[str, st
     if not mime:
         return ""
     data = zf.read(path)
-    b64 = base64.b64encode(data).decode("ascii")
+    src = ""
+    if persist_images:
+        try:
+            from utils.docx_media import persist_docx_image
+
+            src = persist_docx_image(data, ext)
+        except Exception:
+            src = ""
+    if not src:
+        b64 = base64.b64encode(data).decode("ascii")
+        src = f"data:{mime};base64,{b64}"
+    safe_src = html.escape(src, quote=True)
     return (
-        f'<img class="docx-image" alt="" src="data:{mime};base64,{b64}" '
+        f'<img class="docx-image" alt="" src="{safe_src}" '
         f'style="max-width:100%;height:auto;display:block;margin:0 auto;" />'
     )
 
 
-def _images_html_from_para(para: ET.Element, zf: zipfile.ZipFile, rels: Dict[str, str]) -> str:
+def _images_html_from_para(
+    para: ET.Element,
+    zf: zipfile.ZipFile,
+    rels: Dict[str, str],
+    *,
+    persist_images: bool = False,
+) -> str:
     parts: List[str] = []
     seen: set[str] = set()
     for el in para.iter():
@@ -562,7 +585,7 @@ def _images_html_from_para(para: ET.Element, zf: zipfile.ZipFile, rels: Dict[str
         if not embed or embed in seen:
             continue
         seen.add(embed)
-        img = _image_html_for_embed(embed, zf, rels)
+        img = _image_html_for_embed(embed, zf, rels, persist_images=persist_images)
         if img:
             parts.append(img)
     return "".join(parts)
@@ -636,7 +659,57 @@ def _append_html_block(
     align_flags.append(align)
 
 
-def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False, landing: bool = True) -> str:
+def _structure_blog_article_html(blocks: List[str]) -> List[str]:
+    """Wrap title + lead illustration; tag section headings for journal layout."""
+    if not blocks:
+        return blocks
+
+    out: List[str] = []
+    i = 0
+
+    if re.search(r'class="docx-h1"', blocks[0]):
+        out.append('<header class="blog-article-lead">')
+        out.append(blocks[0])
+        j = 1
+        while j < len(blocks) and j <= 3:
+            chunk = blocks[j]
+            if "docx-figure" in chunk or "docx-image" in chunk:
+                out.append(
+                    chunk.replace('class="docx-figure"', 'class="docx-figure blog-article-figure"', 1)
+                )
+                j += 1
+            elif "docx-spacer" in chunk and not re.search(r"class=\"docx-h", chunk):
+                j += 1
+            else:
+                break
+        out.append("</header>")
+        i = j
+
+    while i < len(blocks):
+        block = blocks[i]
+        if re.search(r'class="docx-h2"', block):
+            out.append('<section class="blog-article-section">')
+            out.append(block)
+            i += 1
+            while i < len(blocks) and not re.search(r'class="docx-h2"', blocks[i]):
+                out.append(blocks[i])
+                i += 1
+            out.append("</section>")
+        else:
+            out.append(block)
+            i += 1
+
+    return out
+
+
+def docx_bytes_to_html(
+    data: bytes,
+    *,
+    trim_preamble: bool = False,
+    landing: bool = True,
+    persist_images: bool = False,
+    blog_layout: bool = False,
+) -> str:
     """Render the full document body as HTML with inline Word typography."""
     try:
         zf = zipfile.ZipFile(BytesIO(data))
@@ -670,7 +743,7 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False, landing: boo
             runs = para.findall(f"{_WP}r")
             plain = _plain_from_runs(runs)
             ppr = para.find(f"{_WP}pPr")
-            images_html = _images_html_from_para(para, zf, rels)
+            images_html = _images_html_from_para(para, zf, rels, persist_images=persist_images)
 
             style_id = _paragraph_style_id(para)
             style_name = style_names.get(style_id, "")
@@ -698,8 +771,9 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False, landing: boo
                 continue
 
             if not plain and images_html:
+                figure_class = "docx-figure blog-article-figure" if blog_layout else "docx-figure"
                 block_css = f"{_para_style_css(para_style)};{shading_css}".strip(";")
-                block = f'<div class="docx-figure" style="{block_css}">{images_html}</div>'
+                block = f'<div class="{figure_class}" style="{block_css}">{images_html}</div>'
                 _append_html_block(html_blocks, heading_levels, align_flags, block, 0, para_style.align)
                 continue
 
@@ -747,6 +821,8 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False, landing: boo
 
     if landing:
         html_blocks = _structure_document_html(html_blocks, align_flags, heading_levels)
+    elif blog_layout:
+        html_blocks = _structure_blog_article_html(html_blocks)
 
     if not html_blocks:
         raise ValueError("Document is empty")
@@ -764,3 +840,13 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False, landing: boo
 
 def docx_html_document_body(data: bytes, *, landing: bool = True) -> str:
     return DOCX_HTML_MARKER + docx_bytes_to_html(data, landing=landing)
+
+
+def docx_html_blog_document_body(data: bytes) -> str:
+    """Blog journal import — hosted images, structured lead + sections."""
+    return DOCX_HTML_MARKER + docx_bytes_to_html(
+        data,
+        landing=False,
+        persist_images=True,
+        blog_layout=True,
+    )
