@@ -23,6 +23,12 @@ def test_article_mode_skips_landing_structure():
     assert "docx-mirror-article" in html
     assert "docx-cover-stage" not in html
     assert "docx-section-major" not in html
+    assert "Lato" in html
+
+
+def test_theme_color_resolved_in_html():
+    html = docx_bytes_to_html(_docx_with_theme_color())
+    assert "4472c4" in html.lower() or "#4472C4".lower() in html.lower()
 
 
 def test_amrp_fixture_html_matches_full_word_document():
@@ -56,6 +62,50 @@ def test_build_draft_sections_stores_html_body():
     doc = next(s for s in sections if s["id"] == "doc_main")
     assert is_docx_html_body(doc["body"])
     assert doc.get("subtitle") == "docx-html"
+
+
+def _docx_with_theme_color():
+    import zipfile
+    from io import BytesIO
+
+    inner = (
+        '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr>'
+        '<w:r><w:rPr>'
+        '<w:rFonts w:ascii="Lato" w:hAnsi="Lato"/>'
+        '<w:color w:val="auto" w:themeColor="accent1"/>'
+        '<w:sz w:val="32"/><w:b/>'
+        '</w:rPr><w:t>Purple Theme Title</w:t></w:r></w:p>'
+    )
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        f"<w:body>{inner}</w:body></w:document>"
+    )
+    styles = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        '<w:docDefaults><w:rPrDefault><w:rPr>'
+        '<w:rFonts w:ascii="Lato" w:hAnsi="Lato"/><w:sz w:val="22"/>'
+        '</w:rPr></w:rPrDefault></w:docDefaults>'
+        '<w:style w:type="paragraph" w:styleId="Heading1">'
+        '<w:name w:val="heading 1"/>'
+        '<w:rPr><w:rFonts w:ascii="Lato" w:hAnsi="Lato"/>'
+        '<w:color w:val="auto" w:themeColor="accent1"/>'
+        '<w:sz w:val="32"/><w:b/></w:rPr></w:style></w:styles>'
+    )
+    theme = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Office Theme">'
+        '<a:themeElements><a:clrScheme name="Office">'
+        '<a:accent1><a:srgbClr val="4472C4"/></a:accent1>'
+        '</a:clrScheme></a:themeElements></a:theme>'
+    )
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("word/document.xml", xml)
+        zf.writestr("word/styles.xml", styles)
+        zf.writestr("word/theme/theme1.xml", theme)
+    return buf.getvalue()
 
 
 def _minimal_docx():

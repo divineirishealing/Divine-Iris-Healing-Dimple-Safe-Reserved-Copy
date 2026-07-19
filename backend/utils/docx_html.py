@@ -24,6 +24,9 @@ from utils.docx_import import (
 
 DOCX_HTML_MARKER = "@@DOCX_HTML@@\n"
 _REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+_A_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
+DOCX_ARTICLE_FONT = "'Lato', sans-serif"
+DOCX_LANDING_FONT = "Georgia, 'Times New Roman', Times, serif"
 _IMAGE_MIME = {
     "png": "image/png",
     "jpeg": "image/jpeg",
@@ -32,6 +35,38 @@ _IMAGE_MIME = {
     "webp": "image/webp",
     "bmp": "image/bmp",
 }
+
+
+def _load_theme_colors(zf: zipfile.ZipFile) -> Dict[str, str]:
+    """Read accent / text colors from word/theme/theme1.xml."""
+    colors: Dict[str, str] = {}
+    path = "word/theme/theme1.xml"
+    if path not in zf.namelist():
+        return colors
+    root = ET.fromstring(zf.read(path))
+    scheme = root.find(f".//{{{_A_NS}}}clrScheme")
+    if scheme is None:
+        return colors
+    for child in scheme:
+        local = child.tag.split("}")[-1]
+        srgb = child.find(f"{{{_A_NS}}}srgbClr")
+        if srgb is not None and srgb.attrib.get("val"):
+            colors[local] = f"#{srgb.attrib['val'].lower()}"
+            continue
+        sysclr = child.find(f"{{{_A_NS}}}sysClr")
+        if sysclr is not None and sysclr.attrib.get("lastClr"):
+            colors[local] = f"#{sysclr.attrib['lastClr'].lower()}"
+    return colors
+
+
+def _color_from_element(color_el: ET.Element, theme: Dict[str, str], fallback: str) -> str:
+    val = (color_el.attrib.get(_VAL) or "").strip()
+    if val and val.lower() not in ("auto",):
+        return _word_color(val)
+    theme_key = color_el.attrib.get(f"{_WP}themeColor")
+    if theme_key and theme_key in theme:
+        return theme[theme_key]
+    return fallback
 
 
 def is_docx_html_body(body: str) -> bool:
@@ -99,6 +134,8 @@ def _font_family(rfonts: Optional[ET.Element]) -> str:
         return "Georgia, 'Times New Roman', Times, serif"
     if name.lower() in ("arial",):
         return "Arial, Helvetica, sans-serif"
+    if name.lower() in ("lato",):
+        return "'Lato', sans-serif"
     return f'"{name}", Arial, Helvetica, sans-serif'
 
 
@@ -114,7 +151,12 @@ def _run_is_on(rpr: Optional[ET.Element], tag: str) -> bool:
     return str(v).lower() not in ("0", "false", "none")
 
 
-def _parse_rpr(rpr: Optional[ET.Element], base: Optional[_RunStyle] = None) -> _RunStyle:
+def _parse_rpr(
+    rpr: Optional[ET.Element],
+    base: Optional[_RunStyle] = None,
+    theme: Optional[Dict[str, str]] = None,
+) -> _RunStyle:
+    theme = theme or {}
     out = _RunStyle(
         font_family=base.font_family if base else "Arial, Helvetica, sans-serif",
         font_size_pt=base.font_size_pt if base else 11.0,
@@ -135,18 +177,23 @@ def _parse_rpr(rpr: Optional[ET.Element], base: Optional[_RunStyle] = None) -> _
     if _run_is_on(rpr, "i"):
         out.italic = True
     color = rpr.find(f"{_WP}color")
-    if color is not None and color.attrib.get(_VAL):
-        out.color = _word_color(color.attrib.get(_VAL))
+    if color is not None:
+        out.color = _color_from_element(color, theme, out.color)
     return out
 
 
-def _parse_ppr(ppr: Optional[ET.Element], base: Optional[_ParaStyle] = None) -> _ParaStyle:
+def _parse_ppr(
+    ppr: Optional[ET.Element],
+    base: Optional[_ParaStyle] = None,
+    theme: Optional[Dict[str, str]] = None,
+) -> _ParaStyle:
+    theme = theme or {}
     out = _ParaStyle(
         align=base.align if base else "left",
         margin_before_pt=base.margin_before_pt if base else 0.0,
         margin_after_pt=base.margin_after_pt if base else 0.0,
         line_height=base.line_height if base else None,
-        run=_parse_rpr(None, base.run if base else None),
+        run=_parse_rpr(None, base.run if base else None, theme),
     )
     if ppr is None:
         return out
@@ -170,7 +217,7 @@ def _parse_ppr(ppr: Optional[ET.Element], base: Optional[_ParaStyle] = None) -> 
                 pass
     rpr = ppr.find(f"{_WP}rPr")
     if rpr is not None:
-        out.run = _parse_rpr(rpr, out.run)
+        out.run = _parse_rpr(rpr, out.run, theme)
     return out
 
 
@@ -185,15 +232,20 @@ def _paragraph_alignment_from_val(val: str) -> str:
     return "left"
 
 
-def _load_doc_defaults(styles_root: ET.Element) -> _RunStyle:
+def _load_doc_defaults(styles_root: ET.Element, theme: Optional[Dict[str, str]] = None) -> _RunStyle:
     doc_defaults = styles_root.find(f"{_WP}docDefaults")
     if doc_defaults is None:
         return _RunStyle()
     rpr = doc_defaults.find(f"{_WP}rPrDefault/{_WP}rPr")
-    return _parse_rpr(rpr)
+    return _parse_rpr(rpr, theme=theme)
 
 
-def _load_style_map(styles_root: ET.Element, doc_defaults: _RunStyle) -> Dict[str, _ParaStyle]:
+def _load_style_map(
+    styles_root: ET.Element,
+    doc_defaults: _RunStyle,
+    theme: Optional[Dict[str, str]] = None,
+) -> Dict[str, _ParaStyle]:
+    theme = theme or {}
     styles: Dict[str, _ParaStyle] = {}
     based_on: Dict[str, str] = {}
 
@@ -206,20 +258,19 @@ def _load_style_map(styles_root: ET.Element, doc_defaults: _RunStyle) -> Dict[st
             based_on[sid] = bo.attrib.get(_VAL, "")
         ppr = style.find(f"{_WP}pPr")
         rpr = style.find(f"{_WP}rPr")
-        para = _parse_ppr(ppr, _ParaStyle(run=doc_defaults))
+        para = _parse_ppr(ppr, _ParaStyle(run=doc_defaults), theme)
         if rpr is not None:
-            para.run = _parse_rpr(rpr, para.run)
+            para.run = _parse_rpr(rpr, para.run, theme)
         elif ppr is not None and ppr.find(f"{_WP}rPr") is not None:
-            para.run = _parse_rpr(ppr.find(f"{_WP}rPr"), para.run)
+            para.run = _parse_rpr(ppr.find(f"{_WP}rPr"), para.run, theme)
         styles[sid] = para
 
     for sid, parent_id in based_on.items():
         if parent_id in styles and sid in styles:
             parent = styles[parent_id]
-            child = styles[sid]
-            styles[sid] = _parse_ppr(style_el_ppr(styles_root, sid), _parse_ppr(None, parent))
-            if child.run != doc_defaults:
-                styles[sid].run = _parse_rpr(style_el_rpr(styles_root, sid), styles[sid].run)
+            styles[sid] = _parse_ppr(style_el_ppr(styles_root, sid), _parse_ppr(None, parent, theme), theme)
+            if styles[sid].run != doc_defaults:
+                styles[sid].run = _parse_rpr(style_el_rpr(styles_root, sid), styles[sid].run, theme)
 
     return styles
 
@@ -291,13 +342,14 @@ def _run_span_html(run_style: _RunStyle, text: str) -> str:
     return f'<span style="{_run_style_css(run_style)}">{safe}</span>'
 
 
-def _runs_to_html(runs: List[ET.Element], para_style: _ParaStyle) -> str:
+def _runs_to_html(runs: List[ET.Element], para_style: _ParaStyle, theme: Optional[Dict[str, str]] = None) -> str:
+    theme = theme or {}
     chunks: List[str] = []
     for run in runs:
         text = _run_text(run)
         if not text:
             continue
-        run_style = _parse_rpr(run.find(f"{_WP}rPr"), para_style.run)
+        run_style = _parse_rpr(run.find(f"{_WP}rPr"), para_style.run, theme)
         chunks.append(_run_span_html(run_style, text))
     return "".join(chunks)
 
@@ -533,7 +585,9 @@ def _infer_heading_level(
     plain: str,
     style_level: int,
     para_style: _ParaStyle,
+    theme: Optional[Dict[str, str]] = None,
 ) -> int:
+    theme = theme or {}
     if style_level > 0:
         return style_level
     text = plain.strip()
@@ -541,20 +595,32 @@ def _infer_heading_level(
         return 0
     if text.endswith(".") and len(text.split()) > 8:
         return 0
-    saw_text = False
+
+    bold_chars = 0
+    total_chars = 0
+    max_size = para_style.run.font_size_pt
+    purple_chars = 0
     for run in runs:
         chunk = _run_text(run)
-        if not chunk.strip():
+        stripped = chunk.strip()
+        if not stripped:
             continue
-        saw_text = True
-        run_style = _parse_rpr(run.find(f"{_WP}rPr"), para_style.run)
-        if not run_style.bold:
-            return 0
-    if not saw_text:
+        total_chars += len(stripped)
+        run_style = _parse_rpr(run.find(f"{_WP}rPr"), para_style.run, theme)
+        if run_style.bold:
+            bold_chars += len(stripped)
+        max_size = max(max_size, run_style.font_size_pt)
+        color = (run_style.color or "").lower()
+        if color not in ("#1a1a1a", "#1a1a2e", "#000000", "#374151") and color.startswith("#"):
+            purple_chars += len(stripped)
+
+    if total_chars == 0:
         return 0
-    if para_style.run.font_size_pt >= 14:
-        return 1
-    return 2
+    if bold_chars >= total_chars * 0.75 or purple_chars >= total_chars * 0.75:
+        if max_size >= 16:
+            return 1
+        return 2
+    return 0
 
 
 def _append_html_block(
@@ -585,10 +651,11 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False, landing: boo
             raise ValueError("Invalid or corrupt .docx file") from exc
 
         rels = _load_relationships(zf)
+        theme = _load_theme_colors(zf)
         style_names = _load_style_names(data)
         styles_root = ET.fromstring(styles_bytes) if styles_bytes else ET.Element(f"{_WP}styles")
-        doc_defaults = _load_doc_defaults(styles_root)
-        style_map = _load_style_map(styles_root, doc_defaults)
+        doc_defaults = _load_doc_defaults(styles_root, theme)
+        style_map = _load_style_map(styles_root, doc_defaults, theme)
 
         root = ET.fromstring(xml_bytes)
         body = root.find(f"{_WP}body")
@@ -611,7 +678,7 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False, landing: boo
             is_list = _paragraph_is_list(para)
 
             base = style_map.get(style_id, _ParaStyle(run=doc_defaults))
-            para_style = _parse_ppr(ppr, base)
+            para_style = _parse_ppr(ppr, base, theme)
             align = _paragraph_alignment(para)
             if align:
                 mapped = {"center": "center", "justify": "justify", "right": "right", "left": "left"}.get(align)
@@ -636,8 +703,8 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False, landing: boo
                 _append_html_block(html_blocks, heading_levels, align_flags, block, 0, para_style.align)
                 continue
 
-            level = _infer_heading_level(runs, plain, level, para_style)
-            inner = _runs_to_html(runs, para_style)
+            level = _infer_heading_level(runs, plain, level, para_style, theme)
+            inner = _runs_to_html(runs, para_style, theme)
             if images_html:
                 inner = f"{images_html}{inner}"
             if not inner:
@@ -685,9 +752,10 @@ def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False, landing: boo
         raise ValueError("Document is empty")
 
     mirror_class = "docx-mirror-landing" if landing else "docx-mirror-article"
+    mirror_font = DOCX_LANDING_FONT if landing else DOCX_ARTICLE_FONT
     return (
         f'<article class="docx-mirror {mirror_class}" '
-        "style=\"font-family:Georgia,'Times New Roman',Times,serif;"
+        f'style="font-family:{mirror_font};'
         'font-size:11pt;color:#1a1a2e;line-height:1.45;width:100%;">'
         + "".join(html_blocks)
         + "</article>"

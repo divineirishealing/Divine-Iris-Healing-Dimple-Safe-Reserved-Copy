@@ -836,7 +836,11 @@ html {
   min-width: 10rem;
 }
 
-/* Faithful Word mirror — preserve inline typography; only undo global resets */
+/* Faithful Word mirror — preserve inline typography from the .docx import */
+.docx-html-shell .docx-mirror-article {
+  font-family: 'Lato', sans-serif;
+}
+
 .docx-html-shell .docx-mirror-article .docx-h1,
 .docx-html-shell .docx-mirror-article .docx-h2,
 .docx-html-shell .docx-mirror-article .docx-h3,

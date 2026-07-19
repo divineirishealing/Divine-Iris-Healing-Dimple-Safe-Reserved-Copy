@@ -31,6 +31,10 @@ export function stripDuplicateDocxTitle(html, title) {
 }
 
 const DOCX_ARTICLE_STYLE =
+  "font-family:'Lato',sans-serif;"
+  + 'font-size:11pt;color:#1a1a2e;line-height:1.45;width:100%;';
+
+const DOCX_LANDING_STYLE =
   'font-family:Georgia,\'Times New Roman\',Times,serif;'
   + 'font-size:11pt;color:#1a1a2e;line-height:1.45;width:100%;';
 
@@ -40,6 +44,7 @@ export function wrapDocxHtmlFragment(html, variant = 'landing') {
   if (!s) return '';
 
   const mirrorSuffix = variant === 'article' ? 'article' : 'landing';
+  const mirrorStyle = variant === 'article' ? DOCX_ARTICLE_STYLE : DOCX_LANDING_STYLE;
   const hasOpeningArticle = /^<article[^>]*docx-mirror/i.test(s);
   const hasClosingArticle = /<\/article>\s*$/i.test(s);
 
@@ -54,7 +59,7 @@ export function wrapDocxHtmlFragment(html, variant = 'landing') {
     .trim();
 
   return (
-    `<article class="docx-mirror docx-mirror-${mirrorSuffix}" style="${DOCX_ARTICLE_STYLE}">`
+    `<article class="docx-mirror docx-mirror-${mirrorSuffix}" style="${mirrorStyle}">`
     + `${inner}</article>`
   );
 }
