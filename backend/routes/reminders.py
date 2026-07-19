@@ -1,15 +1,13 @@
-"""Abandoned enrollment reminders and registration-deadline nudges.
+"""Abandoned enrollment reminders — at most two emails per incomplete signup.
 
-- Abandonment (programs only when registration is open): first nudge after 15 minutes from
-  enrollment start; then at most once every 3 days.
-- Deadline: one email ~1 hour before registration closes, and one ~10 minutes before
-  (program deadline_date / start_date, or session last available date).
+1. Abandonment: one nudge after the user starts but does not finish (15+ minutes after start).
+2. Deadline: one nudge ~3 hours before registration closes (same incomplete enrollments only).
 
 Call check_and_send_reminders periodically (e.g. every 10 minutes).
 """
 import os
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
@@ -31,19 +29,15 @@ ABANDONED_STATUSES = [
     "otp_verified",
 ]
 
-# Wait this long after enrollment start before the first abandonment email can send
+# Wait this long after enrollment start before the abandonment email can send
 ABANDON_MINUTES_AFTER_START = 15
-# Minimum time between abandonment emails (same enrollment)
-ABANDON_COOLDOWN_HOURS = 72  # 3 days
 
 # Minutes before registration close; slack so a ~10-minute cron still catches the window
-DEADLINE_1H_TARGET_MIN = 60
-DEADLINE_10M_TARGET_MIN = 10
-DEADLINE_1H_SLACK_MIN = 12
-DEADLINE_10M_SLACK_MIN = 6
+DEADLINE_3H_TARGET_MIN = 180
+DEADLINE_3H_SLACK_MIN = 15
 
-DEADLINE_1H_LABEL = "deadline_1h"
-DEADLINE_10M_LABEL = "deadline_10m"
+ABANDON_LABEL = "abandon"
+DEADLINE_3H_LABEL = "deadline_3h"
 
 
 def _parse_dt(val) -> datetime | None:
@@ -161,23 +155,10 @@ def _build_reminder_html(
     title = item_title or "your chosen journey"
     dh = deadline_human or ""
 
-    if reminder_label == DEADLINE_10M_LABEL:
-        headline = "Registration is closing now"
+    if reminder_label == DEADLINE_3H_LABEL:
+        headline = "About 3 hours left to register"
         message = (
-            f"{name}, <strong>{title}</strong> is about to close for registration"
-            f"{(' — ' + dh) if dh else ''}. "
-            f"If you’re coming in, please complete your enrollment in the next few minutes."
-        )
-        fomo = (
-            '<p style="font-size:13px;color:#991b1b;line-height:1.6;margin:16px 0 0;font-weight:600">'
-            "This is the last automated nudge before the window shuts.</p>"
-        )
-        cta = "Complete registration now"
-        subject = f"Closing now — {title}"
-    elif reminder_label == DEADLINE_1H_LABEL:
-        headline = "About an hour left to register"
-        message = (
-            f"{name}, registration for <strong>{title}</strong> closes in roughly an hour"
+            f"{name}, registration for <strong>{title}</strong> closes in roughly three hours"
             f"{(' (' + dh + ')') if dh else ''}. "
             f"If you meant to join, this is a good time to finish."
         )
@@ -186,16 +167,16 @@ def _build_reminder_html(
             "After it closes, you may need to wait for the next opening.</p>"
         )
         cta = "Finish enrollment"
-        subject = f"1 hour left — {title}"
+        subject = f"3 hours left — {title}"
     else:
-        headline = "You’re almost there"
+        headline = "You're almost there"
         message = (
-            f"Hi {name}, you started enrolling for <strong>{title}</strong> but haven’t finished yet. "
-            f"When you’re ready, you can pick up right where you left off."
+            f"Hi {name}, you started enrolling for <strong>{title}</strong> but haven't finished yet. "
+            f"When you're ready, you can pick up right where you left off."
         )
         fomo = (
             '<p style="font-size:13px;color:#7c3aed;line-height:1.6;margin:16px 0 0;font-weight:600">'
-            "Sacred spaces don’t stay open indefinitely — completing soon keeps you aligned with the current wave.</p>"
+            "Sacred spaces don't stay open indefinitely — completing soon keeps you aligned with the current wave.</p>"
         )
         cta = "Continue my enrollment"
         subject = f"Still interested in {title}?"
@@ -212,7 +193,7 @@ def _build_reminder_html(
     <div style="text-align:center;margin:26px 0">
       <a href="{resume_url}" style="display:inline-block;background:{accent};color:#1a0a2e;text-decoration:none;padding:14px 32px;border-radius:50px;font-weight:700;font-size:14px;font-family:{heading_font}">{cta}</a>
     </div>
-    <p style="font-size:12px;color:#888;text-align:center;margin-top:8px;line-height:1.5">If the button doesn’t work, copy this link into your browser:<br/><span style="word-break:break-all;color:#6b21a8">{resume_url}</span></p>
+    <p style="font-size:12px;color:#888;text-align:center;margin-top:8px;line-height:1.5">If the button doesn't work, copy this link into your browser:<br/><span style="word-break:break-all;color:#6b21a8">{resume_url}</span></p>
     <p style="font-size:12px;color:#999;text-align:center;margin-top:20px">Questions? Just reply — a human reads these.</p>
   </div>
   <div style="background:#f8f6f2;padding:16px 24px;text-align:center;border-top:1px solid #eee">
@@ -237,8 +218,7 @@ async def _send_one(
     html: str,
     now: datetime,
     *,
-    set_last_abandon: bool = False,
-    reminder_label: str | None = None,
+    reminder_label: str,
 ) -> bool:
     from routes.emails import send_email
 
@@ -246,17 +226,18 @@ async def _send_one(
     if not result:
         logger.warning("Reminder email not delivered to %s (mail not configured?)", booker_email)
         return False
-    update: dict = {"$set": {"last_reminder_at": now.isoformat()}}
-    if set_last_abandon:
+    update: dict = {
+        "$set": {"last_reminder_at": now.isoformat()},
+        "$push": {"reminders_sent": reminder_label},
+    }
+    if reminder_label == ABANDON_LABEL:
         update["$set"]["last_abandon_reminder_at"] = now.isoformat()
-    if reminder_label:
-        update["$push"] = {"reminders_sent": reminder_label}
     await db.enrollments.update_one({"id": enrollment_id}, update)
     return True
 
 
 async def check_and_send_reminders():
-    """Send at most one actionable reminder per enrollment per run (priority: 10m deadline, 1h deadline, abandon)."""
+    """Send at most one reminder per enrollment per run (priority: 3h deadline, then abandon). Max two total per signup."""
     now = datetime.now(timezone.utc)
     sent_count = 0
 
@@ -299,21 +280,21 @@ async def check_and_send_reminders():
                 d = (item.get("deadline_date") or item.get("start_date") or "").strip()
                 deadline_human = d or close_dt.date().isoformat()
 
-        # --- Priority 1: ~10 minutes before close ---
+        # --- Priority 1: ~3 hours before close (once) ---
         if (
             close_dt
             and now < close_dt
-            and DEADLINE_10M_LABEL not in reminders_sent
+            and DEADLINE_3H_LABEL not in reminders_sent
             and _in_deadline_window(
                 _minutes_before_close(now, close_dt),
-                DEADLINE_10M_TARGET_MIN,
-                DEADLINE_10M_SLACK_MIN,
+                DEADLINE_3H_TARGET_MIN,
+                DEADLINE_3H_SLACK_MIN,
             )
         ):
             html = _build_reminder_html(
                 enrollment.get("booker_name", ""),
                 item_title,
-                DEADLINE_10M_LABEL,
+                DEADLINE_3H_LABEL,
                 resume_url,
                 receipt_tpl,
                 deadline_human=deadline_human or None,
@@ -322,72 +303,35 @@ async def check_and_send_reminders():
                 if await _send_one(
                     enrollment_id,
                     booker_email,
-                    f"Closing now — {item_title}",
+                    f"3 hours left — {item_title}",
                     html,
                     now,
-                    reminder_label=DEADLINE_10M_LABEL,
+                    reminder_label=DEADLINE_3H_LABEL,
                 ):
                     sent_count += 1
-                    logger.info("Reminder '%s' sent to %s for enrollment %s", DEADLINE_10M_LABEL, booker_email, enrollment_id)
+                    logger.info("Reminder '%s' sent to %s for enrollment %s", DEADLINE_3H_LABEL, booker_email, enrollment_id)
             except Exception as e:
                 logger.error("Failed to send reminder to %s: %s", booker_email, e)
             continue
 
-        # --- Priority 2: ~1 hour before close ---
-        if (
-            close_dt
-            and now < close_dt
-            and DEADLINE_1H_LABEL not in reminders_sent
-            and _in_deadline_window(
-                _minutes_before_close(now, close_dt),
-                DEADLINE_1H_TARGET_MIN,
-                DEADLINE_1H_SLACK_MIN,
-            )
-        ):
-            html = _build_reminder_html(
-                enrollment.get("booker_name", ""),
-                item_title,
-                DEADLINE_1H_LABEL,
-                resume_url,
-                receipt_tpl,
-                deadline_human=deadline_human or None,
-            )
-            try:
-                if await _send_one(
-                    enrollment_id,
-                    booker_email,
-                    f"1 hour left — {item_title}",
-                    html,
-                    now,
-                    reminder_label=DEADLINE_1H_LABEL,
-                ):
-                    sent_count += 1
-                    logger.info("Reminder '%s' sent to %s for enrollment %s", DEADLINE_1H_LABEL, booker_email, enrollment_id)
-            except Exception as e:
-                logger.error("Failed to send reminder to %s: %s", booker_email, e)
-            continue
-
-        # No abandonment emails after registration has ended (when we can compute a close time)
+        # No further emails after registration has ended (when we can compute a close time)
         if close_dt and now >= close_dt:
             continue
 
-        # Abandonment nudges for programs: only while registration is still open (skip closed/missing program)
+        # Abandonment for programs: only while registration is still open
         if (item_type or "program").strip().lower() == "program":
             if item is None or not _program_registration_still_open(item):
                 continue
 
-        # --- Priority 3: abandonment (max once per 3 days for programs still open) ---
-        last_ab = enrollment.get("last_abandon_reminder_at")
-        last_ab_dt = _parse_dt(last_ab) if last_ab else None
-        cooldown_ok = True
-        if last_ab_dt:
-            cooldown_ok = (now - last_ab_dt) >= timedelta(hours=ABANDON_COOLDOWN_HOURS)
-
-        if minutes_since_start >= ABANDON_MINUTES_AFTER_START and cooldown_ok:
+        # --- Priority 2: one-time abandonment nudge ---
+        if (
+            ABANDON_LABEL not in reminders_sent
+            and minutes_since_start >= ABANDON_MINUTES_AFTER_START
+        ):
             html = _build_reminder_html(
                 enrollment.get("booker_name", ""),
                 item_title,
-                "abandon",
+                ABANDON_LABEL,
                 resume_url,
                 receipt_tpl,
             )
@@ -398,7 +342,7 @@ async def check_and_send_reminders():
                     f"Still interested in {item_title}?",
                     html,
                     now,
-                    set_last_abandon=True,
+                    reminder_label=ABANDON_LABEL,
                 ):
                     sent_count += 1
                     logger.info("Abandon reminder sent to %s for enrollment %s", booker_email, enrollment_id)
