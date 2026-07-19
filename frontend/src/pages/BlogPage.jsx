@@ -132,7 +132,7 @@ export default function BlogPage() {
 
   const hero = settings?.page_heroes?.blog || {};
   const kicker = hero.subtitle_text || 'Insights, stories and updates';
-  const heroBody = hero.body_text || 'Reflections from our healing community — written to meet you where you are.';
+  const heroBody = hero.body_text || 'Reflections from our healer and healing community — written to meet you where you are.';
 
   return (
     <div className="min-h-screen bg-white">
