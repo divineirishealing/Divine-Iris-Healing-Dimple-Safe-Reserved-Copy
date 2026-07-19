@@ -9,10 +9,13 @@ import { BODY, CONTAINER, SECTION_PY } from '../lib/designTokens';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { useSeoPage } from '../context/SeoPageContext';
 import { renderMarkdown } from '../lib/renderMarkdown';
-import { isDocxHtmlBody, extractDocxHtml } from '../lib/docxHtml';
+import { isDocxHtmlBody, extractDocxHtml, wrapDocxHtmlFragment } from '../lib/docxHtml';
 import { ArrowLeft } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+/** Same column width as DocxHtmlMirror / Word page (816px + horizontal padding). */
+const DOC_COLUMN = 'docx-page mx-auto w-full max-w-[816px] px-6 md:px-[72px]';
 
 export default function BlogPostDetailPage() {
   const { slug } = useParams();
@@ -66,15 +69,15 @@ export default function BlogPostDetailPage() {
 
   const heroSrc = resolveImageUrl(post.hero_image);
   const bodyIsDocx = isDocxHtmlBody(post.body);
-  const docxHtml = bodyIsDocx ? extractDocxHtml(post.body) : '';
+  const docxHtml = bodyIsDocx ? wrapDocxHtmlFragment(extractDocxHtml(post.body)) : '';
   const showCoverBanner = heroSrc && !bodyIsDocx;
 
   return (
     <div className="min-h-screen bg-white" data-testid={`blog-post-detail-${post.slug}`}>
       <Header />
 
-      <section className="relative pt-24 pb-4 px-6 bg-white border-b border-[#ebe6f2]">
-        <div className={`${CONTAINER} max-w-4xl text-left`}>
+      <div className="bg-white pt-24 pb-3">
+        <div className={DOC_COLUMN}>
           <Link
             to="/blog"
             className="inline-flex items-center gap-2 text-[#7c6fa8] hover:text-[#534AB7] text-sm transition-colors"
@@ -82,11 +85,11 @@ export default function BlogPostDetailPage() {
             <ArrowLeft size={14} /> Back to the journal
           </Link>
         </div>
-      </section>
+      </div>
 
       {showCoverBanner && (
         <section className="bg-white border-b border-[#ebe6f2]">
-          <div className={`${CONTAINER} max-w-4xl py-8 text-left`}>
+          <div className={`${DOC_COLUMN} py-6`}>
             <img
               src={heroSrc}
               alt={post.title}
@@ -97,15 +100,13 @@ export default function BlogPostDetailPage() {
       )}
 
       {post.body && (
-        <section className={bodyIsDocx ? 'bg-white' : `${SECTION_PY} bg-white`}>
-          {bodyIsDocx ? (
-            <div className={`${CONTAINER} max-w-4xl text-left`}>
-              <DocxHtmlMirror html={docxHtml} align="left" />
-            </div>
-          ) : (
-            <div className={`${CONTAINER} max-w-4xl text-left`}>
+        bodyIsDocx ? (
+          <DocxHtmlMirror html={docxHtml} accent="#C9962A" continuation />
+        ) : (
+          <section className={`${SECTION_PY} bg-white`}>
+            <div className={DOC_COLUMN}>
               <article
-                className="whitespace-pre-line max-w-3xl"
+                className="whitespace-pre-line"
                 style={{
                   ...BODY,
                   fontSize: '1.05rem',
@@ -115,8 +116,8 @@ export default function BlogPostDetailPage() {
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(post.body) }}
               />
             </div>
-          )}
-        </section>
+          </section>
+        )
       )}
 
       <Footer />
