@@ -4,7 +4,11 @@ export function parsePricingDate(dateStr) {
   if (!dateStr || typeof dateStr !== 'string') return null;
   const trimmed = dateStr.trim();
   if (!trimmed) return null;
-  const d = new Date(trimmed.includes('T') ? trimmed : `${trimmed}T23:59:59`);
+  if (trimmed.includes('T')) {
+    const d = new Date(trimmed);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(`${trimmed}T23:59:59`);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 

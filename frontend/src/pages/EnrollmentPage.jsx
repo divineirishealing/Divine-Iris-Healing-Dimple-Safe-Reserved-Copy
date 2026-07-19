@@ -26,7 +26,7 @@ import {
   normalizeCartItemTierIndex,
 } from '../lib/crossSellPricing';
 import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInCurrency } from '../lib/payAsYouWish';
-import { getOfferCountdownDeadline, resolveProgramOffer } from '../lib/effectiveOfferPricing';
+import { getOfferCountdownDeadline, resolveProgramOffer, parsePricingDate } from '../lib/effectiveOfferPricing';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1186,8 +1186,8 @@ function EnrollmentPage() {
                       ? getOfferCountdownDeadline(item, hasTiers ? selectedTier : null)
                       : (item.early_bird_date || item.deadline_date || item.start_date || item.offer_expiry);
                     if (!countdownDeadline) return null;
-                    const dl = new Date(countdownDeadline.includes('T') ? countdownDeadline : `${countdownDeadline}T23:59:59`);
-                    if (isNaN(dl.getTime()) || dl <= new Date()) return null;
+                    const dl = parsePricingDate(String(countdownDeadline));
+                    if (!dl || dl <= new Date()) return null;
                     const offerMeta = type === 'program'
                       ? resolveProgramOffer(item, hasTiers ? selectedTier : null, priceCurrency)
                       : resolveProgramOffer(item, null, priceCurrency);

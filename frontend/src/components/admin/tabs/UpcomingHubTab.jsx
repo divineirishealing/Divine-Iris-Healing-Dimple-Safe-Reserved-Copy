@@ -5,6 +5,11 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
 import { Save, Calendar, ChevronDown, ChevronUp, Copy, MessageCircle, Video, Link as LinkIcon, Globe, Plus, Trash2, Quote, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  deadlineCalendarKey,
+  parseDeadlineParts,
+  mergeDeadlineDateTime,
+} from '../../../lib/deadlineDateTime';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -16,50 +21,6 @@ const STATUS_OPTIONS = [
 
 const CLOSURE_OPTIONS = ['Registration Closed', 'Seats Full', 'Enrollment Closed', 'Sold Out'];
 const TZ_OPTIONS = ['', 'IST', 'GST Dubai', 'EST', 'PST', 'CST', 'MST', 'GMT', 'UTC', 'BST', 'CET', 'AEST', 'SGT', 'JST'];
-
-/** Fixed offsets for hub labels; used when storing deadline end time. Unknown / empty TZ → UTC. */
-const HUB_TZ_TO_OFFSET = {
-  IST: '+05:30',
-  'GST Dubai': '+04:00',
-  EST: '-05:00',
-  PST: '-08:00',
-  CST: '-06:00',
-  MST: '-07:00',
-  GMT: '+00:00',
-  UTC: '+00:00',
-  BST: '+01:00',
-  CET: '+01:00',
-  AEST: '+10:00',
-  SGT: '+08:00',
-  JST: '+09:00',
-};
-
-function deadlineCalendarKey(deadline) {
-  const s = (deadline || '').trim();
-  if (!s) return '';
-  return s.includes('T') ? s.slice(0, 10) : s.slice(0, 10);
-}
-
-function parseDeadlineParts(deadline) {
-  const s = (deadline || '').trim();
-  if (!s) return { date: '', time: '' };
-  const datePart = s.includes('T') ? s.split('T')[0].slice(0, 10) : s.slice(0, 10);
-  if (!s.includes('T')) return { date: datePart, time: '' };
-  const afterT = s.split('T')[1] || '';
-  const m = afterT.match(/^(\d{2}:\d{2})/);
-  return { date: datePart, time: m ? m[1] : '' };
-}
-
-/** Date-only if time empty (legacy end-of-day UTC on server). Otherwise ISO local wall time with offset from TZ column. */
-function mergeDeadlineDateTime(dateStr, timeStr, tzLabel) {
-  const d = (dateStr || '').slice(0, 10);
-  if (!d) return '';
-  const t = (timeStr || '').trim();
-  if (!t) return d;
-  const hm = t.length >= 5 ? t.slice(0, 5) : t;
-  const off = HUB_TZ_TO_OFFSET[tzLabel] || '+00:00';
-  return `${d}T${hm}:00${off}`;
-}
 
 /** Fields the Programs Hub edits — everything else (image, description, pricing, content_sections, …) must stay as on the server so Save All never wipes them. */
 const HUB_PROGRAM_FIELD_KEYS = [

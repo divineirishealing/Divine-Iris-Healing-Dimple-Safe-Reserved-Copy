@@ -55,5 +55,29 @@ def test_program_tier_early_bird():
     assert price == 450
 
 
-def test_is_early_bird_active_false_without_date():
-    assert is_early_bird_active({"early_bird_price_inr": 100}) is False
+def test_early_bird_honors_time_with_timezone_offset():
+    future = datetime.now(timezone.utc) + timedelta(hours=3)
+    iso = future.strftime("%Y-%m-%dT%H:%M:00+00:00")
+    tier = {
+        "early_bird_date": iso,
+        "early_bird_price_inr": 699,
+        "offer_price_inr": 999,
+    }
+    price, _, is_eb = resolve_effective_offer(tier, "inr")
+    assert is_eb is True
+    assert price == 699
+
+
+def test_early_bird_expired_after_time_passes():
+    past = datetime.now(timezone.utc) - timedelta(minutes=5)
+    iso = past.strftime("%Y-%m-%dT%H:%M:00+00:00")
+    tier = {
+        "early_bird_date": iso,
+        "early_bird_price_inr": 699,
+        "offer_price_inr": 999,
+        "offer_text": "Regular Offer",
+    }
+    price, text, is_eb = resolve_effective_offer(tier, "inr")
+    assert is_eb is False
+    assert price == 999
+    assert text == "Regular Offer"

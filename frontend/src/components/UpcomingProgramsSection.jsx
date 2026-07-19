@@ -8,7 +8,7 @@ import { useToast } from '../hooks/use-toast';
 import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart, Gift, Users } from 'lucide-react';
 import { cn, formatDateDdMonYyyy } from '../lib/utils';
 import { catalogPayAsYouWishEnabled } from '../lib/payAsYouWish';
-import { getOfferCountdownDeadline, resolveProgramOffer } from '../lib/effectiveOfferPricing';
+import { getOfferCountdownDeadline, resolveProgramOffer, parsePricingDate } from '../lib/effectiveOfferPricing';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -456,10 +456,9 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
 
             {/* Early Bird */}
             {offerPrice > 0 && deadline && (() => {
-              const now = new Date();
-              const dl = new Date(deadline);
-              if (dl <= now) return null;
-              const diff = dl - now;
+              const dl = parsePricingDate(String(deadline));
+              if (!dl || dl.getTime() <= Date.now()) return null;
+              const diff = dl.getTime() - Date.now();
               const days = Math.floor(diff / (1000 * 60 * 60 * 24));
               const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
               const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
