@@ -4,13 +4,16 @@ import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
+import BlogJournalCupIcon from '../components/BlogJournalCupIcon';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { HEADING, BODY, SUBTITLE, GOLD, CONTAINER, SECTION_PY, LABEL } from '../lib/designTokens';
 import { useSeoPage } from '../context/SeoPageContext';
-import { formatDateDMonYyyyUpper } from '../lib/utils';
-import { ArrowRight, FileText } from 'lucide-react';
+import { FileText } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const JOURNAL_SAGE = '#7a8f6e';
+const JOURNAL_PURPLE = '#534AB7';
 
 const applyHeroStyle = (styleObj, defaults = {}) => {
   if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
@@ -25,56 +28,90 @@ const applyHeroStyle = (styleObj, defaults = {}) => {
 };
 
 function BlogPostCard({ post }) {
-  const heroSrc = resolveImageUrl(post.hero_image);
-  const dateLabel = post.published_at ? formatDateDMonYyyyUpper(post.published_at) : '';
+  const coverSrc = resolveImageUrl(post.hero_image);
 
   return (
     <Link
       to={`/blog/${post.slug}`}
-      className="group block rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
-      style={{ border: '1.5px solid rgba(109,40,217,0.18)', background: '#fdfbff' }}
+      className="group block rounded-sm transition-all duration-300 hover:shadow-md"
+      style={{ background: '#f9f8fc' }}
       data-testid={`blog-post-card-${post.slug}`}
     >
-      {heroSrc ? (
-        <div className="relative aspect-[16/10] overflow-hidden">
-          <img
-            src={heroSrc}
-            alt={post.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            loading="lazy"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#1e0654]/80 via-transparent to-transparent" />
-          {post.featured && (
-            <span
-              className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white"
-              style={{ background: 'linear-gradient(135deg,#D4AF37,#b8860b)' }}
+      <div className="flex flex-col sm:flex-row sm:items-start gap-6 sm:gap-10 p-8 md:p-10 md:pr-12">
+        <div className="flex-1 min-w-0 order-2 sm:order-1">
+          <p
+            style={{
+              fontFamily: "'Cormorant Garamond', Georgia, serif",
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              letterSpacing: '0.22em',
+              textTransform: 'uppercase',
+              color: JOURNAL_SAGE,
+              marginBottom: 14,
+            }}
+          >
+            From the journal
+          </p>
+
+          <h2
+            style={{
+              ...HEADING,
+              fontSize: 'clamp(1.45rem, 3vw, 1.85rem)',
+              color: JOURNAL_PURPLE,
+              lineHeight: 1.3,
+              marginBottom: 16,
+            }}
+          >
+            {post.title}
+          </h2>
+
+          {post.excerpt && (
+            <p
+              className="line-clamp-4 max-w-xl"
+              style={{
+                ...BODY,
+                fontSize: '0.95rem',
+                color: '#5c5c5c',
+                lineHeight: 1.75,
+                marginBottom: 20,
+              }}
             >
-              Featured
-            </span>
+              {post.excerpt}
+            </p>
           )}
+
+          <div
+            className="mb-5"
+            style={{ width: 48, height: 1, background: JOURNAL_SAGE, opacity: 0.85 }}
+          />
+
+          <span
+            className="inline-flex items-center gap-2 transition-transform group-hover:translate-x-0.5"
+            style={{
+              fontFamily: 'var(--body-font, "Lato", sans-serif)',
+              fontSize: '0.68rem',
+              fontWeight: 700,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: JOURNAL_PURPLE,
+            }}
+          >
+            Read the full piece
+            <span aria-hidden>→</span>
+          </span>
         </div>
-      ) : (
-        <div
-          className="relative aspect-[16/10] flex items-center justify-center"
-          style={{ background: 'linear-gradient(135deg, #1e0654 0%, #6d28d9 100%)' }}
-        >
-          <FileText size={40} className="text-white/30" />
-        </div>
-      )}
-      <div className="p-6">
-        {(dateLabel || post.author) && (
-          <p style={{ ...LABEL, fontSize: '10px', color: GOLD, marginBottom: 8 }}>
-            {[dateLabel, post.author].filter(Boolean).join(' · ')}
-          </p>
-        )}
-        <h2 style={{ ...HEADING, fontSize: '1.25rem', color: '#4c1d95', lineHeight: 1.35 }}>{post.title}</h2>
-        {post.excerpt && (
-          <p className="mt-3 line-clamp-3" style={{ ...BODY, fontSize: '0.9rem', color: '#6b7280', lineHeight: 1.7 }}>
-            {post.excerpt}
-          </p>
-        )}
-        <div className="mt-4 flex items-center gap-2 text-sm font-semibold" style={{ color: '#7c3aed' }}>
-          Read the full piece <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+
+        <div className="shrink-0 order-1 sm:order-2 sm:pt-1 flex justify-center sm:justify-end sm:w-[140px] md:w-[160px]">
+          {coverSrc ? (
+            <img
+              src={coverSrc}
+              alt=""
+              className="w-[120px] h-[120px] sm:w-[130px] sm:h-[130px] object-cover rounded-sm opacity-90 group-hover:opacity-100 transition-opacity"
+              loading="lazy"
+            />
+          ) : (
+            <BlogJournalCupIcon className="w-[100px] h-[120px] sm:w-[120px] sm:h-[140px]" stroke="#c4b8e8" />
+          )}
         </div>
       </div>
     </Link>
@@ -159,7 +196,7 @@ export default function BlogPage() {
         </div>
       </section>
 
-      <section className={SECTION_PY}>
+      <section className={SECTION_PY} style={{ background: '#faf9fc' }}>
         <div className={CONTAINER}>
           {loading ? (
             <div className="flex justify-center py-20">
@@ -170,7 +207,7 @@ export default function BlogPage() {
               <p className="text-gray-400 text-sm">Blog posts coming soon. Check back for new articles.</p>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            <div className="space-y-8 max-w-3xl mx-auto">
               {posts.map((post) => (
                 <BlogPostCard key={post.id} post={post} />
               ))}
