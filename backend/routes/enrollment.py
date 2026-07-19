@@ -37,7 +37,9 @@ async def _attach_portal_ids_to_transaction(transaction: dict, enrollment: dict)
 
 
 def _per_person_price_for_program(program: dict, tier_index: Optional[int], currency: str) -> float:
-    """Per-person list price for cart checkout (offer price wins when set). Matches get_enrollment_pricing tier logic."""
+    """Per-person price for cart checkout (early bird → offer → list)."""
+    from utils.effective_pricing import resolve_program_offer
+
     cur = (currency or "aed").lower()
     tiers = program.get("duration_tiers") or []
     ti = None
@@ -47,33 +49,30 @@ def _per_person_price_for_program(program: dict, tier_index: Optional[int], curr
         except (TypeError, ValueError):
             ti = None
     has_tier = bool(tiers) and ti is not None and 0 <= ti < len(tiers)
+
     if has_tier:
         tier = tiers[ti]
         price_aed = float(tier.get("price_aed", 0) or 0)
         price_inr = float(tier.get("price_inr", 0) or 0)
         price_usd = float(tier.get("price_usd", 0) or 0)
-        offer_aed = float(tier.get("offer_price_aed", 0) or 0)
-        offer_inr = float(tier.get("offer_price_inr", 0) or 0)
-        offer_usd = float(tier.get("offer_price_usd", 0) or 0)
     else:
         price_aed = float(program.get("price_aed", 0) or 0)
         price_inr = float(program.get("price_inr", 0) or 0)
         price_usd = float(program.get("price_usd", 0) or 0)
-        offer_aed = float(program.get("offer_price_aed", 0) or 0)
-        offer_inr = float(program.get("offer_price_inr", 0) or 0)
-        offer_usd = float(program.get("offer_price_usd", 0) or 0)
+
+    offer_price, _, _ = resolve_program_offer(program, ti, cur)
+
     if cur == "inr":
-        price, offer_price = price_inr, offer_inr
+        price = price_inr
     elif cur == "usd":
         price = price_usd if price_usd > 0 else price_aed
-        offer_price = offer_usd if offer_usd > 0 else offer_aed
         if price <= 0:
-            price, offer_price = price_aed, offer_aed
+            price = price_aed
     else:
-        price, offer_price = price_aed, offer_aed
+        price = price_aed
         if price <= 0 and price_usd > 0:
             price = price_usd
-            offer_price = offer_usd if offer_usd > 0 else price_usd
+
     per = float(offer_price) if offer_price and float(offer_price) > 0 else float(price)
     return per
 
@@ -596,6 +595,8 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
     all_india_checks_pass = inr_eligible  # kept for backward compat in response
 
     # ─── GET PRICE FROM TIER OR ITEM ───
+    from utils.effective_pricing import resolve_program_offer
+
     tiers = item.get("duration_tiers", [])
     has_tier = tiers and tier_index is not None and 0 <= tier_index < len(tiers)
 
@@ -604,25 +605,21 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
         price_aed = float(tier.get("price_aed", 0))
         price_inr = float(tier.get("price_inr", 0))
         price_usd = float(tier.get("price_usd", 0))
-        offer_aed = float(tier.get("offer_price_aed", 0))
-        offer_inr = float(tier.get("offer_price_inr", 0))
-        offer_usd = float(tier.get("offer_price_usd", 0))
     else:
         price_aed = float(item.get("price_aed", 0))
         price_inr = float(item.get("price_inr", 0))
         price_usd = float(item.get("price_usd", 0))
-        offer_aed = float(item.get("offer_price_aed", 0))
-        offer_inr = float(item.get("offer_price_inr", 0))
-        offer_usd = float(item.get("offer_price_usd", 0))
 
-    # Pick price directly from pricing hub — no cross-currency calculation
+    offer_price, offer_text_resolved, is_early_bird = resolve_program_offer(
+        item, tier_index if has_tier else None, allowed_currency
+    )
+
+    # Pick list price directly from pricing hub — no cross-currency calculation
     if allowed_currency == "inr":
         price = price_inr  # exact INR from pricing hub, never converted
-        offer_price = offer_inr
         symbol = "₹"
     elif allowed_currency == "usd":
         price = price_usd if price_usd > 0 else price_aed
-        offer_price = offer_usd
         symbol = "$"
         if price <= 0:
             price = price_aed
@@ -631,7 +628,6 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
     else:
         # AED or other currencies - use AED as base
         price = price_aed
-        offer_price = offer_aed
         symbol = "AED "
         if price <= 0 and price_usd > 0:
             price = price_usd
@@ -649,7 +645,8 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
         "final_per_person": per_person,
         "participant_count": participant_count,
         "total": total,
-        "offer_text": item.get("offer_text", ""),
+        "offer_text": offer_text_resolved or item.get("offer_text", ""),
+        "is_early_bird": is_early_bird,
     }
 
     if (

@@ -37,6 +37,11 @@ class DurationTier(BaseModel):
     offer_price_inr: float = 0.0
     offer_price_usd: float = 0.0
     offer_text: str = ""
+    early_bird_price_aed: float = 0.0
+    early_bird_price_inr: float = 0.0
+    early_bird_price_usd: float = 0.0
+    early_bird_date: str = ""
+    early_bird_text: str = ""
     start_date: str = ""
     end_date: str = ""
 
@@ -65,6 +70,11 @@ class Program(BaseModel):
     offer_price_usd: float = 0.0
     offer_price_inr: float = 0.0
     offer_text: str = ""
+    early_bird_price_aed: float = 0.0
+    early_bird_price_inr: float = 0.0
+    early_bird_price_usd: float = 0.0
+    early_bird_date: str = ""
+    early_bird_text: str = ""
     is_upcoming: bool = False
     is_flagship: bool = False
     is_blueprint_immersion: bool = False
@@ -137,6 +147,11 @@ class ProgramCreate(BaseModel):
     offer_price_usd: Optional[float] = 0.0
     offer_price_inr: Optional[float] = 0.0
     offer_text: Optional[str] = ""
+    early_bird_price_aed: Optional[float] = 0.0
+    early_bird_price_inr: Optional[float] = 0.0
+    early_bird_price_usd: Optional[float] = 0.0
+    early_bird_date: Optional[str] = ""
+    early_bird_text: Optional[str] = ""
     is_upcoming: Optional[bool] = False
     is_flagship: Optional[bool] = False
     is_blueprint_immersion: Optional[bool] = False
@@ -243,6 +258,11 @@ class Session(BaseModel):
     offer_price_inr: float = 0.0
     offer_price_usd: float = 0.0
     offer_text: str = ""
+    early_bird_price_aed: float = 0.0
+    early_bird_price_inr: float = 0.0
+    early_bird_price_usd: float = 0.0
+    early_bird_date: str = ""
+    early_bird_text: str = ""
     available_dates: List[str] = []  # list of ISO date strings
     time_slots: List[str] = []  # e.g. ["10:00 AM", "2:00 PM", "5:00 PM"]
     testimonial_text: str = ""  # 2-5 line testimonial snippet
@@ -274,6 +294,11 @@ class SessionCreate(BaseModel):
     offer_price_inr: Optional[float] = 0.0
     offer_price_usd: Optional[float] = 0.0
     offer_text: Optional[str] = ""
+    early_bird_price_aed: Optional[float] = 0.0
+    early_bird_price_inr: Optional[float] = 0.0
+    early_bird_price_usd: Optional[float] = 0.0
+    early_bird_date: Optional[str] = ""
+    early_bird_text: Optional[str] = ""
     available_dates: Optional[List[str]] = []
     time_slots: Optional[List[str]] = []
     testimonial_text: Optional[str] = ""

@@ -104,6 +104,7 @@ import { useToast } from '../hooks/use-toast';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import { timeSlotsForCalendarDate } from '../lib/sessionCalendarSlots';
 import SessionOpenDatesSlots from './SessionOpenDatesSlots';
+import { resolveEffectiveOffer, isEarlyBirdActive } from '../lib/effectiveOfferPricing';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -193,7 +194,7 @@ const MiniCalendar = ({ availableDates = [], onSelectDate, selectedDate }) => {
 
 const SessionsSection = ({ sectionConfig }) => {
   const navigate = useNavigate();
-  const { getPrice, formatPrice } = useCurrency();
+  const { getPrice, formatPrice, baseCurrency } = useCurrency();
   const { settings } = useSiteSettings();
   const { addSessionItem } = useCart();
   const { toast } = useToast();
@@ -213,6 +214,9 @@ const SessionsSection = ({ sectionConfig }) => {
   // Offer helpers
   const isOfferActive = (session) => {
     const now = new Date().toISOString().split('T')[0];
+    if (isEarlyBirdActive(session) && resolveEffectiveOffer(session, baseCurrency).price > 0) {
+      return resolveEffectiveOffer(session, baseCurrency).text || 'Early Bird';
+    }
     // Per-session offer
     if (session.offer_text && (!session.offer_expiry || session.offer_expiry >= now)) return session.offer_text;
     // Global offer
@@ -220,10 +224,9 @@ const SessionsSection = ({ sectionConfig }) => {
     return null;
   };
   const getOfferPrice = (session) => {
-    if (session.offer_price_aed > 0 || session.offer_price_usd > 0 || session.offer_price_inr > 0) {
-      return getPrice({ ...session, price_aed: session.offer_price_aed, price_usd: session.offer_price_usd, price_inr: session.offer_price_inr });
-    }
-    return 0;
+    const resolved = resolveEffectiveOffer(session, baseCurrency);
+    if (resolved.price <= 0) return 0;
+    return getPrice({ ...session, [`price_${baseCurrency}`]: resolved.price });
   };
   const offerBadgeBg = sessionTpl.offer_badge_bg || '#ef4444';
   const offerBadgeText = sessionTpl.offer_badge_text || '#ffffff';

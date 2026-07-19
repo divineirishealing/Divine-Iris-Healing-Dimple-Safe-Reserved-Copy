@@ -44,6 +44,7 @@ import {
 } from '../lib/dashboardCartPrefill';
 import { programIncludedInAnnualPackage } from '../components/dashboard/dashboardUpcomingHelpers';
 import { catalogPayAsYouWishMinimumInr } from '../lib/payAsYouWish';
+import { resolveEffectiveOffer } from '../lib/effectiveOfferPricing';
 import { formatDateDdMonYyyy } from '../lib/utils';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -820,12 +821,8 @@ export default function DashboardCombinedCheckoutPage() {
     const tiers = item.durationTiers || [];
     const hasTiers = item.isFlagship && tiers.length > 0;
     const tier = hasTiers ? tiers[item.tierIndex] : null;
-    let base = 0;
-    if (tier) base = tier[`offer_price_${currency}`] || tier[`offer_${currency}`] || 0;
-    else if (currency === 'aed') base = item.offer_price_aed || 0;
-    else if (currency === 'inr') base = item.offer_price_inr || 0;
-    else if (currency === 'usd') base = item.offer_price_usd || 0;
-    return toDisplay(base);
+    const source = tier || item;
+    return toDisplay(resolveEffectiveOffer(source, currency).price);
   };
 
   /** When the portal quote is unavailable, match public site: tier offer if set, else list. Quotes include dashboard overlays only for Annual access. */

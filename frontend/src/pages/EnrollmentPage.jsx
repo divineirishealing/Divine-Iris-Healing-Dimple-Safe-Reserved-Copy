@@ -26,6 +26,7 @@ import {
   normalizeCartItemTierIndex,
 } from '../lib/crossSellPricing';
 import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInCurrency } from '../lib/payAsYouWish';
+import { getOfferCountdownDeadline, resolveProgramOffer } from '../lib/effectiveOfferPricing';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -604,14 +605,10 @@ function EnrollmentPage() {
   };
   const getLocalOfferPrice = (item, tierIndex = null) => {
     if (!item) return 0;
-    const tiers = item.duration_tiers || [];
-    const hasTiers = item.is_flagship && tiers.length > 0;
-    const tier = hasTiers && tierIndex !== null ? tiers[tierIndex] : null;
-    if (tier) return tier[`offer_price_${priceCurrency}`] || tier[`offer_${priceCurrency}`] || 0;
-    if (priceCurrency === 'aed') return item.offer_price_aed || 0;
-    if (priceCurrency === 'inr') return item.offer_price_inr || 0;
-    if (priceCurrency === 'usd') return item.offer_price_usd || 0;
-    return 0;
+    if (item.duration_tiers || item.is_flagship) {
+      return resolveProgramOffer(item, tierIndex, priceCurrency).price;
+    }
+    return resolveProgramOffer(item, null, priceCurrency).price;
   };
 
   const tiers = item?.duration_tiers || [];
@@ -1184,9 +1181,16 @@ function EnrollmentPage() {
                   <p className="text-gray-500 text-xs leading-relaxed mb-4 line-clamp-3">{item.description}</p>
 
                   {/* Early bird / offer countdown */}
-                  {offerUnitPrice > 0 && (item.deadline_date || item.start_date) && (() => {
-                    const dl = new Date(item.deadline_date || item.start_date);
+                  {offerUnitPrice > 0 && (() => {
+                    const countdownDeadline = type === 'program'
+                      ? getOfferCountdownDeadline(item, hasTiers ? selectedTier : null)
+                      : (item.early_bird_date || item.deadline_date || item.start_date || item.offer_expiry);
+                    if (!countdownDeadline) return null;
+                    const dl = new Date(countdownDeadline.includes('T') ? countdownDeadline : `${countdownDeadline}T23:59:59`);
                     if (isNaN(dl.getTime()) || dl <= new Date()) return null;
+                    const offerMeta = type === 'program'
+                      ? resolveProgramOffer(item, hasTiers ? selectedTier : null, priceCurrency)
+                      : resolveProgramOffer(item, null, priceCurrency);
                     const diff = dl - Date.now();
                     const days = Math.floor(diff / 86400000);
                     const hours = Math.floor((diff % 86400000) / 3600000);
@@ -1195,7 +1199,7 @@ function EnrollmentPage() {
                       <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mt-3 animate-pulse" data-testid="enroll-early-bird">
                         <Bell size={14} className="text-red-500 flex-shrink-0" />
                         <div className="text-xs">
-                          <span className="font-bold text-red-600">{item.offer_text || 'Early Bird'}</span>
+                          <span className="font-bold text-red-600">{offerMeta.text || item.offer_text || 'Early Bird'}</span>
                           <span className="text-red-500 ml-1.5">ends in {days}d {hours}h {mins}m</span>
                         </div>
                       </div>

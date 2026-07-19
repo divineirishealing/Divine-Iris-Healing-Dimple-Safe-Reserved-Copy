@@ -25,6 +25,7 @@ import {
   sumCrossSellLineDiscount,
 } from '../lib/crossSellPricing';
 import { effectiveParticipantEmail } from '../lib/dashboardCartPrefill';
+import { resolveEffectiveOffer } from '../lib/effectiveOfferPricing';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -457,7 +458,7 @@ const CartItemCard = ({
 function CartPage() {
   const navigate = useNavigate();
   const { items, removeItem, updateItemParticipants, clearCart } = useCart();
-  const { getPrice, getOfferPrice, symbol, baseCurrency, country: detectedCountry } = useCurrency();
+  const { getPrice, getOfferPrice, symbol, baseCurrency, toDisplay, country: detectedCountry } = useCurrency();
   const { toast } = useToast();
   const { user } = useAuth();
   const [discountSettings, setDiscountSettings] = useState({ enable_referral: true, checkout_promo_code_visible: true });
@@ -532,13 +533,11 @@ function CartPage() {
   const getItemOfferPrice = (item) => {
     const portalUnit = getPortalSyncedUnitOffer(item);
     if (portalUnit != null) return portalUnit;
-    if (item.type === 'session') {
-      const fakeProgram = { is_flagship: false, duration_tiers: [], offer_price_aed: item.offer_price_aed, offer_price_inr: item.offer_price_inr, offer_price_usd: item.offer_price_usd };
-      return getOfferPrice(fakeProgram);
-    }
     const tiers = item.durationTiers || [];
-    const fakeProgram = { is_flagship: item.isFlagship, duration_tiers: tiers, offer_price_aed: item.offer_price_aed, offer_price_inr: item.offer_price_inr, offer_price_usd: item.offer_price_usd };
-    return getOfferPrice(fakeProgram, item.tierIndex);
+    const hasTiers = item.isFlagship && tiers.length > 0;
+    const tier = hasTiers ? tiers[item.tierIndex] : null;
+    const source = tier || item;
+    return toDisplay(resolveEffectiveOffer(source, baseCurrency).price);
   };
 
   const getEffectivePrice = (item) => {

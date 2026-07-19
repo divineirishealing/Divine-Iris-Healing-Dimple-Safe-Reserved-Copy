@@ -19,6 +19,7 @@ import {
 import { formatDateDMonYyyyUpper, addMonthsSubscriptionEnd } from '@/lib/utils';
 import { packageTaxDecimal } from '../../../lib/annualPackagePricing';
 import { adminHeaders, isAdminSessionError } from '../../../lib/adminSession';
+import { resolveEffectiveOffer } from '../../../lib/effectiveOfferPricing';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const SITE_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
@@ -314,11 +315,13 @@ function formatTierOption(t) {
 
 function tierPrice(tier, program, currency) {
   const c = (currency || 'aed').toLowerCase();
-  const offer = Number(tier?.[`offer_price_${c}`] || 0);
-  const price = Number(tier?.[`price_${c}`] || 0);
-  if (offer > 0) return offer;
-  if (price > 0) return price;
-  const progOffer = Number(program?.[`offer_price_${c}`] || 0);
+  if (tier) {
+    const offer = resolveEffectiveOffer(tier, c).price;
+    const price = Number(tier?.[`price_${c}`] || 0);
+    if (offer > 0) return offer;
+    if (price > 0) return price;
+  }
+  const progOffer = resolveEffectiveOffer(program, c).price;
   const progPrice = Number(program?.[`price_${c}`] || 0);
   if (progOffer > 0) return progOffer;
   return progPrice > 0 ? progPrice : 0;
@@ -326,7 +329,7 @@ function tierPrice(tier, program, currency) {
 
 function sessionPrice(session, currency) {
   const c = (currency || 'aed').toLowerCase();
-  const offer = Number(session?.[`offer_price_${c}`] || 0);
+  const offer = resolveEffectiveOffer(session, c).price;
   const price = Number(session?.[`price_${c}`] || 0);
   if (offer > 0) return offer;
   return price > 0 ? price : 0;

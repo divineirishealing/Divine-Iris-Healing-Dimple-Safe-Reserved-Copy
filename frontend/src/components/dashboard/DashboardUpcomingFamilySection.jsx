@@ -47,6 +47,7 @@ import {
 } from '../../lib/dashboardUpcomingSessionStorage';
 import { getAuthHeaders } from '../../lib/authHeaders';
 import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInr } from '../../lib/payAsYouWish';
+import { resolveProgramOffer } from '../../lib/effectiveOfferPricing';
 import DashboardUpcomingProgramRowItem from './DashboardUpcomingProgramRowItem';
 import { CrossSellBanner } from '../UpcomingProgramsSection';
 import { Button } from '../ui/button';
@@ -564,11 +565,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
   const rawInrProgramOffer = useCallback((item, tierIndex = null) => {
     if (!item) return 0;
-    const tiers = item.duration_tiers || [];
-    const hasTiers = item.is_flagship && tiers.length > 0;
-    const tier = hasTiers && tierIndex !== null ? tiers[tierIndex] : null;
-    if (tier) return tier.offer_price_inr || tier.offer_inr || 0;
-    return item.offer_price_inr || 0;
+    return resolveProgramOffer(item, tierIndex, 'inr').price;
   }, []);
 
   const displayGetPrice = portalQuoteCurrency === 'inr' ? rawInrProgramPrice : getPrice;

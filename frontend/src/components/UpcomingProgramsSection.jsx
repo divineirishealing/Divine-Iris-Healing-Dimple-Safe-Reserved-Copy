@@ -8,6 +8,7 @@ import { useToast } from '../hooks/use-toast';
 import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart, Gift, Users } from 'lucide-react';
 import { cn, formatDateDdMonYyyy } from '../lib/utils';
 import { catalogPayAsYouWishEnabled } from '../lib/payAsYouWish';
+import { getOfferCountdownDeadline, resolveProgramOffer } from '../lib/effectiveOfferPricing';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -241,7 +242,8 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
     }
   };
 
-  const deadline = program.deadline_date || program.start_date;
+  const deadline = getOfferCountdownDeadline(program, hasTiers ? selectedTier : null);
+  const offerMeta = resolveProgramOffer(program, hasTiers ? selectedTier : null, 'aed');
   const expired = (() => {
     if (!deadline) return false;
     const t = new Date(deadline);
@@ -466,7 +468,7 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
                   className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3 animate-pulse">
                   <Bell size={14} className="text-red-500 flex-shrink-0" />
                   <div className="text-xs">
-                    <span className="font-bold text-red-600">{program.offer_text || 'Early Bird'}</span>
+                    <span className="font-bold text-red-600">{offerMeta.text || program.offer_text || 'Early Bird'}</span>
                     <span className="text-red-500 ml-1.5">ends in {days}d {hours}h {mins}m</span>
                   </div>
                 </div>

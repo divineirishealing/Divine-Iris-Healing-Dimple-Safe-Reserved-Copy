@@ -13,6 +13,8 @@ const PRICING_PROGRAM_FIELD_KEYS = [
   'visible', 'enable_online', 'enable_offline', 'enable_in_person',
   'show_pricing_on_card', 'show_tiers_on_card',
   'price_aed', 'price_inr', 'price_usd',
+  'early_bird_price_aed', 'early_bird_price_inr', 'early_bird_price_usd',
+  'early_bird_date', 'early_bird_text',
   'offer_price_aed', 'offer_price_inr', 'offer_price_usd', 'offer_text',
   'pay_as_you_wish', 'pay_as_you_wish_minimum_inr', 'pay_as_you_wish_suggested_inr',
 ];
@@ -20,12 +22,16 @@ const PRICING_PROGRAM_FIELD_KEYS = [
 const TIER_PRICING_FIELD_KEYS = [
   'label', 'duration_value', 'duration_unit',
   'price_aed', 'price_inr', 'price_usd',
+  'early_bird_price_aed', 'early_bird_price_inr', 'early_bird_price_usd',
+  'early_bird_date', 'early_bird_text',
   'offer_price_aed', 'offer_price_inr', 'offer_price_usd', 'offer_text',
 ];
 
 const PRICING_SESSION_FIELD_KEYS = [
   'visible', 'enable_online', 'enable_offline', 'enable_in_person', 'show_pricing',
   'price_aed', 'price_inr', 'price_usd',
+  'early_bird_price_aed', 'early_bird_price_inr', 'early_bird_price_usd',
+  'early_bird_date', 'early_bird_text',
   'offer_price_aed', 'offer_price_inr', 'offer_price_usd', 'offer_text',
   'pay_as_you_wish', 'pay_as_you_wish_minimum_inr', 'pay_as_you_wish_suggested_inr',
 ];
@@ -90,6 +96,29 @@ const Cell = ({ value, onChange, className = '' }) => {
   );
 };
 
+const DateCell = ({ value, onChange }) => (
+  <input
+    type="date"
+    value={(value || '').slice(0, 10)}
+    onChange={(e) => onChange(e.target.value)}
+    className="h-7 text-[10px] w-full px-1 border rounded-md focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+  />
+);
+
+const PricingOfferCells = ({ row, onUpdate }) => (
+  <>
+    <td className="px-1 py-1"><Cell value={row.early_bird_price_aed || 0} onChange={v => onUpdate('early_bird_price_aed', v)} className="bg-amber-50/80" /></td>
+    <td className="px-1 py-1"><Cell value={row.early_bird_price_inr || 0} onChange={v => onUpdate('early_bird_price_inr', v)} className="bg-amber-50/80" /></td>
+    <td className="px-1 py-1"><Cell value={row.early_bird_price_usd || 0} onChange={v => onUpdate('early_bird_price_usd', v)} className="bg-amber-50/80" /></td>
+    <td className="px-1 py-1 min-w-[108px]"><DateCell value={row.early_bird_date} onChange={v => onUpdate('early_bird_date', v)} /></td>
+    <td className="px-1 py-1"><Input value={row.early_bird_text || ''} onChange={e => onUpdate('early_bird_text', e.target.value)} placeholder="Early Bird" className="h-7 text-[10px]" /></td>
+    <td className="px-1 py-1"><Cell value={row.offer_price_aed || 0} onChange={v => onUpdate('offer_price_aed', v)} /></td>
+    <td className="px-1 py-1"><Cell value={row.offer_price_inr || 0} onChange={v => onUpdate('offer_price_inr', v)} /></td>
+    <td className="px-1 py-1"><Cell value={row.offer_price_usd || 0} onChange={v => onUpdate('offer_price_usd', v)} /></td>
+    <td className="px-1 py-1"><Input value={row.offer_text || ''} onChange={e => onUpdate('offer_text', e.target.value)} placeholder="Offer badge" className="h-7 text-[10px]" /></td>
+  </>
+);
+
 const PricingHubTab = () => {
   const { toast } = useToast();
   const [programs, setPrograms] = useState([]);
@@ -129,7 +158,7 @@ const PricingHubTab = () => {
     setPrograms(prev => {
       const c = [...prev];
       const tiers = [...(c[pIdx].duration_tiers || [])];
-      tiers.push({ label: '1 Month', duration_value: 1, duration_unit: 'month', price_aed: 0, price_inr: 0, price_usd: 0, offer_price_aed: 0, offer_price_inr: 0, offer_price_usd: 0, offer_text: '', start_date: '', end_date: '' });
+      tiers.push({ label: '1 Month', duration_value: 1, duration_unit: 'month', price_aed: 0, price_inr: 0, price_usd: 0, early_bird_price_aed: 0, early_bird_price_inr: 0, early_bird_price_usd: 0, early_bird_date: '', early_bird_text: '', offer_price_aed: 0, offer_price_inr: 0, offer_price_usd: 0, offer_text: '', start_date: '', end_date: '' });
       c[pIdx] = { ...c[pIdx], duration_tiers: tiers };
       setExpandedPrograms(e => ({ ...e, [c[pIdx].id]: true }));
       return c;
@@ -191,7 +220,7 @@ const PricingHubTab = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2"><DollarSign size={18} className="text-[#D4AF37]" /> Pricing Hub</h2>
-          <p className="text-xs text-gray-500 mt-1">Edit all prices, offers, and durations. Prices shown here apply to both homepage cards and program detail pages.</p>
+          <p className="text-xs text-gray-500 mt-1">Edit list, early bird, and offer prices. Early bird applies until EB Date; after that, offer prices show automatically.</p>
         </div>
         <Button onClick={saveAll} disabled={saving} className="bg-[#D4AF37] hover:bg-[#b8962e]" data-testid="pricing-hub-save">
           <Save size={14} className="mr-1" />{saving ? 'Saving...' : 'Save All'}
@@ -218,7 +247,12 @@ const PricingHubTab = () => {
                 <th className="px-1 py-2 font-semibold text-blue-700 min-w-[70px]">AED</th>
                 <th className="px-1 py-2 font-semibold text-green-700 min-w-[70px]">INR</th>
                 <th className="px-1 py-2 font-semibold text-purple-700 min-w-[70px]">USD</th>
-                <th className="px-1 py-2 font-semibold text-blue-500 min-w-[70px]">Offer AED</th>
+                <th className="px-1 py-2 font-semibold text-amber-700 min-w-[62px]" title="Early bird price until EB Date">EB AED</th>
+                <th className="px-1 py-2 font-semibold text-amber-600 min-w-[62px]">EB INR</th>
+                <th className="px-1 py-2 font-semibold text-amber-500 min-w-[62px]">EB USD</th>
+                <th className="px-1 py-2 font-semibold text-amber-800 min-w-[108px]">EB Date</th>
+                <th className="px-1 py-2 font-semibold text-amber-700 min-w-[72px]">EB Badge</th>
+                <th className="px-1 py-2 font-semibold text-blue-500 min-w-[70px]" title="Regular offer after early bird ends">Offer AED</th>
                 <th className="px-1 py-2 font-semibold text-green-500 min-w-[70px]">Offer INR</th>
                 <th className="px-1 py-2 font-semibold text-purple-500 min-w-[70px]">Offer USD</th>
                 <th className="px-1 py-2 font-semibold text-red-600 min-w-[90px]">Offer Badge</th>
@@ -257,13 +291,10 @@ const PricingHubTab = () => {
                           <td className="px-1 py-1"><Cell value={p.price_aed} onChange={v => updateProgram(i, 'price_aed', v)} /></td>
                           <td className="px-1 py-1"><Cell value={p.price_inr} onChange={v => updateProgram(i, 'price_inr', v)} /></td>
                           <td className="px-1 py-1"><Cell value={p.price_usd} onChange={v => updateProgram(i, 'price_usd', v)} /></td>
-                          <td className="px-1 py-1"><Cell value={p.offer_price_aed} onChange={v => updateProgram(i, 'offer_price_aed', v)} /></td>
-                          <td className="px-1 py-1"><Cell value={p.offer_price_inr} onChange={v => updateProgram(i, 'offer_price_inr', v)} /></td>
-                          <td className="px-1 py-1"><Cell value={p.offer_price_usd} onChange={v => updateProgram(i, 'offer_price_usd', v)} /></td>
-                          <td className="px-1 py-1"><Input value={p.offer_text || ''} onChange={e => updateProgram(i, 'offer_text', e.target.value)} placeholder="e.g., 20% OFF" className="h-7 text-[11px]" /></td>
+                          <PricingOfferCells row={p} onUpdate={(field, value) => updateProgram(i, field, value)} />
                         </>
                       ) : (
-                        <td colSpan={7} className="px-2 py-1 text-[10px] text-gray-400 italic cursor-pointer" onClick={() => toggleExpand(p.id)}>
+                        <td colSpan={12} className="px-2 py-1 text-[10px] text-gray-400 italic cursor-pointer" onClick={() => toggleExpand(p.id)}>
                           {isExpanded ? `${(p.duration_tiers || []).length} tiers` : `${(p.duration_tiers || []).length} tiers — click to expand`}
                         </td>
                       )}
@@ -285,10 +316,7 @@ const PricingHubTab = () => {
                         <td className="px-1 py-1"><Cell value={t.price_aed} onChange={v => updateTier(i, ti, 'price_aed', v)} /></td>
                         <td className="px-1 py-1"><Cell value={t.price_inr} onChange={v => updateTier(i, ti, 'price_inr', v)} /></td>
                         <td className="px-1 py-1"><Cell value={t.price_usd} onChange={v => updateTier(i, ti, 'price_usd', v)} /></td>
-                        <td className="px-1 py-1"><Cell value={t.offer_price_aed || 0} onChange={v => updateTier(i, ti, 'offer_price_aed', v)} /></td>
-                        <td className="px-1 py-1"><Cell value={t.offer_price_inr || 0} onChange={v => updateTier(i, ti, 'offer_price_inr', v)} /></td>
-                        <td className="px-1 py-1"><Cell value={t.offer_price_usd || 0} onChange={v => updateTier(i, ti, 'offer_price_usd', v)} /></td>
-                        <td className="px-1 py-1"><Input value={t.offer_text || ''} onChange={e => updateTier(i, ti, 'offer_text', e.target.value)} placeholder="Early Bird" className="h-7 text-[10px]" /></td>
+                        <PricingOfferCells row={t} onUpdate={(field, value) => updateTier(i, ti, field, value)} />
                         <td className="px-1 py-1">
                           <button onClick={() => removeTier(i, ti)} className="text-red-400 hover:text-red-600"><Trash2 size={12} /></button>
                         </td>
@@ -320,6 +348,11 @@ const PricingHubTab = () => {
                   <th className="px-1 py-2 font-semibold text-blue-700 min-w-[70px]">AED</th>
                   <th className="px-1 py-2 font-semibold text-green-700 min-w-[70px]">INR</th>
                   <th className="px-1 py-2 font-semibold text-purple-700 min-w-[70px]">USD</th>
+                  <th className="px-1 py-2 font-semibold text-amber-700 min-w-[62px]">EB AED</th>
+                  <th className="px-1 py-2 font-semibold text-amber-600 min-w-[62px]">EB INR</th>
+                  <th className="px-1 py-2 font-semibold text-amber-500 min-w-[62px]">EB USD</th>
+                  <th className="px-1 py-2 font-semibold text-amber-800 min-w-[108px]">EB Date</th>
+                  <th className="px-1 py-2 font-semibold text-amber-700 min-w-[72px]">EB Badge</th>
                   <th className="px-1 py-2 font-semibold text-blue-500 min-w-[70px]">Offer AED</th>
                   <th className="px-1 py-2 font-semibold text-green-500 min-w-[70px]">Offer INR</th>
                   <th className="px-1 py-2 font-semibold text-purple-500 min-w-[70px]">Offer USD</th>
@@ -339,10 +372,7 @@ const PricingHubTab = () => {
                       <td className="px-1 py-1"><Cell value={p.price_aed} onChange={v => updateProgram(i, 'price_aed', v)} /></td>
                       <td className="px-1 py-1"><Cell value={p.price_inr} onChange={v => updateProgram(i, 'price_inr', v)} /></td>
                       <td className="px-1 py-1"><Cell value={p.price_usd} onChange={v => updateProgram(i, 'price_usd', v)} /></td>
-                      <td className="px-1 py-1"><Cell value={p.offer_price_aed || 0} onChange={v => updateProgram(i, 'offer_price_aed', v)} /></td>
-                      <td className="px-1 py-1"><Cell value={p.offer_price_inr || 0} onChange={v => updateProgram(i, 'offer_price_inr', v)} /></td>
-                      <td className="px-1 py-1"><Cell value={p.offer_price_usd || 0} onChange={v => updateProgram(i, 'offer_price_usd', v)} /></td>
-                      <td className="px-1 py-1"><Input value={p.offer_text || ''} onChange={e => updateProgram(i, 'offer_text', e.target.value)} placeholder="e.g., 20% OFF" className="h-7 text-[10px]" /></td>
+                      <PricingOfferCells row={p} onUpdate={(field, value) => updateProgram(i, field, value)} />
                     </tr>
                   );
                 })}
@@ -371,6 +401,11 @@ const PricingHubTab = () => {
                 <th className="px-1 py-2 font-semibold text-blue-700 min-w-[70px]">AED</th>
                 <th className="px-1 py-2 font-semibold text-green-700 min-w-[70px]">INR</th>
                 <th className="px-1 py-2 font-semibold text-purple-700 min-w-[70px]">USD</th>
+                <th className="px-1 py-2 font-semibold text-amber-700 min-w-[62px]">EB AED</th>
+                <th className="px-1 py-2 font-semibold text-amber-600 min-w-[62px]">EB INR</th>
+                <th className="px-1 py-2 font-semibold text-amber-500 min-w-[62px]">EB USD</th>
+                <th className="px-1 py-2 font-semibold text-amber-800 min-w-[108px]">EB Date</th>
+                <th className="px-1 py-2 font-semibold text-amber-700 min-w-[72px]">EB Badge</th>
                 <th className="px-1 py-2 font-semibold text-blue-500 min-w-[70px]">Offer AED</th>
                 <th className="px-1 py-2 font-semibold text-green-500 min-w-[70px]">Offer INR</th>
                 <th className="px-1 py-2 font-semibold text-purple-500 min-w-[70px]">Offer USD</th>
@@ -396,10 +431,7 @@ const PricingHubTab = () => {
                   <td className="px-1 py-1"><Cell value={s.price_aed} onChange={v => updateSession(i, 'price_aed', v)} /></td>
                   <td className="px-1 py-1"><Cell value={s.price_inr} onChange={v => updateSession(i, 'price_inr', v)} /></td>
                   <td className="px-1 py-1"><Cell value={s.price_usd} onChange={v => updateSession(i, 'price_usd', v)} /></td>
-                  <td className="px-1 py-1"><Cell value={s.offer_price_aed || 0} onChange={v => updateSession(i, 'offer_price_aed', v)} /></td>
-                  <td className="px-1 py-1"><Cell value={s.offer_price_inr || 0} onChange={v => updateSession(i, 'offer_price_inr', v)} /></td>
-                  <td className="px-1 py-1"><Cell value={s.offer_price_usd || 0} onChange={v => updateSession(i, 'offer_price_usd', v)} /></td>
-                  <td className="px-1 py-1"><Input value={s.offer_text || ''} onChange={e => updateSession(i, 'offer_text', e.target.value)} placeholder="e.g., 20% OFF" className="h-7 text-[10px]" /></td>
+                  <PricingOfferCells row={s} onUpdate={(field, value) => updateSession(i, field, value)} />
                 </tr>
                 );
               })}

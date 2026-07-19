@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from './AuthContext';
 import { getAuthHeaders } from '../lib/authHeaders';
+import { resolveEffectiveOffer, pricingSourceForProgram } from '../lib/effectiveOfferPricing';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -89,22 +90,12 @@ export const CurrencyProvider = ({ children }) => {
     return toDisplay(baseAmount);
   };
 
-  // Get DISPLAY offer price
+  // Get DISPLAY offer price (early bird while valid, else regular offer)
   const getOfferPrice = (item, tierIndex = null) => {
     if (!item) return 0;
-    const tiers = item.duration_tiers || [];
-    const hasTiers = item.is_flagship && tiers.length > 0;
-    const tier = hasTiers && tierIndex !== null ? tiers[tierIndex] : null;
-    if (tier) {
-      // Pricing Hub saves as offer_price_aed/inr/usd
-      const val = tier[`offer_price_${baseCurrency}`] || tier[`offer_${baseCurrency}`] || 0;
-      return toDisplay(val);
-    }
-    let base = 0;
-    if (baseCurrency === 'aed') base = item.offer_price_aed || 0;
-    else if (baseCurrency === 'inr') base = item.offer_price_inr || 0;
-    else if (baseCurrency === 'usd') base = item.offer_price_usd || 0;
-    return toDisplay(base);
+    const source = pricingSourceForProgram(item, tierIndex);
+    const resolved = resolveEffectiveOffer(source, baseCurrency);
+    return toDisplay(resolved.price);
   };
 
   // Get BASE price (for Stripe payment — not for display)
@@ -119,14 +110,19 @@ export const CurrencyProvider = ({ children }) => {
 
   const getBaseOfferPrice = (item, tierIndex = null) => {
     if (!item) return 0;
-    const tiers = item.duration_tiers || [];
-    const hasTiers = item.is_flagship && tiers.length > 0;
-    const tier = hasTiers && tierIndex !== null ? tiers[tierIndex] : null;
-    if (tier) return tier[`offer_price_${baseCurrency}`] || tier[`offer_${baseCurrency}`] || 0;
-    if (baseCurrency === 'aed') return item.offer_price_aed || 0;
-    if (baseCurrency === 'inr') return item.offer_price_inr || 0;
-    if (baseCurrency === 'usd') return item.offer_price_usd || 0;
-    return 0;
+    const source = pricingSourceForProgram(item, tierIndex);
+    return resolveEffectiveOffer(source, baseCurrency).price;
+  };
+
+  const getOfferMeta = (item, tierIndex = null) => {
+    if (!item) return { text: '', isEarlyBird: false, deadline: null };
+    const source = pricingSourceForProgram(item, tierIndex);
+    const resolved = resolveEffectiveOffer(source, baseCurrency);
+    return {
+      text: resolved.text,
+      isEarlyBird: resolved.isEarlyBird,
+      deadline: resolved.deadline,
+    };
   };
 
   const formatPrice = (amount) => {
@@ -138,7 +134,7 @@ export const CurrencyProvider = ({ children }) => {
     <CurrencyContext.Provider value={{
       currency, symbol, country, vpnDetected, ready,
       baseCurrency, baseSymbol, displayCurrency, displaySymbol, displayRate, isPrimary,
-      getPrice, getOfferPrice, getBasePrice, getBaseOfferPrice, formatPrice, toDisplay,
+      getPrice, getOfferPrice, getBasePrice, getBaseOfferPrice, getOfferMeta, formatPrice, toDisplay,
     }}>
       {children}
     </CurrencyContext.Provider>

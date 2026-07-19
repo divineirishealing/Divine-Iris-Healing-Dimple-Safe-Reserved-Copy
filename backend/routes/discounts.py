@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 import os
 from routes.points_logic import load_points_config
+from utils.effective_pricing import resolve_program_offer
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
@@ -240,17 +241,16 @@ async def calculate_discounts(data: dict):
                             ti = 0
                         target_price = 0.0
                         if tiers and 0 <= ti < len(tiers):
+                            offer_p, _, _ = resolve_program_offer(target_prog, ti, currency)
                             row = tiers[ti]
-                            target_price = float(row.get(f"offer_price_{currency}", 0) or 0) or float(
-                                row.get(f"price_{currency}", 0) or 0
-                            )
+                            target_price = float(offer_p or 0) or float(row.get(f"price_{currency}", 0) or 0)
                         if target_price <= 0 and tiers:
+                            offer_p, _, _ = resolve_program_offer(target_prog, 0, currency)
                             row0 = tiers[0]
-                            target_price = float(row0.get(f"offer_price_{currency}", 0) or 0) or float(
-                                row0.get(f"price_{currency}", 0) or 0
-                            )
+                            target_price = float(offer_p or 0) or float(row0.get(f"price_{currency}", 0) or 0)
                         if target_price <= 0:
-                            target_price = float(target_prog.get(f"offer_price_{currency}", 0) or 0) or float(
+                            offer_p, _, _ = resolve_program_offer(target_prog, None, currency)
+                            target_price = float(offer_p or 0) or float(
                                 target_prog.get(f"price_{currency}", 0) or 0
                             )
                         amt = int(round(target_price * float(disc_val) / 100))

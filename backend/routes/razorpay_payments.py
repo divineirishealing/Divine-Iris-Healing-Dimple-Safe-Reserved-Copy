@@ -167,8 +167,10 @@ async def razorpay_landing_preview(
         session = await db.sessions.find_one({"id": iid}, {"_id": 0})
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
+        from utils.effective_pricing import resolve_effective_offer
+
         title = session.get("title", "")
-        offer_inr = float(session.get("offer_price_inr", 0) or 0)
+        offer_inr, _, _ = resolve_effective_offer(session, "inr")
         base_inr = float(session.get("price_inr", 0) or 0)
         amount = offer_inr if offer_inr > 0 else base_inr
 
@@ -221,7 +223,9 @@ async def razorpay_landing_create_order(request: Request, body: RazorpayLandingC
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
         title = session.get("title", "Session")
-        offer_inr = float(session.get("offer_price_inr", 0) or 0)
+        from utils.effective_pricing import resolve_effective_offer
+
+        offer_inr, _, _ = resolve_effective_offer(session, "inr")
         base_inr = float(session.get("price_inr", 0) or 0)
         amount = offer_inr if offer_inr > 0 else base_inr
 
