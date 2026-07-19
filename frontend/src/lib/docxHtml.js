@@ -18,6 +18,18 @@ export function extractDocxHtml(body) {
   return s.trim();
 }
 
+/** Remove first docx h1 when it repeats the article title shown in the page hero. */
+export function stripDuplicateDocxTitle(html, title) {
+  if (!html || !title) return html;
+  const normalized = title.trim().toLowerCase().replace(/\s+/g, ' ');
+  return html.replace(/<h1\b[^>]*class="[^"]*docx-h1[^"]*"[^>]*>([\s\S]*?)<\/h1>/i, (match, inner) => {
+    const text = inner.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!text) return match;
+    if (text === normalized || text.includes(normalized) || normalized.includes(text)) return '';
+    return match;
+  });
+}
+
 /** Ensure split or partial HTML fragments still get mirror wrapper + styles. */
 export function wrapDocxHtmlFragment(html) {
   const s = String(html || '').trim();

@@ -9,11 +9,12 @@ import { HEADING, BODY, GOLD, CONTAINER, SECTION_PY, LABEL } from '../lib/design
 import { resolveImageUrl } from '../lib/imageUtils';
 import { useSeoPage } from '../context/SeoPageContext';
 import { renderMarkdown } from '../lib/renderMarkdown';
-import { isDocxHtmlBody, extractDocxHtml } from '../lib/docxHtml';
+import { isDocxHtmlBody, extractDocxHtml, stripDuplicateDocxTitle } from '../lib/docxHtml';
 import { formatDateDMonYyyyUpper } from '../lib/utils';
 import { ArrowLeft } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const JOURNAL_PURPLE = '#534AB7';
 
 export default function BlogPostDetailPage() {
   const { slug } = useParams();
@@ -54,8 +55,8 @@ export default function BlogPostDetailPage() {
     return (
       <div className="min-h-screen bg-white">
         <Header />
-        <div className={`${CONTAINER} ${SECTION_PY} text-center`}>
-          <h1 style={{ ...HEADING, color: '#4c1d95' }}>Article not found</h1>
+        <div className={`${CONTAINER} ${SECTION_PY} text-left`}>
+          <h1 style={{ ...HEADING, color: JOURNAL_PURPLE }}>Article not found</h1>
           <Link to="/blog" className="inline-flex items-center gap-2 mt-6 text-purple-700 font-semibold">
             <ArrowLeft size={16} /> Back to blog
           </Link>
@@ -68,69 +69,78 @@ export default function BlogPostDetailPage() {
   const heroSrc = resolveImageUrl(post.hero_image);
   const dateLabel = post.published_at ? formatDateDMonYyyyUpper(post.published_at) : '';
   const bodyIsDocx = isDocxHtmlBody(post.body);
-  const docxHtml = bodyIsDocx ? extractDocxHtml(post.body) : '';
+  const docxHtml = bodyIsDocx
+    ? stripDuplicateDocxTitle(extractDocxHtml(post.body), post.title)
+    : '';
+  const showCoverBanner = heroSrc && !bodyIsDocx;
 
   return (
-    <div className="min-h-screen bg-white" data-testid={`blog-post-detail-${post.slug}`}>
+    <div className="min-h-screen bg-[#faf9fc]" data-testid={`blog-post-detail-${post.slug}`}>
       <Header />
 
       <section
-        className="relative pt-24 pb-16 px-6 overflow-hidden"
-        style={{ background: 'linear-gradient(180deg, #1a0654 0%, #2d1a5e 50%, #fdfbff 100%)' }}
+        className="relative pt-24 pb-10 md:pb-12 px-6 border-b border-[#ebe6f2] bg-white"
       >
-        <div
-          className="absolute inset-0 opacity-20 pointer-events-none"
-          style={{
-            background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(212,175,55,0.4) 0%, transparent 70%)',
-          }}
-        />
-        <div className={`${CONTAINER} relative z-10 max-w-4xl`}>
+        <div className={`${CONTAINER} max-w-4xl text-left`}>
           <Link
             to="/blog"
-            className="inline-flex items-center gap-2 text-white/70 hover:text-white text-sm mb-8 transition-colors"
+            className="inline-flex items-center gap-2 text-[#7c6fa8] hover:text-[#534AB7] text-sm mb-8 transition-colors"
           >
-            <ArrowLeft size={14} /> Back to blog covers
+            <ArrowLeft size={14} /> Back to the journal
           </Link>
+
           {(dateLabel || post.author) && (
-            <p style={{ ...LABEL, color: GOLD, marginBottom: 12 }}>
+            <p style={{ ...LABEL, color: GOLD, marginBottom: 14, letterSpacing: '0.22em' }}>
               {[dateLabel, post.author].filter(Boolean).join(' · ')}
             </p>
           )}
+
           <h1
-            className="text-white mb-4"
-            style={{ ...HEADING, fontSize: 'clamp(1.6rem, 3.5vw, 2.4rem)', lineHeight: 1.25 }}
+            style={{
+              ...HEADING,
+              fontSize: 'clamp(1.75rem, 3.5vw, 2.35rem)',
+              color: JOURNAL_PURPLE,
+              lineHeight: 1.25,
+              marginBottom: post.excerpt && !bodyIsDocx ? 16 : 0,
+            }}
           >
             {post.title}
           </h1>
-          {post.excerpt && (
-            <p className="text-white/80" style={{ ...BODY, lineHeight: 1.75, fontSize: '1.05rem' }}>
+
+          {post.excerpt && !bodyIsDocx && (
+            <p
+              className="max-w-2xl"
+              style={{ ...BODY, fontSize: '1.05rem', lineHeight: 1.75, color: '#5c5c5c' }}
+            >
               {post.excerpt}
             </p>
           )}
         </div>
       </section>
 
-      {heroSrc && (
-        <section className="px-6 -mt-8 relative z-10">
-          <div className={`${CONTAINER} max-w-4xl`}>
-            <div className="rounded-2xl overflow-hidden shadow-2xl border border-purple-100">
-              <img src={heroSrc} alt={post.title} className="w-full h-auto object-cover max-h-[480px]" />
-            </div>
+      {showCoverBanner && (
+        <section className="bg-white border-b border-[#ebe6f2]">
+          <div className={`${CONTAINER} max-w-4xl py-8 text-left`}>
+            <img
+              src={heroSrc}
+              alt={post.title}
+              className="w-full max-h-[420px] object-cover rounded-sm"
+            />
           </div>
         </section>
       )}
 
       {post.body && (
-        <section className={bodyIsDocx ? 'pt-8' : SECTION_PY}>
+        <section className={bodyIsDocx ? 'bg-white' : `${SECTION_PY} bg-white`}>
           {bodyIsDocx ? (
-            <DocxHtmlMirror html={docxHtml} />
+            <div className={`${CONTAINER} max-w-4xl text-left`}>
+              <DocxHtmlMirror html={docxHtml} align="left" />
+            </div>
           ) : (
-            <div className={`${CONTAINER} max-w-3xl`}>
+            <div className={`${CONTAINER} max-w-4xl text-left`}>
               <article
-                className="rounded-2xl p-6 md:p-10 whitespace-pre-line"
+                className="whitespace-pre-line max-w-3xl"
                 style={{
-                  background: 'rgba(250,245,255,0.6)',
-                  border: '1px solid rgba(109,40,217,0.1)',
                   ...BODY,
                   fontSize: '1.05rem',
                   lineHeight: 1.85,
@@ -143,14 +153,14 @@ export default function BlogPostDetailPage() {
         </section>
       )}
 
-      <section className="pb-16 px-6">
-        <div className={`${CONTAINER} max-w-3xl text-center`}>
+      <section className="py-12 px-6 bg-[#faf9fc] border-t border-[#ebe6f2]">
+        <div className={`${CONTAINER} max-w-4xl text-left`}>
           <Link
             to="/blog"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold text-sm transition-all hover:scale-105"
-            style={{ background: GOLD, color: '#1e0654' }}
+            className="inline-flex items-center gap-2 text-sm font-semibold tracking-wide uppercase transition-colors hover:opacity-80"
+            style={{ color: JOURNAL_PURPLE, letterSpacing: '0.12em' }}
           >
-            <ArrowLeft size={14} /> More on the blog
+            <ArrowLeft size={14} /> More from the journal
           </Link>
         </div>
       </section>

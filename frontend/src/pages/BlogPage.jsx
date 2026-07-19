@@ -6,7 +6,7 @@ import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import BlogJournalCupIcon from '../components/BlogJournalCupIcon';
 import { resolveImageUrl } from '../lib/imageUtils';
-import { HEADING, BODY, SUBTITLE, GOLD, CONTAINER, SECTION_PY, LABEL } from '../lib/designTokens';
+import { HEADING, BODY, GOLD, CONTAINER, SECTION_PY, LABEL, applyPageHeroStyle } from '../lib/designTokens';
 import { useSeoPage } from '../context/SeoPageContext';
 import { FileText } from 'lucide-react';
 
@@ -15,30 +15,17 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const JOURNAL_SAGE = '#7a8f6e';
 const JOURNAL_PURPLE = '#534AB7';
 
-const applyHeroStyle = (styleObj, defaults = {}) => {
-  if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
-  return {
-    ...defaults,
-    ...(styleObj.font_family && { fontFamily: styleObj.font_family }),
-    ...(styleObj.font_size && { fontSize: styleObj.font_size }),
-    ...(styleObj.font_color && { color: styleObj.font_color }),
-    ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }),
-    ...(styleObj.font_style && { fontStyle: styleObj.font_style }),
-  };
-};
-
 function BlogPostCard({ post }) {
   const coverSrc = resolveImageUrl(post.hero_image);
 
   return (
     <Link
       to={`/blog/${post.slug}`}
-      className="group block rounded-sm transition-all duration-300 hover:shadow-md"
-      style={{ background: '#f9f8fc' }}
+      className="group block border-b border-[#e8e4f0] py-10 first:pt-0 last:border-b-0 transition-colors hover:bg-white/60"
       data-testid={`blog-post-card-${post.slug}`}
     >
-      <div className="flex flex-col sm:flex-row sm:items-start gap-6 sm:gap-10 p-8 md:p-10 md:pr-12">
-        <div className="flex-1 min-w-0 order-2 sm:order-1">
+      <div className="flex flex-col md:flex-row md:items-start gap-8 md:gap-12">
+        <div className="flex-1 min-w-0 text-left">
           <p
             style={{
               fontFamily: "'Cormorant Garamond', Georgia, serif",
@@ -67,7 +54,7 @@ function BlogPostCard({ post }) {
 
           {post.excerpt && (
             <p
-              className="line-clamp-4 max-w-xl"
+              className="line-clamp-4 max-w-2xl"
               style={{
                 ...BODY,
                 fontSize: '0.95rem',
@@ -101,16 +88,16 @@ function BlogPostCard({ post }) {
           </span>
         </div>
 
-        <div className="shrink-0 order-1 sm:order-2 sm:pt-1 flex justify-center sm:justify-end sm:w-[140px] md:w-[160px]">
+        <div className="shrink-0 md:w-[150px] lg:w-[170px] flex justify-start md:justify-end">
           {coverSrc ? (
             <img
               src={coverSrc}
               alt=""
-              className="w-[120px] h-[120px] sm:w-[130px] sm:h-[130px] object-cover rounded-sm opacity-90 group-hover:opacity-100 transition-opacity"
+              className="w-[130px] h-[130px] md:w-[150px] md:h-[150px] object-cover rounded-sm opacity-95 group-hover:opacity-100 transition-opacity"
               loading="lazy"
             />
           ) : (
-            <BlogJournalCupIcon className="w-[100px] h-[120px] sm:w-[120px] sm:h-[140px]" stroke="#c4b8e8" />
+            <BlogJournalCupIcon className="w-[110px] h-[130px] md:w-[130px] md:h-[150px]" stroke="#c4b8e8" />
           )}
         </div>
       </div>
@@ -144,6 +131,8 @@ export default function BlogPage() {
   }, []);
 
   const hero = settings?.page_heroes?.blog || {};
+  const kicker = hero.subtitle_text || 'Insights, stories and updates';
+  const heroBody = hero.body_text || 'Reflections from our healing community — written to meet you where you are.';
 
   return (
     <div className="min-h-screen bg-white">
@@ -151,11 +140,11 @@ export default function BlogPage() {
 
       <section
         data-testid="blog-hero"
-        className="relative min-h-[45vh] flex flex-col items-center justify-center text-center px-6 pt-20"
+        className="relative min-h-[42vh] flex items-end px-6 pt-24 pb-14 md:pb-16"
         style={{
           background: hero.hero_image
             ? 'transparent'
-            : 'linear-gradient(180deg, #1a1a1a 0%, #1a0654 60%, #2d1a5e 100%)',
+            : 'linear-gradient(135deg, #1a0654 0%, #2d1a5e 55%, #3d2a6e 100%)',
         }}
       >
         {hero.hero_image && (
@@ -171,43 +160,65 @@ export default function BlogPage() {
             <div className="absolute inset-0" style={{ background: '#000', opacity: (hero.overlay_opacity || 60) / 100 }} />
           </>
         )}
-        <div className="relative z-10 max-w-3xl">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <FileText size={18} style={{ color: GOLD }} />
-            <p style={{ ...LABEL, color: GOLD }}>INSIGHTS & UPDATES</p>
+        <div
+          className="absolute inset-0 pointer-events-none opacity-30"
+          style={{
+            background: 'radial-gradient(ellipse 70% 60% at 20% 0%, rgba(212,175,55,0.35) 0%, transparent 65%)',
+          }}
+        />
+        <div className={`${CONTAINER} relative z-10 w-full text-left`}>
+          <div className="max-w-3xl">
+            <div className="flex items-center gap-2 mb-4">
+              <FileText size={16} style={{ color: GOLD }} />
+              <p style={{ ...LABEL, color: GOLD, letterSpacing: '0.28em' }}>From the journal</p>
+            </div>
+            <h1
+              className="text-white mb-4"
+              style={applyPageHeroStyle(
+                hero.title_style,
+                {
+                  ...HEADING,
+                  color: '#ffffff',
+                  fontSize: 'clamp(2rem, 4.5vw, 3rem)',
+                  lineHeight: 1.2,
+                  letterSpacing: '0.04em',
+                },
+                { lockColor: true },
+              )}
+            >
+              {hero.title_text || 'Blog'}
+            </h1>
+            <p
+              className="text-white/85 max-w-2xl mb-2"
+              style={applyPageHeroStyle(
+                hero.subtitle_style,
+                { ...BODY, fontSize: '1rem', lineHeight: 1.75, color: 'rgba(255,255,255,0.85)' },
+                { lockColor: true },
+              )}
+            >
+              {kicker}
+            </p>
+            {heroBody && (
+              <p className="text-white/65 max-w-2xl text-sm md:text-base" style={{ ...BODY, lineHeight: 1.7, color: 'rgba(255,255,255,0.65)' }}>
+                {heroBody}
+              </p>
+            )}
           </div>
-          <h1
-            className="mb-2 text-white"
-            style={applyHeroStyle(hero.title_style, {
-              ...HEADING,
-              fontSize: 'clamp(2rem, 5vw, 3rem)',
-              fontVariant: 'small-caps',
-              letterSpacing: '0.08em',
-            })}
-          >
-            {hero.title_text || 'Blog'}
-          </h1>
-          <p
-            className="text-white/80 max-w-xl mx-auto"
-            style={applyHeroStyle(hero.subtitle_style, { ...SUBTITLE, color: '#ccc' })}
-          >
-            {hero.subtitle_text || 'Insights, stories and updates from our healing community'}
-          </p>
         </div>
       </section>
 
-      <section className={SECTION_PY} style={{ background: '#faf9fc' }}>
+      <section className={`${SECTION_PY} bg-[#faf9fc]`}>
         <div className={CONTAINER}>
           {loading ? (
-            <div className="flex justify-center py-20">
+            <div className="flex justify-start py-20">
               <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : posts.length === 0 ? (
-            <div className="max-w-3xl mx-auto text-center py-20">
-              <p className="text-gray-400 text-sm">Blog posts coming soon. Check back for new articles.</p>
+            <div className="max-w-2xl py-16 text-left">
+              <p className="text-gray-500 text-sm">Blog posts coming soon. Check back for new articles.</p>
             </div>
           ) : (
-            <div className="space-y-8 max-w-3xl mx-auto">
+            <div className="max-w-4xl">
               {posts.map((post) => (
                 <BlogPostCard key={post.id} post={post} />
               ))}

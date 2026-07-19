@@ -3,8 +3,10 @@ import React from 'react';
 /**
  * Word document landing — full doc typography plus highlighted section structure.
  */
-export default function DocxHtmlMirror({ html, accent = '#C9962A', continuation = false }) {
+export default function DocxHtmlMirror({ html, accent = '#C9962A', continuation = false, align = 'center' }) {
   if (!html?.trim()) return null;
+
+  const pageClass = align === 'left' ? 'mx-0' : 'mx-auto';
 
   return (
     <section
@@ -12,7 +14,7 @@ export default function DocxHtmlMirror({ html, accent = '#C9962A', continuation 
       className={`bg-white ${continuation ? 'pb-10 md:pb-14' : 'py-10 md:py-14'}`}
     >
       <div
-        className="docx-page mx-auto w-full max-w-[816px] px-6 md:px-[72px]"
+        className={`docx-page ${pageClass} w-full max-w-[816px] px-6 md:px-[72px]`}
         style={{ boxSizing: 'border-box' }}
       >
         <div

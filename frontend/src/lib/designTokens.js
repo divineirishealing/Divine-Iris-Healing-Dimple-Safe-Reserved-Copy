@@ -63,3 +63,19 @@ export const applySectionStyle = (styleObj, defaults = {}) => {
     ...(styleObj.font_style && { fontStyle: styleObj.font_style }),
   };
 };
+
+/** Hero overrides from admin; `lockColor` keeps light text on dark hero backgrounds. */
+export function applyPageHeroStyle(styleObj, defaults = {}, { lockColor = false } = {}) {
+  if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
+  const merged = {
+    ...defaults,
+    ...(styleObj.font_family && { fontFamily: styleObj.font_family }),
+    ...(styleObj.font_size && { fontSize: styleObj.font_size }),
+    ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }),
+    ...(styleObj.font_style && { fontStyle: styleObj.font_style }),
+    ...(styleObj.letter_spacing && { letterSpacing: styleObj.letter_spacing }),
+    ...(styleObj.text_transform && { textTransform: styleObj.text_transform }),
+  };
+  if (!lockColor && styleObj.font_color) merged.color = styleObj.font_color;
+  return merged;
+}
