@@ -6,6 +6,7 @@ import GlobalSearch from './GlobalSearch';
 import axios from 'axios';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { publicNavLinkLabel } from '../lib/navLinkLabels';
+import { applyBlogNavItems, blogNavEnabled } from '../lib/blogNav';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -104,7 +105,10 @@ const Header = () => {
     { label: 'Programs', href: '/#programs', position: 'left', visible: true },
   ];
 
-  const headerNav = (settings?.header_nav_items?.length ? settings.header_nav_items : DEFAULT_NAV).filter(i => i.visible !== false);
+  const headerNav = applyBlogNavItems(
+    settings?.header_nav_items?.length ? settings.header_nav_items : DEFAULT_NAV,
+    blogNavEnabled(settings),
+  ).filter(i => i.visible !== false);
   const leftNav = headerNav.filter(i => i.position !== 'right');
   const rightNav = headerNav.filter(i => i.position === 'right');
   const showProgramsDropdown = settings?.header_show_programs_dropdown !== false;

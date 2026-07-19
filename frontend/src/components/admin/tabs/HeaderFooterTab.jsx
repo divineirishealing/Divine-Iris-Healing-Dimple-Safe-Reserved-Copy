@@ -81,6 +81,7 @@ const HeaderFooterTab = ({ settings, onChange }) => {
           { label: 'Services', href: '/sessions', position: 'left', visible: true },
           { label: 'Transformations', href: '/transformations', position: 'left', visible: true },
           { label: 'Case Studies', href: '/case-studies', position: 'left', visible: true },
+          { label: 'Blog', href: '/blog', position: 'left', visible: true },
           { label: 'Upcoming Sessions', href: '/#upcoming', position: 'left', visible: true },
           { label: 'Programs', href: '/#programs', position: 'left', visible: true },
           { label: 'Contact', href: '/contact', position: 'right', visible: true },

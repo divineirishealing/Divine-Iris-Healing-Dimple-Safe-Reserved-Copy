@@ -181,7 +181,7 @@ const STATIC_PAGES = [
   { key: 'programs', label: 'All Programs', defaultTitle: 'All Programs', defaultSubtitle: 'Explore our comprehensive healing programs', alwaysVisible: true },
   { key: 'sponsor', label: 'Shine a Light', defaultTitle: 'Shine a Light in a Life', defaultSubtitle: 'Healing flows when we support each other.', alwaysVisible: true },
   { key: 'media', label: 'Media', defaultTitle: 'MEDIA', defaultSubtitle: '', toggleKey: 'media_page_visible' },
-  { key: 'blog', label: 'Blog', defaultTitle: 'BLOG', defaultSubtitle: 'Insights, stories and updates', toggleKey: 'blog_page_visible' },
+  { key: 'blog', label: 'Blog', defaultTitle: 'BLOG', defaultSubtitle: 'Insights, stories and updates', toggleKey: 'blog_page_visible', toggleHint: 'Adds Blog to the header & footer menu and search sitemap. Click Save Changes below.' },
   { key: 'sessions', label: 'Personal Sessions', defaultTitle: 'Personal Healing Sessions', defaultSubtitle: 'Individual sessions tailored to your unique healing journey', toggleKey: 'sessions_page_visible' },
 ];
 
@@ -250,7 +250,7 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
   const [expandedImages, setExpandedImages] = useState({});
   const toggleImage = (key) => setExpandedImages(prev => ({ ...prev, [key]: !prev[key] }));
 
-  const PageRow = ({ pageKey, label, defaultTitle, defaultSubtitle, toggleKey, galleryToggleKey }) => {
+  const PageRow = ({ pageKey, label, defaultTitle, defaultSubtitle, toggleKey, toggleHint, galleryToggleKey }) => {
     const hero = getHero(pageKey);
     const imgOpen = expandedImages[pageKey] || !!hero.hero_image;
     const isTransformationsHero = pageKey === 'transformations';
@@ -276,6 +276,9 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
             )}
           </div>
         </div>
+        {toggleHint && (
+          <p className="text-[10px] text-amber-700/90 mb-2 leading-relaxed">{toggleHint}</p>
+        )}
         {isTransformationsHero && (
           <div className="mb-3 p-3 rounded-lg border border-purple-200 bg-purple-50/80" data-testid="transformations-section-headings">
             <p className="text-[11px] font-semibold text-purple-900 mb-0.5">Transformations page — section titles</p>
@@ -471,7 +474,7 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
 
       <SectionToggle sectionKey="pages" label="STATIC PAGES" count={STATIC_PAGES.length} badge="Hero titles, subtitles & backgrounds">
         {STATIC_PAGES.map(p => (
-          <PageRow key={p.key} pageKey={p.key} label={p.label} defaultTitle={p.defaultTitle} defaultSubtitle={p.defaultSubtitle} toggleKey={p.toggleKey} galleryToggleKey={p.galleryToggleKey} />
+          <PageRow key={p.key} pageKey={p.key} label={p.label} defaultTitle={p.defaultTitle} defaultSubtitle={p.defaultSubtitle} toggleKey={p.toggleKey} toggleHint={p.toggleHint} galleryToggleKey={p.galleryToggleKey} />
         ))}
       </SectionToggle>
 

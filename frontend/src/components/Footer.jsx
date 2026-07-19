@@ -5,6 +5,7 @@ import { Facebook, Instagram, Youtube, Linkedin, Mail, Phone, X, Send, Loader2 }
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 import { BODY, GOLD, CONTAINER } from '../lib/designTokens';
 import { publicNavLinkLabel } from '../lib/navLinkLabels';
+import { applyBlogNavItems, blogNavEnabled } from '../lib/blogNav';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -163,9 +164,11 @@ const Footer = () => {
     { label: 'Sponsor a Session', href: '/#sponsor', visible: true },
     { label: 'Transformations', href: '/transformations', visible: true },
   ];
-  const footerMenuItems = (s.footer_menu_items?.length
-    ? s.footer_menu_items.filter(item => item.label?.toLowerCase() !== 'contact')
-    : DEFAULT_MENU
+  const footerMenuItems = applyBlogNavItems(
+    s.footer_menu_items?.length
+      ? s.footer_menu_items.filter(item => item.label?.toLowerCase() !== 'contact')
+      : DEFAULT_MENU,
+    blogNavEnabled(s),
   ).filter(item => item.visible !== false);
 
   const handleMenuClick = (href) => {
