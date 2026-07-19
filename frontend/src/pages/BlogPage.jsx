@@ -140,7 +140,7 @@ export default function BlogPage() {
 
       <section
         data-testid="blog-hero"
-        className="relative min-h-[42vh] flex items-end px-6 pt-24 pb-14 md:pb-16"
+        className="relative min-h-[45vh] flex flex-col items-center justify-center text-center px-6 pt-24 pb-16"
         style={{
           background: hero.hero_image
             ? 'transparent'
@@ -163,12 +163,12 @@ export default function BlogPage() {
         <div
           className="absolute inset-0 pointer-events-none opacity-30"
           style={{
-            background: 'radial-gradient(ellipse 70% 60% at 20% 0%, rgba(212,175,55,0.35) 0%, transparent 65%)',
+            background: 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(212,175,55,0.35) 0%, transparent 70%)',
           }}
         />
-        <div className={`${CONTAINER} relative z-10 w-full text-left`}>
-          <div className="max-w-3xl">
-            <div className="flex items-center gap-2 mb-4">
+        <div className={`${CONTAINER} relative z-10 w-full`}>
+          <div className="max-w-3xl mx-auto text-center">
+            <div className="flex items-center justify-center gap-2 mb-4">
               <FileText size={16} style={{ color: GOLD }} />
               <p style={{ ...LABEL, color: GOLD, letterSpacing: '0.28em' }}>From the journal</p>
             </div>
@@ -189,7 +189,7 @@ export default function BlogPage() {
               {hero.title_text || 'Blog'}
             </h1>
             <p
-              className="text-white/85 max-w-2xl mb-2"
+              className="text-white/85 max-w-2xl mx-auto mb-2"
               style={applyPageHeroStyle(
                 hero.subtitle_style,
                 { ...BODY, fontSize: '1rem', lineHeight: 1.75, color: 'rgba(255,255,255,0.85)' },
@@ -199,7 +199,7 @@ export default function BlogPage() {
               {kicker}
             </p>
             {heroBody && (
-              <p className="text-white/65 max-w-2xl text-sm md:text-base" style={{ ...BODY, lineHeight: 1.7, color: 'rgba(255,255,255,0.65)' }}>
+              <p className="text-white/65 max-w-2xl mx-auto text-sm md:text-base" style={{ ...BODY, lineHeight: 1.7, color: 'rgba(255,255,255,0.65)' }}>
                 {heroBody}
               </p>
             )}
