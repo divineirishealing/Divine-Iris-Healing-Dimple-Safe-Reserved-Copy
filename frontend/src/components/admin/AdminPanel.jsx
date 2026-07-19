@@ -54,6 +54,7 @@ import BulkClientUpload from './tabs/BulkClientUpload';
 import ProfileApprovals from './tabs/ProfileApprovals';
 import TextTestimonialsTab from './tabs/TextTestimonialsTab';
 import CaseStudiesTab from './tabs/CaseStudiesTab';
+import BlogPostsTab from './tabs/BlogPostsTab';
 import FraudAlertsTab from './tabs/FraudAlertsTab';
 import SubscribersTab from './tabs/SubscribersTab';
 import AnnualPackageCatalogTemplate from './tabs/AnnualPackageCatalogTemplate';
@@ -481,6 +482,7 @@ const AdminPanel = ({ onLogout }) => {
       { key: 'site_analytics', label: 'Site analytics', icon: LineChart },
       { key: 'testimonials', label: 'Testimonials', icon: MessageSquare },
       { key: 'case_studies', label: 'Case Studies', icon: BookOpen },
+      { key: 'blog_posts', label: 'Blog Posts', icon: FileText },
       { key: 'text_testimonials', label: 'Text Quotes', icon: Quote },
     ]},
     { label: 'Programs & Offers', icon: Package, tabs: [
@@ -787,6 +789,7 @@ const AdminPanel = ({ onLogout }) => {
           {activeTab === 'upcoming_card_quotes' && <UpcomingCardQuotesTab programs={programs} />}
           {activeTab === 'text_testimonials' && <TextTestimonialsTab />}
           {activeTab === 'case_studies' && <CaseStudiesTab />}
+          {activeTab === 'blog_posts' && <BlogPostsTab />}
           {activeTab === 'annual_subscribers' && <AnnualSubscribersTab />}
           {activeTab === 'add_annual_subscriber' && (
             <AnnualPackageCatalogTemplate

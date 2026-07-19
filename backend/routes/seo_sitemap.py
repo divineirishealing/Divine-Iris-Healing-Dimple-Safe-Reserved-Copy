@@ -56,6 +56,11 @@ async def sitemap_xml():
         urls.append((_full_url(base, "/sessions"), "weekly"))
     if raw.get("blog_page_visible"):
         urls.append((_full_url(base, "/blog"), "weekly"))
+        blog_posts = await db.blog_posts.find({"visible": True}, {"slug": 1}).to_list(500)
+        for post in blog_posts:
+            slug = post.get("slug")
+            if slug:
+                urls.append((_full_url(base, f"/blog/{slug}"), "monthly"))
     if raw.get("media_page_visible"):
         urls.append((_full_url(base, "/media"), "monthly"))
 

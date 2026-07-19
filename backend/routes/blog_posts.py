@@ -1,0 +1,127 @@
+from fastapi import APIRouter, HTTPException, Query
+from typing import List, Optional
+from datetime import datetime, timezone
+import uuid
+import re
+
+from models import BlogPost, BlogPostCreate
+
+router = APIRouter(prefix="/api/blog-posts", tags=["Blog Posts"])
+
+
+def get_db():
+    from server import db
+    return db
+
+
+def _slugify(text: str) -> str:
+    s = (text or "").lower().strip()
+    s = re.sub(r"[^\w\s-]", "", s)
+    s = re.sub(r"[\s_-]+", "-", s)
+    return s.strip("-") or str(uuid.uuid4())[:8]
+
+
+def _doc_to_blog_post(raw: dict) -> BlogPost:
+    data = {k: v for k, v in raw.items() if k != "_id"}
+    return BlogPost(**data)
+
+
+@router.get("", response_model=List[BlogPost])
+async def list_blog_posts(
+    visible_only: bool = Query(False),
+    featured_only: bool = Query(False),
+    search: Optional[str] = Query(None),
+):
+    db = get_db()
+    query = {}
+    if visible_only:
+        query["visible"] = True
+    if featured_only:
+        query["featured"] = True
+    if search and search.strip():
+        q = search.strip()
+        query["$or"] = [
+            {"title": {"$regex": q, "$options": "i"}},
+            {"excerpt": {"$regex": q, "$options": "i"}},
+            {"body": {"$regex": q, "$options": "i"}},
+            {"author": {"$regex": q, "$options": "i"}},
+        ]
+    docs = await db.blog_posts.find(query, {"_id": 0}).sort(
+        [("order", 1), ("published_at", -1), ("created_at", -1)]
+    ).to_list(200)
+    return [_doc_to_blog_post(d) for d in docs]
+
+
+@router.get("/slug/{slug}", response_model=BlogPost)
+async def get_blog_post_by_slug(slug: str, visible_only: bool = Query(True)):
+    db = get_db()
+    query = {"slug": slug}
+    if visible_only:
+        query["visible"] = True
+    doc = await db.blog_posts.find_one(query, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Blog post not found")
+    return _doc_to_blog_post(doc)
+
+
+@router.get("/{post_id}", response_model=BlogPost)
+async def get_blog_post(post_id: str):
+    db = get_db()
+    doc = await db.blog_posts.find_one({"id": post_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Blog post not found")
+    return _doc_to_blog_post(doc)
+
+
+@router.post("", response_model=BlogPost)
+async def create_blog_post(data: BlogPostCreate):
+    db = get_db()
+    payload = data.model_dump(exclude_unset=True)
+    if not payload.get("slug"):
+        payload["slug"] = _slugify(payload.get("title") or "blog-post")
+    existing = await db.blog_posts.find_one({"slug": payload["slug"]})
+    if existing:
+        payload["slug"] = f"{payload['slug']}-{str(uuid.uuid4())[:6]}"
+    if not payload.get("published_at"):
+        payload["published_at"] = datetime.now(timezone.utc).date().isoformat()
+    count = await db.blog_posts.count_documents({})
+    obj = BlogPost(**payload, order=payload.get("order", count))
+    doc = obj.model_dump()
+    await db.blog_posts.insert_one(doc)
+    return obj
+
+
+@router.put("/{post_id}", response_model=BlogPost)
+async def update_blog_post(post_id: str, data: BlogPostCreate):
+    db = get_db()
+    existing = await db.blog_posts.find_one({"id": post_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Blog post not found")
+    payload = data.model_dump(exclude_unset=True)
+    if payload.get("slug"):
+        clash = await db.blog_posts.find_one({"slug": payload["slug"], "id": {"$ne": post_id}})
+        if clash:
+            raise HTTPException(status_code=400, detail="Slug already in use")
+    payload["updated_at"] = datetime.now(timezone.utc)
+    await db.blog_posts.update_one({"id": post_id}, {"$set": payload})
+    doc = await db.blog_posts.find_one({"id": post_id}, {"_id": 0})
+    return _doc_to_blog_post(doc)
+
+
+@router.patch("/{post_id}/visibility")
+async def toggle_visibility(post_id: str, body: dict):
+    db = get_db()
+    visible = bool(body.get("visible", True))
+    result = await db.blog_posts.update_one({"id": post_id}, {"$set": {"visible": visible}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Blog post not found")
+    return {"visible": visible}
+
+
+@router.delete("/{post_id}")
+async def delete_blog_post(post_id: str):
+    db = get_db()
+    result = await db.blog_posts.delete_one({"id": post_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Blog post not found")
+    return {"message": "Deleted"}

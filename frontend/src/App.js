@@ -25,6 +25,7 @@ import PrivacyPage from './pages/PrivacyPage';
 import RefundCancellationPolicyPage from './pages/RefundCancellationPolicyPage';
 import AboutPage from './pages/AboutPage';
 import BlogPage from './pages/BlogPage';
+import BlogPostDetailPage from './pages/BlogPostDetailPage';
 import SponsorPage from './pages/SponsorPage';
 import IndiaPaymentPage from './pages/IndiaPaymentPage';
 import ManualPaymentPage from './pages/ManualPaymentPage';
@@ -138,6 +139,7 @@ const AppContent = () => {
       <Route path="/refund-cancellation" element={<RefundCancellationPolicyPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/blog" element={<BlogPage />} />
+      <Route path="/blog/:slug" element={<BlogPostDetailPage />} />
       <Route path="/sponsor" element={<SponsorPage />} />
       
       {/* Auth Routes */}
