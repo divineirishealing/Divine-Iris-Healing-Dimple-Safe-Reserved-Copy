@@ -74,7 +74,7 @@ function BlogPostCard({ post }) {
           </p>
         )}
         <div className="mt-4 flex items-center gap-2 text-sm font-semibold" style={{ color: '#7c3aed' }}>
-          Read article <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+          Read the full piece <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
         </div>
       </div>
     </Link>

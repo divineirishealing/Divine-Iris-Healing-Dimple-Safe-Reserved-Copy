@@ -4,10 +4,12 @@ import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
+import DocxHtmlMirror from '../components/DocxHtmlMirror';
 import { HEADING, BODY, GOLD, CONTAINER, SECTION_PY, LABEL } from '../lib/designTokens';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { useSeoPage } from '../context/SeoPageContext';
 import { renderMarkdown } from '../lib/renderMarkdown';
+import { isDocxHtmlBody, extractDocxHtml } from '../lib/docxHtml';
 import { formatDateDMonYyyyUpper } from '../lib/utils';
 import { ArrowLeft } from 'lucide-react';
 
@@ -65,6 +67,8 @@ export default function BlogPostDetailPage() {
 
   const heroSrc = resolveImageUrl(post.hero_image);
   const dateLabel = post.published_at ? formatDateDMonYyyyUpper(post.published_at) : '';
+  const bodyIsDocx = isDocxHtmlBody(post.body);
+  const docxHtml = bodyIsDocx ? extractDocxHtml(post.body) : '';
 
   return (
     <div className="min-h-screen bg-white" data-testid={`blog-post-detail-${post.slug}`}>
@@ -85,7 +89,7 @@ export default function BlogPostDetailPage() {
             to="/blog"
             className="inline-flex items-center gap-2 text-white/70 hover:text-white text-sm mb-8 transition-colors"
           >
-            <ArrowLeft size={14} /> All articles
+            <ArrowLeft size={14} /> Back to blog covers
           </Link>
           {(dateLabel || post.author) && (
             <p style={{ ...LABEL, color: GOLD, marginBottom: 12 }}>
@@ -116,22 +120,28 @@ export default function BlogPostDetailPage() {
         </section>
       )}
 
-      <section className={SECTION_PY}>
-        <div className={`${CONTAINER} max-w-3xl`}>
-          <article
-            className="rounded-2xl p-6 md:p-10 whitespace-pre-line"
-            style={{
-              background: 'rgba(250,245,255,0.6)',
-              border: '1px solid rgba(109,40,217,0.1)',
-              ...BODY,
-              fontSize: '1.05rem',
-              lineHeight: 1.85,
-              color: '#374151',
-            }}
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(post.body) }}
-          />
-        </div>
-      </section>
+      {post.body && (
+        <section className={bodyIsDocx ? 'pt-8' : SECTION_PY}>
+          {bodyIsDocx ? (
+            <DocxHtmlMirror html={docxHtml} />
+          ) : (
+            <div className={`${CONTAINER} max-w-3xl`}>
+              <article
+                className="rounded-2xl p-6 md:p-10 whitespace-pre-line"
+                style={{
+                  background: 'rgba(250,245,255,0.6)',
+                  border: '1px solid rgba(109,40,217,0.1)',
+                  ...BODY,
+                  fontSize: '1.05rem',
+                  lineHeight: 1.85,
+                  color: '#374151',
+                }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(post.body) }}
+              />
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="pb-16 px-6">
         <div className={`${CONTAINER} max-w-3xl text-center`}>
@@ -140,7 +150,7 @@ export default function BlogPostDetailPage() {
             className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold text-sm transition-all hover:scale-105"
             style={{ background: GOLD, color: '#1e0654' }}
           >
-            <ArrowLeft size={14} /> More articles
+            <ArrowLeft size={14} /> More on the blog
           </Link>
         </div>
       </section>

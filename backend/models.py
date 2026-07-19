@@ -951,6 +951,8 @@ class BlogPost(BaseModel):
     visible: bool = True
     featured: bool = False
     order: int = 0
+    import_filename: str = ""
+    import_at: str = ""
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: Optional[datetime] = None
 

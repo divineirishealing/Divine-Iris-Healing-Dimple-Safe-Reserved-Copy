@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from typing import List, Optional
 from datetime import datetime, timezone
 import uuid
 import re
 
 from models import BlogPost, BlogPostCreate
+from utils.docx_html import docx_html_document_body
 
 router = APIRouter(prefix="/api/blog-posts", tags=["Blog Posts"])
 
@@ -24,6 +25,26 @@ def _slugify(text: str) -> str:
 def _doc_to_blog_post(raw: dict) -> BlogPost:
     data = {k: v for k, v in raw.items() if k != "_id"}
     return BlogPost(**data)
+
+
+async def _parse_docx_upload(file: UploadFile) -> str:
+    name = (file.filename or "").lower()
+    if not name.endswith(".docx"):
+        raise HTTPException(
+            status_code=400,
+            detail="Please upload a .docx file (Word: Save As → Word Document .docx)",
+        )
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="File is empty")
+    if len(raw) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 15 MB)")
+    try:
+        return docx_html_document_body(raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not read document: {exc}") from exc
 
 
 @router.get("", response_model=List[BlogPost])
@@ -70,6 +91,37 @@ async def get_blog_post(post_id: str):
     doc = await db.blog_posts.find_one({"id": post_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Blog post not found")
+    return _doc_to_blog_post(doc)
+
+
+@router.post("/import-docx")
+async def import_docx_preview(file: UploadFile = File(...)):
+    """Parse a .docx into styled HTML for the full article body (preview before save)."""
+    body = await _parse_docx_upload(file)
+    return {"body": body, "filename": file.filename or ""}
+
+
+@router.post("/{post_id}/import-docx", response_model=BlogPost)
+async def import_docx_for_post(post_id: str, file: UploadFile = File(...)):
+    """Parse a .docx and save as the full article body on this blog post."""
+    db = get_db()
+    existing = await db.blog_posts.find_one({"id": post_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Blog post not found")
+    body = await _parse_docx_upload(file)
+    now = datetime.now(timezone.utc)
+    await db.blog_posts.update_one(
+        {"id": post_id},
+        {
+            "$set": {
+                "body": body,
+                "import_filename": file.filename or "",
+                "import_at": now.isoformat(),
+                "updated_at": now,
+            }
+        },
+    )
+    doc = await db.blog_posts.find_one({"id": post_id}, {"_id": 0})
     return _doc_to_blog_post(doc)
 
 
