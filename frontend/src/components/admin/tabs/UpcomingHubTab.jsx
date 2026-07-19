@@ -10,6 +10,7 @@ import {
   parseDeadlineParts,
   mergeDeadlineDateTime,
 } from '../../../lib/deadlineDateTime';
+import DurationScheduleEditor from '../DurationScheduleEditor';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -62,35 +63,6 @@ function buildProgramPutPayloadFromHub(local, server) {
   base.duration_tiers = mergeDurationTiersForHubSave(server?.duration_tiers, local?.duration_tiers);
   return base;
 }
-
-const DurationScheduleEditor = ({ row, onUpdate, compact = false }) => (
-  <div className={compact ? 'space-y-1' : 'space-y-1.5 min-w-[108px]'}>
-    <Input
-      value={row.duration || ''}
-      onChange={(e) => onUpdate('duration', e.target.value)}
-      placeholder={row.weekends_only ? '7 Days' : '21 Days'}
-      className={compact ? 'h-7 text-[10px] px-1' : 'h-8 text-xs px-2'}
-    />
-    <div className="flex items-center gap-1.5 flex-wrap">
-      <Switch checked={!!row.weekends_only} onCheckedChange={(v) => onUpdate('weekends_only', v)} />
-      <span className={`${compact ? 'text-[9px]' : 'text-[10px]'} text-gray-500 whitespace-nowrap`} title="Workshop runs on Saturdays & Sundays only">
-        Wknd only
-      </span>
-      {row.weekends_only && (
-        <Input
-          type="number"
-          min={1}
-          max={90}
-          value={row.session_days || ''}
-          onChange={(e) => onUpdate('session_days', parseInt(e.target.value, 10) || 0)}
-          placeholder="7"
-          title="Total session days on weekends (e.g. 7). Leave blank to count from start/end dates."
-          className={`${compact ? 'h-6 w-11 text-[9px]' : 'h-7 w-12 text-[10px]'} px-1`}
-        />
-      )}
-    </div>
-  </div>
-);
 
 const ProgramRow = ({ p, update, updateTier, updatePatch }) => {
   const [open, setOpen] = useState(false);

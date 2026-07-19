@@ -10,6 +10,7 @@ import {
   mergeDeadlineDateTime,
   DEFAULT_HUB_TIME_ZONE,
 } from '../../../lib/deadlineDateTime';
+import DurationScheduleEditor from '../DurationScheduleEditor';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -17,6 +18,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const PRICING_PROGRAM_FIELD_KEYS = [
   'visible', 'enable_online', 'enable_offline', 'enable_in_person',
   'show_pricing_on_card', 'show_tiers_on_card',
+  'duration', 'weekends_only', 'session_days',
   'price_aed', 'price_inr', 'price_usd',
   'early_bird_price_aed', 'early_bird_price_inr', 'early_bird_price_usd',
   'early_bird_date', 'early_bird_text',
@@ -25,7 +27,7 @@ const PRICING_PROGRAM_FIELD_KEYS = [
 ];
 
 const TIER_PRICING_FIELD_KEYS = [
-  'label', 'duration_value', 'duration_unit',
+  'label', 'duration_value', 'duration_unit', 'duration', 'weekends_only', 'session_days',
   'price_aed', 'price_inr', 'price_usd',
   'early_bird_price_aed', 'early_bird_price_inr', 'early_bird_price_usd',
   'early_bird_date', 'early_bird_text',
@@ -52,6 +54,8 @@ function mergeDurationTiersForPricingSave(serverTiers = [], localTiers = []) {
     }
     merged.start_date = base.start_date ?? loc.start_date ?? '';
     merged.end_date = base.end_date ?? loc.end_date ?? '';
+    merged.weekends_only = loc.weekends_only ?? base.weekends_only ?? false;
+    merged.session_days = loc.session_days ?? base.session_days ?? 0;
     if (loc.duration !== undefined && loc.duration !== null && loc.duration !== '') {
       merged.duration = loc.duration;
     }
@@ -255,12 +259,77 @@ const PricingHubTab = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2"><DollarSign size={18} className="text-[#D4AF37]" /> Pricing Hub</h2>
-          <p className="text-xs text-gray-500 mt-1">Edit list, early bird, and offer prices. Early bird applies until EB date & time (program timezone); after that, offer prices show automatically.</p>
+          <p className="text-xs text-gray-500 mt-1">Edit list, early bird, and offer prices. Use the <strong>Weekend workshop schedule</strong> panel below for Sat/Sun-only durations (e.g. 7 days).</p>
         </div>
         <Button onClick={saveAll} disabled={saving} className="bg-[#D4AF37] hover:bg-[#b8962e]" data-testid="pricing-hub-save">
           <Save size={14} className="mr-1" />{saving ? 'Saving...' : 'Save All'}
         </Button>
       </div>
+
+      {/* ===== WEEKEND WORKSHOP SCHEDULE (visible panel) ===== */}
+      {(() => {
+        const workshopRows = programs.filter(
+          (p) => p.title && (p.is_upcoming || p.is_group_program),
+        );
+        if (workshopRows.length === 0) return null;
+        return (
+          <div className="mb-8 border-2 border-amber-300 rounded-lg bg-amber-50/60 p-4 shadow-sm" data-testid="pricing-workshop-schedule-panel">
+            <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2 mb-1">
+              <Tag size={15} className="text-amber-700" /> Weekend workshop schedule
+            </h3>
+            <p className="text-[11px] text-amber-800/90 mb-4">
+              For workshops that run <strong>Saturday &amp; Sunday only</strong>: turn on <strong>Wknd only</strong>, enter total session days (e.g. <strong>7</strong>), then Save All.
+              The card will show <em>7 Days (Wknds)</em> instead of the full calendar span.
+              {workshopRows.some((p) => (p.duration_tiers || []).length > 0) && (
+                <> Programs with <strong>tiers</strong> need this set on each tier row below.</>
+              )}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {workshopRows.map((p) => {
+                const i = programs.findIndex((x) => x.id === p.id);
+                const tiers = p.duration_tiers || [];
+                if (tiers.length > 0) {
+                  return (
+                    <div
+                      key={p.id}
+                      className="bg-white border border-amber-200 rounded-lg p-3 sm:col-span-2 lg:col-span-3"
+                      data-testid={`pricing-workshop-schedule-${p.id}`}
+                    >
+                      <div className="text-xs font-semibold text-gray-900 mb-3 truncate" title={p.title}>{p.title}</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {tiers.map((t, ti) => (
+                          <div key={`${p.id}-tier-${ti}`} className="border border-amber-100 rounded-md p-2 bg-amber-50/30">
+                            <div className="text-[10px] font-medium text-gray-700 mb-1.5">{t.label || `Tier ${ti + 1}`}</div>
+                            <DurationScheduleEditor
+                              row={t}
+                              compact
+                              onUpdate={(field, value) => updateTier(i, ti, field, value)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div
+                    key={p.id}
+                    className="bg-white border border-amber-200 rounded-lg p-3"
+                    data-testid={`pricing-workshop-schedule-${p.id}`}
+                  >
+                    <div className="text-xs font-semibold text-gray-900 mb-2 truncate" title={p.title}>{p.title}</div>
+                    <DurationScheduleEditor
+                      row={p}
+                      compact
+                      onUpdate={(field, value) => updateProgram(i, field, value)}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ===== ALL PROGRAMS ===== */}
       <div className="mb-8">
@@ -292,6 +361,7 @@ const PricingHubTab = () => {
                 <th className="px-1 py-2 font-semibold text-green-500 min-w-[70px]">Offer INR</th>
                 <th className="px-1 py-2 font-semibold text-purple-500 min-w-[70px]">Offer USD</th>
                 <th className="px-1 py-2 font-semibold text-red-600 min-w-[90px]">Offer Badge</th>
+                <th className="px-1 py-2 font-semibold text-amber-900 min-w-[130px]" title="Weekends-only workshop duration (expand tiers)">Schedule</th>
                 <th className="px-1 py-2 w-8"></th>
               </tr>
             </thead>
@@ -353,6 +423,9 @@ const PricingHubTab = () => {
                         <td className="px-1 py-1"><Cell value={t.price_inr} onChange={v => updateTier(i, ti, 'price_inr', v)} /></td>
                         <td className="px-1 py-1"><Cell value={t.price_usd} onChange={v => updateTier(i, ti, 'price_usd', v)} /></td>
                         <PricingOfferCells row={t} timeZone={p.time_zone || DEFAULT_HUB_TIME_ZONE} onUpdate={(field, value) => updateTier(i, ti, field, value)} />
+                        <td className="px-1 py-1 align-top min-w-[120px]">
+                          <DurationScheduleEditor row={t} compact onUpdate={(field, value) => updateTier(i, ti, field, value)} />
+                        </td>
                         <td className="px-1 py-1">
                           <button onClick={() => removeTier(i, ti)} className="text-red-400 hover:text-red-600"><Trash2 size={12} /></button>
                         </td>
@@ -394,6 +467,7 @@ const PricingHubTab = () => {
                   <th className="px-1 py-2 font-semibold text-green-500 min-w-[70px]">Offer INR</th>
                   <th className="px-1 py-2 font-semibold text-purple-500 min-w-[70px]">Offer USD</th>
                   <th className="px-1 py-2 font-semibold text-red-600 min-w-[90px]">Offer Badge</th>
+                  <th className="px-1 py-2 font-semibold text-amber-900 min-w-[130px]" title="Weekends-only workshop duration">Schedule</th>
                 </tr>
               </thead>
               <tbody>
@@ -410,6 +484,9 @@ const PricingHubTab = () => {
                       <td className="px-1 py-1"><Cell value={p.price_inr} onChange={v => updateProgram(i, 'price_inr', v)} /></td>
                       <td className="px-1 py-1"><Cell value={p.price_usd} onChange={v => updateProgram(i, 'price_usd', v)} /></td>
                       <PricingOfferCells row={p} timeZone={p.time_zone || DEFAULT_HUB_TIME_ZONE} onUpdate={(field, value) => updateProgram(i, field, value)} />
+                      <td className="px-1 py-1 align-top">
+                        <DurationScheduleEditor row={p} compact onUpdate={(field, value) => updateProgram(i, field, value)} />
+                      </td>
                     </tr>
                   );
                 })}
