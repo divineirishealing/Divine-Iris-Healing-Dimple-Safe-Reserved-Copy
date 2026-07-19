@@ -719,8 +719,8 @@ html {
   overflow: visible;
 }
 
-/* Cover panel — centered title block from Word */
-.docx-html-shell .docx-cover-stage {
+/* Cover panel — centered title block from Word (program landing only) */
+.docx-html-shell .docx-mirror-landing .docx-cover-stage {
   text-align: center;
   padding: 2.25rem 1.75rem 2rem;
   margin: 0 0 2rem;
@@ -730,25 +730,25 @@ html {
   box-shadow: 0 8px 32px rgba(42, 31, 94, 0.07);
 }
 
-.docx-html-shell .docx-cover-stage .docx-rule-wrap {
+.docx-html-shell .docx-mirror-landing .docx-cover-stage .docx-rule-wrap {
   max-width: 28rem;
   margin-left: auto;
   margin-right: auto;
 }
 
 /* Intro paragraphs before first major heading */
-.docx-html-shell .docx-intro-body {
+.docx-html-shell .docx-mirror-landing .docx-intro-body {
   padding: 0 0.15rem 2rem;
   margin-bottom: 2rem;
   border-bottom: 1px solid rgba(201, 150, 42, 0.28);
 }
 
-.docx-html-shell .docx-intro-body .docx-p {
+.docx-html-shell .docx-mirror-landing .docx-intro-body .docx-p {
   text-align: justify !important;
 }
 
 /* Pull quote inside cover */
-.docx-html-shell .docx-word-quote {
+.docx-html-shell .docx-mirror-landing .docx-word-quote {
   display: block;
   max-width: 34rem;
   margin: 1.25rem auto !important;
@@ -759,11 +759,11 @@ html {
 }
 
 /* Major section titles (Word Heading 1) */
-.docx-html-shell .docx-section-major {
+.docx-html-shell .docx-mirror-landing .docx-section-major {
   margin: 2.25rem 0 1.15rem;
 }
 
-.docx-html-shell .docx-section-major-inner {
+.docx-html-shell .docx-mirror-landing .docx-section-major-inner {
   padding: 0.15rem 0 0.15rem 1rem;
   border-left: 4px solid var(--docx-gold);
   background: linear-gradient(
@@ -776,25 +776,25 @@ html {
   box-shadow: 0 2px 12px rgba(42, 31, 94, 0.05);
 }
 
-.docx-html-shell .docx-section-major-inner .docx-h1 {
+.docx-html-shell .docx-mirror-landing .docx-section-major-inner .docx-h1 {
   margin-top: 0.85rem !important;
   margin-bottom: 0.85rem !important;
 }
 
 /* Subsection titles (Word Heading 2/3) */
-.docx-html-shell .docx-section-minor {
+.docx-html-shell .docx-mirror-landing .docx-section-minor {
   margin: 1.5rem 0 0.85rem;
 }
 
-.docx-html-shell .docx-section-minor-inner {
+.docx-html-shell .docx-mirror-landing .docx-section-minor-inner {
   padding: 0.35rem 0 0.35rem 0.85rem;
   border-left: 3px solid var(--docx-gold);
   background: linear-gradient(90deg, rgba(201, 150, 42, 0.1) 0%, transparent 72%);
   border-radius: 0 8px 8px 0;
 }
 
-.docx-html-shell .docx-section-minor-inner .docx-h2,
-.docx-html-shell .docx-section-minor-inner .docx-h3 {
+.docx-html-shell .docx-mirror-landing .docx-section-minor-inner .docx-h2,
+.docx-html-shell .docx-mirror-landing .docx-section-minor-inner .docx-h3 {
   margin-top: 0.55rem !important;
   margin-bottom: 0.55rem !important;
 }
@@ -836,88 +836,19 @@ html {
   min-width: 10rem;
 }
 
-/* Blog journal — plain Word typography (no program landing bands) */
-.docx-html-article .docx-mirror,
-.docx-html-article .docx-mirror-article {
-  font-family: Georgia, 'Times New Roman', Times, serif !important;
-  font-size: 1.05rem;
-  line-height: 1.85;
-  color: #374151;
+/* Faithful Word mirror — preserve inline typography; only undo global resets */
+.docx-html-shell .docx-mirror-article .docx-h1,
+.docx-html-shell .docx-mirror-article .docx-h2,
+.docx-html-shell .docx-mirror-article .docx-h3,
+.docx-html-shell .docx-mirror-article .docx-p {
+  font-weight: inherit;
 }
 
-.docx-html-article .docx-h1,
-.docx-html-article .docx-h1 span {
-  color: #1a1a1a !important;
-  font-size: 1.75rem !important;
-  font-weight: 700 !important;
-  line-height: 1.35 !important;
-  text-align: left !important;
-  margin: 0 0 1.25rem !important;
+.docx-html-shell .docx-image {
+  max-width: 100%;
+  height: auto;
 }
 
-.docx-html-article .docx-h2,
-.docx-html-article .docx-h2 span,
-.docx-html-article .docx-h3,
-.docx-html-article .docx-h3 span {
-  color: #1a1a1a !important;
-  font-size: 1.15rem !important;
-  font-weight: 700 !important;
-  line-height: 1.4 !important;
-  text-align: left !important;
-  margin: 2rem 0 0.75rem !important;
-}
-
-.docx-html-article .docx-p,
-.docx-html-article .docx-p span {
-  color: #374151 !important;
-  text-align: left !important;
-  margin-bottom: 1rem !important;
-}
-
-.docx-html-article .docx-cover-stage,
-.docx-html-article .docx-intro-body {
-  background: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  text-align: left !important;
-}
-
-.docx-html-article .docx-cover-stage .docx-p,
-.docx-html-article .docx-cover-stage img,
-.docx-html-article .docx-cover-stage svg,
-.docx-html-article .docx-cover-stage .docx-rule-wrap,
-.docx-html-article .docx-cover-stage .docx-spacer {
-  display: none !important;
-}
-
-.docx-html-article .docx-section-major,
-.docx-html-article .docx-section-minor {
-  margin: 0 !important;
-}
-
-.docx-html-article .docx-section-major-inner,
-.docx-html-article .docx-section-minor-inner {
-  border: none !important;
-  background: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  border-radius: 0 !important;
-}
-
-.docx-html-article .docx-section-major-inner .docx-h1,
-.docx-html-article .docx-section-minor-inner .docx-h2,
-.docx-html-article .docx-section-minor-inner .docx-h3 {
-  margin-top: 0 !important;
-  margin-bottom: 0.75rem !important;
-}
-
-.docx-html-article .docx-word-quote {
-  background: none !important;
-  border: none !important;
-  padding: 0 !important;
-  margin: 1rem 0 !important;
-  max-width: none !important;
-  font-style: italic;
+.docx-html-shell .docx-figure {
+  margin: 0 0 1rem;
 }

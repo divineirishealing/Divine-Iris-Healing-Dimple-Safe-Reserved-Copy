@@ -1,12 +1,13 @@
 """Convert .docx to styled HTML for exact mirror rendering on program pages."""
 from __future__ import annotations
 
+import base64
 import html
 import re
 import zipfile
 from dataclasses import dataclass, field
 from io import BytesIO
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from xml.etree import ElementTree as ET
 
 from utils.docx_import import (
@@ -22,6 +23,15 @@ from utils.docx_import import (
 )
 
 DOCX_HTML_MARKER = "@@DOCX_HTML@@\n"
+_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+_IMAGE_MIME = {
+    "png": "image/png",
+    "jpeg": "image/jpeg",
+    "jpg": "image/jpeg",
+    "gif": "image/gif",
+    "webp": "image/webp",
+    "bmp": "image/bmp",
+}
 
 
 def is_docx_html_body(body: str) -> bool:
@@ -446,89 +456,224 @@ def _trim_cover_preamble(
     return blocks[i:]
 
 
+def _load_relationships(zf: zipfile.ZipFile) -> Dict[str, str]:
+    rels: Dict[str, str] = {}
+    path = "word/_rels/document.xml.rels"
+    if path not in zf.namelist():
+        return rels
+    root = ET.fromstring(zf.read(path))
+    for rel in root:
+        rid = rel.attrib.get("Id")
+        target = rel.attrib.get("Target")
+        if rid and target:
+            rels[rid] = target
+    return rels
+
+
+def _resolve_media_path(target: str) -> str:
+    cleaned = target.replace("\\", "/")
+    if cleaned.startswith("/"):
+        return cleaned.lstrip("/")
+    if cleaned.startswith("word/"):
+        return cleaned
+    return f"word/{cleaned.replace('../', '')}"
+
+
+def _image_html_for_embed(embed_id: str, zf: zipfile.ZipFile, rels: Dict[str, str]) -> str:
+    target = rels.get(embed_id)
+    if not target:
+        return ""
+    path = _resolve_media_path(target)
+    if path not in zf.namelist():
+        alt = path.replace("word/", "")
+        if alt in zf.namelist():
+            path = alt
+        else:
+            return ""
+    ext = path.rsplit(".", 1)[-1].lower()
+    mime = _IMAGE_MIME.get(ext)
+    if not mime:
+        return ""
+    data = zf.read(path)
+    b64 = base64.b64encode(data).decode("ascii")
+    return (
+        f'<img class="docx-image" alt="" src="data:{mime};base64,{b64}" '
+        f'style="max-width:100%;height:auto;display:block;margin:0 auto;" />'
+    )
+
+
+def _images_html_from_para(para: ET.Element, zf: zipfile.ZipFile, rels: Dict[str, str]) -> str:
+    parts: List[str] = []
+    seen: set[str] = set()
+    for el in para.iter():
+        embed = el.attrib.get(f"{{{_REL_NS}}}embed")
+        if not embed or embed in seen:
+            continue
+        seen.add(embed)
+        img = _image_html_for_embed(embed, zf, rels)
+        if img:
+            parts.append(img)
+    return "".join(parts)
+
+
+def _para_shading_css(ppr: Optional[ET.Element]) -> str:
+    if ppr is None:
+        return ""
+    shd = ppr.find(f"{_WP}shd")
+    if shd is None:
+        return ""
+    fill = shd.attrib.get(f"{_WP}fill") or shd.attrib.get("fill", "")
+    if not fill or fill.lower() in ("auto", "none", "ffffff"):
+        return ""
+    return f"background-color:{_word_color(fill)};"
+
+
+def _infer_heading_level(
+    runs: List[ET.Element],
+    plain: str,
+    style_level: int,
+    para_style: _ParaStyle,
+) -> int:
+    if style_level > 0:
+        return style_level
+    text = plain.strip()
+    if not text or len(text) > 120:
+        return 0
+    if text.endswith(".") and len(text.split()) > 8:
+        return 0
+    saw_text = False
+    for run in runs:
+        chunk = _run_text(run)
+        if not chunk.strip():
+            continue
+        saw_text = True
+        run_style = _parse_rpr(run.find(f"{_WP}rPr"), para_style.run)
+        if not run_style.bold:
+            return 0
+    if not saw_text:
+        return 0
+    if para_style.run.font_size_pt >= 14:
+        return 1
+    return 2
+
+
+def _append_html_block(
+    html_blocks: List[str],
+    heading_levels: List[int],
+    align_flags: List[str],
+    block: str,
+    level: int,
+    align: str,
+) -> None:
+    html_blocks.append(block)
+    heading_levels.append(level)
+    align_flags.append(align)
+
+
 def docx_bytes_to_html(data: bytes, *, trim_preamble: bool = False, landing: bool = True) -> str:
     """Render the full document body as HTML with inline Word typography."""
     try:
-        with zipfile.ZipFile(BytesIO(data)) as zf:
-            xml_bytes = zf.read("word/document.xml")
-            styles_bytes = zf.read("word/styles.xml") if "word/styles.xml" in zf.namelist() else None
-    except (KeyError, zipfile.BadZipFile) as exc:
+        zf = zipfile.ZipFile(BytesIO(data))
+    except zipfile.BadZipFile as exc:
         raise ValueError("Invalid or corrupt .docx file") from exc
 
-    style_names = _load_style_names(data)
-    styles_root = ET.fromstring(styles_bytes) if styles_bytes else ET.Element(f"{_WP}styles")
-    doc_defaults = _load_doc_defaults(styles_root)
-    style_map = _load_style_map(styles_root, doc_defaults)
+    with zf:
+        try:
+            xml_bytes = zf.read("word/document.xml")
+            styles_bytes = zf.read("word/styles.xml") if "word/styles.xml" in zf.namelist() else None
+        except KeyError as exc:
+            raise ValueError("Invalid or corrupt .docx file") from exc
 
-    root = ET.fromstring(xml_bytes)
-    body = root.find(f"{_WP}body")
-    if body is None:
-        raise ValueError("Document is empty")
+        rels = _load_relationships(zf)
+        style_names = _load_style_names(data)
+        styles_root = ET.fromstring(styles_bytes) if styles_bytes else ET.Element(f"{_WP}styles")
+        doc_defaults = _load_doc_defaults(styles_root)
+        style_map = _load_style_map(styles_root, doc_defaults)
 
-    html_blocks: List[str] = []
-    heading_levels: List[int] = []
-    align_flags: List[str] = []
+        root = ET.fromstring(xml_bytes)
+        body = root.find(f"{_WP}body")
+        if body is None:
+            raise ValueError("Document is empty")
 
-    for para in body.findall(f"{_WP}p"):
-        runs = para.findall(f"{_WP}r")
-        plain = _plain_from_runs(runs)
-        ppr = para.find(f"{_WP}pPr")
+        html_blocks: List[str] = []
+        heading_levels: List[int] = []
+        align_flags: List[str] = []
 
-        style_id = _paragraph_style_id(para)
-        style_name = style_names.get(style_id, "")
-        level = _heading_level(style_name)
-        is_list = _paragraph_is_list(para)
+        for para in body.findall(f"{_WP}p"):
+            runs = para.findall(f"{_WP}r")
+            plain = _plain_from_runs(runs)
+            ppr = para.find(f"{_WP}pPr")
+            images_html = _images_html_from_para(para, zf, rels)
 
-        base = style_map.get(style_id, _ParaStyle(run=doc_defaults))
-        para_style = _parse_ppr(ppr, base)
-        align = _paragraph_alignment(para)
-        if align:
-            mapped = {"center": "center", "justify": "justify", "right": "right", "left": "left"}.get(align)
-            if mapped:
-                para_style.align = mapped
+            style_id = _paragraph_style_id(para)
+            style_name = style_names.get(style_id, "")
+            level = _heading_level(style_name)
+            is_list = _paragraph_is_list(para)
 
-        if not plain:
-            rule = _paragraph_rule_html(ppr, para_style)
-            if rule:
-                html_blocks.append(rule)
-                heading_levels.append(0)
-                align_flags.append(para_style.align)
+            base = style_map.get(style_id, _ParaStyle(run=doc_defaults))
+            para_style = _parse_ppr(ppr, base)
+            align = _paragraph_alignment(para)
+            if align:
+                mapped = {"center": "center", "justify": "justify", "right": "right", "left": "left"}.get(align)
+                if mapped:
+                    para_style.align = mapped
+
+            shading_css = _para_shading_css(ppr)
+
+            if not plain and not images_html:
+                rule = _paragraph_rule_html(ppr, para_style)
+                if rule:
+                    _append_html_block(html_blocks, heading_levels, align_flags, rule, 0, para_style.align)
+                else:
+                    spacer = _spacer_html(para_style)
+                    if spacer:
+                        _append_html_block(html_blocks, heading_levels, align_flags, spacer, 0, para_style.align)
+                continue
+
+            if not plain and images_html:
+                block_css = f"{_para_style_css(para_style)};{shading_css}".strip(";")
+                block = f'<div class="docx-figure" style="{block_css}">{images_html}</div>'
+                _append_html_block(html_blocks, heading_levels, align_flags, block, 0, para_style.align)
+                continue
+
+            level = _infer_heading_level(runs, plain, level, para_style)
+            inner = _runs_to_html(runs, para_style)
+            if images_html:
+                inner = f"{images_html}{inner}"
+            if not inner:
+                continue
+
+            if level == 1:
+                tag = "h1"
+                block_css = _block_css(para_style, heading=True)
+                heading_level = 1
+            elif level == 2:
+                tag = "h2"
+                block_css = _block_css(para_style, heading=True)
+                heading_level = 2
+            elif level >= 3:
+                tag = "h3"
+                block_css = _block_css(para_style, heading=True)
+                heading_level = level
+            elif is_list or re.match(r"^[•●○▪\-–—✦]", plain.strip()):
+                _append_html_block(
+                    html_blocks,
+                    heading_levels,
+                    align_flags,
+                    _smart_bullet_html(para_style, plain, inner),
+                    0,
+                    para_style.align,
+                )
+                continue
             else:
-                spacer = _spacer_html(para_style)
-                if spacer:
-                    html_blocks.append(spacer)
-                    heading_levels.append(0)
-                    align_flags.append(para_style.align)
-            continue
+                tag = "p"
+                block_css = f"{_para_style_css(para_style)};{_run_style_css(para_style.run)}"
+                heading_level = 0
 
-        inner = _runs_to_html(runs, para_style)
-        if not inner:
-            continue
-
-        if level == 1:
-            tag = "h1"
-            block_css = _block_css(para_style, heading=True)
-            heading_levels.append(1)
-        elif level == 2:
-            tag = "h2"
-            block_css = _block_css(para_style, heading=True)
-            heading_levels.append(2)
-        elif level >= 3:
-            tag = "h3"
-            block_css = _block_css(para_style, heading=True)
-            heading_levels.append(level)
-        elif is_list or re.match(r"^[•●○▪\-–—✦]", plain.strip()):
-            align_flags.append(para_style.align)
-            heading_levels.append(0)
-            html_blocks.append(_smart_bullet_html(para_style, plain, inner))
-            continue
-        else:
-            tag = "p"
-            block_css = f"{_para_style_css(para_style)};{_run_style_css(para_style.run)}"
-            heading_levels.append(0)
-
-        align_flags.append(para_style.align)
-        html_blocks.append(f'<{tag} class="docx-{tag}" style="{block_css}">{inner}</{tag}>')
+            if shading_css:
+                block_css = f"{block_css};{shading_css}"
+            block = f'<{tag} class="docx-{tag}" style="{block_css}">{inner}</{tag}>'
+            _append_html_block(html_blocks, heading_levels, align_flags, block, heading_level, para_style.align)
 
     if trim_preamble:
         html_blocks = _trim_cover_preamble(html_blocks, align_flags, heading_levels)

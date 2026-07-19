@@ -101,7 +101,7 @@ export default function BlogPostDetailPage() {
 
       {post.body && (
         bodyIsDocx ? (
-          <DocxHtmlMirror html={docxHtml} variant="article" continuation />
+          <DocxHtmlMirror html={docxHtml} continuation />
         ) : (
           <section className={`${SECTION_PY} bg-white`}>
             <div className={DOC_COLUMN}>
