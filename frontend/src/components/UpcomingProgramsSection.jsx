@@ -9,6 +9,8 @@ import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bel
 import { cn, formatDateDdMonYyyy } from '../lib/utils';
 import { catalogPayAsYouWishEnabled } from '../lib/payAsYouWish';
 import { getOfferCountdownDeadline, resolveProgramOffer, parsePricingDate } from '../lib/effectiveOfferPricing';
+import { resolveProgramDurationDisplay } from '../lib/programDurationDisplay';
+import { durationPillDisplay } from '../lib/upcomingHomepagePresentation';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -263,20 +265,11 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   const displayStartDate = (activeTier?.start_date) || program.start_date;
   const displayEndDate = (activeTier?.end_date) || program.end_date;
 
-  // Duration: use tier's explicit duration first, then calculate from tier dates, then program
-  const autoDuration = (() => {
-    // 1. Tier explicit duration
-    if (activeTier?.duration) return activeTier.duration;
-    // 2. Calculate from tier or program dates
-    const s = parseDate(displayStartDate);
-    const e = parseDate(displayEndDate);
-    if (s && e) {
-      const diffDays = Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
-      if (diffDays > 0) return `${diffDays} Days`;
-    }
-    // 3. Fallback to program-level duration
-    return program.duration || '';
-  })();
+  // Duration: tier schedule (weekends-only workshops) or explicit / date span
+  const autoDuration = resolveProgramDurationDisplay({
+    tier: activeTier,
+    program,
+  });
 
   const isAnnualTierRow = (t) =>
     !!t &&

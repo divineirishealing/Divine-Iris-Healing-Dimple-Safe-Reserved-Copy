@@ -27,6 +27,7 @@ import {
 } from '../lib/crossSellPricing';
 import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInCurrency } from '../lib/payAsYouWish';
 import { getOfferCountdownDeadline, resolveProgramOffer, parsePricingDate } from '../lib/effectiveOfferPricing';
+import { resolveProgramDurationDisplay } from '../lib/programDurationDisplay';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -618,7 +619,10 @@ function EnrollmentPage() {
   // Tier-aware display values for the left card
   const displayStartDate = tierObj?.start_date || item?.start_date || '';
   const displayEndDate = tierObj?.end_date || item?.end_date || '';
-  const displayDuration = tierObj?.duration || item?.duration || '';
+  const displayDuration = resolveProgramDurationDisplay({
+    tier: tierObj,
+    program: item,
+  });
 
   // Price getters — use INR directly when India hub pricing is active
   const effectiveCurrency = showIndiaHubPricing ? 'inr' : currency;

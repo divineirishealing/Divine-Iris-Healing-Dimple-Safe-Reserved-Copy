@@ -26,6 +26,7 @@ const TZ_OPTIONS = ['', 'IST', 'GST Dubai', 'EST', 'PST', 'CST', 'MST', 'GMT', '
 const HUB_PROGRAM_FIELD_KEYS = [
   'is_upcoming', 'is_flagship', 'replicate_to_flagship', 'enrollment_status', 'enrollment_open', 'closure_text',
   'start_date', 'end_date', 'deadline_date', 'timing', 'time_zone',
+  'duration', 'weekends_only', 'session_days',
   'exclusive_offer_enabled', 'exclusive_offer_text',
   'highlight_label', 'highlight_style',
   'enable_online', 'enable_offline', 'enable_in_person',
@@ -46,6 +47,8 @@ function mergeDurationTiersForHubSave(serverTiers = [], localTiers = []) {
       start_date: loc.start_date !== undefined && loc.start_date !== null ? loc.start_date : base.start_date,
       end_date: loc.end_date !== undefined && loc.end_date !== null ? loc.end_date : base.end_date,
       duration: loc.duration !== undefined && loc.duration !== null ? loc.duration : base.duration,
+      weekends_only: loc.weekends_only ?? base.weekends_only ?? false,
+      session_days: loc.session_days ?? base.session_days ?? 0,
     };
   });
 }
@@ -59,6 +62,35 @@ function buildProgramPutPayloadFromHub(local, server) {
   base.duration_tiers = mergeDurationTiersForHubSave(server?.duration_tiers, local?.duration_tiers);
   return base;
 }
+
+const DurationScheduleEditor = ({ row, onUpdate, compact = false }) => (
+  <div className={compact ? 'space-y-1' : 'space-y-1.5 min-w-[108px]'}>
+    <Input
+      value={row.duration || ''}
+      onChange={(e) => onUpdate('duration', e.target.value)}
+      placeholder={row.weekends_only ? '7 Days' : '21 Days'}
+      className={compact ? 'h-7 text-[10px] px-1' : 'h-8 text-xs px-2'}
+    />
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <Switch checked={!!row.weekends_only} onCheckedChange={(v) => onUpdate('weekends_only', v)} />
+      <span className={`${compact ? 'text-[9px]' : 'text-[10px]'} text-gray-500 whitespace-nowrap`} title="Workshop runs on Saturdays & Sundays only">
+        Wknd only
+      </span>
+      {row.weekends_only && (
+        <Input
+          type="number"
+          min={1}
+          max={90}
+          value={row.session_days || ''}
+          onChange={(e) => onUpdate('session_days', parseInt(e.target.value, 10) || 0)}
+          placeholder="7"
+          title="Total session days on weekends (e.g. 7). Leave blank to count from start/end dates."
+          className={`${compact ? 'h-6 w-11 text-[9px]' : 'h-7 w-12 text-[10px]'} px-1`}
+        />
+      )}
+    </div>
+  </div>
+);
 
 const ProgramRow = ({ p, update, updateTier, updatePatch }) => {
   const [open, setOpen] = useState(false);
@@ -200,7 +232,7 @@ const ProgramRow = ({ p, update, updateTier, updatePatch }) => {
         <td className="px-2 py-2 text-center"><Switch checked={p.enable_in_person || false} onCheckedChange={v => update('enable_in_person', v)} /></td>
 
         {/* Duration */}
-        <td className="px-1 py-2"><Input value={p.duration || ''} onChange={e => update('duration', e.target.value)} placeholder="21 Days" className="h-8 text-xs px-2" /></td>
+        <td className="px-1 py-2"><DurationScheduleEditor row={p} onUpdate={update} /></td>
 
         {/* Card Display Toggles */}
         <td className="px-2 py-2 text-center"><Switch checked={p.show_start_date_on_card !== false} onCheckedChange={v => update('show_start_date_on_card', v)} /></td>
@@ -228,7 +260,7 @@ const ProgramRow = ({ p, update, updateTier, updatePatch }) => {
           </td>
           <td colSpan={10}></td>
           <td className="px-1 py-1">
-            <Input value={t.duration || ''} onChange={e => updateTier(ti, 'duration', e.target.value)} placeholder="e.g. 90 Days" className="h-7 text-[10px] px-1" />
+            <DurationScheduleEditor row={t} onUpdate={(field, val) => updateTier(ti, field, val)} compact />
           </td>
           <td colSpan={4}></td>
         </tr>
@@ -555,7 +587,7 @@ const UpcomingHubTab = () => {
               <th className="px-2 py-3 font-bold text-blue-500 w-14">Online</th>
               <th className="px-2 py-3 font-bold text-teal-600 w-14">Offline</th>
               <th className="px-2 py-3 font-bold text-teal-700 w-14">In-Pers.</th>
-              <th className="px-1 py-3 font-bold text-gray-600 min-w-[80px]">Duration</th>
+              <th className="px-1 py-3 font-bold text-gray-600 min-w-[120px]" title="Duration label; enable Weekends only for Sat/Sun workshops">Duration</th>
               <th className="px-2 py-3 font-bold text-emerald-600 w-14 border-l-2 border-emerald-200" title="Show start date on upcoming card"><div className="text-center leading-tight">Show<br/>Start</div></th>
               <th className="px-2 py-3 font-bold text-emerald-600 w-14" title="Show end date on upcoming card"><div className="text-center leading-tight">Show<br/>End</div></th>
               <th className="px-2 py-3 font-bold text-emerald-600 w-14" title="Show timing on upcoming card"><div className="text-center leading-tight">Show<br/>Time</div></th>

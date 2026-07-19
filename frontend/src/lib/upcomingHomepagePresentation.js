@@ -1,4 +1,5 @@
 import { formatDateDdMonYyyy } from './utils';
+import { resolveProgramDurationDisplay } from './programDurationDisplay';
 
 /**
  * Date/time/duration presentation aligned with UpcomingProgramsSection (homepage upcoming cards).
@@ -151,6 +152,10 @@ export function durationPillDisplay(isAnnualTier, durationStr) {
   if (isAnnualTier) return 'Annual';
   const L = String(durationStr).toLowerCase();
   if (L.includes('annual') || /\b12\s*months?\b/.test(L) || /\b1\s*year\b/.test(L)) return 'Annual';
+  // Compact label for card badge when weekends-only copy is long
+  if (/weekends only/i.test(durationStr)) {
+    return durationStr.replace(/\s·\s*Weekends Only/i, ' (Wknds)').replace(/\s*Weekends Only/i, ' (Wknds)');
+  }
   return durationStr;
 }
 
@@ -183,16 +188,7 @@ export function buildHomepageStyleDatetimeBadges(program, tierIndex, detectedCou
   const displayStartDate = activeTier?.start_date || program.start_date;
   const displayEndDate = activeTier?.end_date || program.end_date;
 
-  const autoDuration = (() => {
-    if (activeTier?.duration) return activeTier.duration;
-    const s = parseProgramDate(displayStartDate);
-    const e = parseProgramDate(displayEndDate);
-    if (s && e) {
-      const diffDays = Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
-      if (diffDays > 0) return `${diffDays} Days`;
-    }
-    return program.duration || '';
-  })();
+  const autoDuration = resolveProgramDurationDisplay({ tier: activeTier, program });
 
   const tierForDuration = activeTier;
   const durationOnImage = durationPillDisplay(tierForDuration ? isAnnualTierRow(tierForDuration) : false, autoDuration);

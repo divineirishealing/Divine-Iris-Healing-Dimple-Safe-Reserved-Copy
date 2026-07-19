@@ -44,6 +44,8 @@ class DurationTier(BaseModel):
     early_bird_text: str = ""
     start_date: str = ""
     end_date: str = ""
+    weekends_only: bool = False
+    session_days: int = 0
 
 
 class Program(BaseModel):
@@ -59,6 +61,8 @@ class Program(BaseModel):
     price_gbp: float = 0.0
     price_aed: float = 0.0
     duration: str = "90 days"
+    weekends_only: bool = False
+    session_days: int = 0
     visible: bool = True
     order: int = 0
     program_type: str = "online"  # online / offline / hybrid
@@ -136,6 +140,8 @@ class ProgramCreate(BaseModel):
     price_gbp: float = 0.0
     price_aed: float = 0.0
     duration: Optional[str] = "90 days"
+    weekends_only: Optional[bool] = False
+    session_days: Optional[int] = 0
     visible: Optional[bool] = True
     order: Optional[int] = 0
     program_type: Optional[str] = "online"
