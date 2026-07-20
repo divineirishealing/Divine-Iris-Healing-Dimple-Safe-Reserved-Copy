@@ -205,15 +205,6 @@ export function compactTierButtonLabel(raw) {
   return `${t.slice(0, 14)}…`;
 }
 
-/** Gold duration pill on card image: annual tracks show a short label instead of a long day count. */
-function durationPillDisplay(isAnnualTier, durationStr) {
-  if (!durationStr) return '';
-  if (isAnnualTier) return 'Annual';
-  const L = String(durationStr).toLowerCase();
-  if (L.includes('annual') || /\b12\s*months?\b/.test(L) || /\b1\s*year\b/.test(L)) return 'Annual';
-  return durationStr;
-}
-
 const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   const navigate = useNavigate();
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();

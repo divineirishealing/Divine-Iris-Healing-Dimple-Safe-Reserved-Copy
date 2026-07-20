@@ -278,8 +278,8 @@ const PricingHubTab = () => {
               <Tag size={15} className="text-amber-700" /> Weekend workshop schedule
             </h3>
             <p className="text-[11px] text-amber-800/90 mb-4">
-              For workshops that run <strong>Saturday &amp; Sunday only</strong>: turn on <strong>Wknd only</strong>, enter total session days (e.g. <strong>7</strong>), then Save All.
-              The card will show <em>7 Days (Wknds)</em> instead of the full calendar span.
+              Enter <strong>session days</strong> (e.g. <strong>7</strong> for Jul&nbsp;31 + Aug&nbsp;1–2, 8–9, 15–16), then Save All.
+              The card shows <em>7 Days</em> instead of the full start→end span (e.g. 17 days). Turn on <strong>Wknd tag</strong> only if every session is Sat/Sun.
               {workshopRows.some((p) => (p.duration_tiers || []).length > 0) && (
                 <> Programs with <strong>tiers</strong> need this set on each tier row below.</>
               )}

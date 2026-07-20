@@ -19,6 +19,12 @@ export function countWeekendDaysInRange(startDate, endDate) {
  * Duration pill / card copy — honors explicit duration, weekends-only workshops, and date span.
  * @returns {string}
  */
+function formatSessionDayCount(days, weekendsOnly) {
+  const label = `${days} Day${days === 1 ? '' : 's'}`;
+  if (weekendsOnly) return `${label} · Weekends Only`;
+  return label;
+}
+
 export function resolveProgramDurationDisplay({ tier, program } = {}) {
   const weekendsOnly = tier ? !!tier.weekends_only : !!program?.weekends_only;
   const sessionDaysRaw = tier?.session_days ?? program?.session_days ?? 0;
@@ -26,6 +32,11 @@ export function resolveProgramDurationDisplay({ tier, program } = {}) {
   const start = tier?.start_date || program?.start_date;
   const end = tier?.end_date || program?.end_date;
   const explicit = String(tier?.duration || program?.duration || '').trim();
+
+  /** Admin-set live session count (e.g. 7 days on Jul 31 + Aug weekends) beats calendar span. */
+  if (sessionDays > 0) {
+    return formatSessionDayCount(sessionDays, weekendsOnly);
+  }
 
   if (explicit) {
     if (weekendsOnly && !/weekend/i.test(explicit)) {
@@ -35,8 +46,8 @@ export function resolveProgramDurationDisplay({ tier, program } = {}) {
   }
 
   if (weekendsOnly) {
-    const days = sessionDays > 0 ? sessionDays : countWeekendDaysInRange(start, end);
-    if (days > 0) return `${days} Day${days === 1 ? '' : 's'} · Weekends Only`;
+    const days = countWeekendDaysInRange(start, end);
+    if (days > 0) return formatSessionDayCount(days, true);
   }
 
   const s = parseProgramDate(start);
