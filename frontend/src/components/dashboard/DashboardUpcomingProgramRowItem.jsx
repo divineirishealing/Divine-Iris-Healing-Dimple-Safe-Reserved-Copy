@@ -689,9 +689,19 @@ export default function DashboardUpcomingProgramRowItem({
   const offerPriceXs = offerPrice > 0 ? Math.max(0, offerPrice - crossUnitAdj) : offerPrice;
   /** Hero card: when portal quote differs from catalog tier offer, show quote so it matches Pricing & offer. */
   const portalSelfHeroOffer =
-    !includedPkg && aq && typeof aq.self_after_promos === 'number' ? Number(aq.self_after_promos) : null;
+    portalQuotePipeline &&
+    !includedPkg &&
+    aq &&
+    typeof aq.self_after_promos === 'number'
+      ? Number(aq.self_after_promos)
+      : null;
   const portalSelfHeroList =
-    !includedPkg && aq && typeof aq.self_unit === 'number' ? Number(aq.self_unit) : null;
+    portalQuotePipeline &&
+    !includedPkg &&
+    aq &&
+    typeof aq.self_unit === 'number'
+      ? Number(aq.self_unit)
+      : null;
 
   const portalQuoteAwaitingFamilyTier = aq?._awaitingFamilyPaidTier === true;
   const familyPaidTierQuoteBlocked =

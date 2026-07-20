@@ -1099,15 +1099,13 @@ class DashboardPayIn(BaseModel):
 
 
 def _tier_unit_price(program: dict, tier_index: Optional[int], cur: str) -> float:
-    cur = (cur or "aed").lower()
-    tiers = program.get("duration_tiers") or []
-    if program.get("is_flagship") and tiers and tier_index is not None and 0 <= tier_index < len(tiers):
-        t = tiers[tier_index]
-    else:
-        t = program
-    off = float(t.get(f"offer_price_{cur}", 0) or 0)
-    base = float(t.get(f"price_{cur}", 0) or 0)
-    return off if off > 0 else base
+    """Effective catalog seat price: early bird while active, else tier offer, else list."""
+    from utils.effective_pricing import resolve_program_offer
+
+    offer, _, _ = resolve_program_offer(program, tier_index, cur)
+    if offer > 0:
+        return offer
+    return _tier_list_unit_price(program, tier_index, cur)
 
 
 def _tier_list_unit_price(program: dict, tier_index: Optional[int], cur: str) -> float:
@@ -2002,10 +2000,11 @@ async def compute_dashboard_annual_family_pricing(
                 self_after = max(0.0, round(self_unit, 2))
                 member_rule = "list"
         else:
-            # Non-annual payer: "You" uses Extended / "other" column — not immediate family (₹1,111).
-            self_unit = fam_unit
+            # Non-annual payer: catalog early bird / offer for the line; optional extended column overlay.
+            eff_self = _tier_unit_price(program, self_tier, cur)
+            self_unit = _tier_list_unit_price(program, self_tier, cur)
             _sg, self_after, member_rule, annual_promo_applied = await _apply_portal_guest_line_offer(
-                program_id, currency, fam_unit, 1, extended_guest_offer or {}, program, line_tier_index=fam_tier
+                program_id, currency, eff_self, 1, extended_guest_offer or {}, program, line_tier_index=self_tier
             )
     else:
         self_after = 0.0

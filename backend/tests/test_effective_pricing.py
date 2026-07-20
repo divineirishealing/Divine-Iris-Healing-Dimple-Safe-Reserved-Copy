@@ -81,3 +81,16 @@ def test_early_bird_expired_after_time_passes():
     assert is_eb is False
     assert price == 999
     assert text == "Regular Offer"
+
+
+def test_tier_unit_price_prefers_early_bird_over_offer():
+    from routes.student import _tier_list_unit_price, _tier_unit_price
+
+    program = {
+        "price_inr": 21000,
+        "offer_price_inr": 7500,
+        "early_bird_date": _future_date(),
+        "early_bird_price_inr": 4200,
+    }
+    assert _tier_unit_price(program, None, "inr") == 4200
+    assert _tier_list_unit_price(program, None, "inr") == 21000
