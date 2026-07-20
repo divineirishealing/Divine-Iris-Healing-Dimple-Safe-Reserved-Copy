@@ -413,6 +413,8 @@ export default function DashboardUpcomingProgramRowItem({
   promoForProgramClicks,
   promoByProgramId,
   promoPricesLoading,
+  /** When true, ignore portal GET /dashboard-quote for display — mirror public site catalog only. */
+  websiteCatalogPricing = false,
   aq,
   annualIncludedIds,
   members,
@@ -444,6 +446,8 @@ export default function DashboardUpcomingProgramRowItem({
   const { toast } = useToast();
 
   const portalQuotePipeline = annualDashboardAccess || cohortPortalQuotePricing;
+  /** Portal quote rows override catalog — only when annual/cohort portal pricing applies. */
+  const quoteForDisplay = websiteCatalogPricing ? null : aq;
   const tiers = p.duration_tiers || [];
   const hasTiers = p.is_flagship && tiers.length > 0;
   const familyPaidTierOptions = useMemo(() => nonYearLongTierIndices(p), [p]);
@@ -582,6 +586,9 @@ export default function DashboardUpcomingProgramRowItem({
     : (bookerEnrollingSelf ? 1 : 0) + selCount;
   const payWishSelectionTotal =
     isPayAsYouWish && payWishAmountValid ? parsedPayWishPerPerson * payingSeatCount : 0;
+  /** Included package: total can be 0 (member seat only). Pay-as-you-wish: valid contribution counts as payable. */
+  const hasPayableSelectionTotal =
+    isPayAsYouWish && payWishAmountValid && payWishSelectionTotal > 0 && payingSeatCount > 0;
 
   const onlyBookerIncludedNoGuestSeats =
     includedPkg &&
@@ -687,27 +694,36 @@ export default function DashboardUpcomingProgramRowItem({
   const crossUnitAdj = crossSellDiscount?.amount > 0 ? crossSellDiscount.amount : 0;
   const afterPromoXs = Math.max(0, afterPromo - crossUnitAdj);
   const offerPriceXs = offerPrice > 0 ? Math.max(0, offerPrice - crossUnitAdj) : offerPrice;
-  /** Hero card: when portal quote differs from catalog tier offer, show quote so it matches Pricing & offer. */
+  /** Hero card: portal quote when annual/cohort overlays apply; otherwise always catalog (website parity). */
   const portalSelfHeroOffer =
+    !websiteCatalogPricing &&
     portalQuotePipeline &&
     !includedPkg &&
-    aq &&
-    typeof aq.self_after_promos === 'number'
-      ? Number(aq.self_after_promos)
+    quoteForDisplay &&
+    typeof quoteForDisplay.self_after_promos === 'number'
+      ? Number(quoteForDisplay.self_after_promos)
       : null;
   const portalSelfHeroList =
+    !websiteCatalogPricing &&
     portalQuotePipeline &&
     !includedPkg &&
-    aq &&
-    typeof aq.self_unit === 'number'
-      ? Number(aq.self_unit)
+    quoteForDisplay &&
+    typeof quoteForDisplay.self_unit === 'number'
+      ? Number(quoteForDisplay.self_unit)
       : null;
 
-  const portalQuoteAwaitingFamilyTier = aq?._awaitingFamilyPaidTier === true;
+  const portalQuoteAwaitingFamilyTier = quoteForDisplay?._awaitingFamilyPaidTier === true;
   const familyPaidTierQuoteBlocked =
     needsFamilyPaidTier && (guestTierIncomplete || portalQuoteAwaitingFamilyTier);
-  const hasPortalTotal =
-    aq != null && typeof aq.total === 'number' && !portalQuoteAwaitingFamilyTier;
+  const hasPortalTotal = websiteCatalogPricing
+    ? Boolean(
+        enrollStatus === 'open' &&
+          !showContact &&
+          (includedPkg || dashboardSeatUnit > 0 || hasPayableSelectionTotal || isPayAsYouWish),
+      )
+    : quoteForDisplay != null &&
+      typeof quoteForDisplay.total === 'number' &&
+      !portalQuoteAwaitingFamilyTier;
   /**
    * Paying seats: quote total &gt; 0. Guest-only with no one selected yet: allow Update if the line is already
    * in the cart so the booker can remove themselves / clear the line without re-checking the box.
@@ -718,17 +734,15 @@ export default function DashboardUpcomingProgramRowItem({
     !bookerEnrollingSelf &&
     selCount === 0 &&
     isInCart;
-  /** Included package: total can be 0 (member seat only). Pay-as-you-wish: valid contribution counts as payable. */
-  const hasPayableSelectionTotal =
-    isPayAsYouWish && payWishAmountValid && payWishSelectionTotal > 0 && payingSeatCount > 0;
   const canAddToDivineCart = showContact
     ? Boolean(canSaveGuestOnlyClear)
     : familyPaidTierQuoteBlocked
       ? false
       : hasPortalTotal
         ? Boolean(
-            (includedPkg && Number(aq.total) >= 0) ||
-              (!includedPkg && (Number(aq.total) > 0 || hasPayableSelectionTotal)) ||
+            (includedPkg && Number(quoteForDisplay?.total ?? 0) >= 0) ||
+              (!includedPkg &&
+                (Number(quoteForDisplay?.total ?? 0) > 0 || hasPayableSelectionTotal)) ||
               canSaveGuestOnlyClear,
           )
         : Boolean(enrollStatus === 'open' && !showContact && (hasPayableSelectionTotal || !isPayAsYouWish));
@@ -745,8 +759,10 @@ export default function DashboardUpcomingProgramRowItem({
     const immPool = [...(members || []), ...(annualHouseholdPeers || [])];
 
     const tierPartTotal = (tierIdx, includeSelf) => {
-      const parts = aq?._tierQuoteParts;
-      if (!parts || !Array.isArray(parts)) return aq?.total != null ? Number(aq.total) : null;
+      const parts = quoteForDisplay?._tierQuoteParts;
+      if (!parts || !Array.isArray(parts)) {
+        return quoteForDisplay?.total != null ? Number(quoteForDisplay.total) : null;
+      }
       const nt = normalizeCartProgramTier(p, tierIdx);
       const hit = parts.find((tp) => {
         if (includeSelf) return tp.include_self === true;
@@ -867,9 +883,11 @@ export default function DashboardUpcomingProgramRowItem({
         portalQuoteTotal:
           isPayAsYouWish && payWishAmountValid
             ? payWishSelectionTotal
-            : aq?.total != null
-              ? Number(aq.total)
-              : null,
+            : websiteCatalogPricing
+              ? null
+              : quoteForDisplay?.total != null
+                ? Number(quoteForDisplay.total)
+                : null,
         guestBucketById,
         ...payWishLineMeta,
       });
@@ -902,7 +920,9 @@ export default function DashboardUpcomingProgramRowItem({
           portalQuoteTotal:
             isPayAsYouWish && payWishAmountValid
               ? parsedPayWishPerPerson * bookerParticipants.length
-              : tierPartTotal(normalizedBookerTier, true),
+              : websiteCatalogPricing
+                ? null
+                : tierPartTotal(normalizedBookerTier, true),
           guestBucketById: {},
           ...payWishLineMeta,
         });
@@ -937,7 +957,9 @@ export default function DashboardUpcomingProgramRowItem({
         portalQuoteTotal:
           isPayAsYouWish && payWishAmountValid
             ? parsedPayWishPerPerson * gp.length
-            : tierPartTotal(nt, false),
+            : websiteCatalogPricing
+              ? null
+              : tierPartTotal(nt, false),
         guestBucketById: gb,
         ...payWishLineMeta,
       });
@@ -1481,7 +1503,7 @@ export default function DashboardUpcomingProgramRowItem({
                       ) : null}
                     </div>
                   ) : null}
-                  {aq ? (
+                  {quoteForDisplay ? (
                     showContact ? (
                       <div className="rounded-md border border-amber-200 bg-amber-50/90 px-3 py-2.5 text-[11px] text-slate-800 leading-snug space-y-1.5">
                         <p className="font-bold text-slate-900">
@@ -1510,7 +1532,7 @@ export default function DashboardUpcomingProgramRowItem({
                       </div>
                     ) : (
                       <AnnualQuoteBreakdown
-                        aq={aq}
+                        aq={quoteForDisplay}
                         symbol={symbol}
                         includedPkg={includedPkg}
                         annualDashboardAccess={annualDashboardAccess}
@@ -1648,7 +1670,7 @@ export default function DashboardUpcomingProgramRowItem({
                   })()}
                 </div>
               ) : null}
-              {aq && !showContact && !familyPaidTierQuoteBlocked ? (
+              {quoteForDisplay && !showContact && !familyPaidTierQuoteBlocked ? (
                 <div className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug space-y-1">
                   <p>
                     Your selection total{includedPkg ? ' (guests & add-ons)' : ''}:{' '}
@@ -1663,7 +1685,7 @@ export default function DashboardUpcomingProgramRowItem({
                         {symbol}{' '}
                         {(isPayAsYouWish && payWishAmountValid
                           ? payWishSelectionTotal
-                          : Math.max(0, Number(aq.total ?? 0) - crossSellLineDeduction)
+                          : Math.max(0, Number(quoteForDisplay.total ?? 0) - crossSellLineDeduction)
                         ).toLocaleString()}
                       </span>
                     )}
@@ -1675,7 +1697,7 @@ export default function DashboardUpcomingProgramRowItem({
                     </p>
                   ) : null}
                 </div>
-              ) : !aq ? (() => {
+              ) : !quoteForDisplay ? (() => {
                 const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
                 const seatPriceBase = showSpecialPromo ? afterPromo : dashboardSeatUnit;
                 const seatPrice =
@@ -2185,12 +2207,12 @@ export default function DashboardUpcomingProgramRowItem({
                               ? 'Select family guests or check “I am enrolling myself”, then add to Divine Cart.'
                               : isPayAsYouWish && payWishAwaitingAmount
                                 ? 'Enter your contribution amount first.'
-                              : (aq.total || 0) <= 0 && !hasPayableSelectionTotal
+                              : (Number(quoteForDisplay?.total ?? 0) <= 0 && !hasPayableSelectionTotal)
                                 ? 'No amount due for this selection.'
                                 : ''
                           : showContact
                             ? 'Use contact for pricing for this program.'
-                            : !aq && enrollStatus === 'open'
+                            : !websiteCatalogPricing && !quoteForDisplay && enrollStatus === 'open'
                               ? 'Loading pricing…'
                               : 'Enrollment is closed.'
                     : canSaveGuestOnlyClear

@@ -569,8 +569,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     return resolveProgramOffer(item, tierIndex, 'inr').price;
   }, []);
 
-  const displayGetPrice = portalQuoteCurrency === 'inr' ? rawInrProgramPrice : getPrice;
-  const displayGetOfferPrice = portalQuoteCurrency === 'inr' ? rawInrProgramOffer : getOfferPrice;
   const [saving, setSaving] = useState(false);
   const [promoByProgramId, setPromoByProgramId] = useState({});
   const [promoPricesLoading, setPromoPricesLoading] = useState(false);
@@ -701,6 +699,42 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const sacredHomeDashboardQuotesEnabled = !!homeData?.client_id;
   /** True when this login receives dashboard offer columns (annual portal and/or cohort batch). */
   const hasPortalPricingOverlays = annualPortalAccess || cohortPortalPricing;
+  /** Non-annual / no cohort: Sacred Home must mirror public Upcoming Programs pricing (early bird → offer → list). */
+  const websiteCatalogPricing = !hasPortalPricingOverlays;
+
+  const catalogListForPortal = useCallback(
+    (item, tierIndex = null) => {
+      if (!item) return 0;
+      const c = (portalQuoteCurrency || 'inr').toLowerCase();
+      const tiers = item.duration_tiers || [];
+      const hasTiers = item.is_flagship && tiers.length > 0;
+      const tier = hasTiers && tierIndex != null ? tiers[tierIndex] : null;
+      const key = `price_${c}`;
+      return tier ? Number(tier[key] || 0) : Number(item[key] || 0);
+    },
+    [portalQuoteCurrency],
+  );
+
+  const catalogOfferForPortal = useCallback(
+    (item, tierIndex = null) => {
+      if (!item) return 0;
+      const c = (portalQuoteCurrency || 'inr').toLowerCase();
+      return resolveProgramOffer(item, tierIndex, c).price;
+    },
+    [portalQuoteCurrency],
+  );
+
+  const displayGetPrice = websiteCatalogPricing
+    ? catalogListForPortal
+    : portalQuoteCurrency === 'inr'
+      ? rawInrProgramPrice
+      : getPrice;
+  const displayGetOfferPrice = websiteCatalogPricing
+    ? catalogOfferForPortal
+    : portalQuoteCurrency === 'inr'
+      ? rawInrProgramOffer
+      : getOfferPrice;
+
   const immediateFamilyLocked = !!homeData?.immediate_family_locked;
   const immediateFamilyEditApproved = homeData?.immediate_family_editing_approved !== false;
   const familyApproved = !!homeData?.family_approved;
@@ -1282,6 +1316,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       setAnnualQuotes({});
       return;
     }
+    /** Portal quotes override catalog — skip fetch for plain non-annual logins (website parity, no 4200→7500 flicker). */
+    if (websiteCatalogPricing) {
+      setAnnualQuotes({});
+      return;
+    }
     const programs = programsForPrefetch;
     if (programs.length === 0) {
       setAnnualQuotes({});
@@ -1414,6 +1453,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     };
   }, [
     sacredHomeDashboardQuotesEnabled,
+    websiteCatalogPricing,
     annualPortalAccess,
     cohortPortalPricing,
     currencyReady,
@@ -2049,7 +2089,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       portalQuoteTotal:
         payWishPerPerson != null
           ? payWishPerPerson * Math.max(1, participants.length)
-          : annualQuotes[programId]?.total != null
+          : hasPortalPricingOverlays && annualQuotes[programId]?.total != null
             ? Number(annualQuotes[programId].total)
             : null,
       guestBucketById,
@@ -2253,7 +2293,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   promoForProgramClicks={promoForProgramClicks}
                   promoByProgramId={promoByProgramId}
                   promoPricesLoading={promoPricesLoading}
-                  aq={annualQuotes[p.id]}
+                  websiteCatalogPricing={websiteCatalogPricing}
+                  aq={hasPortalPricingOverlays ? annualQuotes[p.id] : null}
                   annualIncludedIds={annualIncludedIds}
                   members={members}
                   otherMembers={otherMembers}
