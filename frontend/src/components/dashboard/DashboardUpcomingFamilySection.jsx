@@ -22,6 +22,7 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
 import { useCart, normalizeCartProgramTier } from '../../context/CartContext';
+import { nearestOfferCountdownAcrossPrograms } from '../../lib/effectiveOfferPricing';
 import {
   pickTierIndexForDashboard,
   programIncludedInAnnualPackage,
@@ -792,17 +793,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     setUpcomingSessionHydrated(false);
   }, [bookerEmail]);
 
-  const nearestUpcomingProgram = useMemo(() => {
-    const list = upcomingList
-      .filter((p) => p && (p.deadline_date || p.start_date))
-      .sort((a, b) =>
-        String(a.deadline_date || a.start_date || '').localeCompare(String(b.deadline_date || b.start_date || ''))
-      );
-    return list[0] || null;
-  }, [upcomingList]);
-  const countdownDeadline = nearestUpcomingProgram
-    ? nearestUpcomingProgram.deadline_date || nearestUpcomingProgram.start_date
-    : null;
+  const { deadline: countdownDeadline, program: nearestUpcomingProgram } = useMemo(
+    () =>
+      nearestOfferCountdownAcrossPrograms(upcomingList, (p) =>
+        pickTierIndexForDashboard(p, !!annualPortalAccess) ?? 0,
+      ),
+    [upcomingList, annualPortalAccess],
+  );
   const exclusiveSiteOffer = siteSettings?.exclusive_offer || {};
   const exclusiveOfferLine =
     exclusiveSiteOffer.enabled && String(exclusiveSiteOffer.text || '').trim()

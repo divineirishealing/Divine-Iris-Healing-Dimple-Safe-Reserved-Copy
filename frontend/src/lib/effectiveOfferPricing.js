@@ -76,3 +76,24 @@ export function getOfferCountdownDeadline(program, tierIndex = null) {
   if (resolved.isEarlyBird && resolved.deadline) return resolved.deadline;
   return program?.deadline_date || program?.start_date || null;
 }
+
+/** Nearest active offer countdown across programs (Sacred Home strip). */
+export function nearestOfferCountdownAcrossPrograms(programs, resolveTierIndex) {
+  let bestDeadline = null;
+  let bestProgram = null;
+  let bestTime = Infinity;
+  for (const p of programs || []) {
+    if (!p) continue;
+    const tierIdx = typeof resolveTierIndex === 'function' ? resolveTierIndex(p) : null;
+    const dl = getOfferCountdownDeadline(p, tierIdx);
+    if (!dl) continue;
+    const parsed = parsePricingDate(String(dl));
+    if (!parsed || parsed.getTime() <= Date.now()) continue;
+    if (parsed.getTime() < bestTime) {
+      bestTime = parsed.getTime();
+      bestDeadline = dl;
+      bestProgram = p;
+    }
+  }
+  return { deadline: bestDeadline, program: bestProgram };
+}

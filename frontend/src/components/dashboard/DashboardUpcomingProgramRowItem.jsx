@@ -23,6 +23,11 @@ import {
   promoDiscountAmount,
 } from './dashboardUpcomingHelpers';
 import {
+  getOfferCountdownDeadline,
+  resolveProgramOffer,
+  parsePricingDate,
+} from '../../lib/effectiveOfferPricing';
+import {
   buildDashboardCrossSellPreviewParticipants,
   computeCrossSellDiscount,
   crossSellEligibleParticipantCount,
@@ -459,12 +464,15 @@ export default function DashboardUpcomingProgramRowItem({
   /** Tier offer when set, else list — matches program page; portal column overlays apply only with Annual+Dashboard access (backend). */
   const dashboardSeatUnit = offerPrice > 0 ? offerPrice : price;
 
-  const deadline = p.deadline_date || p.start_date;
+  const tierForPricing = hasTiers ? tierIdxForDisplay : null;
+  const offerMeta = resolveProgramOffer(p, tierForPricing, currency || 'aed');
+  const offerCountdownDeadline = getOfferCountdownDeadline(p, tierForPricing);
+  const registrationDeadline = p.deadline_date || p.start_date;
   const expired = useMemo(() => {
-    if (!deadline) return false;
-    const t = new Date(deadline);
+    if (!registrationDeadline) return false;
+    const t = new Date(registrationDeadline);
     return !Number.isNaN(t.getTime()) && t.getTime() < Date.now();
-  }, [deadline]);
+  }, [registrationDeadline]);
 
   const enrollStatus = expired ? 'closed' : p.enrollment_status || (p.enrollment_open !== false ? 'open' : 'closed');
 
@@ -1091,7 +1099,7 @@ export default function DashboardUpcomingProgramRowItem({
             <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-2.5 pt-6">
               <div className="flex items-end justify-between gap-2">
                 <div className="flex-shrink-0 min-w-0">
-                  {deadline && <CountdownTimer deadline={deadline} />}
+                  {registrationDeadline && <CountdownTimer deadline={registrationDeadline} />}
                 </div>
                 {p.exclusive_offer_enabled && p.exclusive_offer_text && (
                   <span
@@ -1263,19 +1271,24 @@ export default function DashboardUpcomingProgramRowItem({
               {enrollStatus === 'open' &&
                 !includedPkg &&
                 offerPrice > 0 &&
-                deadline &&
+                offerCountdownDeadline &&
                 (() => {
-                  const dl = new Date(deadline);
-                  if (dl <= new Date()) return null;
-                  const diff = dl - Date.now();
+                  const dl = parsePricingDate(String(offerCountdownDeadline));
+                  if (!dl || dl.getTime() <= Date.now()) return null;
+                  const diff = dl.getTime() - Date.now();
                   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
                   const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                   const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
                   return (
-                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
+                    <div
+                      className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3"
+                      data-testid={`dashboard-early-bird-${p.id}`}
+                    >
                       <Bell size={14} className="text-red-500 flex-shrink-0" />
                       <div className="text-xs leading-snug min-w-0">
-                        <span className="font-bold text-red-600 tracking-wide">{p.offer_text || 'Exclusive'}</span>
+                        <span className="font-bold text-red-600 tracking-wide">
+                          {offerMeta.text || p.offer_text || 'Early Bird'}
+                        </span>
                         <span className="text-red-600 ml-1.5">
                           ends in {days}d {hours}h {mins}m
                         </span>
