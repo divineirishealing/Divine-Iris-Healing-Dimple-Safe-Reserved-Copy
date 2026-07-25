@@ -591,7 +591,7 @@ const SponsorCard = ({ sponsorData }) => {
   const imgUrl = h.image ? resolveImageUrl(h.image) : '';
   return (
     <div data-testid="sponsor-card-upcoming"
-      className="group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col hover:shadow-2xl h-full">
+      className="group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col hover:shadow-2xl">
       <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate('/sponsor')}>
         {imgUrl ? (
           <img src={imgUrl} alt={h.title || 'Become a Sponsor'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -607,8 +607,8 @@ const SponsorCard = ({ sponsorData }) => {
       <div className="p-4 flex-1 flex flex-col">
         <p className="text-[#D4AF37] text-[10px] tracking-wider mb-0.5 uppercase">{h.subtitle || 'Conscious Support'}</p>
         <h3 className="text-base font-semibold text-gray-900 mb-1.5 leading-tight cursor-pointer hover:text-[#D4AF37] transition-colors" onClick={() => navigate('/sponsor')}>{h.title || 'Sponsor A Life'}</h3>
-        <p className="text-xs text-gray-500 leading-relaxed mb-3 flex-1">{h.body_1 || 'Contribute towards someone\'s healing journey — anonymously or intentionally. When one heals, the collective heals.'}</p>
-        <div className="mt-auto pt-2">
+        <p className="text-xs text-gray-500 leading-relaxed mb-3">{h.body_1 || 'Contribute towards someone\'s healing journey — anonymously or intentionally. When one heals, the collective heals.'}</p>
+        <div className="pt-2">
           <button onClick={() => navigate('/sponsor')} data-testid="sponsor-card-cta"
             className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
             {h.button_text || h.title || 'Sponsor a Life'}
@@ -871,7 +871,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
 
           <div
             data-testid="sponsor-card-column"
-            className="h-full lg:col-start-4 lg:row-start-2"
+            className="lg:col-start-4 lg:row-start-2 lg:self-start"
           >
             <div className="text-center mb-4 lg:hidden">
               <h2 className="text-2xl sm:text-3xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
