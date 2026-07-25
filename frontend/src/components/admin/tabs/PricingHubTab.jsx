@@ -27,7 +27,7 @@ const PRICING_PROGRAM_FIELD_KEYS = [
 ];
 
 const TIER_PRICING_FIELD_KEYS = [
-  'label', 'duration_value', 'duration_unit', 'duration', 'weekends_only', 'session_days',
+  'label', 'duration_value', 'duration_unit', 'duration', 'weekends_only', 'session_days', 'visible_on_website',
   'price_aed', 'price_inr', 'price_usd',
   'early_bird_price_aed', 'early_bird_price_inr', 'early_bird_price_usd',
   'early_bird_date', 'early_bird_text',
@@ -56,6 +56,7 @@ function mergeDurationTiersForPricingSave(serverTiers = [], localTiers = []) {
     merged.end_date = base.end_date ?? loc.end_date ?? '';
     merged.weekends_only = loc.weekends_only ?? base.weekends_only ?? false;
     merged.session_days = loc.session_days ?? base.session_days ?? 0;
+    merged.visible_on_website = loc.visible_on_website ?? base.visible_on_website ?? true;
     if (loc.duration !== undefined && loc.duration !== null && loc.duration !== '') {
       merged.duration = loc.duration;
     }
@@ -197,7 +198,7 @@ const PricingHubTab = () => {
     setPrograms(prev => {
       const c = [...prev];
       const tiers = [...(c[pIdx].duration_tiers || [])];
-      tiers.push({ label: '1 Month', duration_value: 1, duration_unit: 'month', price_aed: 0, price_inr: 0, price_usd: 0, early_bird_price_aed: 0, early_bird_price_inr: 0, early_bird_price_usd: 0, early_bird_date: '', early_bird_text: '', offer_price_aed: 0, offer_price_inr: 0, offer_price_usd: 0, offer_text: '', start_date: '', end_date: '' });
+      tiers.push({ label: '1 Month', duration_value: 1, duration_unit: 'month', visible_on_website: true, price_aed: 0, price_inr: 0, price_usd: 0, early_bird_price_aed: 0, early_bird_price_inr: 0, early_bird_price_usd: 0, early_bird_date: '', early_bird_text: '', offer_price_aed: 0, offer_price_inr: 0, offer_price_usd: 0, offer_text: '', start_date: '', end_date: '' });
       c[pIdx] = { ...c[pIdx], duration_tiers: tiers };
       setExpandedPrograms(e => ({ ...e, [c[pIdx].id]: true }));
       return c;
@@ -259,7 +260,7 @@ const PricingHubTab = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2"><DollarSign size={18} className="text-[#D4AF37]" /> Pricing Hub</h2>
-          <p className="text-xs text-gray-500 mt-1">Edit list, early bird, and offer prices. Use the <strong>Weekend workshop schedule</strong> panel below for Sat/Sun-only durations (e.g. 7 days).</p>
+          <p className="text-xs text-gray-500 mt-1">Edit list, early bird, and offer prices. Use the <strong>Weekend workshop schedule</strong> panel below for Sat/Sun-only durations (e.g. 7 days). Per tier, toggle <strong>Web</strong> off to hide a duration on the public site (e.g. keep 3 Months in admin but show only 1 + 2 Months).</p>
         </div>
         <Button onClick={saveAll} disabled={saving} className="bg-[#D4AF37] hover:bg-[#b8962e]" data-testid="pricing-hub-save">
           <Save size={14} className="mr-1" />{saving ? 'Saving...' : 'Save All'}
@@ -411,11 +412,24 @@ const PricingHubTab = () => {
                     {hasTiers && isExpanded && (p.duration_tiers || []).map((t, ti) => (
                       <tr key={`${p.id}-t${ti}`} className="border-b bg-amber-50/40" data-testid={`pricing-tier-${p.id}-${ti}`}>
                         <td className="px-2 py-1 sticky left-0 bg-amber-50/40 z-10">
-                          <div className="flex items-center gap-1 ml-5">
+                          <div className="flex flex-col gap-1 ml-5 min-w-[140px]">
                             <select value={t.label || ''} onChange={e => updateTier(i, ti, 'label', e.target.value)}
                               className="border rounded px-1 py-1 text-[10px] bg-white w-[110px]">
                               {DURATION_PRESETS.map(d => <option key={d} value={d}>{d}</option>)}
                             </select>
+                            <label
+                              className="flex items-center gap-1.5 text-[9px] text-slate-700 cursor-pointer w-fit"
+                              title="When off, this duration is hidden on the public website (homepage, program page, enroll). Still available in admin and payment links."
+                            >
+                              <Switch
+                                checked={t.visible_on_website !== false}
+                                onCheckedChange={(v) => updateTier(i, ti, 'visible_on_website', v)}
+                                data-testid={`pricing-tier-web-${p.id}-${ti}`}
+                              />
+                              <span className="font-semibold uppercase tracking-wide">
+                                {t.visible_on_website !== false ? 'On website' : 'Hidden'}
+                              </span>
+                            </label>
                           </div>
                         </td>
                         <td colSpan={9}></td>

@@ -28,6 +28,7 @@ import {
 import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInCurrency } from '../lib/payAsYouWish';
 import { getOfferCountdownDeadline, resolveProgramOffer, parsePricingDate } from '../lib/effectiveOfferPricing';
 import { resolveProgramDurationDisplay } from '../lib/programDurationDisplay';
+import { resolveEnrollTierIndex, programHasWebsiteVisibleTiers } from '../lib/programTierVisibility';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -306,12 +307,7 @@ function EnrollmentPage() {
   const currency = baseCurrency;
 
   const tierParam = searchParams.get('tier');
-  const initialTier = (() => {
-    if (tierParam === null || tierParam === '') return null;
-    const n = parseInt(tierParam, 10);
-    return Number.isFinite(n) ? n : null;
-  })();
-  const [selectedTier, setSelectedTier] = useState(initialTier);
+  const [selectedTier, setSelectedTier] = useState(null);
   const promoFromUrl = searchParams.get('promo');
   const sourceDashboard = searchParams.get('source') === 'dashboard';
   const promoUrlAppliedRef = useRef(false);
@@ -334,12 +330,11 @@ function EnrollmentPage() {
   const [clientPayWishAmount, setClientPayWishAmount] = useState('');
   const [payWishFxRates, setPayWishFxRates] = useState({});
 
-  // Default to tier 0 if program has tiers and no tier selected
+  // Resolve tier once program loads (?tier= from links; default first website-visible tier).
   useEffect(() => {
-    if (item?.is_flagship && item?.duration_tiers?.length > 0 && selectedTier === null) {
-      setSelectedTier(0);
-    }
-  }, [item]);
+    if (!item?.is_flagship || !(item.duration_tiers?.length > 0)) return;
+    setSelectedTier(resolveEnrollTierIndex(item, tierParam));
+  }, [item?.id, item?.duration_tiers, tierParam]);
   const [enrollmentId, setEnrollmentId] = useState(null);
   const goBackFromPayStep = useCallback(() => {
     if (!sourceDashboard) {
@@ -613,7 +608,7 @@ function EnrollmentPage() {
   };
 
   const tiers = item?.duration_tiers || [];
-  const hasTiers = item?.is_flagship && tiers.length > 0 && selectedTier !== null;
+  const hasTiers = programHasWebsiteVisibleTiers(item) && selectedTier !== null;
   const tierObj = hasTiers ? tiers[selectedTier] : null;
 
   // Tier-aware display values for the left card

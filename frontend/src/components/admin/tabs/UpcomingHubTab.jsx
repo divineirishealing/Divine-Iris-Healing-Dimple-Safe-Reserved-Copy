@@ -50,6 +50,7 @@ function mergeDurationTiersForHubSave(serverTiers = [], localTiers = []) {
       duration: loc.duration !== undefined && loc.duration !== null ? loc.duration : base.duration,
       weekends_only: loc.weekends_only ?? base.weekends_only ?? false,
       session_days: loc.session_days ?? base.session_days ?? 0,
+      visible_on_website: loc.visible_on_website ?? base.visible_on_website ?? true,
     };
   });
 }

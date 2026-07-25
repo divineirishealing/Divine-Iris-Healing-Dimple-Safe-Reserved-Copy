@@ -11,6 +11,13 @@ import { catalogPayAsYouWishEnabled } from '../lib/payAsYouWish';
 import { getOfferCountdownDeadline, resolveProgramOffer, parsePricingDate } from '../lib/effectiveOfferPricing';
 import { resolveProgramDurationDisplay } from '../lib/programDurationDisplay';
 import { durationPillDisplay } from '../lib/upcomingHomepagePresentation';
+import {
+  websiteVisibleTierEntries,
+  firstWebsiteVisibleTierIndex,
+  isValidWebsiteTierSelection,
+  programHasWebsiteVisibleTiers,
+  countWebsiteVisibleTiers,
+} from '../lib/programTierVisibility';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -210,11 +217,18 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const { addItem, items } = useCart();
   const { toast } = useToast();
-  const [selectedTier, setSelectedTier] = useState(0);
+  const [selectedTier, setSelectedTier] = useState(() => firstWebsiteVisibleTierIndex(program));
   const [justAdded, setJustAdded] = useState(false);
-  const tiers = program.duration_tiers || [];
-  const hasTiers = program.is_flagship && tiers.length > 0;
-  const tier = hasTiers ? tiers[selectedTier] : null;
+  const websiteTierEntries = React.useMemo(() => websiteVisibleTierEntries(program), [program]);
+  const hasTiers = programHasWebsiteVisibleTiers(program);
+  const tier = hasTiers ? program.duration_tiers[selectedTier] : null;
+
+  React.useEffect(() => {
+    if (!hasTiers) return;
+    if (!isValidWebsiteTierSelection(program, selectedTier)) {
+      setSelectedTier(firstWebsiteVisibleTierIndex(program));
+    }
+  }, [program.id, hasTiers, program, selectedTier]);
 
   const isAnnual = tier && (tier.label.toLowerCase().includes('annual') || tier.label.toLowerCase().includes('year') || tier.duration_unit === 'year');
   const price = getPrice(program, hasTiers ? selectedTier : null);
@@ -252,7 +266,7 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   };
 
   // Use tier-specific dates if available, otherwise fall back to program dates
-  const activeTier = hasTiers ? tiers[selectedTier] : null;
+  const activeTier = hasTiers ? program.duration_tiers[selectedTier] : null;
   const displayStartDate = (activeTier?.start_date) || program.start_date;
   const displayEndDate = (activeTier?.end_date) || program.end_date;
 
@@ -301,7 +315,11 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   };
 
   const tierGridClass =
-    tiers.length <= 1 ? 'grid-cols-1' : tiers.length === 2 ? 'grid-cols-2' : 'grid-cols-3';
+    websiteTierEntries.length <= 1
+      ? 'grid-cols-1'
+      : websiteTierEntries.length === 2
+        ? 'grid-cols-2'
+        : 'grid-cols-3';
 
   return (
     <div data-testid={`upcoming-card-${program.id}`}
@@ -421,7 +439,7 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
             {hasTiers && (
               <div data-testid={`upcoming-tier-selector-${program.id}`} className="mb-3">
                 <div className={`grid ${tierGridClass} gap-1`}>
-                  {tiers.map((t, i) => (
+                  {websiteTierEntries.map(({ tier: t, catalogIndex: i }) => (
                     <button                      key={i}
                       data-testid={`upcoming-tier-btn-${program.id}-${i}`}
                       type="button"

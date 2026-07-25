@@ -9,6 +9,12 @@ import { ShoppingCart, Check } from 'lucide-react';
 import { HEADING, BODY, CONTAINER, applySectionStyle } from '../lib/designTokens';
 import { UpcomingCard } from './UpcomingProgramsSection';
 import { catalogPayAsYouWishEnabled } from '../lib/payAsYouWish';
+import {
+  websiteVisibleTierEntries,
+  firstWebsiteVisibleTierIndex,
+  isValidWebsiteTierSelection,
+  programHasWebsiteVisibleTiers,
+} from '../lib/programTierVisibility';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -18,14 +24,22 @@ const SimpleFlagshipCard = ({ program }) => {
   const { getPrice, getOfferPrice, symbol } = useCurrency();
   const { addItem, items } = useCart();
   const { toast } = useToast();
-  const [selectedTier, setSelectedTier] = useState(0);
+  const [selectedTier, setSelectedTier] = useState(() => firstWebsiteVisibleTierIndex(program));
   const [justAdded, setJustAdded] = useState(false);
 
-  const tiers = program.duration_tiers || [];
-  const showTiers = tiers.length > 0 && program.show_tiers_on_card !== false;
+  const websiteTierEntries = React.useMemo(() => websiteVisibleTierEntries(program), [program]);
+  const showTiers = websiteTierEntries.length > 0 && program.show_tiers_on_card !== false;
   const showPricing = program.show_pricing_on_card !== false;
   const payWishEnabled = catalogPayAsYouWishEnabled(program);
-  const tier = showTiers ? tiers[selectedTier] : null;
+
+  React.useEffect(() => {
+    if (!showTiers) return;
+    if (!isValidWebsiteTierSelection(program, selectedTier)) {
+      setSelectedTier(firstWebsiteVisibleTierIndex(program));
+    }
+  }, [program.id, showTiers, program, selectedTier]);
+
+  const tier = showTiers ? program.duration_tiers[selectedTier] : null;
   const isAnnual = tier && (tier.label.toLowerCase().includes('annual') || tier.label.toLowerCase().includes('year'));
   const price = getPrice(program, showTiers ? selectedTier : null);
   const offerPrice = getOfferPrice(program, showTiers ? selectedTier : null);
@@ -102,7 +116,7 @@ const SimpleFlagshipCard = ({ program }) => {
         {showTiers && (
           <div data-testid={`flagship-tier-selector-${program.id}`} className="mb-3">
             <div className="flex gap-1">
-              {tiers.map((t, i) => (
+              {websiteTierEntries.map(({ tier: t, catalogIndex: i }) => (
                 <button key={i} data-testid={`flagship-tier-btn-${program.id}-${i}`}
                   onClick={() => setSelectedTier(i)}
                   className={`flex-1 text-[10px] py-1.5 rounded-full border transition-all ${

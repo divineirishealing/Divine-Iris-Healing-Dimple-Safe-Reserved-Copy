@@ -46,6 +46,7 @@ class DurationTier(BaseModel):
     end_date: str = ""
     weekends_only: bool = False
     session_days: int = 0
+    visible_on_website: bool = True
 
 
 class Program(BaseModel):

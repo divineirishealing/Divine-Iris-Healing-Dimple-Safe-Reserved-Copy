@@ -24,6 +24,11 @@ import {
   isStandardProgramSection,
 } from '../lib/programPageSections';
 import { computeProgramHeroLayout, computeProgramCtaLayout } from '../lib/programHeroLayout';
+import {
+  websiteVisibleTierEntries,
+  firstWebsiteVisibleTierIndex,
+  resolveEnrollTierIndex,
+} from '../lib/programTierVisibility';
 import { catalogPayAsYouWishEnabled } from '../lib/payAsYouWish';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -178,12 +183,8 @@ function ProgramDetailPage() {
   useEffect(() => {
     if (!program?.duration_tiers?.length) return;
     const t = searchParams.get('tier');
-    if (t == null || t === '') return;
-    const n = parseInt(t, 10);
-    if (!Number.isNaN(n) && n >= 0 && n < program.duration_tiers.length) {
-      setHeroTierIdx(n);
-    }
-  }, [program?.id, program?.duration_tiers?.length, searchParams]);
+    setHeroTierIdx(resolveEnrollTierIndex(program, t));
+  }, [program?.id, program?.duration_tiers, searchParams]);
 
   useEffect(() => {
     if (!program?.title) return;
@@ -289,9 +290,12 @@ function ProgramDetailPage() {
     !enrollmentExpiredByDeadline &&
     program.enrollment_open !== false &&
     String(program.enrollment_status || 'open').toLowerCase() !== 'closed';
-  const tiersLen = program.duration_tiers?.length || 0;
-  const heroPriceBase = tiersLen > 0 ? getPrice(program, 0) : getPrice(program);
-  const heroPriceOffer = tiersLen > 0 ? getOfferPrice(program, 0) : getOfferPrice(program);
+  const websiteTierEntries = useMemo(() => websiteVisibleTierEntries(program), [program]);
+  const websiteTiersLen = websiteTierEntries.length;
+  const defaultWebsiteTier = firstWebsiteVisibleTierIndex(program);
+  const tiersLen = websiteTiersLen;
+  const heroPriceBase = tiersLen > 0 ? getPrice(program, defaultWebsiteTier) : getPrice(program);
+  const heroPriceOffer = tiersLen > 0 ? getOfferPrice(program, defaultWebsiteTier) : getOfferPrice(program);
   const payWishEnabled = catalogPayAsYouWishEnabled(program);
   const heroHasAmount = payWishEnabled || heroPriceOffer > 0 || heroPriceBase > 0;
 
@@ -582,7 +586,7 @@ function ProgramDetailPage() {
                     </button>
                   </div>
                 )}
-                {heroHasTiers && program.duration_tiers.map((tier, tIdx) => {
+                {heroHasTiers && websiteTierEntries.map(({ tier, catalogIndex: tIdx }) => {
                   const isAnnual =
                     tier.label?.toLowerCase().includes('annual') ||
                     tier.label?.toLowerCase().includes('year') ||
@@ -714,8 +718,8 @@ function ProgramDetailPage() {
             {showCtaTiers && (
               <div data-testid="duration-tiers" className="max-w-3xl mx-auto mb-10">
                 {showCtaPricing ? (
-                  <div className={`grid gap-4 ${program.duration_tiers.length === 3 ? 'sm:grid-cols-3' : program.duration_tiers.length === 2 ? 'sm:grid-cols-2' : 'max-w-xs mx-auto'}`}>
-                    {program.duration_tiers.map((tier, tIdx) => {
+                  <div className={`grid gap-4 ${websiteTiersLen === 3 ? 'sm:grid-cols-3' : websiteTiersLen === 2 ? 'sm:grid-cols-2' : 'max-w-xs mx-auto'}`}>
+                    {websiteTierEntries.map(({ tier, catalogIndex: tIdx }) => {
                       const isAnnual = tier.label?.toLowerCase().includes('annual') || tier.label?.toLowerCase().includes('year') || tier.duration_unit === 'year';
                       const tierPrice = getPrice(program, tIdx);
                       const tierOffer = getOfferPrice(program, tIdx);
@@ -747,7 +751,7 @@ function ProgramDetailPage() {
                   <div className="text-center">
                     {!registrationClosed ? (
                       <div className="flex gap-3 justify-center mb-6">
-                        {program.duration_tiers.map((tier, tIdx) => (
+                        {websiteTierEntries.map(({ tier, catalogIndex: tIdx }) => (
                           <button
                             key={tIdx}
                             type="button"
@@ -781,7 +785,7 @@ function ProgramDetailPage() {
             )}
 
             {/* Regular pricing when no tiers */}
-            {showCtaPricing && (!program.duration_tiers || program.duration_tiers.length === 0) && (
+            {showCtaPricing && websiteTiersLen === 0 && (
               <div className="mb-10" data-testid="regular-pricing">
                 <div className="max-w-xs mx-auto text-center">
                   {(() => {
@@ -814,7 +818,7 @@ function ProgramDetailPage() {
 
             <div className="flex flex-col items-center gap-4 justify-center">
               {(() => {
-                const hasTiers = program.duration_tiers?.length > 0;
+                const hasTiers = websiteTiersLen > 0;
 
                 // No purchase pricing on page — still show Enroll Now if enrollment is open
                 if (!showCtaPricing) {
