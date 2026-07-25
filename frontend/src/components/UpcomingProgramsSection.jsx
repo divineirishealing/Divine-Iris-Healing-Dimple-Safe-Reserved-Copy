@@ -585,14 +585,17 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   );
 };
 
-const SponsorCard = ({ sponsorData }) => {
+const SponsorCard = ({ sponsorData, matchProgramRowHeight = false }) => {
   const navigate = useNavigate();
   const h = sponsorData || {};
   const imgUrl = h.image ? resolveImageUrl(h.image) : '';
   return (
     <div data-testid="sponsor-card-upcoming"
-      className="group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col hover:shadow-2xl">
-      <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate('/sponsor')}>
+      className={cn(
+        'group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col hover:shadow-2xl',
+        matchProgramRowHeight && 'h-full'
+      )}>
+      <div className="relative h-48 overflow-hidden cursor-pointer shrink-0" onClick={() => navigate('/sponsor')}>
         {imgUrl ? (
           <img src={imgUrl} alt={h.title || 'Become a Sponsor'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
         ) : (
@@ -604,13 +607,16 @@ const SponsorCard = ({ sponsorData }) => {
           <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm bg-[#D4AF37] text-white w-fit flex items-center gap-1"><Heart size={10} /> Sponsor</span>
         </div>
       </div>
-      <div className="p-4 flex-1 flex flex-col">
-        <p className="text-[#D4AF37] text-[10px] tracking-wider mb-0.5 uppercase">{h.subtitle || 'Conscious Support'}</p>
-        <h3 className="text-base font-semibold text-gray-900 mb-1.5 leading-tight cursor-pointer hover:text-[#D4AF37] transition-colors" onClick={() => navigate('/sponsor')}>{h.title || 'Sponsor A Life'}</h3>
-        <p className="text-xs text-gray-500 leading-relaxed mb-3">{h.body_1 || 'Contribute towards someone\'s healing journey — anonymously or intentionally. When one heals, the collective heals.'}</p>
-        <div className="pt-2">
+      <div className={cn('p-4 flex flex-col', matchProgramRowHeight && 'flex-1 min-h-0')}>
+        <p className="text-[#D4AF37] text-[11px] tracking-wider mb-1 uppercase">{h.subtitle || 'Conscious Support'}</p>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2 leading-tight cursor-pointer hover:text-[#D4AF37] transition-colors" onClick={() => navigate('/sponsor')}>{h.title || 'Sponsor A Life'}</h3>
+        <p className={cn(
+          'text-sm text-gray-500 leading-relaxed mb-3',
+          matchProgramRowHeight && 'flex-1'
+        )}>{h.body_1 || 'Contribute towards someone\'s healing journey — anonymously or intentionally. When one heals, the collective heals.'}</p>
+        <div className={cn('pt-2', matchProgramRowHeight && 'mt-auto')}>
           <button onClick={() => navigate('/sponsor')} data-testid="sponsor-card-cta"
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-full text-xs tracking-wider transition-all duration-300 uppercase font-medium">
             {h.button_text || h.title || 'Sponsor a Life'}
           </button>
         </div>
@@ -800,6 +806,8 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
     return s === 'open';
   });
   const hasOpenRegistrations = openVisiblePrograms.length > 0;
+  const firstRowPrograms = sorted.slice(0, 3);
+  const restPrograms = sorted.slice(3);
 
   const applyTitleStyle = (styleObj, defaults) => {
     if (!styleObj) return defaults;
@@ -824,9 +832,9 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
           </div>
         </>
       ) : (
-        /* Desktop: programs wrap 3 per row (cols 1–3); sponsor stays fixed in col 4 */
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-          <div className="lg:col-span-3 text-center">
+        /* Desktop: row 1 programs (max 3) align with sponsor; extra programs wrap below */
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-3 text-center lg:row-start-1">
             <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
             {(() => {
               const fomoMessages = sectionConfig?.fomo_subtitles?.length > 0
@@ -845,15 +853,15 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
               ) : null;
             })()}
           </div>
-          <div data-testid="sponsor-title-column" className="text-center hidden lg:block">
+          <div data-testid="sponsor-title-column" className="text-center hidden lg:block lg:row-start-1">
             <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
             {sponsorConfig?.subtitle && (
               <p className="text-sm text-gray-900 mt-3" style={applyTitleStyle(sponsorConfig?.subtitle_style, {})}>{sponsorConfig.subtitle}</p>
             )}
           </div>
 
-          <div className="lg:col-span-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+          <div className="lg:col-span-3 lg:row-start-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch lg:hidden">
               {sorted.map((program) => (
                 <UpcomingCard
                   key={program.id}
@@ -862,22 +870,46 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                 />
               ))}
             </div>
-            {hasOpenRegistrations && comboDiscount && comboDiscount.rules?.length > 0 && (
-              <div className="lg:hidden mt-6" data-testid="combo-banner-mobile">
-                <ComboBanner programs={openVisiblePrograms} comboRules={comboDiscount.rules} />
-              </div>
-            )}
+            <div className="hidden lg:grid lg:grid-cols-3 gap-6 items-stretch h-full">
+              {firstRowPrograms.map((program) => (
+                <UpcomingCard
+                  key={program.id}
+                  program={program}
+                  cardQuoteMessages={cardQuotesByProgram[String(program.id)] || []}
+                />
+              ))}
+            </div>
           </div>
 
           <div
             data-testid="sponsor-card-column"
-            className="lg:col-start-4 lg:row-start-2 lg:self-start"
+            className="lg:col-start-4 lg:row-start-2 h-full"
           >
             <div className="text-center mb-4 lg:hidden">
               <h2 className="text-2xl sm:text-3xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
             </div>
-            <SponsorCard sponsorData={sponsorData} />
+            <SponsorCard sponsorData={sponsorData} matchProgramRowHeight />
           </div>
+
+          {restPrograms.length > 0 && (
+            <div className="hidden lg:block lg:col-span-3 lg:row-start-3">
+              <div className="grid lg:grid-cols-3 gap-6 items-stretch">
+                {restPrograms.map((program) => (
+                  <UpcomingCard
+                    key={program.id}
+                    program={program}
+                    cardQuoteMessages={cardQuotesByProgram[String(program.id)] || []}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(hasOpenRegistrations && comboDiscount && comboDiscount.rules?.length > 0) && (
+            <div className="lg:hidden mt-6" data-testid="combo-banner-mobile">
+              <ComboBanner programs={openVisiblePrograms} comboRules={comboDiscount.rules} />
+            </div>
+          )}
         </div>
       )}
 
