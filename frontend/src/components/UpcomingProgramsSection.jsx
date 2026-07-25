@@ -824,40 +824,36 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
           </div>
         </>
       ) : (
-        /* Adaptive grid: columns = program count + 1 (for sponsor), max 4 */
-        (() => {
-          const totalCols = Math.min(sorted.length + 1, 4);
-          const gridClass = totalCols === 2 ? 'lg:grid-cols-2' : totalCols === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4';
-          const titleSpan = totalCols === 2 ? 'lg:col-span-1' : totalCols === 3 ? 'lg:col-span-2' : 'lg:col-span-3';
-          return (
-            <div className={`grid grid-cols-1 ${gridClass} gap-6 items-stretch`}>
-              {/* Title row */}
-              <div className={`${titleSpan} text-center`}>
-                <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
-                {(() => {
-                  const fomoMessages = sectionConfig?.fomo_subtitles?.length > 0
-                    ? sectionConfig.fomo_subtitles
-                    : sectionConfig?.subtitle
-                      ? [sectionConfig.subtitle]
-                      : null;
-                  const subtitleStyle = sectionConfig?.subtitle_style ? {
-                    ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }),
-                    ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }),
-                    ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }),
-                    ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }),
-                  } : {};
-                  return fomoMessages ? (
-                    <FomoSubtitle messages={fomoMessages} style={subtitleStyle} />
-                  ) : null;
-                })()}
-              </div>
-              <div data-testid="sponsor-title-column" className="text-center hidden lg:block">
-                <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
-                {sponsorConfig?.subtitle && (
-                  <p className="text-sm text-gray-900 mt-3" style={applyTitleStyle(sponsorConfig?.subtitle_style, {})}>{sponsorConfig.subtitle}</p>
-                )}
-              </div>
-              {/* Cards */}
+        /* Desktop: programs wrap 3 per row (cols 1–3); sponsor stays fixed in col 4 */
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+          <div className="lg:col-span-3 text-center">
+            <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
+            {(() => {
+              const fomoMessages = sectionConfig?.fomo_subtitles?.length > 0
+                ? sectionConfig.fomo_subtitles
+                : sectionConfig?.subtitle
+                  ? [sectionConfig.subtitle]
+                  : null;
+              const subtitleStyle = sectionConfig?.subtitle_style ? {
+                ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }),
+                ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }),
+                ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }),
+                ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }),
+              } : {};
+              return fomoMessages ? (
+                <FomoSubtitle messages={fomoMessages} style={subtitleStyle} />
+              ) : null;
+            })()}
+          </div>
+          <div data-testid="sponsor-title-column" className="text-center hidden lg:block">
+            <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
+            {sponsorConfig?.subtitle && (
+              <p className="text-sm text-gray-900 mt-3" style={applyTitleStyle(sponsorConfig?.subtitle_style, {})}>{sponsorConfig.subtitle}</p>
+            )}
+          </div>
+
+          <div className="lg:col-span-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
               {sorted.map((program) => (
                 <UpcomingCard
                   key={program.id}
@@ -865,23 +861,24 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                   cardQuoteMessages={cardQuotesByProgram[String(program.id)] || []}
                 />
               ))}
-
-              {/* Combo Discount Banner — spans full width below cards on mobile, beside sponsor on desktop */}
-              {hasOpenRegistrations && comboDiscount && comboDiscount.rules?.length > 0 && (
-                <div className="lg:hidden col-span-full" data-testid="combo-banner-mobile">
-                  <ComboBanner programs={openVisiblePrograms} comboRules={comboDiscount.rules} />
-                </div>
-              )}
-              <div className="h-full">
-                {/* Sponsor title for mobile only */}
-                <div className="text-center mb-4 lg:hidden">
-                  <h2 className="text-2xl sm:text-3xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
-                </div>
-                <SponsorCard sponsorData={sponsorData} />
-              </div>
             </div>
-          );
-        })()
+            {hasOpenRegistrations && comboDiscount && comboDiscount.rules?.length > 0 && (
+              <div className="lg:hidden mt-6" data-testid="combo-banner-mobile">
+                <ComboBanner programs={openVisiblePrograms} comboRules={comboDiscount.rules} />
+              </div>
+            )}
+          </div>
+
+          <div
+            data-testid="sponsor-card-column"
+            className="h-full lg:col-start-4 lg:row-start-2"
+          >
+            <div className="text-center mb-4 lg:hidden">
+              <h2 className="text-2xl sm:text-3xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
+            </div>
+            <SponsorCard sponsorData={sponsorData} />
+          </div>
+        </div>
       )}
 
       {/* Combo Banner — desktop full width below grid */}
