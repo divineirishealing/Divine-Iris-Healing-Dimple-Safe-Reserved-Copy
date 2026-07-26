@@ -694,6 +694,55 @@ export default function DashboardUpcomingProgramRowItem({
   const crossUnitAdj = crossSellDiscount?.amount > 0 ? crossSellDiscount.amount : 0;
   const afterPromoXs = Math.max(0, afterPromo - crossUnitAdj);
   const offerPriceXs = offerPrice > 0 ? Math.max(0, offerPrice - crossUnitAdj) : offerPrice;
+
+  /** Catalog-only Sacred Home: no GET /dashboard-quote — derive the same total shown in the card UI. */
+  const catalogSelectionTotal = useMemo(() => {
+    if (!websiteCatalogPricing) return null;
+    const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
+    const seatPriceBase = showSpecialPromo ? afterPromo : dashboardSeatUnit;
+    const seatPrice =
+      isPayAsYouWish && payWishAmountValid
+        ? parsedPayWishPerPerson
+        : crossUnitAdj > 0
+          ? Math.max(0, seatPriceBase - crossUnitAdj)
+          : seatPriceBase;
+    const immCount = selIds.filter((id) =>
+      [...(members || []), ...(annualHouseholdPeers || [])].some((m) => String(m.id) === id),
+    ).length;
+    const extCount = selIds.filter((id) => otherMembers.some((m) => String(m.id) === id)).length;
+    if (isPayAsYouWish) {
+      return payWishAmountValid ? payWishSelectionTotal : 0;
+    }
+    if (includedPkg && bookerJoins && immCount === 0 && extCount === 0) return 0;
+    return (price > 0 || offerPrice > 0)
+      ? (bookerJoins ? seatPrice : 0) + (immCount + extCount) * seatPrice
+      : 0;
+  }, [
+    websiteCatalogPricing,
+    annualSeatUi?.draft?.bookerJoinsProgram,
+    showSpecialPromo,
+    afterPromo,
+    dashboardSeatUnit,
+    isPayAsYouWish,
+    payWishAmountValid,
+    parsedPayWishPerPerson,
+    crossUnitAdj,
+    selIds,
+    members,
+    annualHouseholdPeers,
+    otherMembers,
+    includedPkg,
+    payWishSelectionTotal,
+    price,
+    offerPrice,
+  ]);
+
+  const effectiveSelectionTotal =
+    websiteCatalogPricing && catalogSelectionTotal != null
+      ? catalogSelectionTotal
+      : quoteForDisplay?.total != null
+        ? Math.max(0, Number(quoteForDisplay.total) - crossSellLineDeduction)
+        : null;
   /** Hero card: portal quote when annual/cohort overlays apply; otherwise always catalog (website parity). */
   const portalSelfHeroOffer =
     !websiteCatalogPricing &&
@@ -740,9 +789,10 @@ export default function DashboardUpcomingProgramRowItem({
       ? false
       : hasPortalTotal
         ? Boolean(
-            (includedPkg && Number(quoteForDisplay?.total ?? 0) >= 0) ||
+            (includedPkg && (effectiveSelectionTotal == null || effectiveSelectionTotal >= 0)) ||
               (!includedPkg &&
-                (Number(quoteForDisplay?.total ?? 0) > 0 || hasPayableSelectionTotal)) ||
+                ((effectiveSelectionTotal != null && effectiveSelectionTotal > 0) ||
+                  hasPayableSelectionTotal)) ||
               canSaveGuestOnlyClear,
           )
         : Boolean(enrollStatus === 'open' && !showContact && (hasPayableSelectionTotal || !isPayAsYouWish));
@@ -2207,7 +2257,7 @@ export default function DashboardUpcomingProgramRowItem({
                               ? 'Select family guests or check “I am enrolling myself”, then add to Divine Cart.'
                               : isPayAsYouWish && payWishAwaitingAmount
                                 ? 'Enter your contribution amount first.'
-                              : (Number(quoteForDisplay?.total ?? 0) <= 0 && !hasPayableSelectionTotal)
+                              : (effectiveSelectionTotal != null && effectiveSelectionTotal <= 0 && !hasPayableSelectionTotal)
                                 ? 'No amount due for this selection.'
                                 : ''
                           : showContact
