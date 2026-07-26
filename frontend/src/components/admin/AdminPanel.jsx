@@ -662,7 +662,9 @@ const AdminPanel = ({ onLogout }) => {
             activeTab === 'payment_requests' ||
             activeTab === 'annual_portal_clients' ||
             activeTab === 'clients' ||
-            activeTab === 'journey_insights'
+            activeTab === 'journey_insights' ||
+            activeTab === 'pricing_hub' ||
+            activeTab === 'upcoming_hub'
               ? 'max-w-none w-full p-4 sm:p-6'
               : 'max-w-5xl p-6'
           }`}

@@ -256,7 +256,7 @@ const PricingHubTab = () => {
   const toggleExpand = (id) => setExpandedPrograms(e => ({ ...e, [id]: !e[id] }));
 
   return (
-    <div data-testid="pricing-hub-tab">
+    <div data-testid="pricing-hub-tab" className="w-full min-w-0 max-w-none">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2"><DollarSign size={18} className="text-[#D4AF37]" /> Pricing Hub</h2>
@@ -274,59 +274,71 @@ const PricingHubTab = () => {
         );
         if (workshopRows.length === 0) return null;
         return (
-          <div className="mb-8 border-2 border-amber-300 rounded-lg bg-amber-50/60 p-4 shadow-sm" data-testid="pricing-workshop-schedule-panel">
-            <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2 mb-1">
+          <div className="mb-8 w-full" data-testid="pricing-workshop-schedule-panel">
+            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-1">
               <Tag size={15} className="text-amber-700" /> Weekend workshop schedule
             </h3>
-            <p className="text-[11px] text-amber-800/90 mb-4">
+            <p className="text-[11px] text-gray-600 mb-3">
               Enter <strong>session days</strong> (e.g. <strong>7</strong> for Jul&nbsp;31 + Aug&nbsp;1–2, 8–9, 15–16), then Save All.
               The card shows <em>7 Days</em> instead of the full start→end span (e.g. 17 days). Turn on <strong>Wknd tag</strong> only if every session is Sat/Sun.
               {workshopRows.some((p) => (p.duration_tiers || []).length > 0) && (
                 <> Programs with <strong>tiers</strong> need this set on each tier row below.</>
               )}
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {workshopRows.map((p) => {
-                const i = programs.findIndex((x) => x.id === p.id);
-                const tiers = p.duration_tiers || [];
-                if (tiers.length > 0) {
-                  return (
-                    <div
-                      key={p.id}
-                      className="bg-white border border-amber-200 rounded-lg p-3 sm:col-span-2 lg:col-span-3"
-                      data-testid={`pricing-workshop-schedule-${p.id}`}
-                    >
-                      <div className="text-xs font-semibold text-gray-900 mb-3 truncate" title={p.title}>{p.title}</div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {tiers.map((t, ti) => (
-                          <div key={`${p.id}-tier-${ti}`} className="border border-amber-100 rounded-md p-2 bg-amber-50/30">
-                            <div className="text-[10px] font-medium text-gray-700 mb-1.5">{t.label || `Tier ${ti + 1}`}</div>
+            <div className="overflow-x-auto w-full border-t border-gray-200">
+              <table className="w-full text-[11px] min-w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b">
+                    <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[220px]">Program</th>
+                    <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[120px]">Tier</th>
+                    <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[320px]">Duration & session days</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {workshopRows.flatMap((p) => {
+                    const i = programs.findIndex((x) => x.id === p.id);
+                    const tiers = p.duration_tiers || [];
+                    if (tiers.length > 0) {
+                      return tiers.map((t, ti) => (
+                        <tr
+                          key={`${p.id}-tier-${ti}`}
+                          className="border-b hover:bg-amber-50/30"
+                          data-testid={`pricing-workshop-schedule-${p.id}-${ti}`}
+                        >
+                          <td className="px-2 py-2 font-medium text-gray-900 align-top">
+                            {ti === 0 ? p.title : ''}
+                          </td>
+                          <td className="px-2 py-2 text-gray-700 align-top">{t.label || `Tier ${ti + 1}`}</td>
+                          <td className="px-2 py-2 align-top">
                             <DurationScheduleEditor
                               row={t}
                               compact
                               onUpdate={(field, value) => updateTier(i, ti, field, value)}
                             />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                }
-                return (
-                  <div
-                    key={p.id}
-                    className="bg-white border border-amber-200 rounded-lg p-3"
-                    data-testid={`pricing-workshop-schedule-${p.id}`}
-                  >
-                    <div className="text-xs font-semibold text-gray-900 mb-2 truncate" title={p.title}>{p.title}</div>
-                    <DurationScheduleEditor
-                      row={p}
-                      compact
-                      onUpdate={(field, value) => updateProgram(i, field, value)}
-                    />
-                  </div>
-                );
-              })}
+                          </td>
+                        </tr>
+                      ));
+                    }
+                    return (
+                      <tr
+                        key={p.id}
+                        className="border-b hover:bg-amber-50/30"
+                        data-testid={`pricing-workshop-schedule-${p.id}`}
+                      >
+                        <td className="px-2 py-2 font-medium text-gray-900 align-top">{p.title}</td>
+                        <td className="px-2 py-2 text-gray-400 align-top">—</td>
+                        <td className="px-2 py-2 align-top">
+                          <DurationScheduleEditor
+                            row={p}
+                            compact
+                            onUpdate={(field, value) => updateProgram(i, field, value)}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         );
@@ -335,8 +347,8 @@ const PricingHubTab = () => {
       {/* ===== ALL PROGRAMS ===== */}
       <div className="mb-8">
         <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5"><Tag size={14} /> Programs</h3>
-        <div className="overflow-x-auto border rounded-lg">
-          <table className="w-full text-[11px]" data-testid="pricing-programs-table">
+        <div className="overflow-x-auto w-full border-t border-gray-200">
+          <table className="w-full text-[11px] min-w-full" data-testid="pricing-programs-table">
             <thead>
               <tr className="bg-gray-100 border-b">
                 <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[180px] sticky left-0 bg-gray-100 z-10">Name</th>
@@ -381,7 +393,7 @@ const PricingHubTab = () => {
                               {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                             </button>
                           )}
-                          <div className="truncate max-w-[160px] font-medium" title={p.title}>{p.title}</div>
+                          <div className="font-medium min-w-[160px]" title={p.title}>{p.title}</div>
                         </div>
                       </td>
                       <td className="px-1 py-1 text-center"><Switch checked={p.visible !== false} onCheckedChange={v => updateProgram(i, 'visible', v)} /></td>
@@ -459,8 +471,8 @@ const PricingHubTab = () => {
         {programs.filter(p => p.is_group_program).length === 0 ? (
           <p className="text-xs text-gray-400 italic pl-2">No group programs. Mark programs as "Group Program" in the Programs tab.</p>
         ) : (
-          <div className="overflow-x-auto border rounded-lg border-emerald-200">
-            <table className="w-full text-[11px]" data-testid="pricing-group-table">
+          <div className="overflow-x-auto w-full border-t border-emerald-200">
+            <table className="w-full text-[11px] min-w-full" data-testid="pricing-group-table">
               <thead>
                 <tr className="bg-emerald-50 border-b">
                   <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[180px] sticky left-0 bg-emerald-50 z-10">Name</th>
@@ -489,7 +501,7 @@ const PricingHubTab = () => {
                   const i = programs.findIndex(x => x.id === p.id);
                   return (
                     <tr key={p.id} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30'} hover:bg-emerald-50/50`} data-testid={`pricing-group-${p.id}`}>
-                      <td className="px-2 py-1.5 sticky left-0 bg-inherit z-10"><div className="truncate max-w-[180px] font-medium" title={p.title}>{p.title}</div></td>
+                      <td className="px-2 py-1.5 sticky left-0 bg-inherit z-10"><div className="font-medium min-w-[180px]" title={p.title}>{p.title}</div></td>
                       <td className="px-1 py-1 text-center"><Switch checked={p.visible !== false} onCheckedChange={v => updateProgram(i, 'visible', v)} /></td>
                       <td className="px-1 py-1 text-center"><Switch checked={!!p.pay_as_you_wish} onCheckedChange={v => updateProgram(i, 'pay_as_you_wish', v)} /></td>
                       <td className="px-1 py-1"><Cell value={p.pay_as_you_wish_minimum_inr ?? 450} onChange={v => updateProgram(i, 'pay_as_you_wish_minimum_inr', v)} className={p.pay_as_you_wish ? '' : 'opacity-40'} /></td>
@@ -513,8 +525,8 @@ const PricingHubTab = () => {
       {/* ===== PERSONAL SESSIONS ===== */}
       <div>
         <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5"><Tag size={14} /> Personal Sessions</h3>
-        <div className="overflow-x-auto border rounded-lg">
-          <table className="w-full text-[11px]" data-testid="pricing-sessions-table">
+        <div className="overflow-x-auto w-full border-t border-gray-200">
+          <table className="w-full text-[11px] min-w-full" data-testid="pricing-sessions-table">
             <thead>
               <tr className="bg-gray-100 border-b">
                 <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[180px] sticky left-0 bg-gray-100 z-10">Session</th>
@@ -547,7 +559,7 @@ const PricingHubTab = () => {
                 return (
                 <tr key={s.id} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-yellow-50/30`} data-testid={`pricing-session-${s.id}`}>
                   <td className="px-2 py-1.5 font-medium text-gray-900 sticky left-0 bg-inherit z-10">
-                    <div className="truncate max-w-[180px]" title={s.title}>{s.title}</div>
+                    <div className="font-medium min-w-[180px]" title={s.title}>{s.title}</div>
                   </td>
                   <td className="px-1 py-1 text-center"><Switch checked={s.visible !== false} onCheckedChange={v => updateSession(i, 'visible', v)} /></td>
                   <td className="px-1 py-1 text-center"><Switch checked={s.enable_online !== false} onCheckedChange={v => updateSession(i, 'enable_online', v)} /></td>
