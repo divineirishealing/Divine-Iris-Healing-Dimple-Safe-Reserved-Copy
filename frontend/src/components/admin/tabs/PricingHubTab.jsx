@@ -11,6 +11,7 @@ import {
   DEFAULT_HUB_TIME_ZONE,
 } from '../../../lib/deadlineDateTime';
 import DurationScheduleEditor from '../DurationScheduleEditor';
+import CollapsibleSection from '../CollapsibleSection';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -274,73 +275,76 @@ const PricingHubTab = () => {
         );
         if (workshopRows.length === 0) return null;
         return (
-          <div className="mb-8 w-full" data-testid="pricing-workshop-schedule-panel">
-            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-1">
-              <Tag size={15} className="text-amber-700" /> Weekend workshop schedule
-            </h3>
-            <p className="text-[11px] text-gray-600 mb-3">
-              Enter <strong>session days</strong> (e.g. <strong>7</strong> for Jul&nbsp;31 + Aug&nbsp;1–2, 8–9, 15–16), then Save All.
-              The card shows <em>7 Days</em> instead of the full start→end span (e.g. 17 days). Turn on <strong>Wknd tag</strong> only if every session is Sat/Sun.
-              {workshopRows.some((p) => (p.duration_tiers || []).length > 0) && (
-                <> Programs with <strong>tiers</strong> need this set on each tier row below.</>
-              )}
-            </p>
-            <div className="overflow-x-auto w-full border-t border-gray-200">
-              <table className="w-full text-[11px] min-w-full">
-                <thead>
-                  <tr className="bg-gray-50 border-b">
-                    <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[220px]">Program</th>
-                    <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[120px]">Tier</th>
-                    <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[320px]">Duration & session days</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {workshopRows.flatMap((p) => {
-                    const i = programs.findIndex((x) => x.id === p.id);
-                    const tiers = p.duration_tiers || [];
-                    if (tiers.length > 0) {
-                      return tiers.map((t, ti) => (
+          <CollapsibleSection
+            title="Weekend workshop schedule"
+            subtitle={`${workshopRows.length} program${workshopRows.length === 1 ? '' : 's'} · session days & Wknd tag`}
+            defaultOpen={false}
+          >
+            <div className="w-full -ml-5 pl-5" data-testid="pricing-workshop-schedule-panel">
+              <p className="text-[11px] text-gray-600 mb-3">
+                Enter <strong>session days</strong> (e.g. <strong>7</strong> for Jul&nbsp;31 + Aug&nbsp;1–2, 8–9, 15–16), then Save All.
+                The card shows <em>7 Days</em> instead of the full start→end span (e.g. 17 days). Turn on <strong>Wknd tag</strong> only if every session is Sat/Sun.
+                {workshopRows.some((p) => (p.duration_tiers || []).length > 0) && (
+                  <> Programs with <strong>tiers</strong> need this set on each tier row below.</>
+                )}
+              </p>
+              <div className="overflow-x-auto w-full border-t border-gray-200">
+                <table className="w-full text-[11px] min-w-full">
+                  <thead>
+                    <tr className="bg-gray-50 border-b">
+                      <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[220px]">Program</th>
+                      <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[120px]">Tier</th>
+                      <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[320px]">Duration & session days</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {workshopRows.flatMap((p) => {
+                      const i = programs.findIndex((x) => x.id === p.id);
+                      const tiers = p.duration_tiers || [];
+                      if (tiers.length > 0) {
+                        return tiers.map((t, ti) => (
+                          <tr
+                            key={`${p.id}-tier-${ti}`}
+                            className="border-b hover:bg-amber-50/30"
+                            data-testid={`pricing-workshop-schedule-${p.id}-${ti}`}
+                          >
+                            <td className="px-2 py-2 font-medium text-gray-900 align-top">
+                              {ti === 0 ? p.title : ''}
+                            </td>
+                            <td className="px-2 py-2 text-gray-700 align-top">{t.label || `Tier ${ti + 1}`}</td>
+                            <td className="px-2 py-2 align-top">
+                              <DurationScheduleEditor
+                                row={t}
+                                compact
+                                onUpdate={(field, value) => updateTier(i, ti, field, value)}
+                              />
+                            </td>
+                          </tr>
+                        ));
+                      }
+                      return (
                         <tr
-                          key={`${p.id}-tier-${ti}`}
+                          key={p.id}
                           className="border-b hover:bg-amber-50/30"
-                          data-testid={`pricing-workshop-schedule-${p.id}-${ti}`}
+                          data-testid={`pricing-workshop-schedule-${p.id}`}
                         >
-                          <td className="px-2 py-2 font-medium text-gray-900 align-top">
-                            {ti === 0 ? p.title : ''}
-                          </td>
-                          <td className="px-2 py-2 text-gray-700 align-top">{t.label || `Tier ${ti + 1}`}</td>
+                          <td className="px-2 py-2 font-medium text-gray-900 align-top">{p.title}</td>
+                          <td className="px-2 py-2 text-gray-400 align-top">—</td>
                           <td className="px-2 py-2 align-top">
                             <DurationScheduleEditor
-                              row={t}
+                              row={p}
                               compact
-                              onUpdate={(field, value) => updateTier(i, ti, field, value)}
+                              onUpdate={(field, value) => updateProgram(i, field, value)}
                             />
                           </td>
                         </tr>
-                      ));
-                    }
-                    return (
-                      <tr
-                        key={p.id}
-                        className="border-b hover:bg-amber-50/30"
-                        data-testid={`pricing-workshop-schedule-${p.id}`}
-                      >
-                        <td className="px-2 py-2 font-medium text-gray-900 align-top">{p.title}</td>
-                        <td className="px-2 py-2 text-gray-400 align-top">—</td>
-                        <td className="px-2 py-2 align-top">
-                          <DurationScheduleEditor
-                            row={p}
-                            compact
-                            onUpdate={(field, value) => updateProgram(i, field, value)}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          </CollapsibleSection>
         );
       })()}
 
