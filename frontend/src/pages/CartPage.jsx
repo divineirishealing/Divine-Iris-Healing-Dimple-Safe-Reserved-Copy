@@ -26,6 +26,7 @@ import {
 } from '../lib/crossSellPricing';
 import { effectiveParticipantEmail } from '../lib/dashboardCartPrefill';
 import { resolveEffectiveOffer } from '../lib/effectiveOfferPricing';
+import { mapCartItemForApi, primarySessionBookingFromCart } from '../lib/sessionBookingPayload';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -624,7 +625,7 @@ function CartPage() {
           num_programs: numPrograms, num_participants: totalParticipants,
           subtotal: totalAmount, email: '', currency: baseCurrency,
           program_ids: items.map(i => i.programId),
-          cart_items: items.map(i => ({ program_id: i.programId, tier_index: i.tierIndex })),
+          cart_items: items.map((i) => mapCartItemForApi(i)),
         });
         setAutoDiscounts(res.data);
       } catch { setAutoDiscounts({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 }); }
@@ -670,11 +671,7 @@ function CartPage() {
         code: promoCode.trim(),
         program_id: items[0]?.programId,
         currency,
-        cart_items: items.map((i) => ({
-          program_id: i.programId,
-          tier_index: i.tierIndex ?? 0,
-          participants_count: Math.max(1, i.participants?.length || 1),
-        })),
+        cart_items: items.map((i) => mapCartItemForApi(i)),
         participant_count: totalParticipants,
       });
       setPromoResult(res.data); toast({ title: res.data.message });
@@ -711,6 +708,7 @@ function CartPage() {
       );
 
       const leadItem = items[0];
+      const sessionBooking = primarySessionBookingFromCart(items);
       const enrollRes = await axios.post(`${API}/enrollment/start`, {
         booker_name: bookerName, booker_email: bookerEmail, booker_country: bookerCountry,
         booker_city: bookerCity, booker_state: bookerState,
@@ -718,6 +716,7 @@ function CartPage() {
         item_id: leadItem?.programId || '',
         item_title: leadItem?.programTitle || '',
         participants: allParticipants,
+        ...sessionBooking,
       });
       const eid = enrollRes.data.enrollment_id;
       setEnrollmentId(eid);

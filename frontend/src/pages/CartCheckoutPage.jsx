@@ -15,6 +15,8 @@ import {
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
 import { normalizeCartItemTierIndex } from '../lib/crossSellPricing';
 import { resolveEffectiveOffer } from '../lib/effectiveOfferPricing';
+import { mapCartItemForApi } from '../lib/sessionBookingPayload';
+import { formatSessionCalendarDateLabel } from '../lib/sessionCalendarSlots';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -65,11 +67,7 @@ function CartCheckoutPage() {
       code: promoCode,
       program_id: items[0]?.programId,
       currency,
-      cart_items: items.map((i) => ({
-        program_id: i.programId,
-        tier_index: i.tierIndex ?? 0,
-        participants_count: Math.max(1, i.participants?.length || 1),
-      })),
+      cart_items: items.map((i) => mapCartItemForApi(i, { tierIndexFn: normalizeCartItemTierIndex })),
       participant_count: items.reduce((s, i) => s + Math.max(1, i.participants?.length || 1), 0),
     })
       .then(r => setPromoResult(r.data)).catch(() => {});
@@ -231,11 +229,7 @@ function CartCheckoutPage() {
         tier_index:
           firstItem.type === 'session' ? firstItem.tierIndex ?? null : normalizeCartItemTierIndex(firstItem),
         points_to_redeem: pointsSummary?.enabled ? Math.max(0, parseInt(String(pointsToRedeem), 10) || 0) : 0,
-        cart_items: items.map((i) => ({
-          program_id: i.programId,
-          tier_index: normalizeCartItemTierIndex(i),
-          participants_count: i.participants.length,
-        })),
+        cart_items: items.map((i) => mapCartItemForApi(i, { tierIndexFn: normalizeCartItemTierIndex })),
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
         client_declared_payable: displayCheckoutTotal,
@@ -282,6 +276,13 @@ function CartCheckoutPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-gray-900 truncate">{item.programTitle}</p>
                       <p className="text-[10px] text-gray-500">{item.tierLabel} &middot; {item.participants.length} person{item.participants.length > 1 ? 's' : ''}</p>
+                      {item.type === 'session' && (item.selectedDate || item.selectedTime) && (
+                        <p className="text-[10px] text-purple-700 mt-0.5">
+                          {item.selectedDate ? formatSessionCalendarDateLabel(item.selectedDate) : ''}
+                          {item.selectedDate && item.selectedTime ? ' · ' : ''}
+                          {item.selectedTime || ''}
+                        </p>
+                      )}
                     </div>
                     <span className="text-xs font-bold text-gray-900">
                       {getItemOfferPrice(item) > 0 ? (

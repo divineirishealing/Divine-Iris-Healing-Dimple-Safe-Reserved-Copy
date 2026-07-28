@@ -219,7 +219,7 @@ async def get_receipt_template():
     return tpl, logo
 
 
-def enrollment_confirmation_email(booker_name, item_title, participants, total, currency_symbol, attendance_modes, booker_email, phone, program_links=None, program_description="", program_start_date="", program_duration="", program_end_date="", program_timing="", program_timezone="", logo_url="", receipt_template=None, social_links=None, community_whatsapp="", footer_phone="", site_url="", footer_email="", currency_code="", invoice_number=""):
+def enrollment_confirmation_email(booker_name, item_title, participants, total, currency_symbol, attendance_modes, booker_email, phone, program_links=None, program_description="", program_start_date="", program_duration="", program_end_date="", program_timing="", program_timezone="", session_booking_date="", session_booking_time="", logo_url="", receipt_template=None, social_links=None, community_whatsapp="", footer_phone="", site_url="", footer_email="", currency_code="", invoice_number=""):
     tpl = receipt_template or {}
     socials = social_links or {}
     tpl = receipt_template or {}
@@ -436,6 +436,10 @@ def enrollment_confirmation_email(booker_name, item_title, participants, total, 
         details_items += f'<tr><td style="padding:6px 0;color:#999;font-size:12px;vertical-align:top">Timing</td><td style="padding:6px 0;color:{text_color};font-size:13px;font-weight:500">{program_timing}{tz}</td></tr>'
     if program_duration:
         details_items += f'<tr><td style="padding:6px 0;color:#999;font-size:12px;vertical-align:top">Duration</td><td style="padding:6px 0;color:{text_color};font-size:13px;font-weight:500">{program_duration}</td></tr>'
+    if session_booking_date:
+        details_items += f'<tr><td style="padding:6px 0;color:#999;font-size:12px;vertical-align:top">Session date</td><td style="padding:6px 0;color:{text_color};font-size:13px;font-weight:500">{session_booking_date}</td></tr>'
+    if session_booking_time:
+        details_items += f'<tr><td style="padding:6px 0;color:#999;font-size:12px;vertical-align:top">Session time</td><td style="padding:6px 0;color:{text_color};font-size:13px;font-weight:500">{session_booking_time}</td></tr>'
 
     program_info = ""
     if details_items or program_description:
@@ -582,7 +586,7 @@ def _build_social_html(socials, accent_color="#D4AF37", body_font="'Lato', Arial
         </div>"""
 
 
-def participant_notification_email(participant_name, item_title, attendance_mode, booker_name, program_links=None, program_description="", program_start_date="", program_duration="", program_end_date="", program_timing="", program_timezone="", logo_url="", social_links=None, community_whatsapp=""):
+def participant_notification_email(participant_name, item_title, attendance_mode, booker_name, program_links=None, program_description="", program_start_date="", program_duration="", program_end_date="", program_timing="", program_timezone="", session_booking_date="", session_booking_time="", logo_url="", social_links=None, community_whatsapp=""):
     mode_label = "Online (Zoom)" if attendance_mode == "online" else "Remote Healing (Distance)"
     mode_detail = "You will receive session details and links before the session." if attendance_mode == "online" else "This is a remote/distance healing session. The healer will work on your energy remotely."
     body_font = "'Lato', Arial, Helvetica, sans-serif"
@@ -605,6 +609,10 @@ def participant_notification_email(participant_name, item_title, attendance_mode
     if program_timing:
         tz = f" ({program_timezone})" if program_timezone else ""
         details_rows += f'<tr><td style="padding:6px 0;color:#999;font-size:12px">Timing</td><td style="padding:6px 0;color:#333;font-size:13px;font-weight:500">{program_timing}{tz}</td></tr>'
+    if session_booking_date:
+        details_rows += f'<tr><td style="padding:6px 0;color:#999;font-size:12px">Session date</td><td style="padding:6px 0;color:#333;font-size:13px;font-weight:500">{session_booking_date}</td></tr>'
+    if session_booking_time:
+        details_rows += f'<tr><td style="padding:6px 0;color:#999;font-size:12px">Session time</td><td style="padding:6px 0;color:#333;font-size:13px;font-weight:500">{session_booking_time}</td></tr>'
 
     details_html = ""
     if details_rows or program_description:

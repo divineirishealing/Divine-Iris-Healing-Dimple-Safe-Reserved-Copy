@@ -229,3 +229,62 @@ async def update_calendar(data: dict):
     )
     updated = await db.session_calendar.find_one({"id": "global_calendar"})
     return {k: v for k, v in updated.items() if k != '_id'}
+
+
+@router.get("/bookings")
+async def get_session_bookings():
+    """Paid personal session enrollments with a chosen appointment slot (for admin calendar)."""
+    paid_filter = {
+        "$or": [
+            {"payment.payment_status": "paid"},
+            {"payment_status": "paid"},
+        ]
+    }
+    enrollments = await db.enrollments.find(
+        {
+            "item_type": "session",
+            "session_booking_date": {"$exists": True, "$nin": ["", None]},
+            **paid_filter,
+        },
+        {"_id": 0},
+    ).sort("updated_at", -1).to_list(500)
+
+    rows = []
+    seen = set()
+    for en in enrollments:
+        base = {
+            "enrollment_id": en.get("id") or "",
+            "session_id": en.get("item_id") or "",
+            "session_title": en.get("item_title") or "",
+            "booker_name": en.get("booker_name") or "",
+            "booker_email": en.get("booker_email") or "",
+            "participant_count": len(en.get("participants") or []),
+            "payment_status": (en.get("payment") or {}).get("payment_status") or en.get("payment_status") or "",
+        }
+        booking_list = en.get("session_bookings") or []
+        if not booking_list:
+            booking_list = [{
+                "session_id": base["session_id"],
+                "session_title": base["session_title"],
+                "booking_date": en.get("session_booking_date") or "",
+                "booking_time": en.get("session_booking_time") or "",
+            }]
+        for sb in booking_list:
+            if not isinstance(sb, dict):
+                continue
+            d = str(sb.get("booking_date") or en.get("session_booking_date") or "").strip()[:10]
+            t = str(sb.get("booking_time") or en.get("session_booking_time") or "").strip()
+            if not d:
+                continue
+            key = (en.get("id") or "", d, t)
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append({
+                **base,
+                "session_id": str(sb.get("session_id") or base["session_id"] or "").strip(),
+                "session_title": str(sb.get("session_title") or base["session_title"] or "").strip(),
+                "booking_date": d,
+                "booking_time": t,
+            })
+    return rows

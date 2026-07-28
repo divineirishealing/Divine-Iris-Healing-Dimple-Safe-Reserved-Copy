@@ -45,6 +45,7 @@ import {
 import { programIncludedInAnnualPackage } from '../components/dashboard/dashboardUpcomingHelpers';
 import { catalogPayAsYouWishMinimumInr } from '../lib/payAsYouWish';
 import { resolveEffectiveOffer } from '../lib/effectiveOfferPricing';
+import { mapCartItemForApi, primarySessionBookingFromCart } from '../lib/sessionBookingPayload';
 import { formatDateDdMonYyyy } from '../lib/utils';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -1602,6 +1603,7 @@ export default function DashboardCombinedCheckoutPage() {
 
       const leadItem = items[0];
       const programLines = items.filter((i) => i.type === 'program');
+      const sessionBooking = primarySessionBookingFromCart(items);
       const enrollRes = await axios.post(
         `${API}/student/combined-enrollment-start`,
         {
@@ -1612,6 +1614,7 @@ export default function DashboardCombinedCheckoutPage() {
           item_id: leadItem?.programId || '',
           item_title: leadItem?.programTitle || '',
           participants: allParticipants,
+          ...sessionBooking,
           ...(programLines.length > 0
             ? {
                 portal_cart_currency: currency,
@@ -1684,11 +1687,7 @@ export default function DashboardCombinedCheckoutPage() {
           firstItem.type === 'session' ? firstItem.tierIndex ?? null : normalizeCartItemTierIndex(firstItem),
         points_to_redeem:
           pointsSummary?.enabled ? Math.max(0, parseInt(String(pointsToRedeem), 10) || 0) : 0,
-        cart_items: items.map((i) => ({
-          program_id: i.programId,
-          tier_index: normalizeCartItemTierIndex(i),
-          participants_count: i.participants.length,
-        })),
+        cart_items: items.map((i) => mapCartItemForApi(i, { tierIndexFn: normalizeCartItemTierIndex })),
         portal_checkout_cancel: true,
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],

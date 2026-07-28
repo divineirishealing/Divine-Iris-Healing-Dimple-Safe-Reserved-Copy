@@ -2088,6 +2088,11 @@ const EnrollmentsTab = () => {
                                   <p className="text-[9px] text-blue-500 mt-0.5">Anonymous</p>
                                 )}
                                 {!isSponsor && e.item_type ? <p className="text-gray-400 capitalize text-[9px] truncate">{e.item_type}</p> : null}
+                                {!isSponsor && String(e.item_type || '').toLowerCase() === 'session' && (e.session_booking_date || e.session_booking_time) && (
+                                  <p className="text-[9px] text-purple-700 mt-0.5 truncate" title={[e.session_booking_date, e.session_booking_time].filter(Boolean).join(' · ')}>
+                                    {[e.session_booking_date, e.session_booking_time].filter(Boolean).join(' · ')}
+                                  </p>
+                                )}
                               </td>
                             );
                           case 'origin':
@@ -2213,6 +2218,12 @@ const EnrollmentsTab = () => {
                             <div><span className="text-gray-400 block">Promo Code</span>{e.promo_code || '-'}</div>
                             <div><span className="text-gray-400 block">Bank/Account</span>{e.bank_name || e.payment?.bank_name || '-'}</div>
                             <div><span className="text-gray-400 block">VPN Detected</span>{e.vpn_detected ? 'Yes' : 'No'}</div>
+                            {String(e.item_type || '').toLowerCase() === 'session' && (e.session_booking_date || e.session_booking_time) && (
+                              <>
+                                <div><span className="text-gray-400 block">Session date</span>{e.session_booking_date || '—'}</div>
+                                <div><span className="text-gray-400 block">Session time</span>{e.session_booking_time || '—'}</div>
+                              </>
+                            )}
                             <div><span className="text-gray-400 block">Stripe Session</span><span className="font-mono truncate block max-w-[150px]">{e.stripe_session_id || e.payment?.stripe_session_id || '-'}</span></div>
                             <div><span className="text-gray-400 block">Updated</span>{e.updated_at ? formatDateTimeDMonYyyyUpper(e.updated_at) : '-'}</div>
                           </div>

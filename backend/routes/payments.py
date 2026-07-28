@@ -597,6 +597,8 @@ async def _send_receipt_and_notifications(tx):
     program_end_date = ""
     program_timing = ""
     program_timezone = ""
+    session_booking_date = str(tx.get("session_booking_date") or enrollment.get("session_booking_date") or "").strip()[:10]
+    session_booking_time = str(tx.get("session_booking_time") or enrollment.get("session_booking_time") or "").strip()
     logo_url = ""
     tier_index = tx.get("tier_index")
     if booker_email:
@@ -664,6 +666,8 @@ async def _send_receipt_and_notifications(tx):
             program_end_date=program_end_date,
             program_timing=program_timing,
             program_timezone=program_timezone,
+            session_booking_date=session_booking_date,
+            session_booking_time=session_booking_time,
             logo_url=logo_url,
             receipt_template=receipt_tpl,
             social_links=social_links,
@@ -703,6 +707,8 @@ async def _send_receipt_and_notifications(tx):
                 program_end_date=program_end_date,
                 program_timing=p_timing,
                 program_timezone=p_tz,
+                session_booking_date=session_booking_date,
+                session_booking_time=session_booking_time,
                 logo_url=logo_url,
                 social_links=social_links,
                 community_whatsapp=community_whatsapp,
@@ -952,6 +958,9 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
             "participants": participants,
             "booker_name": booker_name,
             "booker_email": booker_email,
+            "item_type": tx.get("item_type", ""),
+            "session_booking_date": tx.get("session_booking_date") or (enrollment or {}).get("session_booking_date") or "",
+            "session_booking_time": tx.get("session_booking_time") or (enrollment or {}).get("session_booking_time") or "",
         }
 
     # Razorpay — no Stripe Checkout session to poll; client confirms via /razorpay/verify
@@ -967,6 +976,9 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
             "participants": participants,
             "booker_name": booker_name,
             "booker_email": booker_email,
+            "item_type": tx.get("item_type", ""),
+            "session_booking_date": tx.get("session_booking_date") or (enrollment or {}).get("session_booking_date") or "",
+            "session_booking_time": tx.get("session_booking_time") or (enrollment or {}).get("session_booking_time") or "",
         }
 
     # Poll Stripe for status
@@ -1080,6 +1092,9 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
             "participants": participants,
             "booker_name": booker_name,
             "booker_email": booker_email,
+            "item_type": tx.get("item_type", ""),
+            "session_booking_date": tx.get("session_booking_date") or (enrollment or {}).get("session_booking_date") or "",
+            "session_booking_time": tx.get("session_booking_time") or (enrollment or {}).get("session_booking_time") or "",
         }
     except Exception as e:
         return {

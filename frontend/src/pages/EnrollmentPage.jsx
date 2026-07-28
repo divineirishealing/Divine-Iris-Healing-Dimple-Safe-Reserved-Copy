@@ -29,6 +29,8 @@ import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInCurrency } from
 import { getOfferCountdownDeadline, resolveProgramOffer, parsePricingDate } from '../lib/effectiveOfferPricing';
 import { resolveProgramDurationDisplay } from '../lib/programDurationDisplay';
 import { resolveEnrollTierIndex, programHasWebsiteVisibleTiers } from '../lib/programTierVisibility';
+import { sessionBookingFromParams } from '../lib/sessionBookingPayload';
+import { formatSessionCalendarDateLabel } from '../lib/sessionCalendarSlots';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -307,6 +309,8 @@ function EnrollmentPage() {
   const currency = baseCurrency;
 
   const tierParam = searchParams.get('tier');
+  const sessionDateParam = searchParams.get('date');
+  const sessionSlotParam = searchParams.get('slot');
   const [selectedTier, setSelectedTier] = useState(null);
   const promoFromUrl = searchParams.get('promo');
   const sourceDashboard = searchParams.get('source') === 'dashboard';
@@ -383,6 +387,17 @@ function EnrollmentPage() {
   const bookerCountry = firstP.country || '';
   const phone = firstP.phone || '';
   const countryCode = firstP.phone_code || '';
+  const sessionBookingPayload = useMemo(
+    () => (type === 'session'
+      ? sessionBookingFromParams({
+        date: sessionDateParam,
+        slot: sessionSlotParam,
+        sessionId: id,
+        sessionTitle: item?.title || '',
+      })
+      : { session_booking_date: '', session_booking_time: '', session_bookings: [] }),
+    [type, sessionDateParam, sessionSlotParam, id, item?.title],
+  );
   const showCheckoutPromo = discountSettings.checkout_promo_code_visible !== false;
 
   useEffect(() => {
@@ -911,6 +926,7 @@ function EnrollmentPage() {
             referred_by_email: refEmail,
           };
         }),
+        ...sessionBookingPayload,
       });
       const eid = enrollRes.data.enrollment_id;
       setEnrollmentId(eid);
@@ -955,6 +971,13 @@ function EnrollmentPage() {
             portal_checkout_cancel: sourceDashboard,
             browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
+            cart_items: type === 'session' ? [{
+              program_id: id,
+              tier_index: selectedTier ?? 0,
+              participants_count: participants.length,
+              booking_date: sessionBookingPayload.session_booking_date,
+              booking_time: sessionBookingPayload.session_booking_time,
+            }] : undefined,
             ...payWishCheckoutExtra,
           });
           toast({ title: 'Registration complete!' });
@@ -990,6 +1013,13 @@ function EnrollmentPage() {
         portal_checkout_cancel: sourceDashboard,
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
+        cart_items: type === 'session' ? [{
+          program_id: id,
+          tier_index: selectedTier ?? 0,
+          participants_count: participants.length,
+          booking_date: sessionBookingPayload.session_booking_date,
+          booking_time: sessionBookingPayload.session_booking_time,
+        }] : undefined,
         ...payWishCheckoutExtra,
       });
       if (res.data.url === '__FREE_SUCCESS__') {
@@ -1024,6 +1054,13 @@ function EnrollmentPage() {
         portal_checkout_cancel: sourceDashboard,
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
+        cart_items: type === 'session' ? [{
+          program_id: id,
+          tier_index: selectedTier ?? 0,
+          participants_count: participants.length,
+          booking_date: sessionBookingPayload.session_booking_date,
+          booking_time: sessionBookingPayload.session_booking_time,
+        }] : undefined,
         ...payWishCheckoutExtra,
       });
       const options = {
@@ -1155,6 +1192,22 @@ function EnrollmentPage() {
                   </div>
                 )}
                 <div className="p-5">
+                  {type === 'session' && (sessionBookingPayload.session_booking_date || sessionBookingPayload.session_booking_time) && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {sessionBookingPayload.session_booking_date && (
+                        <span className="inline-flex items-center gap-1 text-[10px] bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full border border-purple-100">
+                          <Calendar size={11} />
+                          {formatSessionCalendarDateLabel(sessionBookingPayload.session_booking_date)}
+                        </span>
+                      )}
+                      {sessionBookingPayload.session_booking_time && (
+                        <span className="inline-flex items-center gap-1 text-[10px] bg-green-50 text-green-700 px-2.5 py-1 rounded-full border border-green-100">
+                          <Clock size={11} />
+                          {sessionBookingPayload.session_booking_time}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {type !== 'session' && <p className="text-[#D4AF37] text-[10px] tracking-wider uppercase mb-1">{item.category}</p>}
                   {type !== 'session' && (
                     <div className="flex items-start gap-2 mb-2">

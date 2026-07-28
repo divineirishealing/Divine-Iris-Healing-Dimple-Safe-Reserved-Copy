@@ -166,6 +166,9 @@ class ProfileData(BaseModel):
     item_type: Optional[str] = None
     item_id: Optional[str] = None
     item_title: Optional[str] = None
+    session_booking_date: Optional[str] = None
+    session_booking_time: Optional[str] = None
+    session_bookings: Optional[List[dict]] = None
     portal_cart_currency: Optional[str] = None
     portal_cart_lines: Optional[List[PortalCartLineIn]] = None
 
@@ -358,6 +361,19 @@ async def insert_enrollment_from_profile(profile: ProfileData, request: Request,
             enrollment["item_id"] = str(p0.program_id).strip()
             if p0.program_title:
                 enrollment["item_title"] = str(p0.program_title).strip()
+
+    from utils.session_booking import collect_session_bookings, session_booking_document_fields
+
+    session_booking_rows = collect_session_bookings(
+        session_bookings=profile.session_bookings,
+        session_booking_date=profile.session_booking_date,
+        session_booking_time=profile.session_booking_time,
+        item_type=enrollment.get("item_type"),
+        item_id=enrollment.get("item_id"),
+        item_title=enrollment.get("item_title"),
+    )
+    if session_booking_rows:
+        enrollment.update(session_booking_document_fields(session_booking_rows))
 
     await db.enrollments.insert_one(enrollment)
     try:
@@ -871,6 +887,9 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
     }
+    booking_fields = prep.get("session_booking_fields") or {}
+    if booking_fields:
+        transaction.update({k: v for k, v in booking_fields.items() if v not in (None, "", [])})
     await _attach_portal_ids_to_transaction(transaction, enrollment)
     await db.payment_transactions.insert_one(transaction)
 
@@ -1106,6 +1125,9 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
     }
+    booking_fields = prep.get("session_booking_fields") or {}
+    if booking_fields:
+        transaction.update({k: v for k, v in booking_fields.items() if v not in (None, "", [])})
     await _attach_portal_ids_to_transaction(transaction, enrollment)
     await db.payment_transactions.insert_one(transaction)
 

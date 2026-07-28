@@ -3,7 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { CheckCircle, Loader2, ExternalLink, MessageCircle, Video, Link as LinkIcon } from 'lucide-react';
+import { CheckCircle, Loader2, ExternalLink, MessageCircle, Video, Link as LinkIcon, Calendar, Clock } from 'lucide-react';
+import { formatSessionCalendarDateLabel } from '../lib/sessionCalendarSlots';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -37,6 +38,9 @@ function PaymentSuccessPage() {
   const communityLink = paymentInfo?.community_whatsapp || '';
   const hasLinks = Object.keys(links).length > 0 || communityLink;
   const participants = paymentInfo?.participants || [];
+  const sessionBookingDate = paymentInfo?.session_booking_date || '';
+  const sessionBookingTime = paymentInfo?.session_booking_time || '';
+  const isSessionBooking = paymentInfo?.item_type === 'session' || sessionBookingDate || sessionBookingTime;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -99,8 +103,24 @@ function PaymentSuccessPage() {
                   {/* Program Title */}
                   {paymentInfo?.item_title && (
                     <div className="mb-5 pb-5 border-b">
-                      <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Program</p>
+                      <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">{isSessionBooking ? 'Session' : 'Program'}</p>
                       <h2 className="text-lg font-semibold text-gray-900" data-testid="receipt-program-title">{paymentInfo.item_title}</h2>
+                      {isSessionBooking && (sessionBookingDate || sessionBookingTime) && (
+                        <div className="mt-3 flex flex-wrap gap-2" data-testid="receipt-session-slot">
+                          {sessionBookingDate && (
+                            <span className="inline-flex items-center gap-1.5 text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full border border-purple-100">
+                              <Calendar size={13} />
+                              {formatSessionCalendarDateLabel(sessionBookingDate)}
+                            </span>
+                          )}
+                          {sessionBookingTime && (
+                            <span className="inline-flex items-center gap-1.5 text-xs bg-green-50 text-green-700 px-3 py-1.5 rounded-full border border-green-100">
+                              <Clock size={13} />
+                              {sessionBookingTime}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 

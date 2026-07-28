@@ -192,6 +192,9 @@ async def enrollment_run_free_checkout(
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
     }
+    booking_fields = prep.get("session_booking_fields") or {}
+    if booking_fields:
+        transaction.update({k: v for k, v in booking_fields.items() if v not in (None, "", [])})
     await attach_portal_ids(transaction, enrollment)
     await db.payment_transactions.insert_one(transaction)
 
@@ -672,6 +675,19 @@ async def enrollment_checkout_prepare(
         {"$set": item_set},
     )
 
+    from utils.session_booking import resolve_session_booking_fields
+
+    booking_fields = resolve_session_booking_fields(
+        enrollment={**enrollment, **item_set},
+        cart_items=getattr(data, "cart_items", None),
+        item_type=data.item_type,
+        item_id=data.item_id,
+        item_title=item_set.get("item_title") or (item.get("title", "") if item else ""),
+    )
+    if booking_fields.get("session_bookings"):
+        await db.enrollments.update_one({"id": enrollment_id}, {"$set": booking_fields})
+        enrollment = {**enrollment, **booking_fields}
+
     final_total = await _apply_pay_as_you_wish_gate(
         db,
         data,
@@ -694,6 +710,7 @@ async def enrollment_checkout_prepare(
             "points_redeemed": points_redeemed,
             "points_discount": points_discount,
             "pre_points_total": pre_points_total,
+            "session_booking_fields": booking_fields,
         }
 
     if pricing_resp["security"]["country_mismatch"]:
@@ -734,4 +751,5 @@ async def enrollment_checkout_prepare(
         "points_redeemed": points_redeemed,
         "points_discount": points_discount,
         "pre_points_total": pre_points_total,
+        "session_booking_fields": booking_fields,
     }

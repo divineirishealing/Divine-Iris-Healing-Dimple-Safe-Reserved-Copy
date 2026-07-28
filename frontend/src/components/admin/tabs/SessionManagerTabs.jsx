@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Switch } from '../../ui/switch';
 import { Textarea } from '../../ui/textarea';
-import { ChevronLeft, ChevronRight, Plus, Trash2, Save, Upload, Reply, Mail, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, Save, Upload, Reply, Mail, Clock, User } from 'lucide-react';
 import ImageUploader from '../ImageUploader';
 import { resolveImageUrl } from '../../../lib/imageUtils';
 import { formatSessionCalendarDateLabel } from '../../../lib/sessionCalendarSlots';
@@ -14,21 +14,39 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 const SessionCalendarManager = ({ toast }) => {
   const [calendar, setCalendar] = useState(null);
+  const [bookings, setBookings] = useState([]);
   const [month, setMonth] = useState(new Date());
   const [saving, setSaving] = useState(false);
   const [selectedSlotDate, setSelectedSlotDate] = useState(null);
   const [newSlotInput, setNewSlotInput] = useState('');
 
   const load = useCallback(async () => {
-    const res = await axios.get(`${BACKEND_URL}/api/session-extras/calendar`);
-    const data = { date_time_slots: {}, ...(res.data || {}) };
+    const [calRes, bookingsRes] = await Promise.all([
+      axios.get(`${BACKEND_URL}/api/session-extras/calendar`),
+      axios.get(`${BACKEND_URL}/api/session-extras/bookings`).catch(() => ({ data: [] })),
+    ]);
+    const data = { date_time_slots: {}, ...(calRes.data || {}) };
     if (!data.date_time_slots || typeof data.date_time_slots !== 'object') {
       data.date_time_slots = {};
     }
     setCalendar(data);
+    setBookings(Array.isArray(bookingsRes.data) ? bookingsRes.data : []);
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const bookingsByDate = useMemo(() => {
+    const map = {};
+    for (const b of bookings) {
+      const d = String(b.booking_date || '').slice(0, 10);
+      if (!d) continue;
+      if (!map[d]) map[d] = [];
+      map[d].push(b);
+    }
+    return map;
+  }, [bookings]);
+
+  const selectedDateBookings = selectedSlotDate ? (bookingsByDate[selectedSlotDate] || []) : [];
 
   if (!calendar) return <p className="text-xs text-gray-400">Loading calendar...</p>;
 
@@ -59,7 +77,7 @@ const SessionCalendarManager = ({ toast }) => {
 
   const selectDateForSlots = (dateStr, e) => {
     e?.stopPropagation?.();
-    if (!dates.includes(dateStr)) return;
+    if (!dates.includes(dateStr) && !(bookingsByDate[dateStr] || []).length) return;
     setSelectedSlotDate(dateStr);
   };
 
@@ -247,15 +265,24 @@ const SessionCalendarManager = ({ toast }) => {
             const isBlocked = calendar.blocked_until && dateStr <= calendar.blocked_until;
             const isSelectedForSlots = selectedSlotDate === dateStr;
             const customSlotCount = (dateTimeSlots[dateStr] || []).length;
+            const bookingCount = (bookingsByDate[dateStr] || []).length;
             return (
               <div key={day} className="relative h-8">
                 <button
                   data-testid={`cal-day-${dateStr}`}
-                  onClick={() => !isPast && toggleDate(dateStr)}
+                  onClick={() => {
+                    if (isPast) return;
+                    if (bookingCount && !dates.includes(dateStr)) {
+                      setSelectedSlotDate(dateStr);
+                      return;
+                    }
+                    toggleDate(dateStr);
+                  }}
                   disabled={isPast}
                   className={`h-8 w-full text-[10px] font-medium transition-colors ${
                     isPast ? 'bg-gray-50 text-gray-300 cursor-not-allowed' :
                     isOpen ? 'bg-green-100 text-green-700 hover:bg-green-200' :
+                    bookingCount ? 'bg-violet-100 text-violet-700 hover:bg-violet-200' :
                     isBlocked ? 'bg-red-50 text-red-300 hover:bg-red-100' :
                     isWeekend ? 'bg-orange-50 text-orange-400 hover:bg-orange-100' :
                     'bg-white text-gray-600 hover:bg-gray-100'
@@ -263,6 +290,16 @@ const SessionCalendarManager = ({ toast }) => {
                 >
                   {day}
                 </button>
+                {bookingCount > 0 ? (
+                  <button
+                    type="button"
+                    title={`${bookingCount} booked session(s)`}
+                    onClick={(e) => selectDateForSlots(dateStr, e)}
+                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 min-w-[12px] h-3 px-0.5 rounded-full text-[7px] leading-none flex items-center justify-center bg-violet-600 text-white"
+                  >
+                    {bookingCount}
+                  </button>
+                ) : null}
                 {isOpen && !isPast ? (
                   <button
                     type="button"
@@ -282,10 +319,34 @@ const SessionCalendarManager = ({ toast }) => {
       </div>
       <p className="text-[8px] text-gray-400 mt-2">
         <span className="inline-block w-2 h-2 bg-green-200 rounded mr-1"></span>Open
+        <span className="inline-block w-2 h-2 bg-violet-300 rounded mx-1 ml-3"></span>Booked
         <span className="inline-block w-2 h-2 bg-red-100 rounded mx-1 ml-3"></span>Blocked
         <span className="inline-block w-2 h-2 bg-orange-100 rounded mx-1 ml-3"></span>Weekend
-        — Click a date to open/close. Click the dot on an open date to set its time slots. {dates.length} dates open.
+        — Click a date to open/close. Click the dot on an open date to set its time slots. Purple badge = paid bookings. {dates.length} dates open.
       </p>
+
+      {selectedSlotDate && selectedDateBookings.length > 0 ? (
+        <div className="mt-4 p-3 rounded-lg border border-violet-200 bg-violet-50/50 space-y-2" data-testid="date-bookings-panel">
+          <div className="flex items-center gap-2">
+            <User size={14} className="text-violet-700" />
+            <span className="text-xs font-semibold text-violet-900">
+              Booked sessions — {formatSessionCalendarDateLabel(selectedSlotDate)}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {selectedDateBookings.map((b, idx) => (
+              <div key={`${b.enrollment_id}-${b.booking_time}-${idx}`} className="bg-white rounded-md border border-violet-100 px-3 py-2 text-[10px]">
+                <p className="font-medium text-gray-900">{b.session_title || 'Personal session'}</p>
+                <p className="text-gray-600 mt-0.5">
+                  {b.booking_time ? `${b.booking_time} · ` : ''}{b.booker_name || '—'}
+                  {b.participant_count > 1 ? ` (+${b.participant_count - 1} more)` : ''}
+                </p>
+                <p className="text-gray-400 truncate">{b.booker_email || ''}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* Per-date slot editor */}
       {selectedSlotDate && dates.includes(selectedSlotDate) ? (
