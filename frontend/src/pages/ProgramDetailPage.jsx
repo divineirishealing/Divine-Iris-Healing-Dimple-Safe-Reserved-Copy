@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
@@ -246,16 +246,33 @@ function ProgramDetailPage() {
     () => applyWrittenQuoteStyle(settings?.page_heroes?.transformations?.written_story_quote_style),
     [settings]
   );
+  const websiteTierEntries = useMemo(() => websiteVisibleTierEntries(program), [program]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a]"><p className="text-gray-400 text-xs" style={BODY}>Loading...</p></div>;
-  if (!program) return (
-    <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a]">
-      <div className="text-center">
-        <h2 className="text-white text-xl mb-4" style={{ ...HEADING, color: '#fff' }}>Program Not Found</h2>
-        <button onClick={() => navigate('/')} className="text-white px-6 py-2 text-xs tracking-[0.2em] uppercase" style={{ background: GOLD }}>Back to Home</button>
-      </div>
-    </div>
-  );
+  if (loading) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-[70vh] flex items-center justify-center bg-[#1a1a1a]">
+          <p className="text-gray-400 text-xs" style={BODY}>Loading program...</p>
+        </div>
+      </>
+    );
+  }
+  if (!program) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-[70vh] flex items-center justify-center bg-[#1a1a1a]">
+          <div className="text-center px-6">
+            <h2 className="text-white text-xl mb-4" style={{ ...HEADING, color: '#fff' }}>Program Not Found</h2>
+            <p className="text-gray-400 text-sm mb-6">This program may have moved or is no longer available.</p>
+            <button onClick={() => navigate('/')} className="text-white px-6 py-2 text-xs tracking-[0.2em] uppercase" style={{ background: GOLD }}>Back to Home</button>
+          </div>
+        </div>
+        <Footer />
+      </>
+    );
+  }
 
   // Same section structure for every program (global template + per-program content).
   const sections = buildProgramPageSections(program, settings);
@@ -290,7 +307,6 @@ function ProgramDetailPage() {
     !enrollmentExpiredByDeadline &&
     program.enrollment_open !== false &&
     String(program.enrollment_status || 'open').toLowerCase() !== 'closed';
-  const websiteTierEntries = useMemo(() => websiteVisibleTierEntries(program), [program]);
   const websiteTiersLen = websiteTierEntries.length;
   const defaultWebsiteTier = firstWebsiteVisibleTierIndex(program);
   const tiersLen = websiteTiersLen;
