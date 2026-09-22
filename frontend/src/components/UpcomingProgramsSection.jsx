@@ -17,7 +17,9 @@ import {
   isValidWebsiteTierSelection,
   programHasWebsiteVisibleTiers,
   countWebsiteVisibleTiers,
+  resolveCardPricingTierIndex,
 } from '../lib/programTierVisibility';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -231,8 +233,9 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   }, [program.id, hasTiers, program, selectedTier]);
 
   const isAnnual = tier && (tier.label.toLowerCase().includes('annual') || tier.label.toLowerCase().includes('year') || tier.duration_unit === 'year');
-  const price = getPrice(program, hasTiers ? selectedTier : null);
-  const offerPrice = getOfferPrice(program, hasTiers ? selectedTier : null);
+  const pricingTierIndex = resolveCardPricingTierIndex(program, selectedTier, hasTiers);
+  const price = getPrice(program, pricingTierIndex);
+  const offerPrice = getOfferPrice(program, pricingTierIndex);
   const payWishEnabled = catalogPayAsYouWishEnabled(program);
 
   const showContact = isAnnual && price === 0;
@@ -249,8 +252,8 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
     }
   };
 
-  const deadline = getOfferCountdownDeadline(program, hasTiers ? selectedTier : null);
-  const offerMeta = resolveProgramOffer(program, hasTiers ? selectedTier : null, 'aed');
+  const deadline = getOfferCountdownDeadline(program, pricingTierIndex);
+  const offerMeta = resolveProgramOffer(program, pricingTierIndex, 'aed');
   const expired = (() => {
     if (!deadline) return false;
     const t = new Date(deadline);
@@ -714,12 +717,13 @@ export const CrossSellBanner = ({ rules, programs }) => {
 };
 
 const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
+  const { settings } = useSiteSettings();
   const [programs, setPrograms] = useState([]);
   /** All visible programs — resolves cross-sell / combo copy when trigger programs are flagship-only. */
   const [allVisiblePrograms, setAllVisiblePrograms] = useState([]);
   const [cardQuotesByProgram, setCardQuotesByProgram] = useState({});
-  const [sponsorData, setSponsorData] = useState(null);
-  const [sponsorConfig, setSponsorConfig] = useState(null);
+  const sponsorData = settings?.sponsor_home || null;
+  const sponsorConfig = (settings?.homepage_sections || []).find((s) => s.id === 'sponsor') || null;
   const [comboDiscount, setComboDiscount] = useState(null);
   const [crossSellRules, setCrossSellRules] = useState([]);
   const [groupDiscount, setGroupDiscount] = useState(null);
@@ -756,11 +760,6 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
         setCardQuotesByProgram(by);
       })
       .catch(() => setCardQuotesByProgram({}));
-    axios.get(`${API}/settings`).then(r => {
-      setSponsorData(r.data?.sponsor_home);
-      const sc = (r.data?.homepage_sections || []).find(s => s.id === 'sponsor');
-      if (sc) setSponsorConfig(sc);
-    }).catch(() => {});
     axios.get(`${API}/discounts/settings`).then(r => {
       if (r.data?.enable_combo_discount) {
         const rules = r.data.combo_rules?.length > 0
