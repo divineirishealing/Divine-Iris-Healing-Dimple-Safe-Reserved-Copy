@@ -4,6 +4,7 @@ import {
   isValidWebsiteTierSelection,
   resolveEnrollTierIndex,
   countWebsiteVisibleTiers,
+  resolveCardPricingTierIndex,
 } from '../programTierVisibility';
 
 const awrp = {
@@ -35,5 +36,17 @@ describe('programTierVisibility', () => {
   it('rejects invalid website selection', () => {
     expect(isValidWebsiteTierSelection(awrp, 2)).toBe(false);
     expect(isValidWebsiteTierSelection(awrp, 1)).toBe(true);
+  });
+
+  it('falls back to catalog tier 0 for card pricing when all tiers hidden on website', () => {
+    const allHidden = {
+      is_flagship: true,
+      duration_tiers: [
+        { label: '1 Month', visible_on_website: false },
+        { label: '3 Months', visible_on_website: false },
+      ],
+    };
+    expect(resolveCardPricingTierIndex(allHidden, 0, false)).toBe(0);
+    expect(resolveCardPricingTierIndex(awrp, 1, true)).toBe(1);
   });
 });
