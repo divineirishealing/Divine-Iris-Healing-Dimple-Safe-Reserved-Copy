@@ -48,3 +48,15 @@ export function resolveEnrollTierIndex(program, tierParam) {
 export function programHasWebsiteVisibleTiers(program) {
   return Boolean(program?.is_flagship && countWebsiteVisibleTiers(program) > 0);
 }
+
+/**
+ * Tier index for homepage card pricing. Flagship prices usually live on duration_tiers;
+ * if every tier is "hidden on website", fall back to catalog tier 0 instead of program-level $0 → "FREE".
+ */
+export function resolveCardPricingTierIndex(program, selectedWebsiteTier, hasWebsiteVisibleTiers) {
+  if (hasWebsiteVisibleTiers) return selectedWebsiteTier;
+  if (program?.is_flagship && (program.duration_tiers?.length || 0) > 0) {
+    return 0;
+  }
+  return null;
+}
