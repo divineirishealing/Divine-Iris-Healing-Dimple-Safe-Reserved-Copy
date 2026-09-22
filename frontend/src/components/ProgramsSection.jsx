@@ -7,6 +7,7 @@ import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
 import { ShoppingCart, Check } from 'lucide-react';
 import { HEADING, BODY, CONTAINER, applySectionStyle } from '../lib/designTokens';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 import { UpcomingCard } from './UpcomingProgramsSection';
 import { catalogPayAsYouWishEnabled } from '../lib/payAsYouWish';
 import {
@@ -14,6 +15,7 @@ import {
   firstWebsiteVisibleTierIndex,
   isValidWebsiteTierSelection,
   programHasWebsiteVisibleTiers,
+  resolveCardPricingTierIndex,
 } from '../lib/programTierVisibility';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -41,8 +43,9 @@ const SimpleFlagshipCard = ({ program }) => {
 
   const tier = showTiers ? program.duration_tiers[selectedTier] : null;
   const isAnnual = tier && (tier.label.toLowerCase().includes('annual') || tier.label.toLowerCase().includes('year'));
-  const price = getPrice(program, showTiers ? selectedTier : null);
-  const offerPrice = getOfferPrice(program, showTiers ? selectedTier : null);
+  const pricingTierIndex = resolveCardPricingTierIndex(program, selectedTier, showTiers);
+  const price = getPrice(program, pricingTierIndex);
+  const offerPrice = getOfferPrice(program, pricingTierIndex);
   const showContact = isAnnual && price === 0;
   const inCart = items.some(i => i.programId === program.id && i.tierIndex === selectedTier);
   const enrollmentDeadline = program.deadline_date || program.start_date;
@@ -195,18 +198,17 @@ const SimpleFlagshipCard = ({ program }) => {
 /* ── Programs Section (Flagship) ── */
 const ProgramsSection = ({ sectionConfig }) => {
   const navigate = useNavigate();
+  const { settings } = useSiteSettings();
   const [programs, setPrograms] = useState([]);
-  const [hero, setHero] = useState({});
   useEffect(() => {
     axios.get(`${API}/programs?visible_only=true`).then(r => {
       if (r.data?.length > 0) setPrograms(r.data.filter(p => p.is_flagship && !p.is_group_program));
     }).catch(() => {});
-    axios.get(`${API}/settings`).then(r => {
-      setHero(r.data?.page_heroes?.programs || {});
-    }).catch(() => {});
   }, []);
 
   if (programs.length === 0) return null;
+
+  const hero = settings?.page_heroes?.programs || {};
 
   const title = hero.title_text || sectionConfig?.title || 'Programs';
   const subtitle = hero.subtitle_text || sectionConfig?.subtitle || '';
