@@ -4,7 +4,7 @@
  * Create custom payment links with a title + amount, share the link with a
  * client, and track when they pay. Each link generates a public /pay/:id page.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
@@ -52,6 +52,42 @@ const BLANK = {
   installment_down_pct: '25', installment_emi_count: '9',
   pay_as_you_wish: false, minimum_amount: '1',
 };
+
+/** Prefill create form from an existing link — same settings, new title + client name. */
+function paymentRequestToDuplicateForm(req) {
+  const itemType = (req?.item_type || '').toLowerCase();
+  const linkKind =
+    itemType === 'program' ? 'program'
+      : itemType === 'session' ? 'session'
+        : itemType === 'annual_package' ? 'annual_package'
+          : '';
+  let custom_batch_start = '';
+  if (linkKind === 'program' && req.chosen_start_date) {
+    custom_batch_start = String(req.chosen_start_date).slice(0, 10);
+  }
+  return {
+    ...BLANK,
+    description: req.description || '',
+    amount: req.amount != null && req.amount !== '' ? String(req.amount) : '',
+    currency: (req.currency || 'aed').toLowerCase(),
+    recipient_name: '',
+    recipient_email: req.recipient_email || '',
+    note: req.note || '',
+    link_kind: linkKind,
+    item_id: req.item_id ? String(req.item_id) : '',
+    tier_index: req.tier_index != null && req.tier_index !== '' ? String(req.tier_index) : '',
+    session_date: req.session_date ? String(req.session_date).slice(0, 10) : '',
+    custom_batch_start,
+    installments_enabled: !!req.installments_enabled,
+    num_installments: String(req.num_installments || 3),
+    installment_plan: req.installment_plan || 'equal',
+    installment_down_pct: String(req.installment_down_pct ?? 25),
+    installment_emi_count: String(req.installment_emi_count ?? 9),
+    pay_as_you_wish: !!req.pay_as_you_wish,
+    minimum_amount: String(req.minimum_amount ?? 1),
+    title: '',
+  };
+}
 
 function splitInstallmentAmounts(total, n) {
   const count = Math.max(2, Math.min(12, parseInt(n, 10) || 2));
@@ -423,7 +459,7 @@ const StatusBadge = ({ status }) => {
 };
 
 /* ─── Individual row ────────────────────────────────────────────── */
-const RequestRow = ({ req, onDelete, onCancel, onRecordManual, recordingId }) => {
+const RequestRow = ({ req, onDelete, onCancel, onRecordManual, onDuplicate, recordingId }) => {
   const [open, setOpen] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [manualForm, setManualForm] = useState({
@@ -492,6 +528,17 @@ const RequestRow = ({ req, onDelete, onCancel, onRecordManual, recordingId }) =>
           )}
         </span>
         <StatusBadge status={req.status} />
+        <button
+          type="button"
+          title="Duplicate link — same amount and settings, new title and client name"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDuplicate(req);
+          }}
+          className="flex-shrink-0 flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md border border-purple-200 text-purple-700 bg-white hover:bg-purple-50 transition-colors"
+        >
+          <Copy size={11} /> Duplicate
+        </button>
       </div>
 
       {/* Expanded detail */}
@@ -653,6 +700,13 @@ const RequestRow = ({ req, onDelete, onCancel, onRecordManual, recordingId }) =>
             ) : null}
             <button
               type="button"
+              onClick={(e) => { e.stopPropagation(); onDuplicate(req); }}
+              className="text-xs text-purple-600 hover:text-purple-800 transition-colors flex items-center gap-1"
+            >
+              <Copy size={12} /> Duplicate & edit
+            </button>
+            <button
+              type="button"
               onClick={() => onDelete(req.id)}
               className="text-xs text-red-400 hover:text-red-600 transition-colors flex items-center gap-1 ml-auto"
             >
@@ -680,6 +734,8 @@ export default function PaymentRequestsTab() {
   const [annualPackages, setAnnualPackages] = useState([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [recordingId, setRecordingId] = useState(null);
+  const [duplicateSourceTitle, setDuplicateSourceTitle] = useState('');
+  const createFormRef = useRef(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -748,6 +804,25 @@ export default function PaymentRequestsTab() {
   const sessionDates = (selectedSession?.available_dates || []).slice().sort((a, b) => String(b).localeCompare(String(a)));
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleDuplicate = (req) => {
+    setDuplicateSourceTitle(req.title || 'Untitled link');
+    setForm(paymentRequestToDuplicateForm(req));
+    setShowForm(true);
+    toast({
+      title: 'Ready to duplicate',
+      description: 'Enter a new payment title and client name. Everything else is copied from the original link.',
+    });
+    requestAnimationFrame(() => {
+      createFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
+  const resetCreateForm = () => {
+    setShowForm(false);
+    setForm({ ...BLANK });
+    setDuplicateSourceTitle('');
+  };
 
   const handleLinkKindChange = (kind) => {
     setForm((f) => ({
@@ -917,8 +992,7 @@ export default function PaymentRequestsTab() {
       }
       await axios.post(`${API}/payment-requests`, payload, { headers: adminHeaders() });
       toast({ title: 'Payment link created!' });
-      setForm({ ...BLANK });
-      setShowForm(false);
+      resetCreateForm();
       await load();
     } catch (e) {
       const detail = e?.response?.data?.detail;
@@ -1021,7 +1095,17 @@ export default function PaymentRequestsTab() {
           <button type="button" onClick={load} title="Refresh" className="p-2 rounded-lg border text-gray-400 hover:text-purple-600 hover:border-purple-300 transition-colors">
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>
-          <Button onClick={() => setShowForm(v => !v)} className="bg-purple-600 hover:bg-purple-700">
+          <Button
+            onClick={() => {
+              if (showForm) resetCreateForm();
+              else {
+                setDuplicateSourceTitle('');
+                setForm({ ...BLANK });
+                setShowForm(true);
+              }
+            }}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
             <Plus size={15} className="mr-1" /> New Payment Link
           </Button>
         </div>
@@ -1044,12 +1128,27 @@ export default function PaymentRequestsTab() {
 
       {/* Create form */}
       {showForm && (
-        <div className="border-2 border-purple-300 rounded-2xl overflow-hidden">
+        <div ref={createFormRef} className="border-2 border-purple-300 rounded-2xl overflow-hidden">
           <div className="bg-purple-50 px-5 py-4 border-b border-purple-200 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-purple-800 flex items-center gap-2">
-              <Plus size={14} /> New Payment Link
-            </h3>
-            <button type="button" onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+            <div>
+              <h3 className="text-sm font-bold text-purple-800 flex items-center gap-2">
+                {duplicateSourceTitle ? (
+                  <>
+                    <Copy size={14} /> Duplicate payment link
+                  </>
+                ) : (
+                  <>
+                    <Plus size={14} /> New Payment Link
+                  </>
+                )}
+              </h3>
+              {duplicateSourceTitle && (
+                <p className="text-[10px] text-purple-700/80 mt-1">
+                  Copied from &ldquo;{duplicateSourceTitle}&rdquo; — change title and client name, then create. Repeat as many times as you need.
+                </p>
+              )}
+            </div>
+            <button type="button" onClick={resetCreateForm} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
           </div>
           <div className="p-5 bg-white space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
@@ -1543,7 +1642,7 @@ export default function PaymentRequestsTab() {
               <Button onClick={handleCreate} disabled={saving} className="bg-purple-600 hover:bg-purple-700">
                 {saving ? 'Creating…' : 'Create & Get Link'}
               </Button>
-              <Button variant="outline" onClick={() => { setShowForm(false); setForm({ ...BLANK }); }}>Cancel</Button>
+              <Button variant="outline" onClick={resetCreateForm}>Cancel</Button>
             </div>
           </div>
         </div>
@@ -1593,6 +1692,7 @@ export default function PaymentRequestsTab() {
               onDelete={handleDelete}
               onCancel={handleCancel}
               onRecordManual={handleRecordManual}
+              onDuplicate={handleDuplicate}
               recordingId={recordingId}
             />
           ))}
