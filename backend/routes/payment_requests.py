@@ -436,6 +436,39 @@ async def list_payment_requests(request: Request):
     return rows
 
 
+@router.get("/analytics/annual-installments")
+async def annual_installment_analytics(request: Request):
+    """Admin: who is on annual Home Coming custom links with installments + per-slot status."""
+    await assert_admin_session_or_password(request, None)
+    from utils.payment_request_installment_analytics import build_annual_installment_analytics
+
+    rows = await db.payment_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    return build_annual_installment_analytics(rows)
+
+
+@router.get("/analytics/annual-installments/export")
+async def export_annual_installment_analytics(request: Request):
+    """Admin: Excel — Summary, By month, Members (installment due/status per column)."""
+    from fastapi.responses import StreamingResponse
+
+    await assert_admin_session_or_password(request, None)
+    from utils.payment_request_installment_analytics import (
+        analytics_rows_to_xlsx_bytes,
+        build_annual_installment_analytics,
+    )
+
+    rows = await db.payment_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    report = build_annual_installment_analytics(rows)
+    data = analytics_rows_to_xlsx_bytes(report)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
+    fname = f"annual_installment_links_{ts}.xlsx"
+    return StreamingResponse(
+        iter([data]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
 @router.get("/{req_id}")
 async def get_payment_request(req_id: str):
     """Public: get a single payment request (for the /pay/:id page)."""

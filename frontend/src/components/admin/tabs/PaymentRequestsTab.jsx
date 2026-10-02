@@ -14,7 +14,7 @@ import { Label } from '../../ui/label';
 import {
   Plus, Copy, Check, Trash2, Link2, ExternalLink,
   Clock, CheckCircle2, XCircle,
-  RefreshCw, Search, ChevronDown, ChevronUp, Calendar, Banknote,
+  RefreshCw, Search, ChevronDown, ChevronUp, Calendar, Banknote, FileSpreadsheet,
 } from 'lucide-react';
 import { formatDateDMonYyyyUpper, addMonthsSubscriptionEnd } from '@/lib/utils';
 import { packageTaxDecimal } from '../../../lib/annualPackagePricing';
@@ -735,6 +735,7 @@ export default function PaymentRequestsTab() {
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [recordingId, setRecordingId] = useState(null);
   const [duplicateSourceTitle, setDuplicateSourceTitle] = useState('');
+  const [annualReportLoading, setAnnualReportLoading] = useState(false);
   const createFormRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -754,6 +755,45 @@ export default function PaymentRequestsTab() {
       }
     } finally {
       setLoading(false);
+    }
+  }, [toast]);
+
+  const downloadAnnualInstallmentReport = useCallback(async () => {
+    setAnnualReportLoading(true);
+    try {
+      const res = await axios.get(`${API}/payment-requests/analytics/annual-installments/export`, {
+        headers: adminHeaders(),
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const cd = res.headers['content-disposition'];
+      let filename = 'annual_installment_links.xlsx';
+      if (cd) {
+        const m = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(cd);
+        if (m?.[1]) filename = decodeURIComponent(m[1].replace(/["']/g, '').trim());
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast({
+        title: 'Annual EMI report downloaded',
+        description: 'Summary, by-month counts, and per-member installment status.',
+      });
+    } catch (err) {
+      if (isAdminSessionError(err)) {
+        toast({ title: 'Admin session expired', variant: 'destructive' });
+      } else {
+        const d = err.response?.data?.detail;
+        const msg = typeof d === 'string' ? d : err.message || 'Download failed';
+        toast({ title: 'Could not download report', description: msg, variant: 'destructive' });
+      }
+    } finally {
+      setAnnualReportLoading(false);
     }
   }, [toast]);
 
@@ -1091,7 +1131,18 @@ export default function PaymentRequestsTab() {
             Share Stripe links or record GPay, cash, and bank payments manually — all tracked in Enrollments.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            className="border-purple-200 text-purple-800 hover:bg-purple-50"
+            disabled={annualReportLoading}
+            onClick={downloadAnnualInstallmentReport}
+            title="Annual Home Coming links with installments — who, monthly due status, paid/overdue"
+          >
+            <FileSpreadsheet size={15} className="mr-1.5" />
+            {annualReportLoading ? 'Preparing…' : 'Annual EMI report'}
+          </Button>
           <button type="button" onClick={load} title="Refresh" className="p-2 rounded-lg border text-gray-400 hover:text-purple-600 hover:border-purple-300 transition-colors">
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>
