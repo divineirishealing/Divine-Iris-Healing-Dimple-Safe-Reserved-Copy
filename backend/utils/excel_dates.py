@@ -8,6 +8,31 @@ from typing import Any, Optional, Tuple
 _ISO_YMD_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 _DD_MM_YYYY_RE = re.compile(r"^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$")
 
+# Excel display for annual portal export (real date values sort chronologically).
+ANNUAL_PORTAL_EXCEL_DATE_FORMAT = "DD/MM/YYYY"
+
+
+def iso_ymd_to_date(iso: Any) -> Optional[date]:
+    if iso is None:
+        return None
+    t = str(iso).strip()[:10]
+    m = _ISO_YMD_RE.match(t)
+    if not m:
+        return None
+    y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    try:
+        return date(y, mo, d)
+    except ValueError:
+        return None
+
+
+def write_annual_portal_excel_date_cell(ws: Any, row: int, col: int, iso_raw: Any) -> None:
+    """Write a calendar ``date`` cell formatted DD/MM/YYYY (not plain text)."""
+    d = iso_ymd_to_date(iso_raw) if iso_raw else None
+    c = ws.cell(row=row, column=col, value=d)
+    if d is not None:
+        c.number_format = ANNUAL_PORTAL_EXCEL_DATE_FORMAT
+
 
 def iso_ymd_to_dd_mm_yyyy(iso: Any) -> Optional[str]:
     """``2026-04-01`` → ``01/04/2026``."""

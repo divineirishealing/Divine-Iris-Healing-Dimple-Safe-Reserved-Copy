@@ -2655,7 +2655,7 @@ async def download_annual_portal_subscription_export():
         c.fill = hdr_fill
         c.alignment = Alignment(horizontal="center")
 
-    from utils.excel_dates import iso_ymd_to_dd_mm_yyyy
+    from utils.excel_dates import write_annual_portal_excel_date_cell
 
     for row_idx, cl in enumerate(clients_list, start=2):
         sub = cl.get("annual_subscription") or {}
@@ -2668,8 +2668,8 @@ async def download_annual_portal_subscription_export():
         ws.cell(row=row_idx, column=2, value=(cl.get("name") or "").strip() or None)
         ws.cell(row=row_idx, column=3, value=(cl.get("email") or "").strip() or None)
         life = annual_portal_lifecycle_payload(cl)
-        ws.cell(row=row_idx, column=4, value=iso_ymd_to_dd_mm_yyyy(sd_raw) if sd_raw else None)
-        ws.cell(row=row_idx, column=5, value=iso_ymd_to_dd_mm_yyyy(ed_raw) if ed_raw else None)
+        write_annual_portal_excel_date_cell(ws, row_idx, 4, sd_raw)
+        write_annual_portal_excel_date_cell(ws, row_idx, 5, ed_raw)
         ws.cell(row=row_idx, column=6, value=(life.get("label") or "").strip() or None)
         ws.cell(row=row_idx, column=7, value=(sub.get("annual_diid") or "").strip() or None)
         ws.cell(row=row_idx, column=8, value=home_cell or None)
@@ -2759,6 +2759,8 @@ async def download_annual_portal_subscription_template():
         "N",
         "paste-uuid-from-admin-grid",
     ]
+    from utils.excel_dates import write_annual_portal_excel_date_cell
+
     note_font = Font(italic=True, color="666666", size=10)
     for col_idx, val in enumerate(sample_primary, 1):
         c = ws.cell(row=2, column=col_idx, value=val)
@@ -2766,6 +2768,10 @@ async def download_annual_portal_subscription_template():
     for col_idx, val in enumerate(sample_peer, 1):
         c = ws.cell(row=3, column=col_idx, value=val)
         c.font = note_font
+    write_annual_portal_excel_date_cell(ws, 2, 4, "2025-04-01")
+    write_annual_portal_excel_date_cell(ws, 2, 5, "2026-03-31")
+    write_annual_portal_excel_date_cell(ws, 3, 4, "2025-04-01")
+    write_annual_portal_excel_date_cell(ws, 3, 5, "2026-03-31")
     widths = [5, 18, 26, 22, 22, 14, 12, 14, 10, 10, 10, 10, 10, 22, 8, 36]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
