@@ -42,14 +42,14 @@ import {
   HOME_COMING_PROGRAM_SLOTS,
   utcCalendarYmd,
 } from '../../../lib/homeComingAnnual';
-import { formatDateDdMonYyyy } from '../../../lib/utils';
+import { formatDateDdMonYyyy, formatDateDdSlashMmSlashYyyy } from '../../../lib/utils';
 
 const API = getApiUrl();
 
 function formatPortalSubscriptionDate(raw) {
   const s = (raw || '').trim();
   if (!s) return '—';
-  return formatDateDdMonYyyy(s.slice(0, 10)) || s;
+  return formatDateDdSlashMmSlashYyyy(s.slice(0, 10)) || s;
 }
 
 /** Start/end strings aligned with API ``annual_portal_lifecycle`` (subscription / programs_detail / CRM). */
@@ -1325,7 +1325,7 @@ export default function AnnualPortalClientsTab({ onNavigateToClientFinances }) {
           Use <strong>Search</strong> to find rows by name, email, id, household, dates, DIID, or usage; separate words all must match. Use the <strong>A–Z icon</strong> to sort (alphabetical, dates oldest/newest, primary first, etc.) and the <strong>funnel</strong> to filter; search, sort, and column filters work together in List and By household.{' '}
           <strong>Template</strong> is a blank sheet with sample rows; <strong>Download Excel</strong> exports the current list in the same columns so you can edit and upload.{' '}
           Usage counts are split into separate columns for upload.{' '}
-          <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order). Each column in the file <strong>replaces</strong> what is stored (empty cells clear dates, DIID, package, household; blank usage cells become 0; blank PRIMARY counts as N). <strong>DIID</strong> can be full 8 characters (letters+YYMM) or <strong>YYMM only</strong> (4 digits); letters are taken from <strong>Name</strong>. Match rows by Client id, Email, or <strong>Name</strong> (+ <strong>HOUSEHOLD</strong> when names repeat); new household members get a generated Client id. If row 1 is a title row, headers on the next row are detected automatically.
+          <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order). <strong>Start/End dates</strong> use <strong>DD/MM/YYYY</strong> in Excel (export and template match); ISO <strong>YYYY-MM-DD</strong> and Excel date cells still import. Each column in the file <strong>replaces</strong> what is stored (empty cells clear dates, DIID, package, household; blank usage cells become 0; blank PRIMARY counts as N). <strong>DIID</strong> can be full 8 characters (letters+YYMM) or <strong>YYMM only</strong> (4 digits); letters are taken from <strong>Name</strong>. Match rows by Client id, Email, or <strong>Name</strong> (+ <strong>HOUSEHOLD</strong> when names repeat); new household members get a generated Client id. If row 1 is a title row, headers on the next row are detected automatically.
         </p>
       </div>
 

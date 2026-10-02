@@ -26,6 +26,21 @@ function parseDashboardDateInput(val) {
   return Number.isNaN(t.getTime()) ? null : t;
 }
 
+/** API / ISO dates (YYYY-MM-DD) as DD/MM/YYYY (Excel and India-style calendar). */
+export function formatDateDdSlashMmSlashYyyy(val) {
+  if (val == null || val === "") return "";
+  const s = String(val).trim().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const t = parseDashboardDateInput(val);
+  if (!t) return "";
+  const dd = String(t.getDate()).padStart(2, "0");
+  const mm = String(t.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${t.getFullYear()}`;
+}
+
 /** Display API / ISO dates (YYYY-MM-DD) as dd-mm-yyyy (legacy / non-dashboard). */
 export function formatDateDdMmYyyy(val) {
   if (val == null || val === "") return "";

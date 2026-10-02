@@ -29,8 +29,8 @@ COLUMNS = [
     ("name",                         "Name"),
     ("phone",                        "Phone"),
     ("did",                          "Divine Iris ID"),
-    ("annual_start_date",            "Annual Start Date (YYYY-MM-DD)"),
-    ("annual_end_date",              "Annual End Date (YYYY-MM-DD)"),
+    ("annual_start_date",            "Annual Start Date (DD/MM/YYYY)"),
+    ("annual_end_date",              "Annual End Date (DD/MM/YYYY)"),
     ("portal_login_allowed",         "Portal Access (Yes/No, default Yes)"),
     ("india_payment_method",         "Payment Method (gpay/upi/bank_transfer/any)"),
     ("india_discount_percent",       "Discount % on Base"),
@@ -143,7 +143,7 @@ async def download_template():
 
     sample = [
         "jane@example.com", "Jane Doe", "+91 98765 43210", "DI-001",
-        "2024-01-01", "2024-12-31", "Yes", "gpay",
+        "01/01/2024", "31/12/2024", "Yes", "gpay",
         "15", "Yes", "18", "GST", "", "Active member",
     ]
     for col_idx, val in enumerate(sample, 1):
@@ -222,11 +222,30 @@ async def upload_excel(file: UploadFile = File(...)):
         portal_raw = get("portal_login_allowed")
         fields["portal_login_allowed"] = parse_bool(portal_raw, True)
 
-        for f in ("name", "phone", "did", "annual_start_date", "annual_end_date",
-                  "india_payment_method", "india_tax_label", "notes"):
+        from utils.excel_dates import normalize_stored_date_field
+
+        for f in ("name", "phone", "did", "india_payment_method", "india_tax_label", "notes"):
             v = get(f)
             if v:
                 fields[f] = v
+
+        row_date_err = False
+        for f in ("annual_start_date", "annual_end_date"):
+            v = get(f)
+            if not v:
+                continue
+            iso = normalize_stored_date_field(v)
+            if iso:
+                fields[f] = iso
+            else:
+                errors.append(
+                    f"Row {row_idx}: invalid {f.replace('_', ' ')} (use DD/MM/YYYY), skipped row"
+                )
+                skipped += 1
+                row_date_err = True
+                break
+        if row_date_err:
+            continue
 
         for f in ("india_discount_percent", "india_tax_percent", "sponsorship_discount_percent"):
             v = parse_float(get(f))

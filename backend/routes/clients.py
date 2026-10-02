@@ -2167,7 +2167,8 @@ async def patch_annual_ledger_home_coming_sessions(
 
 def _annual_upload_norm_header(h: Any) -> str:
     s = (str(h or "").strip().lower().replace("*", "").replace("\n", " "))
-    return re.sub(r"\s+", " ", s)
+    s = re.sub(r"\s*\([^)]*\)", "", s)
+    return re.sub(r"\s+", " ", s).strip()
 
 
 def _annual_upload_cell_str(row: tuple, idx: Optional[int]) -> str:
@@ -2398,25 +2399,10 @@ def _find_annual_portal_header_row(ws: Any) -> Tuple[int, List[Any]]:
 
 
 def _coerce_upload_date_value(v: Any, label: str) -> Tuple[Optional[str], Optional[str]]:
-    """Accept ISO string, Excel date cell, or serial number."""
-    if v is None:
-        return None, None
-    if isinstance(v, datetime):
-        return v.date().isoformat(), None
-    if isinstance(v, date):
-        return v.isoformat(), None
-    if isinstance(v, (int, float)) and not isinstance(v, bool):
-        try:
-            from openpyxl.utils.datetime import from_excel
+    """Accept DD/MM/YYYY text, ISO string, Excel date cell, or serial number."""
+    from utils.excel_dates import parse_calendar_date_to_iso
 
-            dt = from_excel(float(v))
-            return dt.date().isoformat(), None
-        except Exception:
-            pass
-    s = str(v).strip()
-    if not s:
-        return None, None
-    return _coerce_upload_date(s, label)
+    return parse_calendar_date_to_iso(v, label)
 
 
 def _parse_package_cell_for_upload(val: str) -> Optional[str]:
@@ -2441,19 +2427,6 @@ def _parse_int_cell_strict(val: str) -> Tuple[Optional[int], Optional[str]]:
         return n, None
     except ValueError:
         return None, "not a number"
-
-
-def _coerce_upload_date(s: str, label: str) -> Tuple[Optional[str], Optional[str]]:
-    if not (s or "").strip():
-        return None, None
-    t = str(s).strip()
-    if len(t) >= 10 and t[4] == "-" and t[7] == "-":
-        try:
-            datetime.strptime(t[:10], "%Y-%m-%d")
-            return t[:10], None
-        except ValueError:
-            return None, f"invalid {label} (use YYYY-MM-DD)"
-    return None, f"invalid {label} (use YYYY-MM-DD)"
 
 
 ANNUAL_PORTAL_UPLOAD_PAYLOAD_KEYS = frozenset(
@@ -2639,8 +2612,8 @@ ANNUAL_PORTAL_EXCEL_HEADER_LABELS = [
     "#",
     "Name",
     "Email Id",
-    "Start Date",
-    "End Date",
+    "Start Date (DD/MM/YYYY)",
+    "End Date (DD/MM/YYYY)",
     "DIID",
     "HomeComing",
     "AWRP months used",
@@ -2681,16 +2654,20 @@ async def download_annual_portal_subscription_export():
         c.fill = hdr_fill
         c.alignment = Alignment(horizontal="center")
 
+    from utils.excel_dates import iso_ymd_to_dd_mm_yyyy
+
     for row_idx, cl in enumerate(clients_list, start=2):
         sub = cl.get("annual_subscription") or {}
         usage = sub.get("usage") or {}
         pkg = (sub.get("package_sku") or "").strip().lower()
         home_cell = "Home Coming" if pkg == HOME_COMING_SKU else (sub.get("package_sku") or "")
+        sd_raw = (sub.get("start_date") or "").strip() or None
+        ed_raw = (sub.get("end_date") or "").strip() or None
         ws.cell(row=row_idx, column=1, value=row_idx - 1)
         ws.cell(row=row_idx, column=2, value=(cl.get("name") or "").strip() or None)
         ws.cell(row=row_idx, column=3, value=(cl.get("email") or "").strip() or None)
-        ws.cell(row=row_idx, column=4, value=(sub.get("start_date") or "").strip() or None)
-        ws.cell(row=row_idx, column=5, value=(sub.get("end_date") or "").strip() or None)
+        ws.cell(row=row_idx, column=4, value=iso_ymd_to_dd_mm_yyyy(sd_raw) if sd_raw else None)
+        ws.cell(row=row_idx, column=5, value=iso_ymd_to_dd_mm_yyyy(ed_raw) if ed_raw else None)
         ws.cell(row=row_idx, column=6, value=(sub.get("annual_diid") or "").strip() or None)
         ws.cell(row=row_idx, column=7, value=home_cell or None)
         ws.cell(row=row_idx, column=8, value=int(usage.get("awrp_months_used") or 0))
@@ -2707,7 +2684,7 @@ async def download_annual_portal_subscription_export():
         )
         ws.cell(row=row_idx, column=15, value=cl.get("id") or None)
 
-    widths = [5, 18, 26, 12, 12, 12, 14, 10, 10, 10, 10, 10, 22, 8, 36]
+    widths = [5, 18, 26, 22, 22, 12, 14, 10, 10, 10, 10, 10, 22, 8, 36]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
 
@@ -2746,8 +2723,8 @@ async def download_annual_portal_subscription_template():
         "1",
         "Jane Primary",
         "primary@example.com",
-        "2025-04-01",
-        "2026-03-31",
+        "01/04/2025",
+        "31/03/2026",
         "JADO2504",
         "Home Coming",
         "3",
@@ -2764,8 +2741,8 @@ async def download_annual_portal_subscription_template():
         "2",
         "Child Member",
         "",
-        "2025-04-01",
-        "2026-03-31",
+        "01/04/2025",
+        "31/03/2026",
         "2503",
         "Home Coming",
         "0",
@@ -2784,7 +2761,7 @@ async def download_annual_portal_subscription_template():
     for col_idx, val in enumerate(sample_peer, 1):
         c = ws.cell(row=3, column=col_idx, value=val)
         c.font = note_font
-    widths = [5, 18, 26, 12, 12, 12, 14, 10, 10, 10, 10, 10, 22, 8, 36]
+    widths = [5, 18, 26, 22, 22, 12, 14, 10, 10, 10, 10, 10, 22, 8, 36]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
     out = io.BytesIO()
