@@ -2614,6 +2614,7 @@ ANNUAL_PORTAL_EXCEL_HEADER_LABELS = [
     "Email Id",
     "Start Date (DD/MM/YYYY)",
     "End Date (DD/MM/YYYY)",
+    "Status",
     "DIID",
     "HomeComing",
     "AWRP months used",
@@ -2666,25 +2667,27 @@ async def download_annual_portal_subscription_export():
         ws.cell(row=row_idx, column=1, value=row_idx - 1)
         ws.cell(row=row_idx, column=2, value=(cl.get("name") or "").strip() or None)
         ws.cell(row=row_idx, column=3, value=(cl.get("email") or "").strip() or None)
+        life = annual_portal_lifecycle_payload(cl)
         ws.cell(row=row_idx, column=4, value=iso_ymd_to_dd_mm_yyyy(sd_raw) if sd_raw else None)
         ws.cell(row=row_idx, column=5, value=iso_ymd_to_dd_mm_yyyy(ed_raw) if ed_raw else None)
-        ws.cell(row=row_idx, column=6, value=(sub.get("annual_diid") or "").strip() or None)
-        ws.cell(row=row_idx, column=7, value=home_cell or None)
-        ws.cell(row=row_idx, column=8, value=int(usage.get("awrp_months_used") or 0))
-        ws.cell(row=row_idx, column=9, value=int(usage.get("mmm_months_used") or 0))
-        ws.cell(row=row_idx, column=10, value=int(usage.get("turbo_sessions_used") or 0))
-        ws.cell(row=row_idx, column=11, value=int(usage.get("meta_downloads_used") or 0))
+        ws.cell(row=row_idx, column=6, value=(life.get("label") or "").strip() or None)
+        ws.cell(row=row_idx, column=7, value=(sub.get("annual_diid") or "").strip() or None)
+        ws.cell(row=row_idx, column=8, value=home_cell or None)
+        ws.cell(row=row_idx, column=9, value=int(usage.get("awrp_months_used") or 0))
+        ws.cell(row=row_idx, column=10, value=int(usage.get("mmm_months_used") or 0))
+        ws.cell(row=row_idx, column=11, value=int(usage.get("turbo_sessions_used") or 0))
+        ws.cell(row=row_idx, column=12, value=int(usage.get("meta_downloads_used") or 0))
         us_src = (sub.get("usage_source") or "").strip().lower()
-        ws.cell(row=row_idx, column=12, value=us_src if us_src in ("manual", "system") else None)
-        ws.cell(row=row_idx, column=13, value=(cl.get("household_key") or "").strip() or None)
+        ws.cell(row=row_idx, column=13, value=us_src if us_src in ("manual", "system") else None)
+        ws.cell(row=row_idx, column=14, value=(cl.get("household_key") or "").strip() or None)
         ws.cell(
             row=row_idx,
-            column=14,
+            column=15,
             value="Y" if cl.get("is_primary_household_contact") else "N",
         )
-        ws.cell(row=row_idx, column=15, value=cl.get("id") or None)
+        ws.cell(row=row_idx, column=16, value=cl.get("id") or None)
 
-    widths = [5, 18, 26, 22, 22, 12, 14, 10, 10, 10, 10, 10, 22, 8, 36]
+    widths = [5, 18, 26, 22, 22, 14, 12, 14, 10, 10, 10, 10, 10, 22, 8, 36]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
 
@@ -2725,6 +2728,7 @@ async def download_annual_portal_subscription_template():
         "primary@example.com",
         "01/04/2025",
         "31/03/2026",
+        "Active",
         "JADO2504",
         "Home Coming",
         "3",
@@ -2743,6 +2747,7 @@ async def download_annual_portal_subscription_template():
         "",
         "01/04/2025",
         "31/03/2026",
+        "Active",
         "2503",
         "Home Coming",
         "0",
@@ -2761,7 +2766,7 @@ async def download_annual_portal_subscription_template():
     for col_idx, val in enumerate(sample_peer, 1):
         c = ws.cell(row=3, column=col_idx, value=val)
         c.font = note_font
-    widths = [5, 18, 26, 22, 22, 12, 14, 10, 10, 10, 10, 10, 22, 8, 36]
+    widths = [5, 18, 26, 22, 22, 14, 12, 14, 10, 10, 10, 10, 10, 22, 8, 36]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
     out = io.BytesIO()
