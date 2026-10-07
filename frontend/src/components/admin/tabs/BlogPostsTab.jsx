@@ -292,7 +292,9 @@ const BlogPostsTab = () => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2"><FileText size={18} /> Blog Posts</h3>
-          <p className="text-sm text-gray-500">Cover card on /blog → click through to the full uploaded article</p>
+          <p className="text-sm text-gray-500">
+            Cover card on /blog → click through to the full uploaded article. Reader comments: Admin → Blog Comments.
+          </p>
         </div>
         <Button onClick={startNew}><Plus size={14} className="mr-1" /> Add Blog Post</Button>
       </div>

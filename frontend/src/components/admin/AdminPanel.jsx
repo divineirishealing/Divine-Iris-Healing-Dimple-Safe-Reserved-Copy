@@ -55,6 +55,7 @@ import ProfileApprovals from './tabs/ProfileApprovals';
 import TextTestimonialsTab from './tabs/TextTestimonialsTab';
 import CaseStudiesTab from './tabs/CaseStudiesTab';
 import BlogPostsTab from './tabs/BlogPostsTab';
+import BlogCommentsTab from './tabs/BlogCommentsTab';
 import FraudAlertsTab from './tabs/FraudAlertsTab';
 import SubscribersTab from './tabs/SubscribersTab';
 import AnnualPackageCatalogTemplate from './tabs/AnnualPackageCatalogTemplate';
@@ -483,6 +484,7 @@ const AdminPanel = ({ onLogout }) => {
       { key: 'testimonials', label: 'Testimonials', icon: MessageSquare },
       { key: 'case_studies', label: 'Case Studies', icon: BookOpen },
       { key: 'blog_posts', label: 'Blog Posts', icon: FileText },
+      { key: 'blog_comments', label: 'Blog Comments', icon: MessageSquare },
       { key: 'text_testimonials', label: 'Text Quotes', icon: Quote },
     ]},
     { label: 'Programs & Offers', icon: Package, tabs: [
@@ -792,6 +794,14 @@ const AdminPanel = ({ onLogout }) => {
           {activeTab === 'text_testimonials' && <TextTestimonialsTab />}
           {activeTab === 'case_studies' && <CaseStudiesTab />}
           {activeTab === 'blog_posts' && <BlogPostsTab />}
+          {activeTab === 'blog_comments' && siteSettings && (
+            <>
+              <BlogCommentsTab settings={siteSettings} onSettingsChange={setSiteSettings} />
+              <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5">
+                <Save size={14} className="mr-1" /> Save Changes
+              </Button>
+            </>
+          )}
           {activeTab === 'annual_subscribers' && <AnnualSubscribersTab />}
           {activeTab === 'add_annual_subscriber' && (
             <AnnualPackageCatalogTemplate

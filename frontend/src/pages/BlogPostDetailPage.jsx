@@ -11,6 +11,8 @@ import { useSeoPage } from '../context/SeoPageContext';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import { isDocxHtmlBody, extractDocxHtml, wrapDocxHtmlFragment } from '../lib/docxHtml';
 import { ArrowLeft } from 'lucide-react';
+import BlogCommentsSection from '../components/BlogCommentsSection';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -19,6 +21,8 @@ const DOC_COLUMN = 'docx-page mx-auto w-full max-w-[816px] px-6 md:px-[72px]';
 
 export default function BlogPostDetailPage() {
   const { slug } = useParams();
+  const { settings } = useSiteSettings();
+  const commentsEnabled = settings?.blog_comments_enabled === true;
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -119,6 +123,8 @@ export default function BlogPostDetailPage() {
           </section>
         )
       )}
+
+      <BlogCommentsSection postSlug={post.slug} enabled={commentsEnabled} />
 
       <Footer />
       <FloatingButtons />
