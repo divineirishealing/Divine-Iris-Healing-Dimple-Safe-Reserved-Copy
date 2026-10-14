@@ -80,7 +80,7 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-INSTALLMENT_PLANS = frozenset({"equal", "quarter_then_monthly", "down_then_emi"})
+INSTALLMENT_PLANS = frozenset({"equal", "quarter_then_monthly", "down_then_emi", "flexi"})
 ANNUAL_QUARTER_THEN_MONTHLY_COUNT = 10
 ANNUAL_PRESET_DOWN_PCT = 25.0
 ANNUAL_PRESET_EMI_COUNT = 9
@@ -159,6 +159,8 @@ def _installment_amounts_for_row(row: dict) -> List[float]:
     if isinstance(stored, list) and len(stored) >= 2:
         return [round(float(x), 2) for x in stored]
     if row.get("installments_enabled"):
+        if _is_flexi_installment_plan(row):
+            return []
         plan = (row.get("installment_plan") or "equal").strip().lower()
         n = int(row.get("num_installments") or 2)
         return _installment_amounts_for_plan(
@@ -178,12 +180,33 @@ def _installments_paid_count(row: dict) -> int:
     return int(row.get("installments_paid") or 0)
 
 
+def _is_flexi_installment_plan(row: dict) -> bool:
+    if not row.get("installments_enabled"):
+        return False
+    return (row.get("installment_plan") or "").strip().lower() == "flexi"
+
+
+def _flexi_amount_paid(row: dict) -> float:
+    payments = row.get("installment_payments") or []
+    if not isinstance(payments, list):
+        return 0.0
+    return round(
+        sum(float(p.get("amount") or 0) for p in payments if isinstance(p, dict)),
+        2,
+    )
+
+
+def _flexi_balance_remaining(row: dict) -> float:
+    total = round(float(row.get("amount") or 0), 2)
+    return max(0.0, round(total - _flexi_amount_paid(row), 2))
+
+
 def _minimum_amount_for_row(row: dict) -> float:
     return round(max(0.01, float(row.get("minimum_amount") or 1)), 2)
 
 
 def _resolve_client_charge_amount(row: dict, payer_amount: Optional[float]) -> float:
-    """Fixed/installment links ignore payer_amount; pay-as-you-wish requires it."""
+    """Fixed/installment links ignore payer_amount; pay-as-you-wish and flexi require it."""
     if row.get("pay_as_you_wish"):
         if payer_amount is None:
             raise HTTPException(400, "Enter the amount you wish to pay.")
@@ -191,6 +214,19 @@ def _resolve_client_charge_amount(row: dict, payer_amount: Optional[float]) -> f
         minimum = _minimum_amount_for_row(row)
         if charge < minimum:
             raise HTTPException(400, "Please enter a higher contribution amount.")
+        return charge
+    if _is_flexi_installment_plan(row):
+        balance = _flexi_balance_remaining(row)
+        if balance <= 0:
+            raise HTTPException(400, "This link is already fully paid.")
+        if payer_amount is None:
+            raise HTTPException(400, "Enter the amount you wish to pay toward your balance.")
+        charge = round(float(payer_amount), 2)
+        minimum = _minimum_amount_for_row(row)
+        if charge < minimum:
+            raise HTTPException(400, "Please enter a higher payment amount.")
+        if charge > balance:
+            charge = balance
         return charge
     checkout = _checkout_state_for_row(row)
     return round(float(checkout["checkout_amount"]), 2)
@@ -225,6 +261,26 @@ def _checkout_state_for_row(row: dict) -> Dict[str, Any]:
             "installments_remaining": 0,
             "installment_amounts": [total],
         }
+    if _is_flexi_installment_plan(row):
+        paid_sum = _flexi_amount_paid(row)
+        balance = max(0.0, round(total - paid_sum, 2))
+        paid_count = _installments_paid_count(row)
+        minimum = _minimum_amount_for_row(row)
+        return {
+            "installments_enabled": True,
+            "installment_plan": "flexi",
+            "flexi": True,
+            "total_amount": total,
+            "amount_paid_so_far": paid_sum,
+            "balance_remaining": balance,
+            "minimum_amount": minimum,
+            "checkout_amount": balance,
+            "installment_current": paid_count + 1 if balance > 0 else paid_count,
+            "num_installments": 0,
+            "installments_paid": paid_count,
+            "installments_remaining": 1 if balance > 0 else 0,
+            "installment_amounts": [],
+        }
     amounts = _installment_amounts_for_row(row)
     n = len(amounts)
     paid = _installments_paid_count(row)
@@ -248,6 +304,8 @@ def _can_checkout_payment_request(row: dict) -> bool:
     if st in ("paid", "cancelled"):
         return False
     if row.get("installments_enabled"):
+        if _is_flexi_installment_plan(row):
+            return _flexi_balance_remaining(row) > 0
         state = _checkout_state_for_row(row)
         return state["installments_remaining"] > 0 and state["checkout_amount"] > 0
     return st == "active"
@@ -286,7 +344,7 @@ class CreatePaymentRequestBody(BaseModel):
     session_date: Optional[str] = ""
     installments_enabled: Optional[bool] = False
     num_installments: Optional[int] = None
-    installment_plan: Optional[str] = "equal"  # equal | quarter_then_monthly | down_then_emi
+    installment_plan: Optional[str] = "equal"  # equal | quarter_then_monthly | down_then_emi | flexi
     installment_down_pct: Optional[float] = None
     installment_emi_count: Optional[int] = None
     pay_as_you_wish: Optional[bool] = False
@@ -365,8 +423,11 @@ async def create_payment_request(body: CreatePaymentRequestBody, request: Reques
     num_installments = int(body.num_installments or 2) if installments_enabled else 1
     installment_down_pct: Optional[float] = None
     installment_emi_count: Optional[int] = None
+    flexi_minimum = _minimum_amount_for_row({"minimum_amount": body.minimum_amount})
     if installments_enabled:
-        if installment_plan in ("quarter_then_monthly", "down_then_emi"):
+        if installment_plan == "flexi":
+            num_installments = 0
+        elif installment_plan in ("quarter_then_monthly", "down_then_emi"):
             if installment_plan == "quarter_then_monthly":
                 installment_down_pct = ANNUAL_PRESET_DOWN_PCT
                 installment_emi_count = ANNUAL_PRESET_EMI_COUNT
@@ -377,15 +438,19 @@ async def create_payment_request(body: CreatePaymentRequestBody, request: Reques
         elif num_installments < 2 or num_installments > 12:
             raise HTTPException(400, "Installments must be between 2 and 12")
     installment_amounts = (
-        _installment_amounts_for_plan(
-            round(body.amount, 2),
-            installment_plan,
-            num_installments,
-            down_pct=installment_down_pct,
-            emi_count=installment_emi_count,
+        []
+        if installments_enabled and installment_plan == "flexi"
+        else (
+            _installment_amounts_for_plan(
+                round(body.amount, 2),
+                installment_plan,
+                num_installments,
+                down_pct=installment_down_pct,
+                emi_count=installment_emi_count,
+            )
+            if installments_enabled
+            else []
         )
-        if installments_enabled
-        else []
     )
     req = {
         "id": str(uuid.uuid4()),
@@ -413,7 +478,7 @@ async def create_payment_request(body: CreatePaymentRequestBody, request: Reques
         "installments_paid": 0,
         "installment_payments": [],
         "pay_as_you_wish": pay_as_you_wish,
-        "minimum_amount": _minimum_amount_for_row({"minimum_amount": body.minimum_amount}),
+        "minimum_amount": flexi_minimum if (installments_enabled and installment_plan == "flexi") else _minimum_amount_for_row({"minimum_amount": body.minimum_amount}),
         "status": "active",          # active | partially_paid | paid | cancelled
         "created_at": _now_iso(),
         "paid_at": None,
@@ -539,7 +604,9 @@ async def create_stripe_checkout(
         raise HTTPException(400, "Nothing left to pay on this link")
 
     line_name = row["title"]
-    if row.get("installments_enabled") and inst_total > 1:
+    if _is_flexi_installment_plan(row):
+        line_name = f"{row['title']} · Flexi payment"
+    elif row.get("installments_enabled") and inst_total > 1:
         line_name = f"{row['title']} · Installment {inst_n} of {inst_total}"
 
     session_params: dict = {
@@ -663,9 +730,18 @@ async def _settle_payment_request_tx(
 
     if req.get("installments_enabled"):
         payments.append(payment_entry)
-        paid_count = len(payments)
-        n_total = int(req.get("num_installments") or len(_installment_amounts_for_row(req)))
-        new_status = "paid" if paid_count >= n_total else "partially_paid"
+        if _is_flexi_installment_plan(req):
+            paid_count = len(payments)
+            total_due = round(float(req.get("amount") or 0), 2)
+            paid_sum = round(
+                sum(float(p.get("amount") or 0) for p in payments if isinstance(p, dict)),
+                2,
+            )
+            new_status = "paid" if paid_sum >= total_due - 0.009 else "partially_paid"
+        else:
+            paid_count = len(payments)
+            n_total = int(req.get("num_installments") or len(_installment_amounts_for_row(req)))
+            new_status = "paid" if paid_count >= n_total else "partially_paid"
         patch: Dict[str, Any] = {
             "installments_paid": paid_count,
             "installment_payments": payments,

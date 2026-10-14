@@ -5,7 +5,14 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { getApiUrl } from '../lib/config';
+
+function formatApiError(err) {
+  const d = err?.response?.data?.detail;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d) && d[0]?.msg) return String(d[0].msg);
+  return 'Could not submit your comment. Please try again.';
+}
 
 export default function BlogCommentsSection({ postSlug, enabled }) {
   const [comments, setComments] = useState([]);
@@ -23,7 +30,7 @@ export default function BlogCommentsSection({ postSlug, enabled }) {
     }
     setLoading(true);
     try {
-      const r = await axios.get(`${API}/blog-comments/by-slug/${encodeURIComponent(postSlug)}`);
+      const r = await axios.get(`${getApiUrl()}/blog-comments/by-slug/${encodeURIComponent(postSlug)}`);
       setComments(Array.isArray(r.data) ? r.data : []);
     } catch {
       setComments([]);
@@ -43,17 +50,17 @@ export default function BlogCommentsSection({ postSlug, enabled }) {
     setError('');
     setSubmitting(true);
     try {
-      await axios.post(`${API}/blog-comments`, {
+      await axios.post(`${getApiUrl()}/blog-comments`, {
         post_slug: postSlug,
         author_name: form.author_name.trim(),
         author_email: form.author_email.trim(),
         body: form.body.trim(),
       });
       setSent(true);
-      setForm({ author_name: form.author_name, author_email: form.author_email, body: '' });
+      setError('');
+      setForm({ author_name: '', author_email: '', body: '' });
     } catch (err) {
-      const d = err.response?.data?.detail;
-      setError(typeof d === 'string' ? d : 'Could not submit your comment. Please try again.');
+      setError(formatApiError(err));
     } finally {
       setSubmitting(false);
     }
@@ -85,57 +92,67 @@ export default function BlogCommentsSection({ postSlug, enabled }) {
         )}
 
         {sent ? (
-          <div className="rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-3 mb-6">
-            Thank you — your comment was received and will appear here after the team reviews it.
+          <div className="rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 px-5 py-6 space-y-2">
+            <p className="font-semibold">Thank you — we received your comment.</p>
+            <p className="text-sm text-emerald-800/90">
+              It will appear on this article after the Divine Iris team reviews it. You do not need to submit again.
+            </p>
+            <button
+              type="button"
+              className="text-sm text-[#534AB7] font-medium underline mt-2"
+              onClick={() => setSent(false)}
+            >
+              Write another comment
+            </button>
           </div>
-        ) : null}
-
-        <form onSubmit={onSubmit} className="space-y-4 bg-white rounded-xl border border-[#ebe6f2] p-5 shadow-sm">
-          <p className="text-xs text-gray-500">All comments are moderated before they are published.</p>
-          {error && <p className="text-sm text-rose-600">{error}</p>}
-          <div className="grid sm:grid-cols-2 gap-3">
+        ) : (
+          <form onSubmit={onSubmit} className="space-y-4 bg-white rounded-xl border border-[#ebe6f2] p-5 shadow-sm">
+            <p className="text-xs text-gray-500">All comments are moderated before they are published.</p>
+            {error && <p className="text-sm text-rose-600">{error}</p>}
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-gray-600">Name *</label>
+                <Input
+                  value={form.author_name}
+                  onChange={(e) => setForm((f) => ({ ...f, author_name: e.target.value }))}
+                  required
+                  maxLength={120}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600">Email (optional)</label>
+                <Input
+                  type="email"
+                  value={form.author_email}
+                  onChange={(e) => setForm((f) => ({ ...f, author_email: e.target.value }))}
+                  maxLength={254}
+                  className="mt-1"
+                />
+              </div>
+            </div>
             <div>
-              <label className="text-xs font-medium text-gray-600">Name *</label>
-              <Input
-                value={form.author_name}
-                onChange={(e) => setForm((f) => ({ ...f, author_name: e.target.value }))}
+              <label className="text-xs font-medium text-gray-600">Comment *</label>
+              <Textarea
+                value={form.body}
+                onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
                 required
-                maxLength={120}
+                rows={4}
+                maxLength={4000}
                 className="mt-1"
+                placeholder="Share what resonated with you…"
               />
             </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600">Email (optional)</label>
-              <Input
-                type="email"
-                value={form.author_email}
-                onChange={(e) => setForm((f) => ({ ...f, author_email: e.target.value }))}
-                maxLength={254}
-                className="mt-1"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-600">Comment *</label>
-            <Textarea
-              value={form.body}
-              onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
-              required
-              rows={4}
-              maxLength={4000}
-              className="mt-1"
-              placeholder="Share what resonated with you…"
-            />
-          </div>
-          <Button type="submit" disabled={submitting} className="bg-[#534AB7] hover:bg-[#4338a8]">
-            {submitting ? (
-              <Loader2 size={16} className="animate-spin mr-2" />
-            ) : (
-              <Send size={16} className="mr-2" />
-            )}
-            Submit comment
-          </Button>
-        </form>
+            <Button type="submit" disabled={submitting} className="bg-[#534AB7] hover:bg-[#4338a8]">
+              {submitting ? (
+                <Loader2 size={16} className="animate-spin mr-2" />
+              ) : (
+                <Send size={16} className="mr-2" />
+              )}
+              Submit comment
+            </Button>
+          </form>
+        )}
       </div>
     </section>
   );

@@ -35,6 +35,9 @@ function installmentStepLabel(req, n) {
 
 function installmentScheduleHint(req) {
   const plan = (req?.installment_plan || 'equal').toLowerCase();
+  if (plan === 'flexi') {
+    return 'Pay any amount toward your balance — use the same link each time';
+  }
   if (plan === 'quarter_then_monthly') {
     return 'EMI 1 is 25% of total; EMIs 2–10 split the remaining 75% equally';
   }
@@ -44,6 +47,10 @@ function installmentScheduleHint(req) {
     return `${pct}% down payment, then ${emi} equal EMIs`;
   }
   return '';
+}
+
+function isFlexiInstallments(req) {
+  return !!req?.flexi || (req?.installment_plan || '').toLowerCase() === 'flexi';
 }
 
 function paymentCatalogLine(req) {
@@ -79,35 +86,45 @@ const SuccessView = ({ req }) => (
 
 const PartialInstallmentView = ({ req, payId, onContinue }) => {
   const symbol = CUR_SYMBOL[req?.currency?.toLowerCase()] || '';
+  const flexi = isFlexiInstallments(req);
   const paid = req?.installments_paid ?? 0;
   const total = req?.num_installments ?? 0;
   const remaining = req?.installments_remaining ?? Math.max(0, total - paid);
+  const contractTotal = req?.total_amount ?? req?.amount ?? 0;
+  const paidSoFar = req?.amount_paid_so_far ?? 0;
+  const balance = req?.balance_remaining ?? req?.checkout_amount ?? 0;
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center bg-gradient-to-b from-amber-50 to-white">
       <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-6">
         <ShieldCheck size={32} className="text-amber-600" />
       </div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Installment received</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-2">{flexi ? 'Payment received' : 'Installment received'}</h1>
       <p className="text-gray-600 text-sm mb-1">{req?.title}</p>
-      <p className="text-amber-800 font-semibold mt-2">
-        {paid} of {total} installments paid
-      </p>
+      {flexi ? (
+        <p className="text-amber-800 font-semibold mt-2">
+          {symbol}{Number(paidSoFar).toLocaleString()} paid · {symbol}{Number(balance).toLocaleString()} remaining
+        </p>
+      ) : (
+        <p className="text-amber-800 font-semibold mt-2">
+          {paid} of {total} installments paid
+        </p>
+      )}
       <p className="text-gray-500 text-xs mt-2">
-        Total {symbol}{(req?.total_amount ?? req?.amount ?? 0).toLocaleString()}
-        {remaining > 0 ? ` · ${remaining} remaining` : ''}
+        Total {symbol}{Number(contractTotal).toLocaleString()}
+        {!flexi && remaining > 0 ? ` · ${remaining} remaining` : ''}
       </p>
-      {remaining > 0 && (
+      {(flexi ? balance > 0 : remaining > 0) && (
         <button
           type="button"
           onClick={onContinue}
           className="mt-6 px-6 py-3 rounded-xl font-semibold text-sm text-white"
           style={{ background: 'linear-gradient(135deg, #635bff, #4c47d1)' }}
         >
-          Pay next installment ({symbol}{(req?.checkout_amount ?? 0).toLocaleString()})
+          {flexi ? 'Make another payment' : `Pay next installment (${symbol}${(req?.checkout_amount ?? 0).toLocaleString()})`}
         </button>
       )}
       <p className="text-xs text-gray-400 mt-6 max-w-sm">
-        Bookmark this page or use the same link from your email when the next installment is due.
+        Bookmark this page or use the same link when you are ready to pay again.
       </p>
     </div>
   );
@@ -169,11 +186,17 @@ export default function PaymentRequestPage() {
       return;
     }
     const payAsYouWish = !!req?.pay_as_you_wish;
+    const flexi = isFlexiInstallments(req);
     const amountNum = parseFloat(payerAmount);
-    if (payAsYouWish) {
+    if (payAsYouWish || flexi) {
       const min = Number(req?.minimum_amount) || 1;
+      const max = flexi ? Number(req?.balance_remaining ?? req?.checkout_amount ?? req?.amount) : Infinity;
       if (!Number.isFinite(amountNum) || amountNum < min) {
-        setPayError('Please enter a higher contribution amount.');
+        setPayError(flexi ? 'Please enter a higher payment amount.' : 'Please enter a higher contribution amount.');
+        return;
+      }
+      if (flexi && amountNum > max) {
+        setPayError(`Maximum for this payment is ${max.toLocaleString()}.`);
         return;
       }
     }
@@ -183,7 +206,7 @@ export default function PaymentRequestPage() {
       const r = await axios.post(`${API}/payment-requests/${id}/checkout`, {
         payer_name: name.trim(),
         payer_email: email.trim(),
-        ...(payAsYouWish ? { payer_amount: amountNum } : {}),
+        ...(payAsYouWish || flexi ? { payer_amount: amountNum } : {}),
       });
       if (r.data?.url) {
         window.location.href = r.data.url;
@@ -244,8 +267,12 @@ export default function PaymentRequestPage() {
 
   const symbol = CUR_SYMBOL[req.currency?.toLowerCase()] || `${req.currency?.toUpperCase()} `;
   const payAsYouWish = !!req.pay_as_you_wish;
-  const checkoutAmount = payAsYouWish ? (parseFloat(payerAmount) || 0) : (req.checkout_amount ?? req.amount);
-  const showInstallments = !payAsYouWish && req.installments_enabled && (req.num_installments || 0) > 1;
+  const flexiInstallments = isFlexiInstallments(req);
+  const checkoutAmount = (payAsYouWish || flexiInstallments)
+    ? (parseFloat(payerAmount) || 0)
+    : (req.checkout_amount ?? req.amount);
+  const showInstallments = !payAsYouWish && req.installments_enabled && !flexiInstallments && (req.num_installments || 0) > 1;
+  const showFlexiPay = flexiInstallments && (req.balance_remaining ?? req.checkout_amount ?? 0) > 0;
   const instCurrent = req.installment_current || 1;
   const instTotal = req.num_installments || 1;
   const instPaid = req.installments_paid || 0;
@@ -282,6 +309,24 @@ export default function PaymentRequestPage() {
                     <span className="block text-lg font-semibold text-white/85">Pay as you wish</span>
                     <span className="block text-[10px] font-normal text-white/45 mt-1">
                       Choose your contribution below
+                    </span>
+                  </>
+                ) : showFlexiPay ? (
+                  <>
+                    <span className="block text-lg font-semibold text-white/85">Flexi payment</span>
+                    <span className="block text-sm font-medium text-white/70 mt-1">
+                      Balance {symbol}{Number(req.balance_remaining ?? req.checkout_amount ?? 0).toLocaleString()}
+                    </span>
+                    {scheduleHint && (
+                      <span className="block text-[10px] font-normal text-white/45 mt-0.5">
+                        {scheduleHint}
+                      </span>
+                    )}
+                    <span className="block text-[10px] font-normal text-white/50 mt-0.5">
+                      Total {symbol}{Number(req.total_amount ?? req.amount).toLocaleString()}
+                      {(req.amount_paid_so_far ?? 0) > 0
+                        ? ` · ${symbol}${Number(req.amount_paid_so_far).toLocaleString()} paid`
+                        : ''}
                     </span>
                   </>
                 ) : showInstallments ? (
@@ -344,6 +389,26 @@ export default function PaymentRequestPage() {
                 </div>
               )}
 
+              {showFlexiPay && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Amount for this payment *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={req.minimum_amount || 0.01}
+                    max={req.balance_remaining ?? req.checkout_amount}
+                    value={payerAmount}
+                    onChange={e => setPayerAmount(e.target.value)}
+                    placeholder={`Min ${symbol}${Number(req.minimum_amount || 1).toLocaleString()}`}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Pay any amount (min {symbol}{Number(req.minimum_amount || 1).toLocaleString()}) toward your balance of{' '}
+                    {symbol}{Number(req.balance_remaining ?? req.checkout_amount ?? 0).toLocaleString()}.
+                  </p>
+                </div>
+              )}
+
               {payError && (
                 <p className="text-red-500 text-xs flex items-center gap-1">
                   <AlertTriangle size={12} /> {payError}
@@ -362,7 +427,7 @@ export default function PaymentRequestPage() {
                   : (
                     <>
                       <CreditCard size={16} />
-                      {payAsYouWish
+                      {payAsYouWish || showFlexiPay
                         ? `Pay with Stripe · ${symbol}${Number(checkoutAmount).toLocaleString()}`
                         : showInstallments
                         ? `Pay ${instStepLabel.toLowerCase()} · ${symbol}${Number(checkoutAmount).toLocaleString()}`

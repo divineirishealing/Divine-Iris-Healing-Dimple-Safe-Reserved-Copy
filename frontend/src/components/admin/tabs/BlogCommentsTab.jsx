@@ -5,8 +5,9 @@ import { Button } from '../../ui/button';
 import { Switch } from '../../ui/switch';
 import { useToast } from '../../../hooks/use-toast';
 import { adminHeaders, isAdminSessionError } from '../../../lib/adminSession';
+import { getApiUrl } from '../../../lib/config';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = getApiUrl();
 
 const STATUS_FILTERS = [
   { id: 'pending', label: 'Pending review' },
@@ -39,7 +40,12 @@ export default function BlogCommentsTab({ settings, onSettingsChange }) {
       if (isAdminSessionError(err)) {
         toast({ title: 'Admin session expired', variant: 'destructive' });
       } else {
-        toast({ title: 'Could not load comments', variant: 'destructive' });
+        const detail = err.response?.data?.detail;
+        toast({
+          title: 'Could not load comments',
+          description: typeof detail === 'string' ? detail : 'Sign in to admin again if your session expired.',
+          variant: 'destructive',
+        });
       }
     } finally {
       setLoading(false);

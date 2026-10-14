@@ -141,6 +141,10 @@ function isDownEmiPlan(plan) {
   return plan === 'down_then_emi' || plan === 'quarter_then_monthly';
 }
 
+function isFlexiPlan(plan) {
+  return (plan || '') === 'flexi';
+}
+
 function installmentPartLabel(plan, index, downPct) {
   if (plan === 'quarter_then_monthly') {
     if (index === 0) return 'EMI 1 (25%)';
@@ -157,6 +161,7 @@ function installmentPartLabel(plan, index, downPct) {
 
 function installmentPlanSummary(req) {
   const plan = (req?.installment_plan || 'equal').toLowerCase();
+  if (plan === 'flexi') return 'Flexi · any amount, any time';
   if (plan === 'quarter_then_monthly') return 'Annual EMI · 25% + 9 monthly';
   if (plan === 'down_then_emi') {
     return `${clampDownPct(req?.installment_down_pct)}% down + ${clampEmiCount(req?.installment_emi_count)} EMI`;
@@ -168,8 +173,18 @@ function isAnnualEmiPlan(plan) {
   return (plan || '') === 'quarter_then_monthly';
 }
 
+function flexiPaidSum(req) {
+  const payments = req?.installment_payments;
+  if (!Array.isArray(payments)) return 0;
+  return payments.reduce((s, p) => s + (parseFloat(p?.amount) || 0), 0);
+}
+
 function checkoutAmountDue(req) {
   if (!req?.installments_enabled) return parseFloat(req?.amount) || 0;
+  if (isFlexiPlan(req?.installment_plan)) {
+    const total = parseFloat(req?.amount) || 0;
+    return Math.max(0, total - flexiPaidSum(req));
+  }
   const paid = req.installments_paid ?? (req.installment_payments?.length || 0);
   const amounts = req.installment_amounts || [];
   if (amounts.length > paid && amounts[paid] != null) return Number(amounts[paid]) || 0;
@@ -190,10 +205,17 @@ function paymentMethodLabel(p) {
 
 function installmentSummary(req) {
   if (!req?.installments_enabled) return '';
+  const plan = (req?.installment_plan || 'equal').toLowerCase();
+  if (plan === 'flexi') {
+    const contractTotal = parseFloat(req?.amount) || 0;
+    const paidSum = flexiPaidSum(req);
+    const planTag = installmentPlanSummary(req);
+    if ((req?.status || '') === 'paid') return `${planTag} · fully paid`;
+    return `${planTag} · ${CUR_SYMBOL[req?.currency] || ''}${paidSum.toLocaleString()} / ${contractTotal.toLocaleString()}`;
+  }
   const paid = req.installments_paid ?? (req.installment_payments?.length || 0);
   const total = req.num_installments || req.installment_amounts?.length || 0;
   if (!total) return '';
-  const plan = (req.installment_plan || 'equal').toLowerCase();
   const planTag = installmentPlanSummary(req);
   return planTag ? `${planTag} · ${paid}/${total} paid` : `${paid}/${total} installments`;
 }
@@ -1026,6 +1048,15 @@ export default function PaymentRequestsTab() {
           payload.installment_down_pct = clampDownPct(form.installment_down_pct);
           payload.installment_emi_count = clampEmiCount(form.installment_emi_count);
           payload.num_installments = 1 + payload.installment_emi_count;
+        } else if (plan === 'flexi') {
+          payload.num_installments = 0;
+          const flexiMin = parseFloat(form.minimum_amount);
+          if (!Number.isFinite(flexiMin) || flexiMin <= 0) {
+            toast({ title: 'Enter a valid minimum payment for flexi plan', variant: 'destructive' });
+            setSaving(false);
+            return;
+          }
+          payload.minimum_amount = flexiMin;
         } else {
           payload.num_installments = parseInt(form.num_installments, 10) || 3;
         }
@@ -1116,7 +1147,8 @@ export default function PaymentRequestsTab() {
     : [];
   const showAnnualEmiPlan = isAnnualPaymentLinkContext(form.link_kind, selectedTier, selectedAnnualPackage);
   const showDownEmiFields = !showAnnualEmiPlan && form.installment_plan === 'down_then_emi';
-  const hideEqualCount = isDownEmiPlan(form.installment_plan);
+  const hideEqualCount = isDownEmiPlan(form.installment_plan) || isFlexiPlan(form.installment_plan);
+  const showFlexiFields = form.installments_enabled && isFlexiPlan(form.installment_plan);
 
   return (
     <div className="space-y-6">
@@ -1543,12 +1575,14 @@ export default function PaymentRequestsTab() {
                         {showAnnualEmiPlan ? (
                           <>
                             <option value="quarter_then_monthly">Annual EMI — 25% first, then 9 EMIs on balance</option>
+                            <option value="flexi">Flexi — any amount, any time (toward total)</option>
                             <option value="equal">Equal installments</option>
                           </>
                         ) : (
                           <>
                             <option value="equal">Equal installments</option>
                             <option value="down_then_emi">Down payment % + EMI</option>
+                            <option value="flexi">Flexi — any amount, any time (toward total)</option>
                           </>
                         )}
                       </select>
@@ -1591,6 +1625,25 @@ export default function PaymentRequestsTab() {
                         </p>
                       </>
                     )}
+                    {showFlexiFields && (
+                      <div className="sm:col-span-2 space-y-1">
+                        <Label className="text-xs">Minimum per payment</Label>
+                        <Input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={form.minimum_amount}
+                          onChange={(e) => set('minimum_amount', e.target.value)}
+                          className="mt-1 max-w-xs"
+                          placeholder="e.g. 5000"
+                        />
+                        <p className="text-[10px] text-gray-500">
+                          Client chooses each payment amount (via Stripe) until the link total of{' '}
+                          {CUR_SYMBOL[form.currency]}
+                          {parseFloat(form.amount || 0).toLocaleString()} is reached. Same link for every payment.
+                        </p>
+                      </div>
+                    )}
                     {!hideEqualCount && (
                       <div>
                         <Label className="text-xs">Number of installments</Label>
@@ -1605,7 +1658,13 @@ export default function PaymentRequestsTab() {
                         </select>
                       </div>
                     )}
-                    {installmentPreviewParts.length > 0 && (
+                    {showFlexiFields && form.amount && (
+                      <div className="sm:col-span-2 text-[10px] text-amber-900">
+                        <p className="font-medium mb-1">Flexi schedule</p>
+                        <p>Whenever the client chooses · any amount ≥ min · balance reference {CUR_SYMBOL[form.currency]}{parseFloat(form.amount || 0).toLocaleString()}</p>
+                      </div>
+                    )}
+                    {!showFlexiFields && installmentPreviewParts.length > 0 && (
                       <div className={`text-[10px] text-amber-900 ${hideEqualCount ? 'sm:col-span-2' : ''}`}>
                         <p className="font-medium mb-1">Payment schedule</p>
                         <p className="font-mono leading-relaxed">
@@ -1658,7 +1717,12 @@ export default function PaymentRequestsTab() {
                 <span className="font-medium">{form.title}</span>
                 {' · '}
                 <span className="font-bold">{CUR_SYMBOL[form.currency]}{parseFloat(form.amount || 0).toLocaleString()}</span>
-                {form.installments_enabled && installmentPreviewParts.length > 0 && (
+                {form.installments_enabled && isFlexiPlan(form.installment_plan) && (
+                  <span className="block mt-1 text-amber-800">
+                    Flexi installments · min {CUR_SYMBOL[form.currency]}{parseFloat(form.minimum_amount || 0).toLocaleString()} per payment · total {CUR_SYMBOL[form.currency]}{parseFloat(form.amount || 0).toLocaleString()}
+                  </span>
+                )}
+                {form.installments_enabled && !isFlexiPlan(form.installment_plan) && installmentPreviewParts.length > 0 && (
                   <span className="block mt-1 text-amber-800">
                     {isAnnualEmiPlan(form.installment_plan)
                       ? `Annual EMI · first ${CUR_SYMBOL[form.currency]}${installmentPreviewParts[0].toLocaleString()} (25%), then 9 EMIs on balance`

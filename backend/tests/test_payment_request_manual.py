@@ -61,3 +61,18 @@ def test_down_then_emi_custom_percent():
     assert amounts[0] == 300.0
     assert sum(amounts) == 1000.0
     assert len(set(amounts[1:])) <= 2  # equal EMIs ± cent remainder
+
+
+def test_checkout_state_flexi_installments():
+    row = {
+        "amount": 1000,
+        "installments_enabled": True,
+        "installment_plan": "flexi",
+        "minimum_amount": 100,
+        "installment_payments": [{"amount": 250, "paid_at": "2026-01-01T00:00:00+00:00"}],
+    }
+    state = _checkout_state_for_row(row)
+    assert state["flexi"] is True
+    assert state["balance_remaining"] == 750.0
+    assert state["amount_paid_so_far"] == 250.0
+    assert state["minimum_amount"] == 100.0

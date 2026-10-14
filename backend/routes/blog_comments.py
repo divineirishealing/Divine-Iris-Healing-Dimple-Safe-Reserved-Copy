@@ -29,8 +29,12 @@ def _now_iso() -> str:
 
 
 async def _comments_enabled() -> bool:
+    """Same flag as GET /api/settings — stored on site_settings, not a legacy settings collection."""
     db = get_db()
-    doc = await db.settings.find_one({}, {"_id": 0, "blog_comments_enabled": 1})
+    doc = await db.site_settings.find_one(
+        {"id": "site_settings"},
+        {"_id": 0, "blog_comments_enabled": 1},
+    )
     return bool((doc or {}).get("blog_comments_enabled"))
 
 
