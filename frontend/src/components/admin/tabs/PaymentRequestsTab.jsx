@@ -130,6 +130,7 @@ function quarterPlusNineMonthlyAmounts(total) {
 
 function buildInstallmentPreview(amount, opts = {}) {
   const plan = opts.plan || 'equal';
+  if (plan === 'flexi') return [];
   if (plan === 'quarter_then_monthly') return quarterPlusNineMonthlyAmounts(amount);
   if (plan === 'down_then_emi') {
     return downThenEmiAmounts(amount, opts.downPct, opts.emiCount);
@@ -317,6 +318,36 @@ function annualEmiInstallmentPatch(installmentsEnabled) {
     num_installments: '10',
     installment_down_pct: '25',
     installment_emi_count: '9',
+  };
+}
+
+/** Refresh 25%+9 numbers when that preset is already selected (e.g. package price changed). */
+function refreshAnnualQuarterPresetIfActive(installmentsEnabled, installmentPlan) {
+  if (!installmentsEnabled) return {};
+  if ((installmentPlan || '').toLowerCase() !== 'quarter_then_monthly') return {};
+  return annualEmiInstallmentPatch(true);
+}
+
+/** When turning installments on for annual links, default to 25%+9 unless admin already picked flexi/custom. */
+function annualInstallmentsOnPatch(installmentsEnabled, installmentPlan) {
+  if (!installmentsEnabled) return {};
+  const plan = (installmentPlan || 'equal').toLowerCase();
+  if (plan === 'flexi' || plan === 'down_then_emi') return {};
+  if (plan === 'equal' || !plan) return annualEmiInstallmentPatch(true);
+  if (plan === 'quarter_then_monthly') return annualEmiInstallmentPatch(true);
+  return {};
+}
+
+function flexiInstallmentPatch(f) {
+  const cur = (f.currency || 'inr').toLowerCase();
+  const minDefault = cur === 'inr' ? '5000' : '100';
+  return {
+    installment_plan: 'flexi',
+    num_installments: '0',
+    minimum_amount:
+      f.minimum_amount && String(f.minimum_amount) !== '1'
+        ? f.minimum_amount
+        : minDefault,
   };
 }
 
@@ -926,7 +957,9 @@ export default function PaymentRequestsTab() {
       custom_batch_start: '',
       amount: price > 0 ? String(price) : f.amount,
       title: f.title.trim() || programLinkTitle(selectedProgram, tier, ''),
-      ...(annualEmi && f.installments_enabled ? annualEmiInstallmentPatch(true) : {}),
+      ...(annualEmi && f.installments_enabled
+        ? refreshAnnualQuarterPresetIfActive(true, f.installment_plan)
+        : {}),
     }));
   };
 
@@ -968,7 +1001,9 @@ export default function PaymentRequestsTab() {
       session_date: '',
       title: f.title.trim() || `${name} — annual membership`,
       amount: price > 0 ? String(price) : f.amount,
-      ...(f.installments_enabled ? annualEmiInstallmentPatch(true) : {}),
+      ...(f.installments_enabled
+        ? refreshAnnualQuarterPresetIfActive(true, f.installment_plan)
+        : {}),
     }));
   };
 
@@ -1037,9 +1072,15 @@ export default function PaymentRequestsTab() {
       payload.installments_enabled = payAsYouWish ? false : !!form.installments_enabled;
       if (!payAsYouWish && form.installments_enabled) {
         const annualCtx = isAnnualPaymentLinkContext(form.link_kind, selectedTier, selectedAnnualPackage);
-        let plan = form.installment_plan || (annualCtx ? 'quarter_then_monthly' : 'equal');
+        let plan = (form.installment_plan || '').trim().toLowerCase()
+          || (annualCtx ? 'quarter_then_monthly' : 'equal');
         if (annualCtx && plan === 'down_then_emi') plan = 'quarter_then_monthly';
-        payload.installment_plan = plan;
+        if (plan === 'flexi') {
+          payload.installment_plan = 'flexi';
+        } else {
+          payload.installment_plan = plan;
+        }
+        plan = payload.installment_plan;
         if (plan === 'quarter_then_monthly') {
           payload.installment_down_pct = 25;
           payload.installment_emi_count = 9;
@@ -1137,7 +1178,7 @@ export default function PaymentRequestsTab() {
     return matchSearch && matchStatus;
   });
 
-  const installmentPreviewParts = form.installments_enabled && form.amount
+  const installmentPreviewParts = form.installments_enabled && form.amount && !isFlexiPlan(form.installment_plan)
     ? buildInstallmentPreview(form.amount, {
       plan: form.installment_plan,
       numInstallments: form.num_installments,
@@ -1542,14 +1583,18 @@ export default function PaymentRequestsTab() {
                       setForm((f) => ({
                         ...f,
                         installments_enabled: enabled,
-                        ...(annual && enabled ? annualEmiInstallmentPatch(true) : {}),
+                        ...(annual && enabled
+                          ? annualInstallmentsOnPatch(true, f.installment_plan)
+                          : {}),
                       }));
                     }}
                     className="mt-0.5"
                   />
                   <span>
                     <span className="text-xs font-semibold text-amber-900 block">Allow payment in installments (Stripe)</span>
-                    <span className="text-[10px] text-gray-500">Same link — client pays one installment at a time until the total is complete.</span>
+                    <span className="text-[10px] text-gray-500">
+                      Same link for every payment until the total is complete. Choose Flexi for any number of payments at any amounts.
+                    </span>
                   </span>
                 </label>
                 {form.installments_enabled && (
@@ -1557,18 +1602,23 @@ export default function PaymentRequestsTab() {
                     <div className="sm:col-span-2">
                       <Label className="text-xs">Installment schedule</Label>
                       <select
-                        value={form.installment_plan || 'equal'}
+                        value={isFlexiPlan(form.installment_plan) ? 'flexi' : (form.installment_plan || 'equal')}
                         onChange={(e) => {
                           const plan = e.target.value;
-                          setForm((f) => ({
-                            ...f,
-                            installment_plan: plan,
-                            num_installments: plan === 'quarter_then_monthly'
-                              ? '10'
-                              : plan === 'down_then_emi'
-                                ? String(1 + clampEmiCount(f.installment_emi_count))
-                                : f.num_installments,
-                          }));
+                          setForm((f) => {
+                            if (plan === 'flexi') {
+                              return { ...f, ...flexiInstallmentPatch(f) };
+                            }
+                            return {
+                              ...f,
+                              installment_plan: plan,
+                              num_installments: plan === 'quarter_then_monthly'
+                                ? '10'
+                                : plan === 'down_then_emi'
+                                  ? String(1 + clampEmiCount(f.installment_emi_count))
+                                  : f.num_installments,
+                            };
+                          });
                         }}
                         className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
                       >
