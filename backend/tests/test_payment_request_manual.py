@@ -63,6 +63,25 @@ def test_down_then_emi_custom_percent():
     assert len(set(amounts[1:])) <= 2  # equal EMIs ± cent remainder
 
 
+def test_resolve_installment_setup_flexi_via_payment_mode():
+    from routes.payment_requests import CreatePaymentRequestBody, _resolve_installment_setup
+
+    body = CreatePaymentRequestBody(
+        title="Test",
+        amount=1000,
+        currency="inr",
+        payment_mode="flexi",
+        installments_enabled=True,
+        installment_plan="equal",
+        num_installments=2,
+        minimum_amount=100,
+    )
+    setup = _resolve_installment_setup(body)
+    assert setup["installment_plan"] == "flexi"
+    assert setup["num_installments"] == 0
+    assert setup["payment_mode"] == "flexi"
+
+
 def test_checkout_state_flexi_installments():
     row = {
         "amount": 1000,

@@ -1086,6 +1086,7 @@ export default function PaymentRequestsTab() {
         minimum_amount: payAsYouWish ? minAmt : undefined,
       };
       const paymentMode = resolvePaymentMode(form);
+      payload.payment_mode = payAsYouWish ? 'single' : paymentMode;
       payload.installments_enabled = payAsYouWish ? false : paymentMode !== 'single';
       if (form.link_kind === 'program' && selectedProgram) {
         payload.item_type = 'program';
@@ -1136,8 +1137,24 @@ export default function PaymentRequestsTab() {
           payload.num_installments = parseInt(form.num_installments, 10) || 3;
         }
       }
-      await axios.post(`${API}/payment-requests`, payload, { headers: adminHeaders() });
-      toast({ title: 'Payment link created!' });
+      const created = await axios.post(`${API}/payment-requests`, payload, { headers: adminHeaders() });
+      const plan = (created.data?.installment_plan || '').toLowerCase();
+      const mode = created.data?.payment_mode || paymentMode;
+      toast({
+        title: 'Payment link created!',
+        description: mode === 'flexi' || plan === 'flexi'
+          ? 'Flexi link — client will choose each payment amount on the pay page.'
+          : mode === 'fixed_schedule' || created.data?.installments_enabled
+            ? 'Fixed installment schedule — share the link for the next preset installment.'
+            : undefined,
+      });
+      if (paymentMode === 'flexi' && plan !== 'flexi') {
+        toast({
+          title: 'Warning: link was not saved as Flexi',
+          description: 'Backend may need redeploy on Render. Do not share this link — create again after deploy.',
+          variant: 'destructive',
+        });
+      }
       resetCreateForm();
       await load();
     } catch (e) {

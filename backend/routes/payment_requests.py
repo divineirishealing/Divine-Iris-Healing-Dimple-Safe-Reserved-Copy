@@ -183,6 +183,8 @@ def _installments_paid_count(row: dict) -> int:
 def _is_flexi_installment_plan(row: dict) -> bool:
     if not row.get("installments_enabled"):
         return False
+    if (row.get("payment_mode") or "").strip().lower() == "flexi":
+        return True
     return (row.get("installment_plan") or "").strip().lower() == "flexi"
 
 
@@ -203,6 +205,95 @@ def _flexi_balance_remaining(row: dict) -> float:
 
 def _minimum_amount_for_row(row: dict) -> float:
     return round(max(0.01, float(row.get("minimum_amount") or 1)), 2)
+
+
+def _parse_num_installments(raw: Optional[int], *, default: int = 2) -> int:
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_payment_mode(raw: Optional[str]) -> str:
+    m = (raw or "").strip().lower()
+    if m in ("single", "flexi", "fixed_schedule", "fixed"):
+        return "fixed_schedule" if m == "fixed" else m
+    return ""
+
+
+def _resolve_installment_setup(body: CreatePaymentRequestBody) -> Dict[str, Any]:
+    """Map admin create body → installments_enabled, plan, counts (flexi-safe)."""
+    pay_as_you_wish = bool(body.pay_as_you_wish)
+    pm = _normalize_payment_mode(body.payment_mode)
+    plan = (body.installment_plan or "equal").strip().lower()
+    if pm == "flexi" and not pay_as_you_wish:
+        plan = "flexi"
+    if pm == "single":
+        return {
+            "payment_mode": "single",
+            "installments_enabled": False,
+            "installment_plan": "equal",
+            "num_installments": 1,
+            "installment_down_pct": None,
+            "installment_emi_count": None,
+            "minimum_amount": _minimum_amount_for_row({"minimum_amount": body.minimum_amount}),
+        }
+    installments_enabled = bool(body.installments_enabled) and not pay_as_you_wish
+    if pm == "flexi":
+        installments_enabled = True
+    if not installments_enabled:
+        return {
+            "payment_mode": "single",
+            "installments_enabled": False,
+            "installment_plan": "equal",
+            "num_installments": 1,
+            "installment_down_pct": None,
+            "installment_emi_count": None,
+            "minimum_amount": _minimum_amount_for_row({"minimum_amount": body.minimum_amount}),
+        }
+    if plan not in INSTALLMENT_PLANS:
+        if pm == "flexi" or plan == "flexi":
+            raise HTTPException(
+                503,
+                "Flexi payment links require an updated backend. Redeploy divine-iris-backend on Render, then try again.",
+            )
+        plan = "equal"
+    num_installments = _parse_num_installments(body.num_installments, default=2)
+    installment_down_pct: Optional[float] = None
+    installment_emi_count: Optional[int] = None
+    if plan == "flexi":
+        num_installments = 0
+        minimum = _minimum_amount_for_row({"minimum_amount": body.minimum_amount})
+        return {
+            "payment_mode": "flexi",
+            "installments_enabled": True,
+            "installment_plan": "flexi",
+            "num_installments": 0,
+            "installment_down_pct": None,
+            "installment_emi_count": None,
+            "minimum_amount": minimum,
+        }
+    if plan in ("quarter_then_monthly", "down_then_emi"):
+        if plan == "quarter_then_monthly":
+            installment_down_pct = ANNUAL_PRESET_DOWN_PCT
+            installment_emi_count = ANNUAL_PRESET_EMI_COUNT
+        else:
+            installment_down_pct = _normalize_down_pct(body.installment_down_pct)
+            installment_emi_count = _normalize_emi_count(body.installment_emi_count)
+        num_installments = 1 + int(installment_emi_count)
+    elif num_installments < 2 or num_installments > 12:
+        raise HTTPException(400, "Installments must be between 2 and 12")
+    return {
+        "payment_mode": pm or "fixed_schedule",
+        "installments_enabled": True,
+        "installment_plan": plan,
+        "num_installments": num_installments,
+        "installment_down_pct": installment_down_pct,
+        "installment_emi_count": installment_emi_count,
+        "minimum_amount": _minimum_amount_for_row({"minimum_amount": body.minimum_amount}),
+    }
 
 
 def _resolve_client_charge_amount(row: dict, payer_amount: Optional[float]) -> float:
@@ -330,6 +421,8 @@ class CreatePaymentRequestBody(BaseModel):
     description: Optional[str] = ""
     amount: float
     currency: str = "aed"          # aed | inr | usd | eur | gbp
+    # Mirrors admin UI: single | flexi | fixed_schedule (flexi wins over installment_plan if backend is older)
+    payment_mode: Optional[str] = None
     recipient_name: Optional[str] = ""
     recipient_email: Optional[str] = ""
     note: Optional[str] = ""       # internal admin note
@@ -416,27 +509,14 @@ async def create_payment_request(body: CreatePaymentRequestBody, request: Reques
     item_type = (body.item_type or "").strip().lower()
     if item_type not in ("program", "session", "annual_package", ""):
         item_type = ""
-    installments_enabled = bool(body.installments_enabled) and not pay_as_you_wish
-    installment_plan = (body.installment_plan or "equal").strip().lower()
-    if installment_plan not in INSTALLMENT_PLANS:
-        installment_plan = "equal"
-    num_installments = int(body.num_installments or 2) if installments_enabled else 1
-    installment_down_pct: Optional[float] = None
-    installment_emi_count: Optional[int] = None
-    flexi_minimum = _minimum_amount_for_row({"minimum_amount": body.minimum_amount})
-    if installments_enabled:
-        if installment_plan == "flexi":
-            num_installments = 0
-        elif installment_plan in ("quarter_then_monthly", "down_then_emi"):
-            if installment_plan == "quarter_then_monthly":
-                installment_down_pct = ANNUAL_PRESET_DOWN_PCT
-                installment_emi_count = ANNUAL_PRESET_EMI_COUNT
-            else:
-                installment_down_pct = _normalize_down_pct(body.installment_down_pct)
-                installment_emi_count = _normalize_emi_count(body.installment_emi_count)
-            num_installments = 1 + int(installment_emi_count)
-        elif num_installments < 2 or num_installments > 12:
-            raise HTTPException(400, "Installments must be between 2 and 12")
+    setup = _resolve_installment_setup(body)
+    installments_enabled = setup["installments_enabled"]
+    installment_plan = setup["installment_plan"]
+    num_installments = setup["num_installments"]
+    installment_down_pct = setup["installment_down_pct"]
+    installment_emi_count = setup["installment_emi_count"]
+    flexi_minimum = setup["minimum_amount"]
+    payment_mode = setup["payment_mode"]
     installment_amounts = (
         []
         if installments_enabled and installment_plan == "flexi"
@@ -469,6 +549,7 @@ async def create_payment_request(body: CreatePaymentRequestBody, request: Reques
         "chosen_end_date": (body.chosen_end_date or "").strip()[:10],
         "chosen_tier_label": (body.chosen_tier_label or "").strip(),
         "session_date": (body.session_date or "").strip()[:10],
+        "payment_mode": payment_mode,
         "installments_enabled": installments_enabled,
         "installment_plan": installment_plan if installments_enabled else "equal",
         "installment_down_pct": installment_down_pct,

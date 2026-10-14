@@ -50,7 +50,8 @@ function installmentScheduleHint(req) {
 }
 
 function isFlexiInstallments(req) {
-  return !!req?.flexi || (req?.installment_plan || '').toLowerCase() === 'flexi';
+  const mode = (req?.payment_mode || '').toLowerCase();
+  return mode === 'flexi' || !!req?.flexi || (req?.installment_plan || '').toLowerCase() === 'flexi';
 }
 
 function paymentCatalogLine(req) {
