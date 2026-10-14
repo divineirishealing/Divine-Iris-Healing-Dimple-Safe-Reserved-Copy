@@ -48,6 +48,8 @@ const BLANK = {
   title: '', description: '', amount: '', currency: 'aed',
   recipient_name: '', recipient_email: '', note: '',
   link_kind: '', item_id: '', tier_index: '', session_date: '', custom_batch_start: '',
+  /** single | flexi | fixed_schedule — flexi = client picks amount & how many payments */
+  payment_mode: 'single',
   installments_enabled: false, num_installments: '3', installment_plan: 'equal',
   installment_down_pct: '25', installment_emi_count: '9',
   pay_as_you_wish: false, minimum_amount: '1',
@@ -78,8 +80,15 @@ function paymentRequestToDuplicateForm(req) {
     tier_index: req.tier_index != null && req.tier_index !== '' ? String(req.tier_index) : '',
     session_date: req.session_date ? String(req.session_date).slice(0, 10) : '',
     custom_batch_start,
+    payment_mode: (req.installment_plan || '').toLowerCase() === 'flexi'
+      ? 'flexi'
+      : req.installments_enabled
+        ? 'fixed_schedule'
+        : 'single',
     installments_enabled: !!req.installments_enabled,
-    num_installments: String(req.num_installments || 3),
+    num_installments: (req.installment_plan || '').toLowerCase() === 'flexi'
+      ? '0'
+      : String(req.num_installments || 3),
     installment_plan: req.installment_plan || 'equal',
     installment_down_pct: String(req.installment_down_pct ?? 25),
     installment_emi_count: String(req.installment_emi_count ?? 9),
@@ -328,16 +337,6 @@ function refreshAnnualQuarterPresetIfActive(installmentsEnabled, installmentPlan
   return annualEmiInstallmentPatch(true);
 }
 
-/** When turning installments on for annual links, default to 25%+9 unless admin already picked flexi/custom. */
-function annualInstallmentsOnPatch(installmentsEnabled, installmentPlan) {
-  if (!installmentsEnabled) return {};
-  const plan = (installmentPlan || 'equal').toLowerCase();
-  if (plan === 'flexi' || plan === 'down_then_emi') return {};
-  if (plan === 'equal' || !plan) return annualEmiInstallmentPatch(true);
-  if (plan === 'quarter_then_monthly') return annualEmiInstallmentPatch(true);
-  return {};
-}
-
 function flexiInstallmentPatch(f) {
   const cur = (f.currency || 'inr').toLowerCase();
   const minDefault = cur === 'inr' ? '5000' : '100';
@@ -348,6 +347,44 @@ function flexiInstallmentPatch(f) {
       f.minimum_amount && String(f.minimum_amount) !== '1'
         ? f.minimum_amount
         : minDefault,
+  };
+}
+
+function resolvePaymentMode(form) {
+  const m = form?.payment_mode;
+  if (m === 'single' || m === 'flexi' || m === 'fixed_schedule') return m;
+  if (!form?.installments_enabled) return 'single';
+  if (isFlexiPlan(form.installment_plan)) return 'flexi';
+  return 'fixed_schedule';
+}
+
+function applyPaymentModeChange(mode, f, annualCtx) {
+  if (mode === 'single') {
+    return { ...f, payment_mode: 'single', installments_enabled: false };
+  }
+  if (mode === 'flexi') {
+    return {
+      ...f,
+      payment_mode: 'flexi',
+      installments_enabled: true,
+      ...flexiInstallmentPatch(f),
+    };
+  }
+  const plan = f.installment_plan && !isFlexiPlan(f.installment_plan)
+    ? f.installment_plan
+    : (annualCtx ? 'quarter_then_monthly' : 'equal');
+  return {
+    ...f,
+    payment_mode: 'fixed_schedule',
+    installments_enabled: true,
+    installment_plan: plan,
+    num_installments: plan === 'quarter_then_monthly'
+      ? '10'
+      : plan === 'down_then_emi'
+        ? String(1 + clampEmiCount(f.installment_emi_count))
+        : (f.num_installments || '3'),
+    installment_down_pct: plan === 'quarter_then_monthly' ? '25' : f.installment_down_pct,
+    installment_emi_count: plan === 'quarter_then_monthly' ? '9' : f.installment_emi_count,
   };
 }
 
@@ -957,7 +994,7 @@ export default function PaymentRequestsTab() {
       custom_batch_start: '',
       amount: price > 0 ? String(price) : f.amount,
       title: f.title.trim() || programLinkTitle(selectedProgram, tier, ''),
-      ...(annualEmi && f.installments_enabled
+      ...(annualEmi && resolvePaymentMode(f) === 'fixed_schedule'
         ? refreshAnnualQuarterPresetIfActive(true, f.installment_plan)
         : {}),
     }));
@@ -1001,7 +1038,7 @@ export default function PaymentRequestsTab() {
       session_date: '',
       title: f.title.trim() || `${name} — annual membership`,
       amount: price > 0 ? String(price) : f.amount,
-      ...(f.installments_enabled
+      ...(resolvePaymentMode(f) === 'fixed_schedule'
         ? refreshAnnualQuarterPresetIfActive(true, f.installment_plan)
         : {}),
     }));
@@ -1047,8 +1084,9 @@ export default function PaymentRequestsTab() {
         note: form.note,
         pay_as_you_wish: payAsYouWish,
         minimum_amount: payAsYouWish ? minAmt : undefined,
-        installments_enabled: payAsYouWish ? false : form.installments_enabled,
       };
+      const paymentMode = resolvePaymentMode(form);
+      payload.installments_enabled = payAsYouWish ? false : paymentMode !== 'single';
       if (form.link_kind === 'program' && selectedProgram) {
         payload.item_type = 'program';
         payload.item_id = String(selectedProgram.id);
@@ -1069,18 +1107,23 @@ export default function PaymentRequestsTab() {
         const months = selectedAnnualPackage.duration_months || 12;
         payload.chosen_tier_label = `${months}-month annual`;
       }
-      payload.installments_enabled = payAsYouWish ? false : !!form.installments_enabled;
-      if (!payAsYouWish && form.installments_enabled) {
+      if (!payAsYouWish && paymentMode === 'flexi') {
+        payload.installment_plan = 'flexi';
+        payload.num_installments = 0;
+        const flexiMin = parseFloat(form.minimum_amount);
+        if (!Number.isFinite(flexiMin) || flexiMin <= 0) {
+          toast({ title: 'Enter a valid minimum payment for flexi plan', variant: 'destructive' });
+          setSaving(false);
+          return;
+        }
+        payload.minimum_amount = flexiMin;
+      } else if (!payAsYouWish && paymentMode === 'fixed_schedule') {
         const annualCtx = isAnnualPaymentLinkContext(form.link_kind, selectedTier, selectedAnnualPackage);
         let plan = (form.installment_plan || '').trim().toLowerCase()
           || (annualCtx ? 'quarter_then_monthly' : 'equal');
         if (annualCtx && plan === 'down_then_emi') plan = 'quarter_then_monthly';
-        if (plan === 'flexi') {
-          payload.installment_plan = 'flexi';
-        } else {
-          payload.installment_plan = plan;
-        }
-        plan = payload.installment_plan;
+        if (plan === 'flexi') plan = annualCtx ? 'quarter_then_monthly' : 'equal';
+        payload.installment_plan = plan;
         if (plan === 'quarter_then_monthly') {
           payload.installment_down_pct = 25;
           payload.installment_emi_count = 9;
@@ -1089,15 +1132,6 @@ export default function PaymentRequestsTab() {
           payload.installment_down_pct = clampDownPct(form.installment_down_pct);
           payload.installment_emi_count = clampEmiCount(form.installment_emi_count);
           payload.num_installments = 1 + payload.installment_emi_count;
-        } else if (plan === 'flexi') {
-          payload.num_installments = 0;
-          const flexiMin = parseFloat(form.minimum_amount);
-          if (!Number.isFinite(flexiMin) || flexiMin <= 0) {
-            toast({ title: 'Enter a valid minimum payment for flexi plan', variant: 'destructive' });
-            setSaving(false);
-            return;
-          }
-          payload.minimum_amount = flexiMin;
         } else {
           payload.num_installments = parseInt(form.num_installments, 10) || 3;
         }
@@ -1178,7 +1212,8 @@ export default function PaymentRequestsTab() {
     return matchSearch && matchStatus;
   });
 
-  const installmentPreviewParts = form.installments_enabled && form.amount && !isFlexiPlan(form.installment_plan)
+  const paymentMode = resolvePaymentMode(form);
+  const installmentPreviewParts = paymentMode === 'fixed_schedule' && form.amount
     ? buildInstallmentPreview(form.amount, {
       plan: form.installment_plan,
       numInstallments: form.num_installments,
@@ -1187,9 +1222,10 @@ export default function PaymentRequestsTab() {
     })
     : [];
   const showAnnualEmiPlan = isAnnualPaymentLinkContext(form.link_kind, selectedTier, selectedAnnualPackage);
-  const showDownEmiFields = !showAnnualEmiPlan && form.installment_plan === 'down_then_emi';
-  const hideEqualCount = isDownEmiPlan(form.installment_plan) || isFlexiPlan(form.installment_plan);
-  const showFlexiFields = form.installments_enabled && isFlexiPlan(form.installment_plan);
+  const showDownEmiFields = paymentMode === 'fixed_schedule' && !showAnnualEmiPlan && form.installment_plan === 'down_then_emi';
+  const hideEqualCount = paymentMode === 'fixed_schedule' && isDownEmiPlan(form.installment_plan);
+  const showFlexiFields = paymentMode === 'flexi';
+  const showFixedScheduleFields = paymentMode === 'fixed_schedule';
 
   return (
     <div className="space-y-6">
@@ -1480,7 +1516,9 @@ export default function PaymentRequestsTab() {
                     onChange={(e) => setForm((f) => ({
                       ...f,
                       pay_as_you_wish: e.target.checked,
-                      installments_enabled: e.target.checked ? false : f.installments_enabled,
+                      ...(e.target.checked
+                        ? { payment_mode: 'single', installments_enabled: false }
+                        : {}),
                     }))}
                     className="mt-0.5"
                   />
@@ -1567,72 +1605,109 @@ export default function PaymentRequestsTab() {
                 </select>
               </div>
 
-              {/* Installments */}
+              {/* Payment collection */}
               <div className={`md:col-span-2 border border-amber-100 rounded-xl p-4 bg-amber-50/50 space-y-3 ${form.pay_as_you_wish ? 'opacity-50 pointer-events-none' : ''}`}>
-                <label className="flex items-start gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={!!form.installments_enabled}
-                    onChange={(e) => {
-                      const enabled = e.target.checked;
-                      const annual = isAnnualPaymentLinkContext(
-                        form.link_kind,
-                        selectedTier,
-                        selectedAnnualPackage,
-                      );
-                      setForm((f) => ({
-                        ...f,
-                        installments_enabled: enabled,
-                        ...(annual && enabled
-                          ? annualInstallmentsOnPatch(true, f.installment_plan)
-                          : {}),
-                      }));
-                    }}
-                    className="mt-0.5"
-                  />
-                  <span>
-                    <span className="text-xs font-semibold text-amber-900 block">Allow payment in installments (Stripe)</span>
-                    <span className="text-[10px] text-gray-500">
-                      Same link for every payment until the total is complete. Choose Flexi for any number of payments at any amounts.
-                    </span>
-                  </span>
-                </label>
-                {form.installments_enabled && (
-                  <div className="grid sm:grid-cols-2 gap-3">
+                <p className="text-xs font-semibold text-amber-900">How should the client pay? (Stripe)</p>
+                <div className="space-y-2">
+                  {[
+                    {
+                      id: 'single',
+                      title: 'One full payment',
+                      hint: 'Single checkout for the full amount.',
+                    },
+                    {
+                      id: 'flexi',
+                      title: 'Flexi — client chooses amount & number of payments',
+                      hint: 'Same link every time. Client enters how much to pay now; they can pay as many times as needed until the total is complete. You set only the contract total and minimum per payment.',
+                    },
+                    {
+                      id: 'fixed_schedule',
+                      title: 'Fixed installment schedule (you set amounts)',
+                      hint: 'You define equal EMIs, annual 25%+9, or down payment + EMIs — client pays preset amounts in order.',
+                    },
+                  ].map((opt) => (
+                    <label
+                      key={opt.id}
+                      className={`flex items-start gap-2 cursor-pointer rounded-lg border px-3 py-2.5 ${
+                        paymentMode === opt.id ? 'border-purple-400 bg-white shadow-sm' : 'border-transparent bg-amber-50/30'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="payment_mode"
+                        className="mt-1"
+                        checked={paymentMode === opt.id}
+                        onChange={() => {
+                          const annual = isAnnualPaymentLinkContext(
+                            form.link_kind,
+                            selectedTier,
+                            selectedAnnualPackage,
+                          );
+                          setForm((f) => applyPaymentModeChange(opt.id, f, annual));
+                        }}
+                      />
+                      <span>
+                        <span className="text-xs font-semibold text-gray-900 block">{opt.title}</span>
+                        <span className="text-[10px] text-gray-600">{opt.hint}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {showFlexiFields && (
+                  <div className="space-y-2 pt-1 border-t border-amber-100">
+                    <div>
+                      <Label className="text-xs">Minimum per payment</Label>
+                      <Input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={form.minimum_amount}
+                        onChange={(e) => set('minimum_amount', e.target.value)}
+                        className="mt-1 max-w-xs"
+                        placeholder="e.g. 5000"
+                      />
+                    </div>
+                    {form.amount ? (
+                      <p className="text-[10px] text-amber-900">
+                        <span className="font-medium">Flexi: </span>
+                        Client pays any amount (≥ min), as many times as they want, until{' '}
+                        {CUR_SYMBOL[form.currency]}
+                        {parseFloat(form.amount || 0).toLocaleString()} is fully paid — same link each time.
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+                {showFixedScheduleFields && (
+                  <div className="grid sm:grid-cols-2 gap-3 pt-1 border-t border-amber-100">
                     <div className="sm:col-span-2">
-                      <Label className="text-xs">Installment schedule</Label>
+                      <Label className="text-xs">Fixed schedule type</Label>
                       <select
-                        value={isFlexiPlan(form.installment_plan) ? 'flexi' : (form.installment_plan || 'equal')}
+                        value={form.installment_plan || 'equal'}
                         onChange={(e) => {
                           const plan = e.target.value;
-                          setForm((f) => {
-                            if (plan === 'flexi') {
-                              return { ...f, ...flexiInstallmentPatch(f) };
-                            }
-                            return {
-                              ...f,
-                              installment_plan: plan,
-                              num_installments: plan === 'quarter_then_monthly'
-                                ? '10'
-                                : plan === 'down_then_emi'
-                                  ? String(1 + clampEmiCount(f.installment_emi_count))
-                                  : f.num_installments,
-                            };
-                          });
+                          setForm((f) => ({
+                            ...f,
+                            payment_mode: 'fixed_schedule',
+                            installments_enabled: true,
+                            installment_plan: plan,
+                            num_installments: plan === 'quarter_then_monthly'
+                              ? '10'
+                              : plan === 'down_then_emi'
+                                ? String(1 + clampEmiCount(f.installment_emi_count))
+                                : f.num_installments,
+                          }));
                         }}
                         className="mt-1 w-full h-9 border border-input rounded-md text-sm px-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
                       >
                         {showAnnualEmiPlan ? (
                           <>
                             <option value="quarter_then_monthly">Annual EMI — 25% first, then 9 EMIs on balance</option>
-                            <option value="flexi">Flexi — any amount, any time (toward total)</option>
                             <option value="equal">Equal installments</option>
                           </>
                         ) : (
                           <>
                             <option value="equal">Equal installments</option>
                             <option value="down_then_emi">Down payment % + EMI</option>
-                            <option value="flexi">Flexi — any amount, any time (toward total)</option>
                           </>
                         )}
                       </select>
@@ -1675,25 +1750,6 @@ export default function PaymentRequestsTab() {
                         </p>
                       </>
                     )}
-                    {showFlexiFields && (
-                      <div className="sm:col-span-2 space-y-1">
-                        <Label className="text-xs">Minimum per payment</Label>
-                        <Input
-                          type="number"
-                          min="0.01"
-                          step="0.01"
-                          value={form.minimum_amount}
-                          onChange={(e) => set('minimum_amount', e.target.value)}
-                          className="mt-1 max-w-xs"
-                          placeholder="e.g. 5000"
-                        />
-                        <p className="text-[10px] text-gray-500">
-                          Client chooses each payment amount (via Stripe) until the link total of{' '}
-                          {CUR_SYMBOL[form.currency]}
-                          {parseFloat(form.amount || 0).toLocaleString()} is reached. Same link for every payment.
-                        </p>
-                      </div>
-                    )}
                     {!hideEqualCount && (
                       <div>
                         <Label className="text-xs">Number of installments</Label>
@@ -1708,13 +1764,7 @@ export default function PaymentRequestsTab() {
                         </select>
                       </div>
                     )}
-                    {showFlexiFields && form.amount && (
-                      <div className="sm:col-span-2 text-[10px] text-amber-900">
-                        <p className="font-medium mb-1">Flexi schedule</p>
-                        <p>Whenever the client chooses · any amount ≥ min · balance reference {CUR_SYMBOL[form.currency]}{parseFloat(form.amount || 0).toLocaleString()}</p>
-                      </div>
-                    )}
-                    {!showFlexiFields && installmentPreviewParts.length > 0 && (
+                    {installmentPreviewParts.length > 0 && (
                       <div className={`text-[10px] text-amber-900 ${hideEqualCount ? 'sm:col-span-2' : ''}`}>
                         <p className="font-medium mb-1">Payment schedule</p>
                         <p className="font-mono leading-relaxed">
@@ -1767,12 +1817,12 @@ export default function PaymentRequestsTab() {
                 <span className="font-medium">{form.title}</span>
                 {' · '}
                 <span className="font-bold">{CUR_SYMBOL[form.currency]}{parseFloat(form.amount || 0).toLocaleString()}</span>
-                {form.installments_enabled && isFlexiPlan(form.installment_plan) && (
+                {paymentMode === 'flexi' && (
                   <span className="block mt-1 text-amber-800">
-                    Flexi installments · min {CUR_SYMBOL[form.currency]}{parseFloat(form.minimum_amount || 0).toLocaleString()} per payment · total {CUR_SYMBOL[form.currency]}{parseFloat(form.amount || 0).toLocaleString()}
+                    Flexi · client chooses each payment · min {CUR_SYMBOL[form.currency]}{parseFloat(form.minimum_amount || 0).toLocaleString()} · contract total {CUR_SYMBOL[form.currency]}{parseFloat(form.amount || 0).toLocaleString()}
                   </span>
                 )}
-                {form.installments_enabled && !isFlexiPlan(form.installment_plan) && installmentPreviewParts.length > 0 && (
+                {paymentMode === 'fixed_schedule' && installmentPreviewParts.length > 0 && (
                   <span className="block mt-1 text-amber-800">
                     {isAnnualEmiPlan(form.installment_plan)
                       ? `Annual EMI · first ${CUR_SYMBOL[form.currency]}${installmentPreviewParts[0].toLocaleString()} (25%), then 9 EMIs on balance`

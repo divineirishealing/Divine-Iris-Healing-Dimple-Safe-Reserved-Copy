@@ -403,8 +403,9 @@ export default function PaymentRequestPage() {
                     className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                   />
                   <p className="text-[10px] text-gray-500 mt-1">
-                    Pay any amount (min {symbol}{Number(req.minimum_amount || 1).toLocaleString()}) toward your balance of{' '}
-                    {symbol}{Number(req.balance_remaining ?? req.checkout_amount ?? 0).toLocaleString()}.
+                    You choose how much to pay this time (min {symbol}{Number(req.minimum_amount || 1).toLocaleString()}) and how
+                    many payments to make over time — use this same link whenever you are ready until your balance of{' '}
+                    {symbol}{Number(req.balance_remaining ?? req.checkout_amount ?? 0).toLocaleString()} is cleared.
                   </p>
                 </div>
               )}
