@@ -15,6 +15,13 @@ export function countWeekendDaysInRange(startDate, endDate) {
   return count;
 }
 
+/** Legacy schema default — not a real program length when start/end dates are set. */
+function isPlaceholderDurationText(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return true;
+  return /^90\s*days?$/i.test(s);
+}
+
 /**
  * Duration pill / card copy — honors explicit duration, weekends-only workshops, and date span.
  * @returns {string}
@@ -38,7 +45,12 @@ export function resolveProgramDurationDisplay({ tier, program } = {}) {
     return formatSessionDayCount(sessionDays, weekendsOnly);
   }
 
-  if (explicit) {
+  const s = parseProgramDate(start);
+  const e = parseProgramDate(end);
+  const calendarSpanDays =
+    s && e ? Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1 : 0;
+
+  if (explicit && !isPlaceholderDurationText(explicit)) {
     if (weekendsOnly && !/weekend/i.test(explicit)) {
       return `${explicit} · Weekends Only`;
     }
@@ -50,11 +62,12 @@ export function resolveProgramDurationDisplay({ tier, program } = {}) {
     if (days > 0) return formatSessionDayCount(days, true);
   }
 
-  const s = parseProgramDate(start);
-  const e = parseProgramDate(end);
-  if (s && e) {
-    const diffDays = Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
-    if (diffDays > 0) return `${diffDays} Day${diffDays === 1 ? '' : 's'}`;
+  if (calendarSpanDays > 0) {
+    return `${calendarSpanDays} Day${calendarSpanDays === 1 ? '' : 's'}`;
+  }
+
+  if (explicit && !isPlaceholderDurationText(explicit)) {
+    return explicit;
   }
 
   return '';

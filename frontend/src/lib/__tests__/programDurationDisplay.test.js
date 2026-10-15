@@ -38,6 +38,18 @@ describe('resolveProgramDurationDisplay', () => {
       }),
     ).toBe('7 Days');
   });
+
+  it('ignores legacy default "90 days" when start/end dates define a shorter run', () => {
+    expect(
+      resolveProgramDurationDisplay({
+        program: {
+          start_date: '2026-10-26',
+          end_date: '2026-11-15',
+          duration: '90 days',
+        },
+      }),
+    ).toBe('21 Days');
+  });
 });
 
 describe('countWeekendDaysInRange', () => {

@@ -61,7 +61,7 @@ class Program(BaseModel):
     price_eur: float = 0.0
     price_gbp: float = 0.0
     price_aed: float = 0.0
-    duration: str = "90 days"
+    duration: str = ""
     weekends_only: bool = False
     session_days: int = 0
     visible: bool = True
@@ -140,7 +140,7 @@ class ProgramCreate(BaseModel):
     price_eur: float = 0.0
     price_gbp: float = 0.0
     price_aed: float = 0.0
-    duration: Optional[str] = "90 days"
+    duration: Optional[str] = ""
     weekends_only: Optional[bool] = False
     session_days: Optional[int] = 0
     visible: Optional[bool] = True
