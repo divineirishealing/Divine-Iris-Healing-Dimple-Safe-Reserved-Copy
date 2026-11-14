@@ -3,6 +3,7 @@ import axios from 'axios';
 import { CONTAINER, GOLD } from '../lib/designTokens';
 import { applySectionStyle } from '../lib/designTokens';
 import { resolveImageUrl } from '../lib/imageUtils';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -291,6 +292,7 @@ const BeforeAfterShowcase = ({ items = [] }) => {
 };
 
 const TextTestimonialsStrip = ({ sectionConfig, transformationShowcase = [] }) => {
+  const { settings } = useSiteSettings();
   const [quotes, setQuotes] = useState([]);
   const [active, setActive] = useState(0);
   const [fade, setFade] = useState(true);
@@ -300,17 +302,22 @@ const TextTestimonialsStrip = ({ sectionConfig, transformationShowcase = [] }) =
   const [trustConfig, setTrustConfig] = useState({ title: "Why We're Loved", subtitle: 'Trusted by our community', show_title: true, show_subtitle: true });
 
   useEffect(() => {
-    Promise.all([
-      axios.get(`${API}/text-testimonials/visible`),
-      axios.get(`${API}/settings`),
-    ]).then(([quotesRes, settingsRes]) => {
-      if (quotesRes.data?.length) setQuotes(quotesRes.data);
-      if (settingsRes.data?.text_testimonials_style) setStyle(settingsRes.data.text_testimonials_style);
-      const homeSections = settingsRes.data?.homepage_sections || [];
-      const trustSec = homeSections.find(s => s.id === 'trust');
-      if (trustSec?.trust_cards?.length) setTrustCards(trustSec.trust_cards);
-      if (trustSec?.philosophy_cards?.length) setPhilosophyCards(trustSec.philosophy_cards);
-      if (trustSec) setTrustConfig(prev => ({
+    axios.get(`${API}/text-testimonials/visible`)
+      .then((quotesRes) => {
+        if (quotesRes.data?.length) setQuotes(quotesRes.data);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!settings || !Object.keys(settings).length) return;
+    if (settings.text_testimonials_style) setStyle(settings.text_testimonials_style);
+    const homeSections = settings.homepage_sections || [];
+    const trustSec = homeSections.find(s => s.id === 'trust');
+    if (trustSec?.trust_cards?.length) setTrustCards(trustSec.trust_cards);
+    if (trustSec?.philosophy_cards?.length) setPhilosophyCards(trustSec.philosophy_cards);
+    if (trustSec) {
+      setTrustConfig(prev => ({
         ...prev,
         title: trustSec.title ?? prev.title,
         subtitle: trustSec.subtitle ?? prev.subtitle,
@@ -322,8 +329,8 @@ const TextTestimonialsStrip = ({ sectionConfig, transformationShowcase = [] }) =
         global_description_style: trustSec.global_description_style || {},
         google_review_link: trustSec.google_review_link || '',
       }));
-    }).catch(() => {});
-  }, []);
+    }
+  }, [settings]);
 
   const next = useCallback(() => {
     if (quotes.length <= 1) return;

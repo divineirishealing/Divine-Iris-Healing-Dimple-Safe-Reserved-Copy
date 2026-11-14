@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 import { BODY, GOLD, CONTAINER } from '../lib/designTokens';
 import { publicNavLinkLabel } from '../lib/navLinkLabels';
 import { applyBlogNavItems, blogNavEnabled } from '../lib/blogNav';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -142,15 +143,14 @@ const ContactFormDialog = ({ open, onClose, programs, sessions }) => {
 
 const Footer = () => {
   const navigate = useNavigate();
+  const { settings } = useSiteSettings();
   const [programs, setPrograms] = useState([]);
   const [sessions, setSessions] = useState([]);
-  const [settings, setSettings] = useState(null);
   const [contactOpen, setContactOpen] = useState(false);
 
   useEffect(() => {
     axios.get(`${API}/programs`).then(r => setPrograms(r.data.filter(p => p.visible !== false))).catch(() => {});
     axios.get(`${API}/sessions`).then(r => setSessions(r.data.filter(s => s.title && s.visible !== false))).catch(() => {});
-    axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
   }, []);
 
   const s = settings || {};

@@ -1,11 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React from 'react';
 import { HEADING, BODY, GOLD, CONTAINER } from '../lib/designTokens';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import { resolveImageUrl } from '../lib/imageUtils';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { useSiteSettings } from '../context/SiteSettingsContext';
 
 const applyStyle = (styleObj, defaults = {}) => {
   if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
@@ -21,9 +18,7 @@ const applyStyle = (styleObj, defaults = {}) => {
 };
 
 const SponsorSection = ({ sectionConfig, inline }) => {
-  const [settings, setSettings] = useState(null);
-  useEffect(() => { axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {}); }, []);
-
+  const { settings } = useSiteSettings();
   const h = settings?.sponsor_home || {};
   const imgUrl = h.image ? resolveImageUrl(h.image) : '';
 

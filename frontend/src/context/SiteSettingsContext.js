@@ -4,6 +4,18 @@ import { rememberPublicApiBase, rememberS3VirtualHostRewrite } from '../lib/imag
 import { getApiUrl } from '../lib/config';
 
 const API = getApiUrl();
+const SETTINGS_CACHE_KEY = 'site_settings_cache_v1';
+
+function readCachedSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
 
 // Initialize with an empty object to avoid null access errors
 const SiteSettingsContext = createContext({ settings: {}, refreshSettings: () => {} });
@@ -11,17 +23,25 @@ const SiteSettingsContext = createContext({ settings: {}, refreshSettings: () =>
 export const useSiteSettings = () => useContext(SiteSettingsContext);
 
 export const SiteSettingsProvider = ({ children }) => {
-  const [settings, setSettings] = useState({}); // Default to empty object
+  const [settings, setSettings] = useState(() => readCachedSettings());
 
   useEffect(() => {
+    const cached = readCachedSettings();
+    if (cached && Object.keys(cached).length > 0) {
+      applySettings(cached);
+    }
     loadSettings();
   }, []);
 
   const loadSettings = async () => {
     try {
       const response = await axios.get(`${API}/settings`);
-      setSettings(response.data || {}); // Ensure we don't set null
-      applySettings(response.data);
+      const data = response.data || {};
+      setSettings(data);
+      try {
+        localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(data));
+      } catch { /* ignore quota */ }
+      applySettings(data);
     } catch (error) {
       console.error('Error loading site settings:', error);
     }

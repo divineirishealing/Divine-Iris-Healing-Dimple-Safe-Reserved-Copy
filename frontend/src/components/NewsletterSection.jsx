@@ -1,19 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { useToast } from '../hooks/use-toast';
 import { HEADING, BODY, GOLD, CONTAINER, applySectionStyle } from '../lib/designTokens';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const NewsletterSection = ({ sectionConfig }) => {
   const [email, setEmail] = useState('');
-  const [settings, setSettings] = useState(null);
+  const { settings } = useSiteSettings();
   const { toast } = useToast();
-
-  useEffect(() => {
-    axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
-  }, []);
 
   const s = settings || {};
 

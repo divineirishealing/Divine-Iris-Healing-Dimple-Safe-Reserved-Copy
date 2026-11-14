@@ -189,6 +189,27 @@ function flexiPaidSum(req) {
   return payments.reduce((s, p) => s + (parseFloat(p?.amount) || 0), 0);
 }
 
+function contractAmountLines(req) {
+  const additions = Array.isArray(req?.amount_additions) ? req.amount_additions : [];
+  const total = parseFloat(req?.amount) || 0;
+  let base = req?.base_amount != null ? parseFloat(req.base_amount) : total;
+  if (!Number.isFinite(base)) base = total;
+  if (additions.length === 0 && req?.base_amount == null) {
+    return [{ id: 'base', kind: 'original', amount: total, remark: '' }];
+  }
+  const lines = [{ id: 'base', kind: 'original', amount: base, remark: '' }];
+  additions.forEach((a, i) => {
+    lines.push({
+      id: a?.id || `add-${i}`,
+      kind: 'addition',
+      amount: parseFloat(a?.amount) || 0,
+      remark: (a?.remark || '').trim(),
+      created_at: a?.created_at,
+    });
+  });
+  return lines;
+}
+
 function checkoutAmountDue(req) {
   if (!req?.installments_enabled) return parseFloat(req?.amount) || 0;
   if (isFlexiPlan(req?.installment_plan)) {
@@ -549,9 +570,11 @@ const StatusBadge = ({ status }) => {
 };
 
 /* ─── Individual row ────────────────────────────────────────────── */
-const RequestRow = ({ req, onDelete, onCancel, onRecordManual, onDuplicate, recordingId }) => {
+const RequestRow = ({ req, onDelete, onCancel, onRecordManual, onDuplicate, onAddAmountRow, savingId }) => {
   const [open, setOpen] = useState(false);
   const [showManual, setShowManual] = useState(false);
+  const [showAddRow, setShowAddRow] = useState(false);
+  const [addRowForm, setAddRowForm] = useState({ amount: '', remark: '' });
   const [manualForm, setManualForm] = useState({
     amount: '',
     payment_method: 'gpay',
@@ -563,7 +586,34 @@ const RequestRow = ({ req, onDelete, onCancel, onRecordManual, onDuplicate, reco
   });
   const sym = CUR_SYMBOL[req.currency?.toLowerCase()] || req.currency?.toUpperCase() + ' ';
   const dueAmount = checkoutAmountDue(req);
-  const isRecording = recordingId === req.id;
+  const isRecording = savingId === req.id;
+  const canAddAmountRow = req.status !== 'cancelled';
+  const amountLines = contractAmountLines(req);
+  const paidSoFar = flexiPaidSum(req) || (req.installment_payments || []).reduce(
+    (s, p) => s + (parseFloat(p?.amount) || 0),
+    0,
+  );
+
+  const openAddRowForm = (e) => {
+    e?.stopPropagation();
+    setShowAddRow(true);
+    setShowManual(false);
+    setOpen(true);
+    setAddRowForm({ amount: '', remark: '' });
+  };
+
+  const submitAddRow = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const amt = parseFloat(addRowForm.amount);
+    if (!Number.isFinite(amt) || amt <= 0) return;
+    await onAddAmountRow(req.id, {
+      amount: amt,
+      remark: addRowForm.remark.trim(),
+    });
+    setShowAddRow(false);
+    setAddRowForm({ amount: '', remark: '' });
+  };
 
   const openManualForm = (e) => {
     e?.stopPropagation();
@@ -636,6 +686,105 @@ const RequestRow = ({ req, onDelete, onCancel, onRecordManual, onDuplicate, reco
         <div className="border-t border-gray-100 px-5 py-4 bg-white space-y-3">
           {req.description && (
             <p className="text-sm text-gray-600">{req.description}</p>
+          )}
+          {req.note && (
+            <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+              <span className="font-medium text-gray-700">Internal note: </span>
+              {req.note}
+            </p>
+          )}
+
+          <div className="rounded-lg border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 px-3 py-2 flex items-center justify-between gap-2">
+              <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">
+                Contract amount
+              </span>
+              {canAddAmountRow && !showAddRow && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[10px] border-purple-300 text-purple-800 hover:bg-purple-50"
+                  onClick={openAddRowForm}
+                >
+                  <Plus size={12} className="mr-1" /> Add amount &amp; remarks
+                </Button>
+              )}
+            </div>
+            <table className="w-full text-xs">
+              <tbody>
+                {amountLines.map((line) => (
+                  <tr key={line.id} className="border-t border-gray-100">
+                    <td className="px-3 py-2 text-gray-600 w-[38%]">
+                      {line.kind === 'original' ? 'Original amount' : 'Additional amount'}
+                      {line.created_at && (
+                        <span className="block text-[9px] text-gray-400">
+                          {new Date(line.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 font-semibold text-gray-900 whitespace-nowrap">
+                      {sym}{line.amount.toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2 text-gray-500">{line.remark || '—'}</td>
+                  </tr>
+                ))}
+                <tr className="border-t border-gray-200 bg-purple-50/50">
+                  <td className="px-3 py-2 font-semibold text-purple-900">Total</td>
+                  <td className="px-3 py-2 font-bold text-purple-900">{sym}{parseFloat(req.amount).toLocaleString()}</td>
+                  <td className="px-3 py-2 text-[10px] text-purple-800">
+                    {paidSoFar > 0 ? `${sym}${paidSoFar.toLocaleString()} received` : ''}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {showAddRow && (
+            <form
+              onSubmit={submitAddRow}
+              onClick={(e) => e.stopPropagation()}
+              className="rounded-lg border border-purple-200 bg-purple-50/40 p-3 space-y-3"
+            >
+              <p className="text-xs font-semibold text-purple-900 flex items-center gap-1.5">
+                <Plus size={14} /> Add amount row
+              </p>
+              <p className="text-[10px] text-gray-600">
+                Adds to the contract total (does not replace the original amount). Client balance and remaining installments update from the new total.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px]">Additional amount ({req.currency?.toUpperCase()})</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={addRowForm.amount}
+                    onChange={(e) => setAddRowForm((f) => ({ ...f, amount: e.target.value }))}
+                    className="mt-0.5 h-8 text-xs"
+                    placeholder="e.g. 5000"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px]">Remarks (admin)</Label>
+                  <Input
+                    value={addRowForm.remark}
+                    onChange={(e) => setAddRowForm((f) => ({ ...f, remark: e.target.value }))}
+                    className="mt-0.5 h-8 text-xs"
+                    placeholder="e.g. extra session / late adjustment"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button type="submit" size="sm" disabled={isRecording || !canAddAmountRow} className="h-8 text-xs bg-purple-700 hover:bg-purple-800">
+                  {isRecording ? 'Adding…' : 'Add row'}
+                </Button>
+                <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => setShowAddRow(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
           )}
 
           {catalogSummary(req) && (
@@ -770,7 +919,18 @@ const RequestRow = ({ req, onDelete, onCancel, onRecordManual, onDuplicate, reco
 
           {/* Actions */}
           <div className="flex flex-wrap gap-2 pt-1">
-            {(req.status === 'active' || req.status === 'partially_paid') && !showManual && (
+            {!showAddRow && !showManual && canAddAmountRow && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs border-purple-300 text-purple-800 hover:bg-purple-50"
+                onClick={openAddRowForm}
+              >
+                <Plus size={12} className="mr-1" /> Add amount &amp; remarks
+              </Button>
+            )}
+            {(req.status === 'active' || req.status === 'partially_paid') && !showManual && !showAddRow && (
               <button
                 type="button"
                 onClick={openManualForm}
@@ -823,7 +983,7 @@ export default function PaymentRequestsTab() {
   const [sessions, setSessions]   = useState([]);
   const [annualPackages, setAnnualPackages] = useState([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
-  const [recordingId, setRecordingId] = useState(null);
+  const [savingId, setSavingId] = useState(null);
   const [duplicateSourceTitle, setDuplicateSourceTitle] = useState('');
   const [annualReportLoading, setAnnualReportLoading] = useState(false);
   const createFormRef = useRef(null);
@@ -1189,8 +1349,27 @@ export default function PaymentRequestsTab() {
     }
   };
 
+  const handleAddAmountRow = async (id, payload) => {
+    setSavingId(id);
+    try {
+      await axios.post(`${API}/payment-requests/${id}/amount-additions`, payload, {
+        headers: adminHeaders(),
+      });
+      await load();
+      toast({ title: 'Amount row added', description: 'Contract total updated.' });
+    } catch (err) {
+      toast({
+        title: 'Could not add amount row',
+        description: err.response?.data?.detail || err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   const handleRecordManual = async (id, payload) => {
-    setRecordingId(id);
+    setSavingId(id);
     try {
       const r = await axios.post(`${API}/payment-requests/${id}/record-manual-payment`, payload, {
         headers: adminHeaders(),
@@ -1207,7 +1386,7 @@ export default function PaymentRequestsTab() {
         variant: 'destructive',
       });
     } finally {
-      setRecordingId(null);
+      setSavingId(null);
     }
   };
 
@@ -1925,7 +2104,8 @@ export default function PaymentRequestsTab() {
               onCancel={handleCancel}
               onRecordManual={handleRecordManual}
               onDuplicate={handleDuplicate}
-              recordingId={recordingId}
+              onAddAmountRow={handleAddAmountRow}
+              savingId={savingId}
             />
           ))}
         </div>

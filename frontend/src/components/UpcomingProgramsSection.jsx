@@ -807,6 +807,22 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   const hasOpenRegistrations = openVisiblePrograms.length > 0;
   const firstRowPrograms = sorted.slice(0, 3);
   const restPrograms = sorted.slice(3);
+  /** Desktop 4-col layout reserves 3 program slots; with 1–2 upcoming programs that leaves empty columns (looks like missing cards/images). */
+  const useCompactUpcomingDesktop = sorted.length <= 2;
+
+  const programGridColsClass = (count) => {
+    if (count <= 1) return 'grid-cols-1';
+    if (count === 2) return 'grid-cols-2';
+    return 'grid-cols-3';
+  };
+
+  const renderUpcomingCard = (program) => (
+    <UpcomingCard
+      key={program.id}
+      program={program}
+      cardQuoteMessages={cardQuotesByProgram[String(program.id)] || []}
+    />
+  );
 
   const applyTitleStyle = (styleObj, defaults) => {
     if (!styleObj) return defaults;
@@ -830,6 +846,52 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
             ))}
           </div>
         </>
+      ) : useCompactUpcomingDesktop ? (
+        /* 1–2 upcoming programs: sit beside sponsor — no empty 3-column slots */
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          <div className="text-center lg:col-start-1">
+            <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
+            {(() => {
+              const fomoMessages = sectionConfig?.fomo_subtitles?.length > 0
+                ? sectionConfig.fomo_subtitles
+                : sectionConfig?.subtitle
+                  ? [sectionConfig.subtitle]
+                  : null;
+              const subtitleStyle = sectionConfig?.subtitle_style ? {
+                ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }),
+                ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }),
+                ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }),
+                ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }),
+              } : {};
+              return fomoMessages ? (
+                <FomoSubtitle messages={fomoMessages} style={subtitleStyle} />
+              ) : null;
+            })()}
+          </div>
+          <div data-testid="sponsor-title-column" className="text-center hidden lg:block lg:col-start-2">
+            <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
+            {sponsorConfig?.subtitle && (
+              <p className="text-sm text-gray-900 mt-3" style={applyTitleStyle(sponsorConfig?.subtitle_style, {})}>{sponsorConfig.subtitle}</p>
+            )}
+          </div>
+
+          <div className={cn('grid gap-6 items-stretch', programGridColsClass(sorted.length), sorted.length === 2 ? 'sm:grid-cols-2' : 'grid-cols-1')}>
+            {sorted.map(renderUpcomingCard)}
+          </div>
+
+          <div data-testid="sponsor-card-column" className="h-full">
+            <div className="text-center mb-4 lg:hidden">
+              <h2 className="text-2xl sm:text-3xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
+            </div>
+            <SponsorCard sponsorData={sponsorData} matchProgramRowHeight />
+          </div>
+
+          {(hasOpenRegistrations && comboDiscount && comboDiscount.rules?.length > 0) && (
+            <div className="lg:col-span-2 mt-2 lg:hidden" data-testid="combo-banner-mobile">
+              <ComboBanner programs={openVisiblePrograms} comboRules={comboDiscount.rules} />
+            </div>
+          )}
+        </div>
       ) : (
         /* Desktop: row 1 programs (max 3) align with sponsor; extra programs wrap below */
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -861,22 +923,10 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
 
           <div className="lg:col-span-3 lg:row-start-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch lg:hidden">
-              {sorted.map((program) => (
-                <UpcomingCard
-                  key={program.id}
-                  program={program}
-                  cardQuoteMessages={cardQuotesByProgram[String(program.id)] || []}
-                />
-              ))}
+              {sorted.map(renderUpcomingCard)}
             </div>
-            <div className="hidden lg:grid lg:grid-cols-3 gap-6 items-stretch h-full">
-              {firstRowPrograms.map((program) => (
-                <UpcomingCard
-                  key={program.id}
-                  program={program}
-                  cardQuoteMessages={cardQuotesByProgram[String(program.id)] || []}
-                />
-              ))}
+            <div className={`hidden lg:grid gap-6 items-stretch h-full ${programGridColsClass(firstRowPrograms.length)}`}>
+              {firstRowPrograms.map(renderUpcomingCard)}
             </div>
           </div>
 
@@ -892,14 +942,8 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
 
           {restPrograms.length > 0 && (
             <div className="hidden lg:block lg:col-span-3 lg:row-start-3">
-              <div className="grid lg:grid-cols-3 gap-6 items-stretch">
-                {restPrograms.map((program) => (
-                  <UpcomingCard
-                    key={program.id}
-                    program={program}
-                    cardQuoteMessages={cardQuotesByProgram[String(program.id)] || []}
-                  />
-                ))}
+              <div className={`grid gap-6 items-stretch ${programGridColsClass(restPrograms.length)}`}>
+                {restPrograms.map(renderUpcomingCard)}
               </div>
             </div>
           )}
@@ -981,4 +1025,4 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
 };
 
 export default UpcomingProgramsSection;
-export { UpcomingCard };
+export { UpcomingCard, ComboBanner };

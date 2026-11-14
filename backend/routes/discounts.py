@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 import os
 from routes.points_logic import load_points_config
-from utils.effective_pricing import resolve_program_offer
+from utils.discount_engine import calculate_cart_discounts, resolve_discount_settings
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
@@ -72,6 +72,9 @@ async def get_discount_settings():
         "loyalty_discount_pct": settings.get("loyalty_discount_pct", 0),
         "cross_sell_rules": settings.get("cross_sell_rules", []),
         "enable_cross_sell": _discount_bool(settings, "enable_cross_sell", False),
+        "dashboard_discount_settings": settings.get("dashboard_discount_settings") or {},
+        "discounts_apply_to_annual_portal": settings.get("discounts_apply_to_annual_portal")
+        or {"group": True, "combo": True, "loyalty": True, "cross_sell": True},
         "special_offers": settings.get("special_offers", []),
         "points_enabled": settings.get("points_enabled", True),
         "points_max_basket_pct": settings.get("points_max_basket_pct", 20.0),
@@ -109,171 +112,26 @@ async def check_loyalty(email: str):
 async def calculate_discounts(data: dict):
     """Calculate all applicable discounts for a cart/enrollment.
     
-    Input: { num_programs: int, num_participants: int, subtotal: float, email: str, currency: str }
-    Returns: { group_discount: float, combo_discount: float, loyalty_discount: float, total_discount: float }
+    Input: { num_programs, num_participants, subtotal, email, currency, program_ids, cart_items,
+             annual_portal_access?: bool }
     """
     settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0})
     if not settings:
-        return {"group_discount": 0, "combo_discount": 0, "loyalty_discount": 0, "total_discount": 0}
+        return {
+            "group_discount": 0,
+            "combo_discount": 0,
+            "loyalty_discount": 0,
+            "cross_sell_discount": 0,
+            "total_discount": 0,
+        }
 
-    subtotal = data.get("subtotal", 0)
-    num_participants = data.get("num_participants", 1)
-    num_programs = data.get("num_programs", 1)
-    email = data.get("email", "")
-    program_ids = data.get("program_ids", [])  # list of program IDs in cart
-    remaining = subtotal
-
-    group_discount = 0
-    combo_discount = 0
-    loyalty_discount = 0
-
-    # 1. Group discount (based on participant count)
-    if settings.get("enable_group_discount") and num_participants > 1:
-        rules = settings.get("group_discount_rules", [])
-        # Sort rules by min_participants descending to find best match
-        rules_sorted = sorted(rules, key=lambda r: r.get("min_participants", 0), reverse=True)
-        for rule in rules_sorted:
-            if num_participants >= rule.get("min_participants", 999):
-                group_discount = round(remaining * rule.get("discount_pct", 0) / 100)
-                remaining -= group_discount
-                break
-
-    # 2. Combo discount (tiered rules for 2+, 3+ programs)
-    combo_code = ""
-    if settings.get("enable_combo_discount"):
-        combo_rules = settings.get("combo_rules", [])
-        if combo_rules:
-            # Sort by min_programs descending to find best match
-            rules_sorted = sorted(combo_rules, key=lambda r: r.get("min_programs", 0), reverse=True)
-            for rule in rules_sorted:
-                if num_programs >= rule.get("min_programs", 999):
-                    pct = rule.get("discount_pct", 0)
-                    combo_discount = round(remaining * pct / 100)
-                    combo_code = rule.get("code", f"COMBO{rule.get('min_programs', 0)}")
-                    remaining -= combo_discount
-                    break
-        else:
-            # Fallback to simple combo_discount_pct
-            if num_programs >= settings.get("combo_min_programs", 2):
-                pct = settings.get("combo_discount_pct", 0)
-                combo_discount = round(remaining * pct / 100)
-                combo_code = "COMBO"
-                remaining -= combo_discount
-
-    # 3. Loyalty discount (returning clients)
-    if settings.get("enable_loyalty") and email:
-        enrollment = await db.enrollments.find_one(
-            {"booker_email": email, "participants.uid": {"$exists": True, "$ne": ""}},
-            {"_id": 0}
-        )
-        if enrollment:
-            pct = settings.get("loyalty_discount_pct", 0)
-            loyalty_discount = round(remaining * pct / 100)
-
-    # 4. Cross-sell discount (program+tier specific, multi-target)
-    cross_sell_discount = 0
-    cross_sell_details = []
-    cart_items = data.get("cart_items", [])
-    if settings.get("enable_cross_sell") and program_ids and len(program_ids) >= 2:
-        cross_sell_rules = settings.get("cross_sell_rules", [])
-        pid_set = set(str(p) for p in program_ids)
-        cart_tier_set = set()
-        for ci in cart_items:
-            pid = str(ci.get("program_id", "") or "").strip()
-            if not pid:
-                continue
-            raw_tier = ci.get("tier_index")
-            if raw_tier is None or raw_tier == "":
-                # Align with frontend: flagship programs default tier 0; omitting tier_index must not become "".
-                tier_key = "0"
-            else:
-                tier_key = str(raw_tier)
-            cart_tier_set.add((pid, tier_key))
-        
-        for rule in cross_sell_rules:
-            if not rule.get("enabled", True):
-                continue
-            buy_id = str(rule.get("buy_program_id", ""))
-            buy_tier = str(rule.get("buy_tier", ""))
-            
-            buy_match = False
-            if buy_tier and buy_tier != "None" and buy_tier != "":
-                # One rule per buy tier: do not treat "AWRP in cart" as matching every tier-specific bundle.
-                buy_match = (buy_id, buy_tier) in cart_tier_set
-            else:
-                buy_match = buy_id in pid_set
-            
-            if not buy_match:
-                continue
-            
-            # Process targets (new format) or legacy single target
-            targets = rule.get("targets", [])
-            if not targets and rule.get("get_program_id"):
-                targets = [{"program_id": rule["get_program_id"], "tier": rule.get("get_tier", ""), "discount_value": rule.get("discount_value", 0), "discount_type": rule.get("discount_type", "percentage")}]
-            
-            for target in targets:
-                get_id = str(target.get("program_id", ""))
-                get_tier = str(target.get("tier", ""))
-                if get_id not in pid_set:
-                    continue
-                
-                disc_type = target.get("discount_type", "percentage")
-                disc_val = target.get("discount_value", 0)
-                if disc_type == "percentage":
-                    target_prog = await db.programs.find_one({"id": get_id}, {"_id": 0})
-                    if target_prog:
-                        currency = (data.get("currency", "usd") or "usd").lower()
-                        tiers = target_prog.get("duration_tiers") or []
-                        cart_line = next(
-                            (ci for ci in cart_items if str(ci.get("program_id", "")).strip() == get_id),
-                            None,
-                        )
-                        raw_line_tier = cart_line.get("tier_index") if cart_line else None
-                        ti = None
-                        if get_tier and get_tier != "None" and get_tier != "":
-                            ti = int(get_tier) if str(get_tier).isdigit() else 0
-                        elif raw_line_tier is not None and raw_line_tier != "":
-                            try:
-                                ti = int(raw_line_tier)
-                            except (TypeError, ValueError):
-                                ti = 0
-                        else:
-                            ti = 0
-                        target_price = 0.0
-                        if tiers and 0 <= ti < len(tiers):
-                            offer_p, _, _ = resolve_program_offer(target_prog, ti, currency)
-                            row = tiers[ti]
-                            target_price = float(offer_p or 0) or float(row.get(f"price_{currency}", 0) or 0)
-                        if target_price <= 0 and tiers:
-                            offer_p, _, _ = resolve_program_offer(target_prog, 0, currency)
-                            row0 = tiers[0]
-                            target_price = float(offer_p or 0) or float(row0.get(f"price_{currency}", 0) or 0)
-                        if target_price <= 0:
-                            offer_p, _, _ = resolve_program_offer(target_prog, None, currency)
-                            target_price = float(offer_p or 0) or float(
-                                target_prog.get(f"price_{currency}", 0) or 0
-                            )
-                        amt = int(round(target_price * float(disc_val) / 100))
-                        if amt > 0:
-                            cross_sell_discount += amt
-                            cross_sell_details.append(
-                                {"rule": rule.get("label", ""), "code": rule.get("code", ""), "amount": amt}
-                            )
-                else:
-                    cross_sell_discount += disc_val
-                    cross_sell_details.append({"rule": rule.get("label", ""), "code": rule.get("code", ""), "amount": disc_val})
-
-    total_discount = group_discount + combo_discount + loyalty_discount + cross_sell_discount
-
-    return {
-        "group_discount": group_discount,
-        "combo_discount": combo_discount,
-        "combo_code": combo_code,
-        "loyalty_discount": loyalty_discount,
-        "cross_sell_discount": cross_sell_discount,
-        "cross_sell_details": cross_sell_details,
-        "total_discount": total_discount,
-    }
+    annual_portal = bool(data.get("annual_portal_access") or data.get("annual_portal"))
+    effective = resolve_discount_settings(settings, annual_portal=annual_portal)
+    out = await calculate_cart_discounts(effective, data, db)
+    out["used_annual_discount_rules"] = bool(
+        annual_portal and (settings.get("dashboard_discount_settings") or {}).get("enabled")
+    )
+    return out
 
 
 

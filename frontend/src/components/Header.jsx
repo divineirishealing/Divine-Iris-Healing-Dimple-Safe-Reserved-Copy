@@ -7,6 +7,7 @@ import axios from 'axios';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { publicNavLinkLabel } from '../lib/navLinkLabels';
 import { applyBlogNavItems, blogNavEnabled } from '../lib/blogNav';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -51,28 +52,32 @@ const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { itemCount } = useCart();
+  const { settings: ctxSettings } = useSiteSettings();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [programsOpen, setProgramsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [settings, setSettings] = useState(() => {
+  const [cachedSettings] = useState(() => {
     try { return JSON.parse(localStorage.getItem('header_settings')) || null; } catch { return null; }
   });
   const [programs, setPrograms] = useState(() => {
     try { return JSON.parse(localStorage.getItem('header_programs')) || []; } catch { return []; }
   });
   const dropdownRef = useRef(null);
+  const settings = (ctxSettings && Object.keys(ctxSettings).length > 0) ? ctxSettings : cachedSettings;
 
   useEffect(() => {
-    axios.get(`${API}/settings`).then(r => {
-      setSettings(r.data);
-      localStorage.setItem('header_settings', JSON.stringify(r.data));
-    }).catch(() => {});
     axios.get(`${API}/programs`).then(r => {
       const visible = r.data.filter(p => p.visible !== false);
       setPrograms(visible);
       localStorage.setItem('header_programs', JSON.stringify(visible));
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (ctxSettings && Object.keys(ctxSettings).length > 0) {
+      localStorage.setItem('header_settings', JSON.stringify(ctxSettings));
+    }
+  }, [ctxSettings]);
 
   useEffect(() => {
     const handleClick = (e) => {

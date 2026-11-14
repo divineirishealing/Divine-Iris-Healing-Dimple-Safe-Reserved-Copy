@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import Header from '../components/Header';
+import DeferredMount from '../components/DeferredMount';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import HeroSection from '../components/HeroSection';
 import AboutSection from '../components/AboutSection';
@@ -33,10 +34,11 @@ const COMPONENT_MAP = {
   custom: CustomSection,
 };
 
+// Hero + about paint immediately; defer lower sections to cut first-load API work.
+const EAGER_SECTIONS = new Set(['HeroSection', 'AboutSection']);
+
 // Dark sections keep their own opaque backgrounds
 const DARK_SECTIONS = new Set(['HeroSection', 'SessionsSection', 'StatsSection']);
-
-// Two alternating gradients that chain seamlessly:
 // A ends at #ffffff, B starts at #ffffff → seamless
 // B ends at #f3edff, A starts at #f3edff → seamless
 const GRADIENT_LAVENDER_TO_WHITE = 'linear-gradient(180deg, #f3edff 0%, #f5f0ff 20%, #faf8ff 45%, #ffffff 75%, #ffffff 100%)';
@@ -123,13 +125,24 @@ function HomePage() {
         const Component = COMPONENT_MAP[sec.component];
         if (!Component) return null;
         const bg = sectionGradients[i];
-        return (
-          <div key={sec.id} style={bg ? { background: bg } : undefined}>
-            <Component sectionConfig={sec} />
+        const inner = <Component sectionConfig={sec} />;
+        const wrapped = (
+          <div style={bg ? { background: bg } : undefined}>
+            {inner}
           </div>
         );
+        if (EAGER_SECTIONS.has(sec.component)) {
+          return <React.Fragment key={sec.id}>{wrapped}</React.Fragment>;
+        }
+        return (
+          <DeferredMount key={sec.id} minHeight="160px">
+            {wrapped}
+          </DeferredMount>
+        );
       })}
-      <Footer />
+      <DeferredMount minHeight="80px">
+        <Footer />
+      </DeferredMount>
       <FloatingButtons />
     </>
   );

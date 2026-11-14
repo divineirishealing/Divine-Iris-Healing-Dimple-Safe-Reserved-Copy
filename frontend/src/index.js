@@ -3,6 +3,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "@/index.css";
 import App from "@/App";
+import RouteErrorBoundary from "@/components/RouteErrorBoundary";
 
 // Free-tier: cache shell + assets so navigations still resolve if the CDN hiccups during deploy.
 if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
@@ -15,6 +16,8 @@ if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
-    <App />
+    <RouteErrorBoundary>
+      <App />
+    </RouteErrorBoundary>
   </React.StrictMode>,
 );

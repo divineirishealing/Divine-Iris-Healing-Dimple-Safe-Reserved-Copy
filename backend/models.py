@@ -661,6 +661,12 @@ class SiteSettings(BaseModel):
     dashboard_sacred_home_show_non_annual: bool = True
     # Per-program portal pricing overrides: { program_id: { annual, family, extended, by_tier?: { "0"|"1"|…: { annual, family, extended } } } } merged with globals; tier keys match duration_tier index on Sacred Home
     dashboard_program_offers: Dict[str, Any] = Field(default_factory=dict)
+    # Sacred Home (Annual dashboard): separate group/combo/loyalty/cross-sell when enabled (see Admin → Discounts)
+    dashboard_discount_settings: Dict[str, Any] = Field(default_factory=dict)
+    # When separate annual rules are off: which public discounts run on Sacred Home / Divine Cart
+    discounts_apply_to_annual_portal: Dict[str, Any] = Field(
+        default_factory=lambda: {"group": True, "combo": True, "loyalty": True, "cross_sell": True}
+    )
     # Existing AWRP / cohort batches: assign clients (awrp_batch_id) for layered portal pricing in Sacred Home
     awrp_portal_batches: List[Dict] = Field(default_factory=list)  # [{ "id": "2025-01", "label": "…", "notes": "…" }]
     # { batch_id: { program_id: { annual, family, extended, by_tier?: { … } } } } merged after dashboard_program_offers for that client
@@ -865,6 +871,8 @@ class SiteSettingsUpdate(BaseModel):
     dashboard_sacred_home_annual_program_id: Optional[str] = None
     dashboard_sacred_home_show_non_annual: Optional[bool] = None
     dashboard_program_offers: Optional[Dict[str, Any]] = None
+    dashboard_discount_settings: Optional[Dict[str, Any]] = None
+    discounts_apply_to_annual_portal: Optional[Dict[str, Any]] = None
     awrp_portal_batches: Optional[List[Dict]] = None
     awrp_batch_program_offers: Optional[Dict[str, Any]] = None
     dashboard_element_visibility: Optional[Dict[str, Any]] = None

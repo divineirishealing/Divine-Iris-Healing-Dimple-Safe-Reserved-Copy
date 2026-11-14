@@ -1364,6 +1364,20 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
             <Layers size={16} className="text-indigo-700 mt-0.5 flex-shrink-0" />
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Upcoming programs — portal pricing (per program)</h3>
+              {typeof onOpenAdminTab === 'function' && (
+                <button
+                  type="button"
+                  className="text-[10px] font-semibold text-indigo-700 hover:text-indigo-900 underline mt-1"
+                  onClick={() => {
+                    try {
+                      sessionStorage.setItem('discounts_initial_scope', 'annual');
+                    } catch { /* ignore */ }
+                    onOpenAdminTab('discounts');
+                  }}
+                >
+                  Combo / group / loyalty for annual members → open Discounts (Annual portal tab)
+                </button>
+              )}
               <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
                 Optional. Override <strong>member</strong>, <strong>immediate family</strong>, and <strong>friends &amp; extended</strong>{' '}
                 pricing per program. Values override global defaults for portal checkout only, and{' '}

@@ -42,24 +42,42 @@ const HeroSection = ({ sectionConfig }) => {
   const settings = ctxSettings && Object.keys(ctxSettings).length > 0 ? ctxSettings : null;
   const [phase, setPhase] = useState(0);
   const [videoLoaded, setVideoLoaded] = useState(false);
+  const [loadVideo, setLoadVideo] = useState(false);
   const videoRef = useRef(null);
-  const preloadRef = useRef(null);
+  const sectionRef = useRef(null);
 
-  // Start preloading video immediately
   useEffect(() => {
-    const vid = document.createElement('video');
-    vid.src = `${BACKEND_URL}/api/image/1bc4c05e-5765-49ab-bf99-1a5e0ad38b13.mp4`;
-    vid.preload = 'auto';
-    vid.muted = true;
-    preloadRef.current = vid;
+    const el = sectionRef.current;
+    if (!el) {
+      setLoadVideo(true);
+      return undefined;
+    }
+    if (typeof IntersectionObserver === 'undefined') {
+      setLoadVideo(true);
+      return undefined;
+    }
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setLoadVideo(true);
+          obs.disconnect();
+        }
+      },
+      { rootMargin: '120px 0px' },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
   }, []);
 
   useEffect(() => {
-    if (!settings) return;
+    if (!settings) return undefined;
     const fontsReady = document.fonts?.ready || Promise.resolve();
+    let cancelled = false;
     fontsReady.then(() => {
+      if (cancelled) return;
       [100, 600, 1100, 1400, 1700].forEach((d, i) => setTimeout(() => setPhase(i + 1), d));
     });
+    return () => { cancelled = true; };
   }, [settings]);
 
   const videoUrl = settings?.hero_video_url ? resolveUrl(settings.hero_video_url) : `${BACKEND_URL}/api/image/1bc4c05e-5765-49ab-bf99-1a5e0ad38b13.mp4`;
@@ -78,8 +96,6 @@ const HeroSection = ({ sectionConfig }) => {
   const homeHero = settings?.page_heroes?.home || {};
   const finalTitleStyle = homeHero.title_style || {};
   const finalSubtitleStyle = homeHero.subtitle_style || {};
-  // Use hero_banner fonts from admin — NOT var(--heading-font): that CSS variable is always set globally
-  // and would override hero_title_font / hero_subtitle_font entirely.
   const titleFontStack = finalTitleStyle.font_family || `'${titleFont}', Georgia, serif`;
   const subtitleFontStack = finalSubtitleStyle.font_family || `'${subtitleFont}', sans-serif`;
   const alignClass = titleAlign === 'center' ? 'items-center text-center' : titleAlign === 'right' ? 'items-end text-right' : 'items-start text-left';
@@ -90,26 +106,30 @@ const HeroSection = ({ sectionConfig }) => {
 
   return (
     <section
+      ref={sectionRef}
       id="home"
       data-testid="hero-section"
       className={`relative min-h-screen flex justify-center overflow-hidden ${vAlignClass}`}
       style={{ background: `#0d1117 url('/hero-poster.jpeg') center/cover no-repeat` }}
     >
-      {/* Video — always present, plays immediately */}
-      <video
-        ref={videoRef}
-        autoPlay loop muted playsInline
-        preload="auto"
-        poster="/hero-poster.jpeg"
-        onLoadedData={() => setVideoLoaded(true)}
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{ zIndex: 0 }}
-      >
-        <source src={videoUrl} type="video/mp4" />
-      </video>
+      {loadVideo ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="metadata"
+          poster="/hero-poster.jpeg"
+          onLoadedData={() => setVideoLoaded(true)}
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ zIndex: 0, opacity: videoLoaded ? 1 : 0, transition: 'opacity 0.6s ease' }}
+        >
+          <source src={videoUrl} type="video/mp4" />
+        </video>
+      ) : null}
 
-      {/* Content — only renders after settings load */}
-      {settings && (heroTitle || heroSubtitle) && (
+      {settings && (heroTitle || heroSubtitle) ? (
         <div
           className={`relative z-10 px-4 flex flex-col ${alignClass}`}
           style={{ transform: `translate(${hOffset}, ${vOffset})` }}
@@ -119,51 +139,43 @@ const HeroSection = ({ sectionConfig }) => {
             className="whitespace-pre-line leading-tight"
             style={{
               fontFamily: titleFontStack,
-              fontSize: finalTitleStyle.font_size || `calc(${settings.hero_title_size || '44px'} * var(--heading-scale, 1))`,
-              fontWeight: finalTitleStyle.font_weight || (settings.hero_title_bold ? 700 : 400),
-              fontStyle: finalTitleStyle.font_style || (settings.hero_title_italic ? 'italic' : 'normal'),
-              letterSpacing: settings.hero_title_spacing || 'normal',
-              textShadow: titleShadow,
+              fontSize: sectionStyle.title_size || 'clamp(1.75rem, 4.5vw, 3.25rem)',
+              letterSpacing: sectionStyle.title_letter_spacing || '0.05em',
               marginBottom: titleGap,
-              ...getTextStyle(settings.hero_title_effect, finalTitleStyle.font_color || settings.hero_title_color || '#ffffff'),
-              opacity: phase >= 2 ? 1 : 0,
-              transform: phase >= 2 ? 'translateY(0)' : 'translateY(20px)',
-              transition: 'opacity 0.8s ease-out, transform 0.8s ease-out',
+              opacity: phase >= 1 ? 1 : 0,
+              transform: phase >= 1 ? 'translateY(0)' : 'translateY(20px)',
+              transition: 'opacity 0.8s ease, transform 0.8s ease',
+              textShadow: titleShadow,
+              ...getTextStyle(finalTitleStyle.color_effect || settings?.hero_title_effect, finalTitleStyle.font_color || settings?.hero_title_color),
+              ...(finalTitleStyle.font_size && { fontSize: finalTitleStyle.font_size }),
+              ...(finalTitleStyle.font_weight && { fontWeight: finalTitleStyle.font_weight }),
             }}
           >
             {heroTitle}
           </h1>
-          {showLines && (
-            <div className={`h-px bg-white/50 mb-3 ${lineAlign}`} style={{
-              width: phase >= 3 ? '11rem' : '0', opacity: phase >= 3 ? 1 : 0,
-              transition: 'width 0.6s ease-out, opacity 0.4s ease-out',
-            }} />
+          {showLines && phase >= 2 && (
+            <div className={`w-16 h-0.5 bg-[#D4AF37] mb-6 ${lineAlign}`} style={{ opacity: phase >= 2 ? 1 : 0, transition: 'opacity 0.6s ease' }} />
           )}
-          <p
-            data-testid="hero-subtitle"
-            style={{
-              fontFamily: subtitleFontStack,
-              fontSize: finalSubtitleStyle.font_size || settings.hero_subtitle_size || '0.875rem',
-              fontWeight: finalSubtitleStyle.font_weight || (settings.hero_subtitle_bold ? 700 : 300),
-              fontStyle: finalSubtitleStyle.font_style || (settings.hero_subtitle_italic ? 'italic' : 'normal'),
-              letterSpacing: settings.hero_subtitle_spacing || '0.3em',
-              textShadow: subtitleShadow,
-              ...getTextStyle(settings.hero_subtitle_effect, finalSubtitleStyle.font_color || settings.hero_subtitle_color || '#ffffff'),
-              opacity: phase >= 4 ? 1 : 0,
-              transform: phase >= 4 ? 'translateY(0)' : 'translateY(10px)',
-              transition: 'opacity 0.6s ease-out, transform 0.6s ease-out',
-            }}
-          >
-            {heroSubtitle}
-          </p>
-          {showLines && (
-            <div className={`h-px bg-white/50 mt-3 ${lineAlign}`} style={{
-              width: phase >= 5 ? '11rem' : '0', opacity: phase >= 5 ? 1 : 0,
-              transition: 'width 0.6s ease-out, opacity 0.4s ease-out',
-            }} />
+          {heroSubtitle && (
+            <p
+              data-testid="hero-subtitle"
+              className="whitespace-pre-line max-w-xl leading-relaxed"
+              style={{
+                fontFamily: subtitleFontStack,
+                fontSize: sectionStyle.subtitle_size || 'clamp(0.95rem, 2vw, 1.15rem)',
+                opacity: phase >= 3 ? 1 : 0,
+                transform: phase >= 3 ? 'translateY(0)' : 'translateY(16px)',
+                transition: 'opacity 0.8s ease, transform 0.8s ease',
+                textShadow: subtitleShadow,
+                ...getTextStyle(finalSubtitleStyle.color_effect || settings?.hero_subtitle_effect, finalSubtitleStyle.font_color || settings?.hero_subtitle_color),
+                ...(finalSubtitleStyle.font_size && { fontSize: finalSubtitleStyle.font_size }),
+              }}
+            >
+              {heroSubtitle}
+            </p>
           )}
         </div>
-      )}
+      ) : null}
     </section>
   );
 };

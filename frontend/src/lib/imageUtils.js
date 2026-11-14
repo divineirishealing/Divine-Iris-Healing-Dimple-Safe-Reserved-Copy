@@ -1,4 +1,4 @@
-import { BACKEND_URL as CONFIG_BACKEND_URL } from './config';
+import { BACKEND_URL as CONFIG_BACKEND_URL, getBackendUrl } from './config';
 
 const PUBLIC_API_STORAGE_KEY = 'divine_iris_public_api_base';
 const S3_VH_REWRITE_KEY = 'divine_iris_s3_vh_rewrite';
@@ -33,6 +33,8 @@ export function rememberPublicApiBase(url) {
  * Origin for resolving /api/... media paths — build-time env first, then server-reported public_api_base.
  */
 function backendOrigin() {
+  const fromHelper = (getBackendUrl() || '').replace(/\/$/, '');
+  if (fromHelper) return fromHelper;
   const env = (CONFIG_BACKEND_URL || '').replace(/\/$/, '');
   if (env) return env;
   if (typeof window !== 'undefined') {
@@ -42,6 +44,25 @@ function backendOrigin() {
     } catch (_) {}
   }
   return '';
+}
+
+/** Private S3 buckets return 403 in the browser — stream via API when we know the backend origin. */
+function rewriteS3VirtualHostToApiProxy(url, apiBase) {
+  if (!url || !apiBase) return null;
+  try {
+    const u = new URL(url);
+    const host = (u.hostname || '').toLowerCase();
+    if (!/^[^.]+\.s3(\.[a-z0-9-]+)?\.amazonaws\.com$/.test(host)) return null;
+    const raw = u.pathname.replace(/^\/+/, '');
+    if (!raw) return null;
+    const segments = decodeURIComponent(raw)
+      .split('/')
+      .filter(Boolean)
+      .map((seg) => encodeURIComponent(seg));
+    return `${apiBase.replace(/\/$/, '')}/api/s3-media/${segments.join('/')}`;
+  } catch {
+    return null;
+  }
 }
 
 function tryRewriteS3VirtualHostUrl(url, bucket, apiBase) {
@@ -141,13 +162,15 @@ export function resolveImageUrl(url) {
 
   const lower = u.toLowerCase();
   if (lower.startsWith('https://') || lower.startsWith('http://')) {
-    const proxied = rewriteS3VirtualHostFromStorage(u);
-    if (proxied) return proxied;
     const origin = backendOrigin();
     if (origin) {
-      const viaApi = tryRewriteS3VirtualHostForPrivateBucket(u, origin);
+      const viaApi =
+        rewriteS3VirtualHostToApiProxy(u, origin)
+        || tryRewriteS3VirtualHostForPrivateBucket(u, origin);
       if (viaApi) return viaApi;
     }
+    const proxied = rewriteS3VirtualHostFromStorage(u);
+    if (proxied) return proxied;
   }
   if (
     lower.startsWith('http://') ||

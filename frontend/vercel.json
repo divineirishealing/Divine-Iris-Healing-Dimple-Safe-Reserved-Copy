@@ -16,7 +16,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://divine-iris-backend.onrender.com/api/:path*"
+      "destination": "https://divine-iris-healing-dimple-safe-reserved-rsi6.onrender.com/api/:path*"
     },
     { "source": "/(.*)", "destination": "/index.html" }
   ],

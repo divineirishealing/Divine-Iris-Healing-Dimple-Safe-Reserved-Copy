@@ -203,6 +203,77 @@ def _flexi_balance_remaining(row: dict) -> float:
     return max(0.0, round(total - _flexi_amount_paid(row), 2))
 
 
+def _amount_received_on_row(row: dict) -> float:
+    if _is_flexi_installment_plan(row):
+        return _flexi_amount_paid(row)
+    payments = row.get("installment_payments") or []
+    if isinstance(payments, list) and payments:
+        return round(
+            sum(float(p.get("amount") or 0) for p in payments if isinstance(p, dict)),
+            2,
+        )
+    if (row.get("status") or "").lower() == "paid":
+        return round(float(row.get("amount") or 0), 2)
+    return 0.0
+
+
+def _recalc_installment_amounts_for_row(row: dict, new_total: float) -> List[float]:
+    if not row.get("installments_enabled") or _is_flexi_installment_plan(row):
+        return []
+    plan = (row.get("installment_plan") or "equal").strip().lower()
+    n = int(row.get("num_installments") or 2)
+    return _installment_amounts_for_plan(
+        round(float(new_total), 2),
+        plan,
+        n,
+        down_pct=row.get("installment_down_pct"),
+        emi_count=row.get("installment_emi_count"),
+    )
+
+
+def _base_amount_for_row(row: dict) -> float:
+    if row.get("base_amount") is not None:
+        return round(float(row["base_amount"]), 2)
+    additions = row.get("amount_additions") or []
+    total = round(float(row.get("amount") or 0), 2)
+    if isinstance(additions, list) and additions:
+        added = round(
+            sum(float(a.get("amount") or 0) for a in additions if isinstance(a, dict)),
+            2,
+        )
+        return round(total - added, 2)
+    return total
+
+
+def _patch_for_contract_total(row: dict, new_total: float) -> dict:
+    """Apply a new contract total (must be >= amount already received)."""
+    new_amount = round(float(new_total), 2)
+    if new_amount <= 0:
+        raise HTTPException(400, "Amount must be greater than zero")
+    received = _amount_received_on_row(row)
+    if new_amount < received - 0.009:
+        raise HTTPException(
+            400,
+            f"Total cannot be less than already received ({received:.2f})",
+        )
+    patch: dict = {"amount": new_amount}
+    if row.get("installments_enabled"):
+        if not _is_flexi_installment_plan(row):
+            patch["installment_amounts"] = _recalc_installment_amounts_for_row(row, new_amount)
+    st = (row.get("status") or "").lower()
+    if st not in ("cancelled",):
+        if received >= new_amount - 0.009:
+            patch["status"] = "paid"
+            patch["paid_at"] = row.get("paid_at") or _now_iso()
+        elif received > 0.009:
+            patch["status"] = "partially_paid"
+            patch["paid_at"] = None
+        elif st == "paid":
+            patch["status"] = "partially_paid"
+            patch["paid_at"] = None
+    return patch
+
+
 def _minimum_amount_for_row(row: dict) -> float:
     return round(max(0.01, float(row.get("minimum_amount") or 1)), 2)
 
@@ -404,7 +475,7 @@ def _can_checkout_payment_request(row: dict) -> bool:
 
 def _public_payment_request_view(row: dict) -> dict:
     """Public API shape for /pay/:id (never includes admin note)."""
-    out = {k: v for k, v in row.items() if k != "note"}
+    out = {k: v for k, v in row.items() if k not in ("note", "amount_additions", "base_amount")}
     out.update(_checkout_state_for_row(row))
     payments = out.get("installment_payments") or []
     if isinstance(payments, list):
@@ -442,6 +513,11 @@ class CreatePaymentRequestBody(BaseModel):
     installment_emi_count: Optional[int] = None
     pay_as_you_wish: Optional[bool] = False
     minimum_amount: Optional[float] = 1.0
+
+
+class AddAmountAdditionBody(BaseModel):
+    amount: float
+    remark: Optional[str] = ""
 
 
 class UpdatePaymentRequestBody(BaseModel):
@@ -537,6 +613,8 @@ async def create_payment_request(body: CreatePaymentRequestBody, request: Reques
         "title": body.title.strip(),
         "description": (body.description or "").strip(),
         "amount": round(body.amount, 2),
+        "base_amount": round(body.amount, 2),
+        "amount_additions": [],
         "currency": body.currency.lower().strip(),
         "recipient_name": (body.recipient_name or "").strip(),
         "recipient_email": (body.recipient_email or "").strip().lower(),
@@ -628,17 +706,78 @@ async def get_payment_request(req_id: str):
 async def update_payment_request(req_id: str, body: UpdatePaymentRequestBody, request: Request):
     """Admin: update title, description, amount, currency, status, etc."""
     await assert_admin_session_or_password(request, None)
+    row = await db.payment_requests.find_one({"id": req_id}, {"_id": 0})
+    if not row:
+        raise HTTPException(404, "Payment request not found")
+
     patch: dict = {}
     for k, v in body.model_dump(exclude_unset=True).items():
         if v is not None:
             patch[k] = v
     if not patch:
         raise HTTPException(400, "Nothing to update")
+
+    if "note" in patch:
+        patch["note"] = str(patch.get("note") or "").strip()
+    if "description" in patch:
+        patch["description"] = str(patch.get("description") or "").strip()
+    if "title" in patch:
+        patch["title"] = str(patch.get("title") or "").strip()
+        if not patch["title"]:
+            raise HTTPException(400, "Title cannot be empty")
+
+    if "amount" in patch:
+        st = (row.get("status") or "").lower()
+        if st == "cancelled":
+            raise HTTPException(400, "Cannot change amount on a cancelled link")
+        if st == "paid":
+            raise HTTPException(400, "Link is fully paid — add an amount row instead")
+        amount_patch = _patch_for_contract_total(row, float(patch["amount"]))
+        patch.update(amount_patch)
+
     result = await db.payment_requests.update_one({"id": req_id}, {"$set": patch})
     if result.matched_count == 0:
         raise HTTPException(404, "Payment request not found")
+    updated = await db.payment_requests.find_one({"id": req_id}, {"_id": 0})
+    return updated
+
+
+@router.post("/{req_id}/amount-additions")
+async def add_payment_request_amount_addition(
+    req_id: str, body: AddAmountAdditionBody, request: Request
+):
+    """Admin: increase contract total by an additional amount line (+ remark)."""
+    await assert_admin_session_or_password(request, None)
     row = await db.payment_requests.find_one({"id": req_id}, {"_id": 0})
-    return row
+    if not row:
+        raise HTTPException(404, "Payment request not found")
+    st = (row.get("status") or "").lower()
+    if st == "cancelled":
+        raise HTTPException(400, "Cannot add amounts to a cancelled link")
+
+    delta = round(float(body.amount), 2)
+    if delta <= 0:
+        raise HTTPException(400, "Additional amount must be greater than zero")
+
+    base = _base_amount_for_row(row)
+    additions = list(row.get("amount_additions") or [])
+    addition = {
+        "id": str(uuid.uuid4()),
+        "amount": delta,
+        "remark": (body.remark or "").strip(),
+        "created_at": _now_iso(),
+    }
+    additions.append(addition)
+    old_total = round(float(row.get("amount") or 0), 2)
+    new_total = round(old_total + delta, 2)
+
+    patch = _patch_for_contract_total(row, new_total)
+    patch["base_amount"] = base
+    patch["amount_additions"] = additions
+
+    await db.payment_requests.update_one({"id": req_id}, {"$set": patch})
+    updated = await db.payment_requests.find_one({"id": req_id}, {"_id": 0})
+    return updated
 
 
 @router.delete("/{req_id}")

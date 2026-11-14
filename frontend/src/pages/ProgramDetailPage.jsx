@@ -30,6 +30,7 @@ import {
   resolveEnrollTierIndex,
 } from '../lib/programTierVisibility';
 import { catalogPayAsYouWishEnabled } from '../lib/payAsYouWish';
+import MahalakshmiLandingPage, { MAHALAKSHMI_PROGRAM_ID } from './MahalakshmiLandingPage';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
@@ -998,4 +999,8 @@ function ProgramDetailPage() {
   );
 }
 
-export default ProgramDetailPage;
+export default function ProgramDetailRoute() {
+  const { id } = useParams();
+  if (id === MAHALAKSHMI_PROGRAM_ID) return <MahalakshmiLandingPage surface="website" />;
+  return <ProgramDetailPage />;
+}

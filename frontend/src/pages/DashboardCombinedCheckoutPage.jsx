@@ -1131,6 +1131,7 @@ export default function DashboardCombinedCheckoutPage() {
           subtotal,
           email: bookerEmail,
           currency,
+          annual_portal_access: bookerAnnualPortalAccess,
           program_ids: programCartLines.map((i) => i.programId),
           cart_items: programCartLines.map((i) => ({
             program_id: i.programId,
@@ -1155,7 +1156,7 @@ export default function DashboardCombinedCheckoutPage() {
       }
     };
     fetchDiscounts();
-  }, [subtotal, totalParticipants, numPrograms, bookerEmail, currency, items, programCartLines]);
+  }, [subtotal, totalParticipants, numPrograms, bookerEmail, currency, items, programCartLines, bookerAnnualPortalAccess]);
 
   const validatePromo = async () => {
     if (!promoCode.trim()) return;

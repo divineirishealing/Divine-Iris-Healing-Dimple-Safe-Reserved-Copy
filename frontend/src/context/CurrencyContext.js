@@ -28,8 +28,8 @@ export const CurrencyProvider = ({ children }) => {
   const [isPrimary, setIsPrimary] = useState(cached?.is_primary !== false);
   const [country, setCountry] = useState(cached?.country || '');
   const [vpnDetected, setVpnDetected] = useState(cached?.vpn_detected || false);
-  const [ready, setReady] = useState(!!cached);
-  /** Always refresh from API on load — old behavior skipped detect when cache existed, so VPN/country changes never updated (e.g. stuck on €). */
+  const [ready, setReady] = useState(true);
+  /** Refresh currency in background; never block first paint on /api/currency/detect. */
 
   // Expose `currency` and `symbol` as DISPLAY values (backwards compatible)
   const currency = baseCurrency;
@@ -65,11 +65,7 @@ export const CurrencyProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    const fallback = setTimeout(() => setReady(true), 1500);
-    detectCurrency().finally(() => {
-      clearTimeout(fallback);
-      setReady(true);
-    });
+    detectCurrency();
   }, [user?.email, user?.pricing_country_override, user?.client_id]);
 
   // Convert base amount to display amount

@@ -50,7 +50,8 @@ import { getAuthHeaders } from '../../lib/authHeaders';
 import { catalogPayAsYouWishEnabled, catalogPayAsYouWishMinimumInr } from '../../lib/payAsYouWish';
 import { resolveProgramOffer } from '../../lib/effectiveOfferPricing';
 import DashboardUpcomingProgramRowItem from './DashboardUpcomingProgramRowItem';
-import { CrossSellBanner } from '../UpcomingProgramsSection';
+import { CrossSellBanner, ComboBanner } from '../UpcomingProgramsSection';
+import { resolveActiveDiscountBundle } from '../../lib/dashboardDiscountSettings';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import DashboardUpcomingProgramsIrisBloom from './DashboardUpcomingProgramsIrisBloom';
@@ -592,26 +593,51 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const [enrollmentSelf, setEnrollmentSelf] = useState(null);
   const [crossSellRules, setCrossSellRules] = useState([]);
   const [catalogProgramsForCrossSell, setCatalogProgramsForCrossSell] = useState([]);
+  const [portalComboRules, setPortalComboRules] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
+    const annualPortal =
+      homeData?.annual_portal_access != null
+        ? !!homeData.annual_portal_access
+        : !!(homeData?.annual_member_dashboard || homeData?.subscription_annual_package_signals);
     axios
       .get(`${API}/api/discounts/settings`)
       .then((r) => {
         if (cancelled) return;
-        if (r.data?.enable_cross_sell && Array.isArray(r.data.cross_sell_rules) && r.data.cross_sell_rules.length > 0) {
-          setCrossSellRules(r.data.cross_sell_rules.filter((rule) => rule.enabled !== false));
+        const bundle = resolveActiveDiscountBundle(r.data || {}, annualPortal);
+        if (bundle.enable_cross_sell && Array.isArray(bundle.cross_sell_rules) && bundle.cross_sell_rules.length > 0) {
+          setCrossSellRules(bundle.cross_sell_rules.filter((rule) => rule.enabled !== false));
         } else {
           setCrossSellRules([]);
         }
+        if (bundle.enable_combo_discount) {
+          const rules =
+            bundle.combo_rules?.length > 0
+              ? bundle.combo_rules
+              : bundle.combo_discount_pct > 0
+                ? [{
+                    min_programs: bundle.combo_min_programs || 2,
+                    discount_pct: bundle.combo_discount_pct,
+                    code: 'COMBO',
+                    label: 'Combo',
+                  }]
+                : [];
+          setPortalComboRules(rules);
+        } else {
+          setPortalComboRules([]);
+        }
       })
       .catch(() => {
-        if (!cancelled) setCrossSellRules([]);
+        if (!cancelled) {
+          setCrossSellRules([]);
+          setPortalComboRules([]);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [homeData]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2209,6 +2235,12 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             {homeData.awrp_batch.notes ? (
               <p className="text-[10px] text-teal-900/85 mt-1.5 leading-relaxed">{homeData.awrp_batch.notes}</p>
             ) : null}
+          </div>
+        ) : null}
+
+        {hasPortalPricingOverlays && portalComboRules.length > 0 && upcomingList.length > 0 ? (
+          <div className="mb-4 [&>div]:mt-0" data-testid="dashboard-combo-banner">
+            <ComboBanner programs={upcomingList} comboRules={portalComboRules} />
           </div>
         ) : null}
 
