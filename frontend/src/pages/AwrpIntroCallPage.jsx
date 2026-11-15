@@ -9,7 +9,6 @@ import { HEADING, BODY, GOLD, LABEL } from '../lib/designTokens';
 import dimplePhoto from '../assets/awrp-dimple.jpg';
 import heroBanner from '../assets/awrp-hero.jpg';
 import patternImage from '../assets/awrp-pattern.jpg';
-import irisImage from '../assets/awrp-iris.jpg';
 import communityImage from '../assets/awrp-community.jpg';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -206,11 +205,11 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
         </section>
 
         <section className="bg-white border-y border-[#eadfca]">
-          <div className="container mx-auto px-6 md:px-8 py-14 max-w-5xl">
+          <div className="container mx-auto px-6 md:px-8 py-14 max-w-5xl text-center">
             <p style={SECTION_TITLE} className="text-4xl md:text-5xl mb-8 text-center">Which of these feels familiar?</p>
             <div className="grid md:grid-cols-2 gap-4">
               {STRUGGLES.map(([title, body]) => (
-                <article key={title} className="rounded-2xl border border-[#eadfca] bg-[#faf7f2] p-5">
+                <article key={title} className="rounded-2xl border border-[#eadfca] bg-[#faf7f2] p-5 text-center">
                   <h2 className="text-2xl mb-2" style={HEADING}>{title}</h2>
                   <p style={PAGE_BODY}>{body}</p>
                 </article>
@@ -220,7 +219,7 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
           </div>
         </section>
 
-        <section className="container mx-auto px-6 md:px-8 py-14 max-w-3xl">
+        <section className="container mx-auto px-6 md:px-8 py-14 max-w-3xl text-center">
           <p style={SECTION_TITLE} className="text-4xl md:text-5xl mb-8 text-center">You’ve given it everything. Now it’s time to look deeper.</p>
           <img
             src={patternImage}
@@ -239,36 +238,36 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
         </section>
 
         <section className="bg-[#1c1230] text-white">
-          <div className="container mx-auto px-6 md:px-8 py-14 max-w-3xl">
+          <div className="container mx-auto px-6 md:px-8 py-14 max-w-3xl text-center">
             <p style={SECTION_TITLE} className="text-4xl md:text-5xl mb-3">The Atomic Weight Release Program</p>
-            <p className="mb-4" style={{ ...PAGE_BODY, color: 'rgba(255,255,255,0.9)' }}>
+            <p className="mb-4 max-w-2xl mx-auto" style={{ ...PAGE_BODY, color: 'rgba(255,255,255,0.9)' }}>
               Created by Dimple Ranawat at Divine Iris, AWRP is a multidimensional healing and personal-transformation program for whatever you’re carrying, whether it shows up in your health, your emotions, your relationships or your work.
             </p>
-            <p className="mb-4" style={{ ...PAGE_BODY, color: 'rgba(255,255,255,0.82)' }}>
+            <p className="mb-4 max-w-2xl mx-auto" style={{ ...PAGE_BODY, color: 'rgba(255,255,255,0.82)' }}>
               Instead of treating each struggle on its own, AWRP looks beneath it, at the recurring patterns, emotional conditioning and inherited tendencies that can keep the same problems returning in different forms.
             </p>
-            <p style={{ ...PAGE_BODY, color: 'rgba(255,255,255,0.82)' }}>
+            <p className="max-w-2xl mx-auto" style={{ ...PAGE_BODY, color: 'rgba(255,255,255,0.82)' }}>
               It brings together energy-healing practices, guided reflection, spiritual exploration and personal-development work, so change can happen at more than one level at a time.
             </p>
           </div>
         </section>
 
-        <section className="container mx-auto px-6 md:px-8 py-14 max-w-3xl">
+        <section className="container mx-auto px-6 md:px-8 py-14 max-w-3xl text-center">
           <p style={SECTION_TITLE} className="text-4xl md:text-5xl mb-6 text-center">In their own words</p>
-          <blockquote className="rounded-3xl border border-[#eadfca] bg-white p-6 md:p-8">
+          <blockquote className="rounded-3xl border border-[#eadfca] bg-white p-6 md:p-8 text-center">
             <p className="text-base md:text-lg mb-4" style={PAGE_BODY}>
               “Thank you feels too small for what I’ve experienced here... ✨ The depth of last night’s session... unreal. And the kind of deep, uninterrupted sleep after? Something I haven’t felt in so long. I finally understand this — the right mentor can collapse years of confusion in a single moment. So grateful I found this space. So grateful I found Divine Iris. ❤️ This isn’t just healing... this is amplification of life itself.”
             </p>
             <footer style={PAGE_BODY}>— AWRP participant</footer>
           </blockquote>
-          <p className="mt-6" style={PAGE_BODY}>Participants have also spoken about feeling happier, finding more calm, building discipline and moving through daily life with more ease.</p>
-          <p className="mt-3 text-sm" style={PAGE_BODY}>Individual experiences. Results vary from person to person.</p>
+          <p className="mt-6 max-w-2xl mx-auto" style={PAGE_BODY}>Participants have also spoken about feeling happier, finding more calm, building discipline and moving through daily life with more ease.</p>
+          <p className="mt-3 text-sm max-w-2xl mx-auto" style={PAGE_BODY}>Individual experiences. Results vary from person to person.</p>
         </section>
 
         <section className="bg-white border-y border-[#eadfca]">
-          <div className="mx-auto px-4 sm:px-6 lg:px-10 py-14 w-full max-w-[min(1280px,96vw)]">
+          <div className="mx-auto px-4 sm:px-6 lg:px-10 py-14 w-full max-w-[min(1280px,96vw)] text-center">
             <h2
-              className="text-4xl md:text-5xl mb-8 md:mb-10 font-bold leading-tight"
+              className="text-4xl md:text-5xl mb-8 md:mb-10 font-bold leading-tight text-center"
               style={{ ...HEADING, color: AWRP_PURPLE }}
             >
               What You’ll Discover On The Call
@@ -296,7 +295,7 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
                     style={{ borderColor: AWRP_PURPLE_SOFT }}
                   >
                     <div
-                      className={`flex gap-3 md:gap-4 min-w-0 ${index === 6 ? 'md:max-w-4xl w-full' : 'w-full'}`}
+                      className={`flex flex-col items-center text-center gap-3 md:gap-4 min-w-0 ${index === 6 ? 'md:max-w-4xl w-full mx-auto' : 'w-full'}`}
                     >
                       <div
                         className="flex h-11 w-11 md:h-12 md:w-12 shrink-0 items-center justify-center rounded-lg text-sm md:text-base font-bold"
@@ -331,23 +330,19 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
           </div>
         </section>
 
-        <section className="container mx-auto px-6 md:px-8 py-14 max-w-5xl">
-          <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(240px,300px)] gap-8 lg:gap-10 items-start">
-            <div className="order-2 lg:order-1 lg:col-start-1 lg:row-start-1">
-              <p style={SECTION_TITLE} className="text-4xl md:text-5xl mb-2">Meet Dimple Ranawat</p>
-              <p className="mb-2" style={PAGE_BODY}>Founder, Divine Iris · Soulful Healing Studio</p>
-              <p className="mb-4" style={PAGE_BODY}>Energy Healer · Life Transformation Coach · Emotional Empowerment Practitioner · TEDx Speaker</p>
-              <p className="mb-6" style={PAGE_BODY}>
-                Dimple brings together spiritual exploration, energy-healing practices and personal-transformation work. Her gift is making life’s complexities easier to understand, so people can approach their growth with more clarity, compassion and confidence.
-              </p>
-              <p className="mb-0 lg:mb-4" style={PAGE_BODY}>Her work has been recognised with several honours, including:</p>
-            </div>
-            <img
-              src={dimplePhoto}
-              alt="Dimple Ranawat"
-              className="order-1 lg:order-2 lg:col-start-2 lg:row-start-1 w-full max-w-sm mx-auto lg:mx-0 lg:max-w-none rounded-3xl object-cover h-auto"
-            />
-          </div>
+        <section className="container mx-auto px-6 md:px-8 py-14 max-w-3xl text-center">
+          <img
+            src={dimplePhoto}
+            alt="Dimple Ranawat"
+            className="w-full max-w-sm mx-auto rounded-3xl object-cover h-auto mb-8"
+          />
+          <p style={SECTION_TITLE} className="text-4xl md:text-5xl mb-2">Meet Dimple Ranawat</p>
+          <p className="mb-2" style={PAGE_BODY}>Founder, Divine Iris · Soulful Healing Studio</p>
+          <p className="mb-4" style={PAGE_BODY}>Energy Healer · Life Transformation Coach · Emotional Empowerment Practitioner · TEDx Speaker</p>
+          <p className="mb-6 max-w-2xl mx-auto" style={PAGE_BODY}>
+            Dimple brings together spiritual exploration, energy-healing practices and personal-transformation work. Her gift is making life’s complexities easier to understand, so people can approach their growth with more clarity, compassion and confidence.
+          </p>
+          <p className="mb-4" style={PAGE_BODY}>Her work has been recognised with several honours, including:</p>
           <div className="mt-6 rounded-2xl px-4 py-5 md:px-6 md:py-6" style={{ background: AWRP_PURPLE }}>
             <p
               className="text-center text-xl md:text-2xl tracking-[0.18em] uppercase mb-5"
@@ -372,7 +367,7 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
           </div>
         </section>
 
-        <section className="container mx-auto px-6 md:px-8 py-14 max-w-5xl">
+        <section className="container mx-auto px-6 md:px-8 py-14 max-w-5xl text-center">
           <div className="grid sm:grid-cols-3 gap-4 mb-8">
             {[
               ['1000s', 'of lives transformed'],
@@ -433,28 +428,27 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
           </div>
         </section>
 
-        <section className="container mx-auto px-6 md:px-8 py-14 max-w-3xl">
+        <section className="container mx-auto px-6 md:px-8 py-14 max-w-3xl text-center">
           <p style={SECTION_TITLE} className="text-4xl md:text-5xl mb-6 text-center">Questions you might have</p>
-          <div className="space-y-3">
+          <div className="space-y-3 text-center">
             {FAQS.map(([question, answer], index) => (
-              <div key={question} className="rounded-2xl border border-[#eadfca] bg-white">
+              <div key={question} className="rounded-2xl border border-[#eadfca] bg-white text-center">
                 <button
                   type="button"
-                  className="w-full text-left px-5 py-4 text-xl"
+                  className="w-full text-center px-5 py-4 text-xl"
                   style={HEADING}
                   aria-expanded={openFaq === index}
                   onClick={() => setOpenFaq(openFaq === index ? -1 : index)}
                 >
                   {question}
                 </button>
-                {openFaq === index && <p className="px-5 pb-4 whitespace-pre-line" style={PAGE_BODY}>{answer}</p>}
+                {openFaq === index && <p className="px-5 pb-4 whitespace-pre-line text-center" style={PAGE_BODY}>{answer}</p>}
               </div>
             ))}
           </div>
         </section>
 
-        <section className="relative overflow-hidden">
-          <img src={irisImage} alt="" className="w-full max-h-[280px] object-cover object-bottom" />
+        <section className="bg-white border-t border-[#eadfca]">
           <div className="container mx-auto px-6 md:px-8 py-14 max-w-3xl text-center">
             <p style={SECTION_TITLE} className="text-4xl md:text-5xl mb-4">You are more than the struggle you’re facing.</p>
             <p className="mb-3" style={PAGE_BODY}>Your happiness matters. Your well-being matters. And your story is still unfolding.</p>
