@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
@@ -8,9 +8,11 @@ import { useCurrency } from '../context/CurrencyContext';
 import { HEADING, BODY, GOLD, LABEL } from '../lib/designTokens';
 import {
   AWRP_INTRO_PROGRAM_ID,
+  AWRP_INTRO_PROGRAM_TITLE,
   findAwrpIntroProgram,
   isAwrpIntroProgram,
 } from '../lib/awrpIntroProgram';
+import { formatDateDdMonYyyy } from '../lib/utils';
 import dimplePhoto from '../assets/awrp-dimple.jpg';
 import heroBanner from '../assets/awrp-hero.jpg';
 import patternImage from '../assets/awrp-pattern.jpg';
@@ -151,14 +153,28 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
     ? (indiaAmount > 0 ? `₹${indiaAmount.toLocaleString()}` : '')
     : (websiteAmount > 0 ? `${symbol}${websiteAmount.toLocaleString()}` : '');
 
+  const eventLine = useMemo(() => {
+    const parts = ['Live online'];
+    const start = program?.start_date ? formatDateDdMonYyyy(program.start_date) : '';
+    if (start) parts.push(start);
+    else if (!program) parts.push('Sunday, 29 November 2026');
+    const timing = (program?.timing || '').trim();
+    const zone = (program?.time_zone || '').trim();
+    if (timing) parts.push(zone ? `${timing} ${zone}` : timing);
+    else if (!program) parts.push('7:00–8:30 PM IST');
+    return parts.join(' · ');
+  }, [program]);
+
   useEffect(() => {
     window.scrollTo(0, 0);
+    const desc = (program?.description || '').trim()
+      || 'Live introductory call on the Atomic Weight Release Program with Dimple Ranawat.';
     setPageSeo({
-      title: 'AWRP Intro Call',
-      description: 'Live introductory call on the Atomic Weight Release Program with Dimple Ranawat. Sunday, 29 November 2026, 7:00–8:30 PM IST.',
+      title: program?.title || AWRP_INTRO_PROGRAM_TITLE,
+      description: desc.slice(0, 320),
     });
     return () => clearPageSeo();
-  }, [setPageSeo, clearPageSeo]);
+  }, [setPageSeo, clearPageSeo, program?.title, program?.description]);
 
   const scrollToReserve = () => {
     document.getElementById('reserve')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -170,7 +186,11 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#faf7f2] text-[#2b241c]">
+    <div
+      className="min-h-screen bg-[#faf7f2] text-[#2b241c]"
+      data-awrp-intro-program-id={program?.id || AWRP_INTRO_PROGRAM_ID}
+      data-awrp-intro-landing-path="/awrp-intro-call"
+    >
       <Header />
       <main>
         <section className="bg-white pt-16 md:pt-20 pb-14 md:pb-20">
@@ -197,7 +217,7 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
               It’s also the emotional and mental weight you carry: old hurts, constant overthinking, stress and patterns that keep repeating. Join Dimple Ranawat for a live introductory call on the Atomic Weight Release Program and discover how to start releasing it.
             </p>
             <p className="text-lg md:text-xl mb-8 text-[#1a1a1a]">
-              Live online · Sunday, 29 November 2026 · 7:00–8:30 PM IST{priceText ? ` · ${priceText}` : ''}
+              {eventLine}{priceText ? ` · ${priceText}` : ''}
             </p>
             <button
               type="button"

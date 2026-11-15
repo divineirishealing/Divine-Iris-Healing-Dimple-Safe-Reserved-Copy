@@ -1,6 +1,8 @@
 /** Shared resolver for the "AWRP Intro Call" program (separate from the main AWRP workshop in admin). */
 
 export const AWRP_INTRO_PROGRAM_TITLE = 'AWRP Intro Call';
+export const AWRP_INTRO_LANDING_PATH = '/awrp-intro-call';
+export const AWRP_INTRO_LANDING_PATH_INDIA = '/india/awrp-intro-call';
 
 /** Stable catalog id (matches backend bootstrap); override via REACT_APP_AWRP_INTRO_PROGRAM_ID if needed. */
 export const AWRP_INTRO_PROGRAM_ID = (

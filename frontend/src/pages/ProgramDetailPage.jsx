@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -32,7 +32,11 @@ import {
 import { catalogPayAsYouWishEnabled } from '../lib/payAsYouWish';
 import MahalakshmiLandingPage, { MAHALAKSHMI_PROGRAM_ID } from './MahalakshmiLandingPage';
 import AwrpIntroCallPage from './AwrpIntroCallPage';
-import { AWRP_INTRO_PROGRAM_ID, isAwrpIntroProgram } from '../lib/awrpIntroProgram';
+import {
+  AWRP_INTRO_LANDING_PATH,
+  AWRP_INTRO_PROGRAM_ID,
+  isAwrpIntroProgram,
+} from '../lib/awrpIntroProgram';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
@@ -1026,6 +1030,9 @@ export default function ProgramDetailRoute() {
   }, [id, mahalakshmi, knownIntro]);
 
   if (mahalakshmi) return <MahalakshmiLandingPage surface="website" />;
+  if (id === AWRP_INTRO_PROGRAM_ID) {
+    return <Navigate to={AWRP_INTRO_LANDING_PATH} replace />;
+  }
   if (useIntroLanding === true) return <AwrpIntroCallPage surface="website" />;
   if (useIntroLanding === null) {
     return (
