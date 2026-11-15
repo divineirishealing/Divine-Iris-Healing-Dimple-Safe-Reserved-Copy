@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Loader2, Lock } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useSeoPage } from '../context/SeoPageContext';
@@ -74,7 +73,7 @@ const FAQS = [
   ['My problem isn’t weight. Is this for me?', 'Yes. In AWRP, “weight” isn’t necessarily body weight. It’s the emotional and mental weight you carry, which can show up in your body, your heart, your mind, your relationships or your work. The call is for anyone who feels stuck in a recurring struggle.'],
   ['Is this the full AWRP program?', 'No. It’s a paid introductory call to understand the approach, format and whether it suits you. Enrolling in the full program is a separate decision.'],
   ['Why is the introductory call paid?', 'It’s a full, structured session with Dimple, not a quick sales call. It also means everyone on the call is genuinely committed to exploring their growth.'],
-  ['Does AWRP guarantee results?', 'No. Every person’s experience is individual, and no specific weight, health, relationship or financial outcome is guaranteed.'],
+  ['Does AWRP guarantee results?', 'No. Every journey is unique, and specific outcomes cannot be guaranteed. However, AWRP has been part of the transformation journeys of thousands of individuals, with many participants reporting meaningful positive changes and greater ease in their lives.\n\nYour transformation is personal. Your possibilities are worth exploring.'],
   ['Can AWRP replace medical treatment or therapy?', 'No. AWRP is complementary and does not diagnose, treat or cure any medical or mental-health condition. Continue any professional care, and don’t change medication without your doctor’s advice.'],
   ['Will karma and past lives be discussed?', 'Yes, as spiritual and philosophical perspectives, alongside established science such as genetics and epigenetics.'],
 ];
@@ -92,20 +91,6 @@ function findAwrpWorkshop(list) {
   }) || null;
 }
 
-function loadRazorpayScript() {
-  return new Promise((resolve, reject) => {
-    if (window.Razorpay) {
-      resolve();
-      return;
-    }
-    const s = document.createElement('script');
-    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('Could not load Razorpay'));
-    document.body.appendChild(s);
-  });
-}
-
 function BookButton({ onClick, children, className = '' }) {
   return (
     <button
@@ -121,16 +106,10 @@ function BookButton({ onClick, children, className = '' }) {
 
 export default function AwrpIntroCallPage({ surface = 'india' }) {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { setPageSeo, clearPageSeo } = useSeoPage();
   const { getPrice, getOfferPrice, symbol } = useCurrency();
   const [program, setProgram] = useState(null);
   const isIndia = surface !== 'website';
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
   const [openFaq, setOpenFaq] = useState(0);
 
   useEffect(() => {
@@ -160,65 +139,8 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
     document.getElementById('reserve')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const signUp = (event) => {
-    event.preventDefault();
+  const bookNow = () => {
     navigate(`/enroll/program/${program?.id || AWRP_WORKSHOP_ID}`);
-  };
-
-  const pay = async (event) => {
-    if (!isIndia || !indiaAmount) {
-      signUp(event);
-      return;
-    }
-    event.preventDefault();
-    setError('');
-    setBusy(true);
-    try {
-      await loadRazorpayScript();
-      const { data: co } = await axios.post(`${API}/landing/awrp-intro/checkout`, {
-        name,
-        email,
-        phone,
-        utm_source: searchParams.get('utm_source') || '',
-        utm_medium: searchParams.get('utm_medium') || '',
-        utm_campaign: searchParams.get('utm_campaign') || '',
-        utm_content: searchParams.get('utm_content') || '',
-      });
-      const rzp = new window.Razorpay({
-        key: co.key_id,
-        amount: co.amount,
-        currency: co.currency,
-        order_id: co.order_id,
-        name: 'Divine Iris Healing',
-        description: co.description,
-        method: { upi: true, card: true, netbanking: true, wallet: true },
-        prefill: { name: co.name, email: co.email, contact: co.phone },
-        handler: async (response) => {
-          try {
-            await axios.post(`${API}/payments/razorpay/verify`, {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-            navigate(`/payment/success?session_id=${encodeURIComponent(co.session_id)}`);
-          } catch (err) {
-            setError('Payment received, but confirmation is still processing. Please keep this page and contact us with your payment id.');
-            setBusy(false);
-          }
-        },
-        modal: { ondismiss: () => setBusy(false) },
-      });
-      rzp.on('payment.failed', () => {
-        setError('Payment was not completed.');
-        setBusy(false);
-      });
-      rzp.open();
-    } catch (err) {
-      const detail = err.response?.data?.detail;
-      const first = Array.isArray(detail) ? detail[0]?.msg : detail;
-      setError(typeof first === 'string' ? first : err.message || 'Something went wrong. Please try again.');
-      setBusy(false);
-    }
   };
 
   return (
@@ -459,62 +381,32 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
         </section>
 
         <section id="reserve" className="bg-[#f3ecdf]">
-          <div className="container mx-auto px-6 md:px-8 py-16 max-w-5xl grid lg:grid-cols-2 gap-10 items-start">
-            <div>
-              <p style={SECTION_TITLE} className="text-4xl md:text-5xl mb-3">Your next step</p>
-              <p className="mb-6" style={PAGE_BODY}>You don’t have to decide about the full program today. Start by understanding it.</p>
-              <ol className="space-y-4 mb-8">
-                {[
-                  ['Book & pay', 'Reserve your place in under two minutes.'],
-                  ['Get your link', 'Joining details arrive by email and WhatsApp.'],
-                  ['Join live', 'Sunday, 29 Nov · 7:00 PM IST'],
-                ].map(([title, line], index) => (
-                  <li key={title} className="flex gap-4">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-[#1c1230]" style={{ background: GOLD }}>{index + 1}</span>
-                    <div>
-                      <p style={HEADING}>{title}</p>
-                      <p style={PAGE_BODY}>{line}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-              <ul className="space-y-2" style={PAGE_BODY}>
-                <li>Date: Sunday, 29 November 2026</li>
-                <li>Time: 7:00–8:30 PM IST</li>
-                <li>Duration: 90 minutes, including time for your questions</li>
-                <li>Format: Live online</li>
-                <li>Fee: {priceText || 'The price saved on the AWRP workshop'}</li>
-                <li>Joining details arrive by email and WhatsApp.</li>
-              </ul>
-              <p className="mt-4 text-sm" style={PAGE_BODY}>
-                Your place is confirmed once payment is complete. See the <Link to="/refund-cancellation" className="underline">refund and cancellation policy</Link>.
+          <div className="container mx-auto px-6 md:px-8 py-16 max-w-2xl">
+            <div className="text-center max-w-2xl mx-auto">
+              <p style={SECTION_TITLE} className="text-4xl md:text-5xl mb-5 uppercase tracking-wide">
+                Your next step
               </p>
-              <p className="mt-2 text-sm" style={PAGE_BODY}>
-                Questions before booking? <Link to="/contact" className="underline">Contact us</Link>.
-              </p>
-            </div>
-            <form onSubmit={pay} className="rounded-3xl border border-[#eadfca] bg-white p-6 md:p-8 shadow-sm" data-testid="awrp-intro-form">
-              <div className="text-center mb-6">
-                <p className="text-sm text-gray-500">Fee</p>
-                <p className="text-4xl" style={HEADING}>{priceText || '—'}</p>
-                <p className="text-xs text-gray-500 mt-1">Sunday, 29 November 2026 · 7:00–8:30 PM IST</p>
+              <div
+                className="rounded-2xl px-5 py-6 md:px-8 md:py-8 space-y-4 mb-8"
+                style={{ background: AWRP_PURPLE }}
+              >
+                <p
+                  className="text-lg sm:text-xl md:text-2xl leading-snug uppercase tracking-wide"
+                  style={{ ...HEADING, color: GOLD, fontWeight: 800 }}
+                >
+                  Give Yourself the Gift of a New Beginning.
+                </p>
+                <p
+                  className="text-base sm:text-lg md:text-xl leading-snug uppercase tracking-wide"
+                  style={{ ...HEADING, color: '#fff', fontWeight: 800 }}
+                >
+                  Restart. Reconnect. Recreate the life you deserve.
+                </p>
               </div>
-<label className="block text-sm font-semibold tracking-wide mb-1" htmlFor="awrp-name">Full name</label>
-            <input id="awrp-name" required={isIndia && indiaAmount > 0} value={name} onChange={(e) => setName(e.target.value)} className="w-full mb-4 rounded-xl border border-[#eadfca] px-3 py-3 text-base" data-testid="awrp-name" />
-            <label className="block text-sm font-semibold tracking-wide mb-1" htmlFor="awrp-email">Email</label>
-            <input id="awrp-email" type="email" required={isIndia && indiaAmount > 0} value={email} onChange={(e) => setEmail(e.target.value)} className="w-full mb-4 rounded-xl border border-[#eadfca] px-3 py-3 text-base" data-testid="awrp-email" />
-            <label className="block text-sm font-semibold tracking-wide mb-1" htmlFor="awrp-phone">WhatsApp number</label>
-            <input id="awrp-phone" required={isIndia && indiaAmount > 0} inputMode="tel" placeholder="Mobile number" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full mb-5 rounded-xl border border-[#eadfca] px-3 py-3 text-base" data-testid="awrp-phone" />
-              {error && <p className="text-sm text-red-600 mb-3" data-testid="awrp-error">{error}</p>}
-              <button type="submit" disabled={busy} data-testid="awrp-pay-btn" className="w-full rounded-full py-3.5 text-base md:text-lg font-semibold text-[#1c1230] disabled:opacity-60" style={{ background: GOLD }}>
-                {busy
-                  ? <span className="inline-flex items-center justify-center gap-2"><Loader2 size={16} className="animate-spin" /> Opening Razorpay…</span>
-                  : (isIndia && indiaAmount ? `Pay & book your call · ${priceText}` : 'Sign up for the workshop')}
-              </button>
-              <p className="mt-3 text-center text-[11px] text-gray-400 inline-flex items-center justify-center gap-1 w-full">
-                <Lock size={11} /> {isIndia && indiaAmount ? 'UPI, cards, and netbanking. India payments via Razorpay. The confirmation email follows payment.' : 'Continues to the AWRP workshop signup. The confirmation email is sent after payment.'}
-              </p>
-            </form>
+              <BookButton onClick={bookNow} className="text-lg md:text-xl px-10 py-4">
+                Book now
+              </BookButton>
+            </div>
           </div>
         </section>
 
@@ -532,7 +424,7 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
                 >
                   {question}
                 </button>
-                {openFaq === index && <p className="px-5 pb-4" style={PAGE_BODY}>{answer}</p>}
+                {openFaq === index && <p className="px-5 pb-4 whitespace-pre-line" style={PAGE_BODY}>{answer}</p>}
               </div>
             ))}
           </div>
