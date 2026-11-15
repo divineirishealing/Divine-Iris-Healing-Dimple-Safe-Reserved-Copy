@@ -243,6 +243,17 @@ async def ensure_site_page_views_ttl_index():
         background=True,
     )
 
+
+@app.on_event("startup")
+async def ensure_awrp_intro_call_program():
+    from utils.awrp_intro_program import ensure_awrp_intro_program
+
+    try:
+        pid = await ensure_awrp_intro_program(db)
+        logging.getLogger("awrp_intro").info("AWRP Intro Call program ready (id=%s)", pid)
+    except Exception as e:
+        logging.getLogger("awrp_intro").warning("Could not ensure AWRP Intro Call program: %s", e)
+
 @app.get("/api/uploads/payment_proofs/{filename}")
 async def serve_payment_proof(filename: str):
     file_path = UPLOAD_DIR / "payment_proofs" / filename

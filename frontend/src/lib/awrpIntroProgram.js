@@ -2,8 +2,10 @@
 
 export const AWRP_INTRO_PROGRAM_TITLE = 'AWRP Intro Call';
 
-/** Optional: set after creating the program in admin for stable /program/:id → landing routing. */
-export const AWRP_INTRO_PROGRAM_ID = (process.env.REACT_APP_AWRP_INTRO_PROGRAM_ID || '').trim();
+/** Stable catalog id (matches backend bootstrap); override via REACT_APP_AWRP_INTRO_PROGRAM_ID if needed. */
+export const AWRP_INTRO_PROGRAM_ID = (
+  process.env.REACT_APP_AWRP_INTRO_PROGRAM_ID || '8c4f1a2e-6d9b-4f12-9e3a-7b5c6d8e9f01'
+).trim();
 
 export function isAwrpIntroProgram(program) {
   if (!program || typeof program !== 'object') return false;

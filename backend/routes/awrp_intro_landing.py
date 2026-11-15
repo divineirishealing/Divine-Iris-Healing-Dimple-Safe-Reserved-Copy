@@ -88,7 +88,9 @@ class AwrpIntroCheckoutBody(BaseModel):
         return (v or "").strip()[:200]
 
 
-AWRP_INTRO_PROGRAM_ID = (os.environ.get("AWRP_INTRO_PROGRAM_ID") or "").strip()
+from utils.awrp_intro_program import awrp_intro_program_id
+
+AWRP_INTRO_PROGRAM_ID = awrp_intro_program_id()
 
 
 def _is_intro_program(program: dict) -> bool:
