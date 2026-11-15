@@ -6,6 +6,11 @@ import Footer from '../components/Footer';
 import { useSeoPage } from '../context/SeoPageContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { HEADING, BODY, GOLD, LABEL } from '../lib/designTokens';
+import {
+  AWRP_INTRO_PROGRAM_ID,
+  findAwrpIntroProgram,
+  isAwrpIntroProgram,
+} from '../lib/awrpIntroProgram';
 import dimplePhoto from '../assets/awrp-dimple.jpg';
 import heroBanner from '../assets/awrp-hero.jpg';
 import patternImage from '../assets/awrp-pattern.jpg';
@@ -98,25 +103,13 @@ const FAQS = [
   ['Will karma and past lives be discussed?', 'Yes, as spiritual and philosophical perspectives, alongside established science such as genetics and epigenetics.'],
 ];
 
-const AWRP_WORKSHOP_ID = '4120e50a-66a6-490e-ad72-50869a805bfb';
-
-function findAwrpWorkshop(list) {
-  const programs = Array.isArray(list) ? list : [];
-  const byId = programs.find((program) => program.id === AWRP_WORKSHOP_ID);
-  if (byId) return byId;
-  return programs.find((program) => {
-    const title = (program?.title || '').toLowerCase();
-    const isAwrp = title.includes('awrp') || title.includes('atomic weight');
-    return program?.is_upcoming && isAwrp && !title.includes('intro');
-  }) || null;
-}
-
-function BookButton({ onClick, children, className = '' }) {
+function BookButton({ onClick, children, className = '', disabled = false }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center justify-center rounded-full px-8 py-3.5 text-base md:text-lg font-semibold tracking-wide text-[#1c1230] ${className}`}
+      disabled={disabled}
+      className={`inline-flex items-center justify-center rounded-full px-8 py-3.5 text-base md:text-lg font-semibold tracking-wide text-[#1c1230] disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
       style={{ background: GOLD }}
     >
       {children}
@@ -133,8 +126,20 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
   const [openFaq, setOpenFaq] = useState(0);
 
   useEffect(() => {
+    const applyProgram = (data) => {
+      if (data && isAwrpIntroProgram(data)) setProgram(data);
+    };
+    if (AWRP_INTRO_PROGRAM_ID) {
+      axios
+        .get(`${API}/programs/${AWRP_INTRO_PROGRAM_ID}`)
+        .then((r) => applyProgram(r.data))
+        .catch(() => {
+          axios.get(`${API}/programs`).then((r) => setProgram(findAwrpIntroProgram(r.data)));
+        });
+      return;
+    }
     axios.get(`${API}/programs`).then((r) => {
-      setProgram(findAwrpWorkshop(r.data));
+      setProgram(findAwrpIntroProgram(r.data));
     }).catch(() => {});
   }, []);
 
@@ -149,7 +154,7 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
   useEffect(() => {
     window.scrollTo(0, 0);
     setPageSeo({
-      title: 'AWRP Introductory Call',
+      title: 'AWRP Intro Call',
       description: 'Live introductory call on the Atomic Weight Release Program with Dimple Ranawat. Sunday, 29 November 2026, 7:00–8:30 PM IST.',
     });
     return () => clearPageSeo();
@@ -160,7 +165,8 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
   };
 
   const bookNow = () => {
-    navigate(`/enroll/program/${program?.id || AWRP_WORKSHOP_ID}`);
+    if (!program?.id) return;
+    navigate(`/enroll/program/${program.id}`);
   };
 
   return (
@@ -320,7 +326,7 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
                 <p className="text-lg md:text-xl mb-4 max-w-lg mx-auto leading-snug" style={HEADING}>
                   Understand more. Explore differently. Discover new possibilities.
                 </p>
-                <p style={PAGE_BODY}>AWRP Introductory Call · Divine Iris – Soulful Healing Studio</p>
+                <p style={PAGE_BODY}>AWRP Intro Call · Divine Iris – Soulful Healing Studio</p>
               </div>
             </div>
             <p className="text-center mt-8 mb-6" style={PAGE_BODY}>Bring your questions. There’s time on the call to ask them.</p>
@@ -421,7 +427,11 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
                   Restart. Reconnect. Recreate the life you deserve.
                 </p>
               </div>
-              <BookButton onClick={bookNow} className="text-lg md:text-xl px-10 py-4">
+              <BookButton
+                onClick={bookNow}
+                disabled={!program?.id}
+                className="text-lg md:text-xl px-10 py-4"
+              >
                 Book now
               </BookButton>
             </div>

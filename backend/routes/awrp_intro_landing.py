@@ -1,7 +1,7 @@
-"""Public checkout for the AWRP Introductory Call.
+"""Public checkout for the AWRP Intro Call.
 
-India / Meta ads page charges the INR price saved on a Programs record
-titled like "AWRP Introductory Call". The call fee is not hardcoded.
+India / Meta ads page charges the INR price saved on the separate Programs record
+titled "AWRP Intro Call" (not the main AWRP workshop).
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ["DB_NAME"]]
 
 ITEM_ID = "awrp-intro-call"
-PROGRAM_TITLE = "AWRP Introductory Call"
+PROGRAM_TITLE = "AWRP Intro Call"
 LANDING_PATH = "/india/awrp-intro-call"
 DISPOSABLE_DOMAINS = {
     "tempmail.com",
@@ -88,39 +88,61 @@ class AwrpIntroCheckoutBody(BaseModel):
         return (v or "").strip()[:200]
 
 
-AWRP_WORKSHOP_ID = "4120e50a-66a6-490e-ad72-50869a805bfb"
+AWRP_INTRO_PROGRAM_ID = (os.environ.get("AWRP_INTRO_PROGRAM_ID") or "").strip()
 
 
-def _is_awrp_workshop(program: dict) -> bool:
-    if program.get("id") == AWRP_WORKSHOP_ID:
+def _is_intro_program(program: dict) -> bool:
+    if AWRP_INTRO_PROGRAM_ID and program.get("id") == AWRP_INTRO_PROGRAM_ID:
         return True
-    title = (program.get("title") or "").lower()
+    title = (program.get("title") or "").strip().lower()
+    if title == PROGRAM_TITLE.lower():
+        return True
+    if title == "awrp introductory call":
+        return True
     is_awrp = "awrp" in title or "atomic weight" in title
-    return bool(program.get("is_upcoming")) and is_awrp and "intro" not in title
+    if not is_awrp:
+        return False
+    return "intro call" in title or "introductory call" in title
 
 
 async def _resolve_offer() -> tuple:
-    """Attach payment to the upcoming AWRP workshop. Do not overwrite its admin fields."""
+    """Price and program id come from the AWRP Intro Call program in admin."""
     cursor = db.programs.find(
         {},
-        {"_id": 0, "id": 1, "title": 1, "price_inr": 1, "offer_price_inr": 1, "is_upcoming": 1},
+        {"_id": 0, "id": 1, "title": 1, "price_inr": 1, "offer_price_inr": 1},
     )
-    programs = await cursor.to_list(80)
-    match = next((p for p in programs if p.get("id") == AWRP_WORKSHOP_ID), None)
+    programs = await cursor.to_list(120)
+    match = None
+    if AWRP_INTRO_PROGRAM_ID:
+        match = next((p for p in programs if p.get("id") == AWRP_INTRO_PROGRAM_ID), None)
     if not match:
-        match = next((p for p in programs if _is_awrp_workshop(p)), None)
+        match = next(
+            (p for p in programs if (p.get("title") or "").strip().lower() == PROGRAM_TITLE.lower()),
+            None,
+        )
     if not match:
-        raise HTTPException(status_code=404, detail="The AWRP workshop is not available.")
+        match = next((p for p in programs if _is_intro_program(p)), None)
+    if not match:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f'Create a program titled "{PROGRAM_TITLE}" with INR pricing '
+                "(Upcoming / Pricing), separate from the main AWRP workshop."
+            ),
+        )
     offer = float(match.get("offer_price_inr") or 0)
     listed = float(match.get("price_inr") or 0)
     amount = offer if offer > 0 else listed
     if amount <= 0:
         raise HTTPException(
             status_code=400,
-            detail="Set the INR price on Atomic Weight Release Program (AWRP) in Upcoming programs.",
+            detail=f'Set the INR price on "{PROGRAM_TITLE}" in Upcoming programs.',
         )
     title = (match.get("title") or PROGRAM_TITLE).strip() or PROGRAM_TITLE
-    return amount, title, match.get("id") or AWRP_WORKSHOP_ID
+    program_id = match.get("id")
+    if not program_id:
+        raise HTTPException(status_code=500, detail="Intro program record is missing an id.")
+    return amount, title, program_id
 
 
 async def _next_receipt_id() -> str:

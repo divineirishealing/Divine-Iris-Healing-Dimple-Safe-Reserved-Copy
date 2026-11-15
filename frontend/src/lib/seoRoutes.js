@@ -40,11 +40,11 @@ export const SEO_ROUTE_TABLE = {
     description: 'The 6-Day Diwali Money Healing & Abundance Activation with Divine Iris, 4–9 November 2026. Online on Zoom and offline remote. Energy exchange ₹666.',
   },
   '/india/awrp-intro-call': {
-    title: 'AWRP Introductory Call',
+    title: 'AWRP Intro Call',
     description: 'Live introductory call on the Atomic Weight Release Program with Dimple Ranawat. Sunday, 29 November 2026, 7:00–8:30 PM IST.',
   },
   '/awrp-intro-call': {
-    title: 'AWRP Introductory Call',
+    title: 'AWRP Intro Call',
     description: 'Live introductory call on the Atomic Weight Release Program with Dimple Ranawat. Sunday, 29 November 2026, 7:00–8:30 PM IST.',
   },
   '/terms': {

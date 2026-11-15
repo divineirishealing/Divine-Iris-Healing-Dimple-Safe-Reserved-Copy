@@ -31,6 +31,8 @@ import {
 } from '../lib/programTierVisibility';
 import { catalogPayAsYouWishEnabled } from '../lib/payAsYouWish';
 import MahalakshmiLandingPage, { MAHALAKSHMI_PROGRAM_ID } from './MahalakshmiLandingPage';
+import AwrpIntroCallPage from './AwrpIntroCallPage';
+import { AWRP_INTRO_PROGRAM_ID, isAwrpIntroProgram } from '../lib/awrpIntroProgram';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
@@ -1001,6 +1003,36 @@ function ProgramDetailPage() {
 
 export default function ProgramDetailRoute() {
   const { id } = useParams();
-  if (id === MAHALAKSHMI_PROGRAM_ID) return <MahalakshmiLandingPage surface="website" />;
+  const mahalakshmi = id === MAHALAKSHMI_PROGRAM_ID;
+  const knownIntro = Boolean(AWRP_INTRO_PROGRAM_ID && id === AWRP_INTRO_PROGRAM_ID);
+  const [useIntroLanding, setUseIntroLanding] = useState(
+    knownIntro ? true : (mahalakshmi ? false : null),
+  );
+
+  useEffect(() => {
+    if (mahalakshmi || knownIntro) return undefined;
+    let cancelled = false;
+    axios
+      .get(`${API}/programs/${id}`)
+      .then((r) => {
+        if (!cancelled) setUseIntroLanding(isAwrpIntroProgram(r.data));
+      })
+      .catch(() => {
+        if (!cancelled) setUseIntroLanding(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, mahalakshmi, knownIntro]);
+
+  if (mahalakshmi) return <MahalakshmiLandingPage surface="website" />;
+  if (useIntroLanding === true) return <AwrpIntroCallPage surface="website" />;
+  if (useIntroLanding === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#faf7f2]">
+        <p style={BODY}>Loading…</p>
+      </div>
+    );
+  }
   return <ProgramDetailPage />;
 }
