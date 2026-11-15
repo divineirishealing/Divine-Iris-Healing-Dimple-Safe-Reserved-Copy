@@ -205,37 +205,6 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
           </div>
         </section>
 
-        <section className="container mx-auto px-6 md:px-8 py-14 max-w-5xl">
-          <div className="grid sm:grid-cols-3 gap-4 mb-8">
-            {[
-              ['1000s', 'of lives transformed'],
-              ['Award-winning', 'program'],
-              ['TEDx', 'speaker'],
-            ].map(([title, line]) => (
-              <div
-                key={title}
-                className="rounded-2xl border px-5 py-6 text-center"
-                style={{ background: AWRP_PURPLE, borderColor: AWRP_PURPLE_SOFT }}
-              >
-                <p className="text-3xl md:text-4xl mb-1" style={{ ...HEADING, color: GOLD }}>{title}</p>
-                <p style={{ ...PAGE_BODY, color: 'rgba(255,255,255,0.88)' }}>{line}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-center max-w-2xl mx-auto mb-8 md:mb-10" style={PAGE_BODY}>
-            Thousands of people have transformed their lives, their health and their relationships with this award-winning program.
-          </p>
-          <img
-            src={communityImage}
-            alt="AWRP community together on a live session"
-            className="w-full max-w-4xl mx-auto rounded-3xl border-2 shadow-sm"
-            style={{ borderColor: AWRP_PURPLE }}
-          />
-          <p className="text-center mt-4 max-w-2xl mx-auto text-[#6b5a45]" style={PAGE_BODY}>
-            Our AWRP community, together on a live session.
-          </p>
-        </section>
-
         <section className="bg-white border-y border-[#eadfca]">
           <div className="container mx-auto px-6 md:px-8 py-14 max-w-5xl">
             <p style={SECTION_TITLE} className="text-4xl md:text-5xl mb-8 text-center">Which of these feels familiar?</p>
@@ -401,6 +370,37 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
               ))}
             </ul>
           </div>
+        </section>
+
+        <section className="container mx-auto px-6 md:px-8 py-14 max-w-5xl">
+          <div className="grid sm:grid-cols-3 gap-4 mb-8">
+            {[
+              ['1000s', 'of lives transformed'],
+              ['Award-winning', 'program'],
+              ['TEDx', 'speaker'],
+            ].map(([title, line]) => (
+              <div
+                key={title}
+                className="rounded-2xl border px-5 py-6 text-center"
+                style={{ background: AWRP_PURPLE, borderColor: AWRP_PURPLE_SOFT }}
+              >
+                <p className="text-3xl md:text-4xl mb-1" style={{ ...HEADING, color: GOLD }}>{title}</p>
+                <p style={{ ...PAGE_BODY, color: 'rgba(255,255,255,0.88)' }}>{line}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-center max-w-2xl mx-auto mb-8 md:mb-10" style={PAGE_BODY}>
+            Thousands of people have transformed their lives, their health and their relationships with this award-winning program.
+          </p>
+          <img
+            src={communityImage}
+            alt="AWRP community together on a live session"
+            className="w-full max-w-4xl mx-auto rounded-3xl border-2 shadow-sm"
+            style={{ borderColor: AWRP_PURPLE }}
+          />
+          <p className="text-center mt-4 max-w-2xl mx-auto text-[#6b5a45]" style={PAGE_BODY}>
+            Our AWRP community, together on a live session.
+          </p>
         </section>
 
         <section id="reserve" className="bg-[#f3ecdf]">
