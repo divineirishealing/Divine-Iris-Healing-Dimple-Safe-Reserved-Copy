@@ -63,9 +63,6 @@ agenthub/agents/youtube/db
 .cache/
 # Mobile development
 android-sdk/ -e 
-# Environment files
-*.env
-*.env.*
 frontend/node_modules/.cache/default-development/0.pack
 frontend/node_modules/.cache/default-development/1.pack
 frontend/node_modules/.cache/default-development/8.pack
@@ -128,10 +125,16 @@ frontend/node_modules/.cache/default-development/68.pack
 frontend/node_modules/.cache/default-development/70.pack
 frontend/node_modules/.cache/default-development/71.pack
 frontend/node_modules/.cache/default-development/72.pack
-# Environment files
-*.env
-*.env.*
-!frontend/.env.example
+# Environment files (do not use *.env.* — it ignores frontend/.env.example)
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+frontend/.env
+frontend/.env.local
 
 # Uploaded payment proof images (sensitive — store in cloud, not git)
 backend/uploads/
