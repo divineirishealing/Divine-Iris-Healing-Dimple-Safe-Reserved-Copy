@@ -8,6 +8,7 @@ from models import Program
 
 PROGRAM_TITLE = "AWRP Intro Call"
 DEFAULT_PROGRAM_ID = "8c4f1a2e-6d9b-4f12-9e3a-7b5c6d8e9f01"
+LANDING_PATH = "/awrp-intro-call"
 
 
 def awrp_intro_program_id() -> str:
@@ -19,10 +20,18 @@ async def ensure_awrp_intro_program(db) -> str:
     pid = awrp_intro_program_id()
     existing = await db.programs.find_one(
         {"$or": [{"id": pid}, {"title": PROGRAM_TITLE}]},
-        {"_id": 0, "id": 1},
+        {"_id": 0, "id": 1, "link": 1, "exclude_from_combo_discount": 1},
     )
     if existing:
-        return existing.get("id") or pid
+        program_id = existing.get("id") or pid
+        patch: dict = {}
+        if not (existing.get("link") or "").strip().startswith("/"):
+            patch["link"] = LANDING_PATH
+        if not existing.get("exclude_from_combo_discount"):
+            patch["exclude_from_combo_discount"] = True
+        if patch:
+            await db.programs.update_one({"id": program_id}, {"$set": patch})
+        return program_id
 
     count = await db.programs.count_documents({})
     now = datetime.now(timezone.utc)
@@ -35,7 +44,7 @@ async def ensure_awrp_intro_program(db) -> str:
             "Understand the approach, ask your questions, and decide your next step."
         ),
         image="",
-        link="/awrp-intro-call",
+        link=LANDING_PATH,
         price_inr=2500.0,
         price_usd=0.0,
         price_aed=0.0,
@@ -56,6 +65,7 @@ async def ensure_awrp_intro_program(db) -> str:
         show_pricing_on_card=True,
         show_duration_on_card=True,
         order=count,
+        exclude_from_combo_discount=True,
         created_at=now,
     )
     await db.programs.insert_one(program.model_dump())

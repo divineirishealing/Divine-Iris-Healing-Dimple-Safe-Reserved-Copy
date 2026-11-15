@@ -127,6 +127,7 @@ class Program(BaseModel):
     pay_as_you_wish: bool = False
     pay_as_you_wish_minimum_inr: float = 450.0
     pay_as_you_wish_suggested_inr: float = 0.0
+    exclude_from_combo_discount: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ProgramCreate(BaseModel):
@@ -202,6 +203,7 @@ class ProgramCreate(BaseModel):
     pay_as_you_wish: Optional[bool] = False
     pay_as_you_wish_minimum_inr: Optional[float] = 450.0
     pay_as_you_wish_suggested_inr: Optional[float] = 0.0
+    exclude_from_combo_discount: Optional[bool] = False
 
 
 class Promotion(BaseModel):

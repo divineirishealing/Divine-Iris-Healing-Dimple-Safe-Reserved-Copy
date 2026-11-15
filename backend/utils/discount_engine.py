@@ -63,13 +63,75 @@ def _discount_bool(doc: dict, key: str, default: bool = False) -> bool:
     return bool(v)
 
 
-def _qualifying_program_count(program_ids: List[Any], rule: dict) -> int:
-    ids = [str(p) for p in (program_ids or []) if p]
+def _qualifying_program_count(
+    program_ids: List[Any], rule: dict, *, excluded: Optional[Set[str]] = None
+) -> int:
+    ex = excluded or set()
+    ids = [str(p) for p in (program_ids or []) if p and str(p) not in ex]
     allowed = rule.get("program_ids") or []
     if allowed:
         allow: Set[str] = {str(x) for x in allowed}
         ids = [p for p in ids if p in allow]
     return len(set(ids))
+
+
+async def _combo_excluded_program_ids(db, program_ids: List[Any]) -> Set[str]:
+    ids = [str(p) for p in (program_ids or []) if p]
+    if not ids:
+        return set()
+    excluded: Set[str] = set()
+    async for doc in db.programs.find(
+        {"id": {"$in": ids}}, {"_id": 0, "id": 1, "exclude_from_combo_discount": 1}
+    ):
+        if doc.get("exclude_from_combo_discount"):
+            excluded.add(str(doc["id"]))
+    return excluded
+
+
+async def _combo_eligible_subtotal(
+    db,
+    *,
+    cart_items: List[dict],
+    program_ids: List[Any],
+    excluded: Set[str],
+    currency: str,
+    subtotal: float,
+) -> float:
+    """Pre-group cart subtotal for lines that count toward combo discount."""
+    from routes.enrollment import _per_person_price_for_program
+
+    cur = (currency or "aed").lower()
+    ids = {str(p) for p in (program_ids or []) if p}
+    eligible_ids = {p for p in ids if p not in excluded}
+    if not eligible_ids:
+        return 0.0
+
+    if cart_items:
+        total = 0.0
+        for ci in cart_items:
+            pid = str(ci.get("program_id") or "").strip()
+            if not pid or pid not in eligible_ids:
+                continue
+            program = await db.programs.find_one({"id": pid}, {"_id": 0})
+            if not program:
+                continue
+            try:
+                npc = int(ci.get("participants_count") or 0)
+            except (TypeError, ValueError):
+                npc = 0
+            if npc <= 0:
+                npc = 1
+            per = _per_person_price_for_program(program, ci.get("tier_index"), cur)
+            total += round(float(per) * npc, 2)
+        if total > 0:
+            return total
+
+    if subtotal > 0 and ids:
+        eligible_count = len(eligible_ids)
+        cart_count = len(ids)
+        if cart_count > 0:
+            return round(subtotal * eligible_count / cart_count, 2)
+    return subtotal if eligible_ids else 0.0
 
 
 async def calculate_cart_discounts(settings: dict, data: dict, db) -> dict:
@@ -78,6 +140,7 @@ async def calculate_cart_discounts(settings: dict, data: dict, db) -> dict:
     num_programs = int(data.get("num_programs") or 1)
     email = (data.get("email") or "").strip()
     program_ids = data.get("program_ids") or []
+    cart_items = data.get("cart_items") or []
     remaining = subtotal
 
     group_discount = 0
@@ -94,27 +157,62 @@ async def calculate_cart_discounts(settings: dict, data: dict, db) -> dict:
                 remaining -= group_discount
                 break
 
+    currency = (data.get("currency") or "aed").lower()
+    combo_excluded: Set[str] = set()
+    if program_ids:
+        combo_excluded = await _combo_excluded_program_ids(db, program_ids)
+
     if settings.get("enable_combo_discount"):
         combo_rules = settings.get("combo_rules") or []
         if combo_rules:
             rules_sorted = sorted(combo_rules, key=lambda r: int(r.get("min_programs") or 0), reverse=True)
             for rule in rules_sorted:
                 min_p = int(rule.get("min_programs") or 999)
-                if rule.get("program_ids"):
-                    qualifying = _qualifying_program_count(program_ids, rule)
+                if rule.get("program_ids") or program_ids:
+                    qualifying = _qualifying_program_count(program_ids, rule, excluded=combo_excluded)
                 else:
-                    qualifying = int(num_programs)
+                    qualifying = (
+                        _qualifying_program_count(program_ids, {}, excluded=combo_excluded)
+                        if program_ids
+                        else int(num_programs)
+                    )
                 if qualifying >= min_p and min_p >= 2:
                     pct = float(rule.get("discount_pct") or 0)
-                    combo_discount = round(remaining * pct / 100)
+                    eligible_pre = await _combo_eligible_subtotal(
+                        db,
+                        cart_items=cart_items,
+                        program_ids=program_ids,
+                        excluded=combo_excluded,
+                        currency=currency,
+                        subtotal=subtotal,
+                    )
+                    share = (eligible_pre / subtotal) if subtotal > 0 else 1.0
+                    combo_base = remaining * share
+                    combo_discount = round(combo_base * pct / 100)
                     combo_code = rule.get("code") or f"COMBO{min_p}"
                     remaining -= combo_discount
                     break
-        elif num_programs >= int(settings.get("combo_min_programs") or 2):
-            pct = float(settings.get("combo_discount_pct") or 0)
-            combo_discount = round(remaining * pct / 100)
-            combo_code = "COMBO"
-            remaining -= combo_discount
+        else:
+            qualifying = (
+                _qualifying_program_count(program_ids, {}, excluded=combo_excluded)
+                if program_ids
+                else int(num_programs)
+            )
+            if qualifying >= int(settings.get("combo_min_programs") or 2):
+                pct = float(settings.get("combo_discount_pct") or 0)
+                eligible_pre = await _combo_eligible_subtotal(
+                    db,
+                    cart_items=cart_items,
+                    program_ids=program_ids,
+                    excluded=combo_excluded,
+                    currency=currency,
+                    subtotal=subtotal,
+                )
+                share = (eligible_pre / subtotal) if subtotal > 0 else 1.0
+                combo_base = remaining * share
+                combo_discount = round(combo_base * pct / 100)
+                combo_code = "COMBO"
+                remaining -= combo_discount
 
     if settings.get("enable_loyalty") and email:
         enrollment = await db.enrollments.find_one(
@@ -127,7 +225,6 @@ async def calculate_cart_discounts(settings: dict, data: dict, db) -> dict:
 
     cross_sell_discount = 0
     cross_sell_details: List[dict] = []
-    cart_items = data.get("cart_items") or []
     if _discount_bool(settings, "enable_cross_sell", False) and program_ids and len(program_ids) >= 2:
         cross_sell_rules = settings.get("cross_sell_rules") or []
         pid_set = {str(p) for p in program_ids}
