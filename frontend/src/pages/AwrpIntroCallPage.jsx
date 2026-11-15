@@ -23,12 +23,33 @@ const PAGE_BODY = {
 const AWRP_PURPLE = '#6d2d91';
 const AWRP_PURPLE_SOFT = '#ead4f3';
 
+const HERO_PURPLE = '#6a2b86';
+const HERO_IMAGE_ASPECT = 1024 / 682;
+
 const HERO_LABEL = {
-  ...LABEL,
-  fontSize: '1.15rem',
-  letterSpacing: '0.22em',
+  fontFamily: 'var(--body-font, "Lato", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif)',
+  fontSize: 'clamp(0.62rem, 1.6vw, 0.78rem)',
+  letterSpacing: '0.28em',
   fontWeight: 700,
+  textTransform: 'uppercase',
   color: GOLD,
+  lineHeight: 1.5,
+};
+
+const HERO_HEADLINE = {
+  ...HEADING,
+  color: HERO_PURPLE,
+  fontWeight: 700,
+  fontSize: 'clamp(1.55rem, 4.2vw, 2.25rem)',
+  lineHeight: 1.28,
+};
+
+const HERO_TAGLINE = {
+  fontFamily: '"Great Vibes", "Brush Script MT", cursive',
+  color: GOLD,
+  fontSize: 'clamp(1.75rem, 4.8vw, 2.35rem)',
+  fontWeight: 400,
+  lineHeight: 1.25,
 };
 
 const SECTION_TITLE = {
@@ -149,20 +170,22 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
       <main>
         <section className="bg-white pt-16 md:pt-20 pb-14 md:pb-20">
           <div className="container mx-auto px-6 md:px-8 max-w-3xl text-center">
-            <img
-              src={heroBanner}
-              alt="Atomic Weight Release Program"
-              className="block w-full h-auto mx-auto rounded-2xl mb-8 md:mb-10"
-            />
-            <p className="mb-1" style={HERO_LABEL}>Atomic Weight Release Program</p>
-            <p className="mb-6 md:mb-8" style={HERO_LABEL}>Live Introductory Call</p>
-            <h1
-              className="text-3xl sm:text-4xl md:text-5xl leading-tight mb-5 md:mb-6"
-              style={{ ...HEADING, color: AWRP_PURPLE, fontWeight: 700 }}
+            <div
+              className="w-full overflow-hidden rounded-2xl mb-7 md:mb-9 mx-auto"
+              style={{ aspectRatio: HERO_IMAGE_ASPECT }}
             >
+              <img
+                src={heroBanner}
+                alt="Atomic Weight Release Program"
+                className="block w-full h-full object-cover"
+              />
+            </div>
+            <p className="mb-0.5" style={HERO_LABEL}>Atomic Weight Release Program</p>
+            <p className="mb-5 md:mb-6" style={HERO_LABEL}>Live Introductory Call</p>
+            <h1 className="mb-4 md:mb-5 px-1" style={HERO_HEADLINE}>
               You’ve tried so much. So why does something still feel stuck?
             </h1>
-            <p className="mb-4 text-2xl md:text-3xl italic font-semibold" style={{ ...HEADING, color: GOLD, fontWeight: 600 }}>
+            <p className="mb-4 md:mb-5" style={HERO_TAGLINE}>
               Weight isn’t only what shows on the scale.
             </p>
             <p className="mb-6 max-w-2xl mx-auto text-lg md:text-xl" style={{ ...PAGE_BODY, color: '#333333' }}>
