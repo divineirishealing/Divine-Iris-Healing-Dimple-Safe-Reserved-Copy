@@ -8,6 +8,7 @@ import { resolveImageUrl } from '../lib/imageUtils';
 import { publicNavLinkLabel } from '../lib/navLinkLabels';
 import { applyBlogNavItems, blogNavEnabled } from '../lib/blogNav';
 import { useSiteSettings } from '../context/SiteSettingsContext';
+import { programPublicPath } from '../lib/programRoutes';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -226,7 +227,7 @@ const Header = () => {
                           <>
                             <p className="px-4 py-1 text-[9px] text-[#D4AF37] uppercase tracking-widest font-semibold">Flagship</p>
                             {flagshipPrograms.map(p => (
-                              <button key={p.id} onClick={() => handleNav(`/program/${p.id}`)}
+                              <button key={p.id} onClick={() => handleNav(programPublicPath(p))}
                                 className="block w-full text-left px-4 py-2 text-white/70 text-xs hover:text-[#D4AF37] hover:bg-white/5 transition-colors">
                                 {p.title}
                               </button>
@@ -237,7 +238,7 @@ const Header = () => {
                           <>
                             <p className="px-4 py-1 mt-1 text-[9px] text-[#D4AF37] uppercase tracking-widest font-semibold">Upcoming</p>
                             {upcomingPrograms.map(p => (
-                              <button key={p.id} onClick={() => handleNav(`/program/${p.id}`)}
+                              <button key={p.id} onClick={() => handleNav(programPublicPath(p))}
                                 className="block w-full text-left px-4 py-2 text-white/70 text-xs hover:text-[#D4AF37] hover:bg-white/5 transition-colors">
                                 {p.title}
                               </button>
@@ -248,7 +249,7 @@ const Header = () => {
                           <>
                             <p className="px-4 py-1 mt-1 text-[9px] text-[#D4AF37] uppercase tracking-widest font-semibold">All Programs</p>
                             {programs.filter(p => !p.is_flagship && !p.is_upcoming).map(p => (
-                              <button key={p.id} onClick={() => handleNav(`/program/${p.id}`)}
+                              <button key={p.id} onClick={() => handleNav(programPublicPath(p))}
                                 className="block w-full text-left px-4 py-2 text-white/70 text-xs hover:text-[#D4AF37] hover:bg-white/5 transition-colors">
                                 {p.title}
                               </button>
@@ -301,7 +302,7 @@ const Header = () => {
               key={p.id}
               type="button"
               data-testid={`offer-banner-program-${p.id}`}
-              onClick={() => handleNav(`/program/${p.id}`)}
+              onClick={() => handleNav(programPublicPath(p))}
               className="inline-flex max-w-full flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 rounded-sm px-1 py-0.5 text-left transition-opacity hover:opacity-90 sm:max-w-none"
             >
               <Sparkles size={12} className="shrink-0 text-white/80" />
@@ -357,7 +358,7 @@ const Header = () => {
                   Flagship Programs <ChevronDown size={14} className={`transition-transform ${programsOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {programsOpen && programs.map(p => (
-                  <button key={p.id} onClick={() => handleNav(`/program/${p.id}`)}
+                  <button key={p.id} onClick={() => handleNav(programPublicPath(p))}
                     className="text-white/50 hover:text-[#D4AF37] text-xs tracking-wider transition-colors pl-4">
                     {p.title}
                   </button>

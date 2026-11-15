@@ -10,6 +10,7 @@ import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { HEADING } from '../lib/designTokens';
+import { programPublicPath } from '../lib/programRoutes';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -63,7 +64,7 @@ function AllProgramsPage() {
               <Card
                 key={program.id}
                 className="overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-0 shadow-lg cursor-pointer"
-                onClick={() => navigate(`/program/${program.id}`)}
+                onClick={() => navigate(programPublicPath(program))}
               >
                 <div className="relative h-48 overflow-hidden">
                   <img

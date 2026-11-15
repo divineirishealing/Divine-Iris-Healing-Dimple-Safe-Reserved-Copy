@@ -17,6 +17,13 @@ export function isAwrpIntroProgram(program) {
   return false;
 }
 
+/** Homepage Programs section + nav: show intro call alongside flagship cards when visible in admin. */
+export function showInWebsiteProgramsSection(program) {
+  if (!program || program.is_group_program) return false;
+  if (isAwrpIntroProgram(program)) return true;
+  return Boolean(program.is_flagship);
+}
+
 export function findAwrpIntroProgram(list) {
   const programs = Array.isArray(list) ? list : [];
   if (AWRP_INTRO_PROGRAM_ID) {

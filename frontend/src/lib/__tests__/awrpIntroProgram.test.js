@@ -2,7 +2,9 @@ import {
   AWRP_INTRO_PROGRAM_TITLE,
   findAwrpIntroProgram,
   isAwrpIntroProgram,
+  showInWebsiteProgramsSection,
 } from '../awrpIntroProgram';
+import { programPublicPath } from '../programRoutes';
 
 describe('awrpIntroProgram', () => {
   const intro = { id: 'intro-1', title: AWRP_INTRO_PROGRAM_TITLE };
@@ -19,5 +21,15 @@ describe('awrpIntroProgram', () => {
 
   it('does not treat the main AWRP workshop as the intro call', () => {
     expect(isAwrpIntroProgram(workshop)).toBe(false);
+  });
+
+  it('shows intro in programs section without flagship flag', () => {
+    expect(showInWebsiteProgramsSection({ ...intro, is_flagship: false })).toBe(true);
+    expect(showInWebsiteProgramsSection(workshop)).toBe(false);
+  });
+
+  it('routes intro to awrp-intro-call landing', () => {
+    expect(programPublicPath(intro)).toBe('/awrp-intro-call');
+    expect(programPublicPath({ ...intro, link: '/custom' })).toBe('/custom');
   });
 });

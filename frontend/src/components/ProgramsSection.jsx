@@ -17,12 +17,15 @@ import {
   programHasWebsiteVisibleTiers,
   resolveCardPricingTierIndex,
 } from '../lib/programTierVisibility';
+import { showInWebsiteProgramsSection } from '../lib/awrpIntroProgram';
+import { programPublicPath } from '../lib/programRoutes';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 /* ── Flagship card (non-replicated) — purple Know More + optional tiers/pricing ── */
 const SimpleFlagshipCard = ({ program }) => {
   const navigate = useNavigate();
+  const programPath = programPublicPath(program);
   const { getPrice, getOfferPrice, symbol } = useCurrency();
   const { addItem, items } = useCart();
   const { toast } = useToast();
@@ -73,7 +76,7 @@ const SimpleFlagshipCard = ({ program }) => {
     <div data-testid={`program-card-${program.id}`}
       className="group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col hover:shadow-2xl">
       {/* Image */}
-      <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate(`/program/${program.id}`)}>
+      <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate(programPath)}>
         <img src={resolveImageUrl(program.image)} alt={program.title}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=600&h=400&fit=crop'; }} />
@@ -95,7 +98,7 @@ const SimpleFlagshipCard = ({ program }) => {
         <p className="text-[#D4AF37] text-[10px] tracking-wider mb-0.5 uppercase">{program.category}</p>
         <div className="flex items-start gap-2 mb-1.5">
           <h3 className="text-base font-semibold text-gray-900 leading-tight cursor-pointer" style={{ ...BODY, fontWeight: 600, fontSize: '0.95rem' }}
-            onClick={() => navigate(`/program/${program.id}`)}>{program.title}</h3>
+            onClick={() => navigate(programPath)}>{program.title}</h3>
           {program.highlight_label && (
             <span data-testid={`highlight-badge-${program.id}`}
               className={`flex-shrink-0 inline-flex items-center gap-1 text-[8px] font-bold tracking-wider uppercase px-2 py-1 rounded-full whitespace-nowrap ${program.highlight_style === 'glow' ? 'animate-pulse' : ''}`}
@@ -165,7 +168,7 @@ const SimpleFlagshipCard = ({ program }) => {
         <div className="border-t pt-3 mt-auto">
           {enrollStatus === 'open' && (showPricing || payWishEnabled) && (price > 0 || payWishEnabled) && !showContact ? (
             <div className="flex gap-1.5">
-              <button onClick={() => navigate(`/program/${program.id}`)}
+              <button onClick={() => navigate(programPath)}
                 data-testid={`know-more-btn-${program.id}`}
                 className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
                 Know More
@@ -183,7 +186,7 @@ const SimpleFlagshipCard = ({ program }) => {
               </button>
             </div>
           ) : (
-            <button onClick={() => navigate(`/program/${program.id}`)}
+            <button onClick={() => navigate(programPath)}
               data-testid={`know-more-btn-${program.id}`}
               className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
               Know More
@@ -202,7 +205,9 @@ const ProgramsSection = ({ sectionConfig }) => {
   const [programs, setPrograms] = useState([]);
   useEffect(() => {
     axios.get(`${API}/programs?visible_only=true`).then(r => {
-      if (r.data?.length > 0) setPrograms(r.data.filter(p => p.is_flagship && !p.is_group_program));
+      if (r.data?.length > 0) {
+        setPrograms(r.data.filter(showInWebsiteProgramsSection));
+      }
     }).catch(() => {});
   }, []);
 

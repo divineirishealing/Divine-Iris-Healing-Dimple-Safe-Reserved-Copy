@@ -20,6 +20,7 @@ import {
   resolveCardPricingTierIndex,
 } from '../lib/programTierVisibility';
 import { useSiteSettings } from '../context/SiteSettingsContext';
+import { programPublicPath } from '../lib/programRoutes';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -216,6 +217,7 @@ export function compactTierButtonLabel(raw) {
 
 const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   const navigate = useNavigate();
+  const programPath = programPublicPath(program);
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const { addItem, items } = useCart();
   const { toast } = useToast();
@@ -327,7 +329,7 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   return (
     <div data-testid={`upcoming-card-${program.id}`}
       className={`group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col h-full ${enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'}`}>
-      <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate(`/program/${program.id}`)}>
+      <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate(programPath)}>
         <img src={resolveImageUrl(program.image)} alt={program.title}
           className={`w-full h-full object-cover transition-transform duration-500 ${enrollStatus === 'open' ? 'group-hover:scale-105' : enrollStatus === 'closed' ? 'grayscale-[40%]' : ''}`}
           onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=600&h=400&fit=crop'; }} />
@@ -511,7 +513,7 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
                     </div>
                   </div>
                   <div className="flex gap-1.5">
-                    <button onClick={() => navigate(`/program/${program.id}`)} data-testid={`upcoming-know-more-${program.id}`}
+                    <button onClick={() => navigate(programPath)} data-testid={`upcoming-know-more-${program.id}`}
                       className="flex-1 bg-[#1a1a1a] hover:bg-[#333] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
                       Know More
                     </button>
@@ -536,7 +538,7 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
         ) : enrollStatus === 'coming_soon' ? (
           /* Coming Soon — just Know More */
           <div className="border-t pt-3 mt-auto">
-            <button onClick={() => navigate(`/program/${program.id}`)} data-testid={`upcoming-know-more-${program.id}`}
+            <button onClick={() => navigate(programPath)} data-testid={`upcoming-know-more-${program.id}`}
               className="w-full bg-[#1a1a1a] hover:bg-[#333] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
               Know More
             </button>

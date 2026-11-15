@@ -7,6 +7,7 @@ import { BODY, GOLD, CONTAINER } from '../lib/designTokens';
 import { publicNavLinkLabel } from '../lib/navLinkLabels';
 import { applyBlogNavItems, blogNavEnabled } from '../lib/blogNav';
 import { useSiteSettings } from '../context/SiteSettingsContext';
+import { programPublicPath } from '../lib/programRoutes';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -256,7 +257,7 @@ const Footer = () => {
               <ul className="space-y-1.5 text-gray-400 text-[11px]" style={FONT_LATO}>
                 {[...programs].slice(0, 6).sort((a, b) => a.title.length - b.title.length).map(p => (
                   <li key={p.id}>
-                    <button data-testid={`footer-program-${p.id}`} onClick={() => { navigate(`/program/${p.id}`); window.scrollTo(0, 0); }}
+                    <button data-testid={`footer-program-${p.id}`} onClick={() => { navigate(programPublicPath(p)); window.scrollTo(0, 0); }}
                       className="hover:text-[#D4AF37] transition-colors text-left">{p.title}</button>
                   </li>
                 ))}
