@@ -103,6 +103,16 @@ async def razorpay_verify_payment(body: RazorpayVerifyBody):
         raise HTTPException(status_code=404, detail="No transaction for this order.")
 
     if tx.get("payment_status") == "paid":
+        session_id = (tx.get("stripe_session_id") or "").strip()
+        if session_id and tx.get("enrollment_id") and not tx.get("emails_sent"):
+            try:
+                await run_enrollment_razorpay_success_hooks(session_id)
+            except Exception as e:
+                logger.exception("Razorpay fulfillment retry (already paid): %s", e)
+                raise HTTPException(
+                    status_code=500,
+                    detail="Payment recorded but confirmation email failed — contact support.",
+                ) from e
         return {
             "ok": True,
             "session_id": tx.get("stripe_session_id"),

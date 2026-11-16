@@ -269,17 +269,24 @@ async def run_enrollment_razorpay_success_hooks(session_id: str) -> None:
         logger.warning("Points Razorpay loyalty: %s", e)
 
     if enrollment_id:
-        await db.enrollments.update_one(
-            {"id": enrollment_id},
-            {
-                "$set": {
-                    "status": "completed",
-                    "payment_method": "razorpay",
-                    "paid_at": datetime.now(timezone.utc).isoformat(),
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                }
-            },
-        )
+        from utils.enrollment_checkout_status import reconcile_enrollment_with_paid_transaction
+
+        paid_tx = await db.payment_transactions.find_one({"stripe_session_id": session_id}, {"_id": 0}) or tx
+        if str(paid_tx.get("payment_status") or "").lower() != "paid":
+            paid_tx = {**paid_tx, "payment_status": "paid"}
+        reconciled = await reconcile_enrollment_with_paid_transaction(db, enrollment_id, paid_tx)
+        if not reconciled:
+            await db.enrollments.update_one(
+                {"id": enrollment_id},
+                {
+                    "$set": {
+                        "status": "completed",
+                        "payment_method": "razorpay",
+                        "paid_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                },
+            )
 
     try:
         await generate_participant_uids(session_id)
@@ -295,18 +302,11 @@ async def run_enrollment_razorpay_success_hooks(session_id: str) -> None:
     }
     if not txn_clean.get("emails_sent"):
         try:
-            await send_enrollment_receipt(txn_clean)
-            await db.payment_transactions.update_one(
-                {"stripe_session_id": session_id},
-                {
-                    "$set": {
-                        "emails_sent": True,
-                        "updated_at": datetime.now(timezone.utc),
-                    }
-                },
-            )
+            # Same receipt + WhatsApp links as Stripe / enroll Razorpay (enrollment_confirmation_email).
+            await send_enrollment_emails(session_id)
         except Exception as e:
             logger.error("Razorpay receipt email: %s", e)
+            raise
     else:
         try:
             from routes.india_payments import sync_home_coming_emis_for_paid_enrollment_tx
