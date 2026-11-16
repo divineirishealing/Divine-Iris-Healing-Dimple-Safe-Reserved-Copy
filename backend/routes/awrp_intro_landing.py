@@ -108,20 +108,17 @@ def _is_intro_program(program: dict) -> bool:
 
 async def _resolve_offer() -> tuple:
     """Price and program id come from the AWRP Intro Call program in admin."""
-    cursor = db.programs.find(
-        {},
-        {"_id": 0, "id": 1, "title": 1, "price_inr": 1, "offer_price_inr": 1},
-    )
-    programs = await cursor.to_list(120)
     match = None
     if AWRP_INTRO_PROGRAM_ID:
-        match = next((p for p in programs if p.get("id") == AWRP_INTRO_PROGRAM_ID), None)
+        match = await db.programs.find_one({"id": AWRP_INTRO_PROGRAM_ID}, {"_id": 0})
     if not match:
-        match = next(
-            (p for p in programs if (p.get("title") or "").strip().lower() == PROGRAM_TITLE.lower()),
-            None,
+        match = await db.programs.find_one(
+            {"title": {"$regex": f"^{re.escape(PROGRAM_TITLE)}$", "$options": "i"}},
+            {"_id": 0},
         )
     if not match:
+        cursor = db.programs.find({}, {"_id": 0})
+        programs = await cursor.to_list(120)
         match = next((p for p in programs if _is_intro_program(p)), None)
     if not match:
         raise HTTPException(
@@ -131,9 +128,9 @@ async def _resolve_offer() -> tuple:
                 "(Upcoming / Pricing), separate from the main AWRP workshop."
             ),
         )
-    offer = float(match.get("offer_price_inr") or 0)
-    listed = float(match.get("price_inr") or 0)
-    amount = offer if offer > 0 else listed
+    from utils.awrp_intro_pricing import resolve_awrp_intro_inr
+
+    amount = resolve_awrp_intro_inr(match, tier_index=0)
     if amount <= 0:
         raise HTTPException(
             status_code=400,

@@ -12,6 +12,7 @@ import {
   AWRP_INTRO_PROGRAM_TITLE,
   findAwrpIntroProgram,
   isAwrpIntroProgram,
+  awrpIntroInrAmount,
 } from '../lib/awrpIntroProgram';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -64,10 +65,9 @@ export default function AwrpIntroPaymentQrPage() {
       .finally(() => setPlinkLoading(false));
   }, []);
 
-  const indiaAmount = Number(program?.offer_price_inr) > 0
-    ? Number(program.offer_price_inr)
-    : (Number(program?.price_inr) > 0 ? Number(program.price_inr) : 2500);
-  const priceText = `₹${(plink?.amount_inr ?? indiaAmount).toLocaleString()}`;
+  const indiaAmount = awrpIntroInrAmount(program);
+  const displayInr = plink?.amount_inr > 0 ? plink.amount_inr : indiaAmount;
+  const priceText = displayInr > 0 ? `₹${displayInr.toLocaleString()}` : '…';
   const qrUrl = (plink?.short_url || '').trim();
 
   return (

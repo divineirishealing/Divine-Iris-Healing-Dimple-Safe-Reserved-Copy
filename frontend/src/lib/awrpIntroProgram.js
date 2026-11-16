@@ -1,5 +1,7 @@
 /** Shared resolver for the "AWRP Intro Call" program (separate from the main AWRP workshop in admin). */
 
+import { resolveEffectiveOffer } from './effectiveOfferPricing';
+
 export const AWRP_INTRO_PROGRAM_TITLE = 'AWRP Intro Call';
 export const AWRP_INTRO_LANDING_PATH = '/awrp-intro-call';
 export const AWRP_INTRO_LANDING_PATH_INDIA = '/india/awrp-intro-call';
@@ -44,4 +46,23 @@ export function findAwrpIntroProgram(list) {
   );
   if (exact) return exact;
   return programs.find((p) => isAwrpIntroProgram(p)) || null;
+}
+
+/** Tier 0 INR when tiers exist (intro is not flagship). Matches backend enrollment pricing. */
+export function awrpIntroPricingSource(program, tierIndex = 0) {
+  if (!program) return null;
+  const tiers = program.duration_tiers || [];
+  if (tiers.length > 0 && tierIndex != null && tiers[tierIndex]) {
+    return tiers[tierIndex];
+  }
+  return program;
+}
+
+export function awrpIntroInrAmount(program) {
+  if (!program) return 0;
+  const source = awrpIntroPricingSource(program, 0);
+  const offer = resolveEffectiveOffer(source, 'inr').price;
+  if (offer > 0) return offer;
+  const list = Number(source?.price_inr ?? program?.price_inr ?? 0);
+  return list > 0 ? list : 0;
 }

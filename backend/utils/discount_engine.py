@@ -63,15 +63,22 @@ def _discount_bool(doc: dict, key: str, default: bool = False) -> bool:
     return bool(v)
 
 
+def _rule_combo_allowed_ids(rule: dict) -> Optional[Set[str]]:
+    """When admin picks programs on a combo rule, only those ids count; empty selection = all programs."""
+    raw = rule.get("program_ids") or []
+    if not raw:
+        return None
+    return {str(x) for x in raw if x}
+
+
 def _qualifying_program_count(
     program_ids: List[Any], rule: dict, *, excluded: Optional[Set[str]] = None
 ) -> int:
     ex = excluded or set()
     ids = [str(p) for p in (program_ids or []) if p and str(p) not in ex]
-    allowed = rule.get("program_ids") or []
-    if allowed:
-        allow: Set[str] = {str(x) for x in allowed}
-        ids = [p for p in ids if p in allow]
+    allowed = _rule_combo_allowed_ids(rule)
+    if allowed is not None:
+        ids = [p for p in ids if p in allowed]
     return len(set(ids))
 
 
@@ -96,6 +103,7 @@ async def _combo_eligible_subtotal(
     excluded: Set[str],
     currency: str,
     subtotal: float,
+    allowed: Optional[Set[str]] = None,
 ) -> float:
     """Pre-group cart subtotal for lines that count toward combo discount."""
     from routes.enrollment import _per_person_price_for_program
@@ -103,6 +111,8 @@ async def _combo_eligible_subtotal(
     cur = (currency or "aed").lower()
     ids = {str(p) for p in (program_ids or []) if p}
     eligible_ids = {p for p in ids if p not in excluded}
+    if allowed is not None:
+        eligible_ids &= allowed
     if not eligible_ids:
         return 0.0
 
@@ -168,14 +178,11 @@ async def calculate_cart_discounts(settings: dict, data: dict, db) -> dict:
             rules_sorted = sorted(combo_rules, key=lambda r: int(r.get("min_programs") or 0), reverse=True)
             for rule in rules_sorted:
                 min_p = int(rule.get("min_programs") or 999)
-                if rule.get("program_ids") or program_ids:
+                allowed = _rule_combo_allowed_ids(rule)
+                if allowed is not None or program_ids:
                     qualifying = _qualifying_program_count(program_ids, rule, excluded=combo_excluded)
                 else:
-                    qualifying = (
-                        _qualifying_program_count(program_ids, {}, excluded=combo_excluded)
-                        if program_ids
-                        else int(num_programs)
-                    )
+                    qualifying = int(num_programs)
                 if qualifying >= min_p and min_p >= 2:
                     pct = float(rule.get("discount_pct") or 0)
                     eligible_pre = await _combo_eligible_subtotal(
@@ -185,6 +192,7 @@ async def calculate_cart_discounts(settings: dict, data: dict, db) -> dict:
                         excluded=combo_excluded,
                         currency=currency,
                         subtotal=subtotal,
+                        allowed=allowed,
                     )
                     share = (eligible_pre / subtotal) if subtotal > 0 else 1.0
                     combo_base = remaining * share

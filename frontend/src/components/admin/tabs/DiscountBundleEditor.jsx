@@ -197,7 +197,12 @@ export default function DiscountBundleEditor({
                       </button>
                     );
                   })}
-                  {!(rule.program_ids || []).length && <span className="text-[8px] text-gray-400 italic">All programs (click to select specific ones)</span>}
+                  {!(rule.program_ids || []).length && (
+                    <span className="text-[8px] text-gray-400 italic">No programs selected — rule applies to any cart programs. Click to limit combo to specific programs only.</span>
+                  )}
+                  {(rule.program_ids || []).length > 0 && (
+                    <span className="text-[8px] text-amber-800 italic w-full">Only these programs count toward the minimum and receive the combo % off.</span>
+                  )}
                 </div>
               </div>
             ))}

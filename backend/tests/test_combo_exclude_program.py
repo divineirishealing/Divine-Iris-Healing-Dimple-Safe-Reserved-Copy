@@ -130,3 +130,42 @@ async def test_combo_excluded_program_does_not_count_toward_minimum():
     }
     out = await calculate_cart_discounts(settings, data, db)
     assert out["combo_discount"] == 0
+
+
+@pytest.mark.asyncio
+async def test_combo_applies_only_to_selected_programs_in_cart():
+    heal = "heal-heart"
+    cord = "cord-cutting"
+    other = "money-magic"
+    programs = {
+        heal: {"id": heal, "exclude_from_combo_discount": False, "duration_tiers": [], "price_inr": 5000.0},
+        cord: {"id": cord, "exclude_from_combo_discount": False, "duration_tiers": [], "price_inr": 5000.0},
+        other: {"id": other, "exclude_from_combo_discount": False, "duration_tiers": [], "price_inr": 8000.0},
+    }
+    db = FakeDB(programs)
+    settings = {
+        "enable_combo_discount": True,
+        "combo_rules": [
+            {
+                "min_programs": 2,
+                "discount_pct": 20,
+                "code": "COMBO2",
+                "program_ids": [heal, cord],
+            }
+        ],
+    }
+    data = {
+        "subtotal": 18000.0,
+        "num_programs": 3,
+        "num_participants": 1,
+        "currency": "inr",
+        "program_ids": [heal, cord, other],
+        "cart_items": [
+            {"program_id": heal, "tier_index": 0},
+            {"program_id": cord, "tier_index": 0},
+            {"program_id": other, "tier_index": 0},
+        ],
+    }
+    out = await calculate_cart_discounts(settings, data, db)
+    # 20% of heal+cord only (10000), not other
+    assert out["combo_discount"] == 2000

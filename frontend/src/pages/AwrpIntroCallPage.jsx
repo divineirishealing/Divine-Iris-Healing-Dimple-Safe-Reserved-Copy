@@ -16,6 +16,7 @@ import {
   AWRP_INTRO_PROGRAM_TITLE,
   findAwrpIntroProgram,
   isAwrpIntroProgram,
+  awrpIntroInrAmount,
 } from '../lib/awrpIntroProgram';
 import { formatDateDdMonYyyy } from '../lib/utils';
 import dimplePhoto from '../assets/awrp-dimple.jpg';
@@ -170,12 +171,10 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
     }).catch(() => {});
   }, []);
 
-  const indiaAmount = Number(program?.offer_price_inr) > 0
-    ? Number(program.offer_price_inr)
-    : (Number(program?.price_inr) > 0 ? Number(program.price_inr) : 2500);
+  const indiaAmount = awrpIntroInrAmount(program);
   const websiteAmount = program ? Number(getOfferPrice(program) || getPrice(program) || 0) : 0;
   const priceText = isIndia
-    ? `₹${indiaAmount.toLocaleString()}`
+    ? (indiaAmount > 0 ? `₹${indiaAmount.toLocaleString()}` : '')
     : (websiteAmount > 0 ? `${symbol}${websiteAmount.toLocaleString()}` : '');
 
   const eventLine = useMemo(() => {
