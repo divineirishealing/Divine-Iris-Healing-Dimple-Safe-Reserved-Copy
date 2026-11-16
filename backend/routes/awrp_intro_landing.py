@@ -308,3 +308,80 @@ async def create_awrp_intro_checkout(body: AwrpIntroCheckoutBody):
         "description": item_title,
         "inr_total": price_inr,
     }
+
+
+class AwrpIntroPlinkFulfillBody(BaseModel):
+    razorpay_payment_id: str
+    razorpay_payment_link_id: str = ""
+    razorpay_payment_link_reference_id: str = ""
+    razorpay_payment_link_status: str = ""
+    razorpay_signature: str = ""
+
+
+@router.get("/razorpay-payment-link")
+async def get_awrp_intro_razorpay_payment_link():
+    """Public: Razorpay-hosted payment link + short URL for QR (same emails after pay)."""
+    from key_manager import get_key
+    from utils.awrp_intro_razorpay_plink import ensure_awrp_intro_payment_link
+
+    key_id = (await get_key("razorpay_key_id") or "").strip()
+    key_secret = (await get_key("razorpay_key_secret") or "").strip()
+    if not key_id or not key_secret:
+        raise HTTPException(status_code=503, detail="Razorpay is not configured.")
+
+    price_inr, item_title, item_id = await _resolve_offer()
+    cached = await ensure_awrp_intro_payment_link(
+        db,
+        key_id=key_id,
+        key_secret=key_secret,
+        amount_inr=price_inr,
+        program_id=item_id,
+        item_title=item_title,
+    )
+    return {
+        "payment_link_id": cached.get("payment_link_id"),
+        "short_url": cached.get("short_url"),
+        "amount_inr": price_inr,
+        "title": item_title,
+        "program_id": item_id,
+        "provider": "razorpay",
+    }
+
+
+@router.post("/fulfill-payment-link")
+async def fulfill_awrp_intro_payment_link(body: AwrpIntroPlinkFulfillBody):
+    """After Razorpay Payment Link checkout — enroll + confirmation emails."""
+    from key_manager import get_key
+    from utils.awrp_intro_razorpay_plink import (
+        fulfill_awrp_intro_payment_link_payment,
+        verify_payment_link_callback_signature,
+    )
+
+    key_secret = (await get_key("razorpay_key_secret") or "").strip()
+    key_id = (await get_key("razorpay_key_id") or "").strip()
+    if not key_id or not key_secret:
+        raise HTTPException(status_code=503, detail="Razorpay is not configured.")
+
+    pid = (body.razorpay_payment_id or "").strip()
+    plink = (body.razorpay_payment_link_id or "").strip()
+    sig = (body.razorpay_signature or "").strip()
+    if sig and plink and pid:
+        ok = verify_payment_link_callback_signature(
+            payment_link_id=plink,
+            payment_id=pid,
+            status=(body.razorpay_payment_link_status or "paid").strip(),
+            reference_id=(body.razorpay_payment_link_reference_id or "").strip(),
+            signature=sig,
+            key_secret=key_secret,
+        )
+        if not ok:
+            raise HTTPException(status_code=400, detail="Invalid Razorpay signature.")
+
+    result = await fulfill_awrp_intro_payment_link_payment(
+        db,
+        key_id=key_id,
+        key_secret=key_secret,
+        payment_id=pid,
+        payment_link_id=plink or None,
+    )
+    return result

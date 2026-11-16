@@ -666,9 +666,6 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
                 </p>
               </>
             )}
-            <p className="text-xs leading-relaxed text-white/75">
-              AWRP is a complementary well-being and personal-development program. It is not medical, psychological or financial advice and does not diagnose, treat or cure any condition. Testimonials reflect individual experiences; results vary. This site is not part of the Facebook or Meta website or Meta Platforms, Inc.
-            </p>
           </div>
         </section>
       </main>

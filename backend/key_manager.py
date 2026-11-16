@@ -22,6 +22,7 @@ KEY_DEFINITIONS = [
     {"name": "resend_api_key", "env": "RESEND_API_KEY", "label": "Resend API Key", "service": "Email (backup)", "description": "Backup email service API key"},
     {"name": "razorpay_key_id", "env": "RAZORPAY_KEY_ID", "label": "Razorpay Key ID", "service": "Payments (India)", "description": "Key ID for Razorpay integration"},
     {"name": "razorpay_key_secret", "env": "RAZORPAY_KEY_SECRET", "label": "Razorpay Key Secret", "service": "Payments (India)", "description": "Key Secret for Razorpay integration"},
+    {"name": "razorpay_webhook_secret", "env": "RAZORPAY_WEBHOOK_SECRET", "label": "Razorpay Webhook Secret", "service": "Payments (India)", "description": "Webhook signing secret from Razorpay Dashboard → Webhooks (for Payment Link enrollments)"},
 ]
 
 

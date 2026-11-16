@@ -146,14 +146,78 @@ async def stripe_webhook(request: Request):
         return {"status": "error", "message": str(e)}
 
 
+@router.post("/api/webhook/razorpay")
+async def razorpay_webhook(request: Request):
+    """Razorpay webhooks — AWRP intro Payment Link fulfillment."""
+    import hmac
+    import hashlib
+
+    from key_manager import get_key
+
+    raw = await request.body()
+    signature = (request.headers.get("X-Razorpay-Signature") or "").strip()
+    webhook_secret = (await get_key("razorpay_webhook_secret") or os.environ.get("RAZORPAY_WEBHOOK_SECRET") or "").strip()
+    if webhook_secret:
+        expected = hmac.new(webhook_secret.encode(), raw, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, signature):
+            logger.warning("Razorpay webhook: invalid signature")
+            return {"status": "ignored", "reason": "bad_signature"}
+    elif signature:
+        logger.warning("Razorpay webhook: X-Razorpay-Signature set but no webhook secret configured")
+
+    import json
+
+    try:
+        payload = json.loads(raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw)
+    except Exception:
+        logger.warning("Razorpay webhook: invalid JSON")
+        return {"status": "ignored"}
+
+    event = (payload.get("event") or "").strip()
+    ent = payload.get("payload") or {}
+    logger.info("Razorpay webhook event: %s", event)
+
+    payment_id = ""
+    payment_link_id = ""
+    if event == "payment_link.paid":
+        pl_ent = (ent.get("payment_link") or {}).get("entity") or {}
+        pay_ent = (ent.get("payment") or {}).get("entity") or {}
+        payment_link_id = (pl_ent.get("id") or "").strip()
+        payment_id = (pay_ent.get("id") or "").strip()
+    elif event == "payment.captured":
+        pay_ent = (ent.get("payment") or {}).get("entity") or {}
+        payment_id = (pay_ent.get("id") or "").strip()
+        notes = pay_ent.get("notes") or {}
+        if (notes.get("landing") or "") != "awrp-intro":
+            return {"status": "ok", "note": "not_awrp_intro"}
+
+    if not payment_id:
+        return {"status": "ok", "note": "no_payment_id"}
+
+    from key_manager import get_key as get_rzp_key
+    from utils.awrp_intro_razorpay_plink import fulfill_awrp_intro_payment_link_payment
+
+    key_id = (await get_rzp_key("razorpay_key_id") or "").strip()
+    key_secret = (await get_rzp_key("razorpay_key_secret") or "").strip()
+    if not key_id or not key_secret:
+        return {"status": "error", "message": "razorpay_not_configured"}
+
+    try:
+        await fulfill_awrp_intro_payment_link_payment(
+            db,
+            key_id=key_id,
+            key_secret=key_secret,
+            payment_id=payment_id,
+            payment_link_id=payment_link_id or None,
+        )
+    except Exception as exc:
+        logger.exception("Razorpay webhook fulfillment failed: %s", exc)
+        return {"status": "error", "message": str(exc)[:200]}
+
+    return {"status": "ok"}
+
+
 @router.post("/api/webhook/india-payment")
 async def india_payment_webhook(request: Request):
-    """Webhook for future India payment gateway (Razorpay/PayU).
-    Currently a placeholder — will be wired when gateway is configured."""
-    body = await request.json()
-    logger.info(f"India payment webhook received: {body.get('event', 'unknown')}")
-    
-    # Future: Handle razorpay.payment.captured, payu.payment.success etc.
-    # For now, manual approval flow handles India payments
-    
-    return {"status": "ok", "message": "Webhook received"}
+    """Legacy alias — prefer /api/webhook/razorpay."""
+    return await razorpay_webhook(request)

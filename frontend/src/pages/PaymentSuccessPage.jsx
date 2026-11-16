@@ -21,10 +21,44 @@ function PaymentSuccessPage() {
 
   const sessionId = searchParams.get('session_id');
   const isolatedIndiaAwrp = searchParams.get('from') === INDIA_AWRP_SUCCESS_FROM;
+  const razorpayPlink = searchParams.get('plink') === '1';
+  const razorpayPaymentId = searchParams.get('razorpay_payment_id');
 
   useEffect(() => {
-    if (sessionId) { pollStatus(); }
-  }, [sessionId]);
+    if (sessionId) {
+      pollStatus();
+      return;
+    }
+    if (!isolatedIndiaAwrp || !razorpayPlink) return;
+
+    if (!razorpayPaymentId) {
+      setStatus('success');
+      return;
+    }
+
+    const fulfill = async () => {
+      setStatus('loading');
+      try {
+        const { data } = await axios.post(`${API}/landing/awrp-intro/fulfill-payment-link`, {
+          razorpay_payment_id: razorpayPaymentId,
+          razorpay_payment_link_id: searchParams.get('razorpay_payment_link_id') || '',
+          razorpay_payment_link_reference_id: searchParams.get('razorpay_payment_link_reference_id') || '',
+          razorpay_payment_link_status: searchParams.get('razorpay_payment_link_status') || 'paid',
+          razorpay_signature: searchParams.get('razorpay_signature') || '',
+        });
+        const sid = data?.session_id;
+        if (sid) {
+          const response = await axios.get(`${API}/payments/status/${sid}`);
+          setPaymentInfo(response.data);
+        }
+        setStatus('success');
+      } catch {
+        setStatus('success');
+      }
+    };
+    fulfill();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fulfill once per payment id in URL
+  }, [sessionId, isolatedIndiaAwrp, razorpayPlink, razorpayPaymentId]);
 
   const pollStatus = async () => {
     try {

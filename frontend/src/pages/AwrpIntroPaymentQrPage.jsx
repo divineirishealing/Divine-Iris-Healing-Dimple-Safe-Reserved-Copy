@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { Loader2 } from 'lucide-react';
 import { AdLandingHeader } from '../components/AdLandingChrome';
 import LandingPageQrCode from '../components/LandingPageQrCode';
 import { useSeoPage } from '../context/SeoPageContext';
@@ -16,14 +17,12 @@ import {
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const AWRP_PURPLE = '#6d2d91';
 
-/**
- * Standalone print/share page — QR opens the India landing where Razorpay checkout runs.
- * Not linked from the public landing (use this URL in ads collateral only).
- */
 export default function AwrpIntroPaymentQrPage() {
-  const [searchParams] = useSearchParams();
   const { setPageSeo, clearPageSeo } = useSeoPage();
   const [program, setProgram] = useState(null);
+  const [plink, setPlink] = useState(null);
+  const [plinkError, setPlinkError] = useState('');
+  const [plinkLoading, setPlinkLoading] = useState(true);
 
   useEffect(() => {
     const applyProgram = (data) => {
@@ -45,36 +44,31 @@ export default function AwrpIntroPaymentQrPage() {
 
   useEffect(() => {
     setPageSeo({
-      title: `${AWRP_INTRO_PROGRAM_TITLE} — payment QR`,
-      description: 'Scan to open the AWRP Intro Call booking and Razorpay payment page.',
+      title: `${AWRP_INTRO_PROGRAM_TITLE} — Razorpay payment QR`,
+      description: 'Scan the official Razorpay payment link QR for the AWRP Intro Call.',
       noIndex: true,
     });
     return () => clearPageSeo();
   }, [setPageSeo, clearPageSeo]);
 
+  useEffect(() => {
+    setPlinkLoading(true);
+    setPlinkError('');
+    axios
+      .get(`${API}/landing/awrp-intro/razorpay-payment-link`)
+      .then((r) => setPlink(r.data))
+      .catch((err) => {
+        setPlink(null);
+        setPlinkError(err.response?.data?.detail || 'Could not load Razorpay payment link.');
+      })
+      .finally(() => setPlinkLoading(false));
+  }, []);
+
   const indiaAmount = Number(program?.offer_price_inr) > 0
     ? Number(program.offer_price_inr)
     : (Number(program?.price_inr) > 0 ? Number(program.price_inr) : 2500);
-  const priceText = `₹${indiaAmount.toLocaleString()}`;
-
-  const paymentLandingUrl = useMemo(() => {
-    if (typeof window === 'undefined') return '';
-    const target = new URL(AWRP_INTRO_LANDING_PATH_INDIA, window.location.origin);
-    const utmKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content'];
-    utmKeys.forEach((key) => {
-      const v = searchParams.get(key);
-      if (v) target.searchParams.set(key, v);
-    });
-    if (!target.searchParams.get('utm_medium')) {
-      target.searchParams.set('utm_medium', 'qr');
-    }
-    return target.href;
-  }, [searchParams]);
-
-  const pageSelfUrl = useMemo(() => {
-    if (typeof window === 'undefined') return '';
-    return `${window.location.origin}${window.location.pathname}${window.location.search}`;
-  }, [searchParams]);
+  const priceText = `₹${(plink?.amount_inr ?? indiaAmount).toLocaleString()}`;
+  const qrUrl = (plink?.short_url || '').trim();
 
   return (
     <div className="min-h-screen bg-[#faf7f2] text-[#2b241c]" data-testid="awrp-intro-payment-qr-page">
@@ -87,17 +81,34 @@ export default function AwrpIntroPaymentQrPage() {
         <p className="text-lg font-semibold mb-1" style={{ color: '#1c1230' }}>
           Pay {priceText} via Razorpay
         </p>
-        <p className="text-sm text-[#6b5a45] mb-10 leading-relaxed">
-          Scan the code to open the secure booking page on your phone, enter your details, and complete payment (UPI, card, or netbanking).
+        <p className="text-sm text-[#6b5a45] mb-8 leading-relaxed">
+          Scan this <strong>Razorpay payment link</strong> QR. After payment you get the same confirmation email and WhatsApp links as the booking page.
         </p>
 
-        {paymentLandingUrl ? (
+        {plinkLoading ? (
+          <div className="py-12 flex flex-col items-center gap-3 text-gray-500">
+            <Loader2 className="animate-spin text-[#6d2d91]" size={28} />
+            <span className="text-sm">Preparing Razorpay QR…</span>
+          </div>
+        ) : null}
+
+        {!plinkLoading && qrUrl ? (
           <LandingPageQrCode
-            url={paymentLandingUrl}
-            title="Scan to book and pay"
+            url={qrUrl}
+            title="Official Razorpay payment QR"
             size={220}
-            downloadName="awrp-intro-india-payment-qr"
+            downloadName="awrp-intro-razorpay-payment-qr"
           />
+        ) : null}
+
+        {!plinkLoading && !qrUrl ? (
+          <p className="text-sm text-red-600 mb-6" data-testid="plink-error">
+            {plinkError || 'Razorpay payment link is unavailable. Check API keys in admin.'}
+          </p>
+        ) : null}
+
+        {qrUrl ? (
+          <p className="text-[10px] text-gray-400 break-all font-mono mt-4">{qrUrl}</p>
         ) : null}
 
         <div className="mt-10 space-y-3 text-sm">
@@ -106,18 +117,12 @@ export default function AwrpIntroPaymentQrPage() {
             className="inline-block rounded-full px-8 py-3 font-semibold text-[#1c1230]"
             style={{ background: GOLD }}
           >
-            Open booking page
+            Use booking form instead
           </Link>
           <p className="text-[11px] text-gray-500 leading-relaxed max-w-sm mx-auto">
-            This is not a direct UPI collect QR. Each payment is completed on the booking page through Razorpay.
+            Razorpay will ask for name, email, and phone on their payment page. For Meta ads tracking, you can still send people to the full landing URL.
           </p>
         </div>
-
-        {pageSelfUrl ? (
-          <p className="mt-12 text-[10px] text-gray-400 break-all font-mono" title="Share this page to print or save the QR">
-            QR page: {pageSelfUrl}
-          </p>
-        ) : null}
       </main>
     </div>
   );
