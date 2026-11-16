@@ -23,8 +23,9 @@ describe('awrpIntroProgram', () => {
     expect(isAwrpIntroProgram(workshop)).toBe(false);
   });
 
-  it('shows intro in programs section without flagship flag', () => {
-    expect(showInWebsiteProgramsSection({ ...intro, is_flagship: false })).toBe(true);
+  it('shows intro in programs section only when flagship is on', () => {
+    expect(showInWebsiteProgramsSection({ ...intro, is_flagship: false })).toBe(false);
+    expect(showInWebsiteProgramsSection({ ...intro, is_flagship: true })).toBe(true);
     expect(showInWebsiteProgramsSection(workshop)).toBe(false);
   });
 

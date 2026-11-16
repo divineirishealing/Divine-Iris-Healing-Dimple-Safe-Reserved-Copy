@@ -28,10 +28,9 @@ export function isAwrpIntroProgram(program) {
   return false;
 }
 
-/** Homepage Programs section + nav: show intro call alongside flagship cards when visible in admin. */
+/** Homepage flagship Programs section — follows admin is_flagship (intro call uses same toggle). */
 export function showInWebsiteProgramsSection(program) {
   if (!program || program.is_group_program) return false;
-  if (isAwrpIntroProgram(program)) return true;
   return Boolean(program.is_flagship);
 }
 
