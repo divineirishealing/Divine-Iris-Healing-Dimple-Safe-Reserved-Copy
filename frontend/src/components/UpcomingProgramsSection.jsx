@@ -21,6 +21,7 @@ import {
 } from '../lib/programTierVisibility';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { programPublicPath } from '../lib/programRoutes';
+import { programsForComboBanner } from '../lib/comboBannerPrograms';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -634,14 +635,15 @@ const ComboBanner = ({ programs, comboRules }) => {
   const { addItem, items } = useCart();
   const { toast } = useToast();
 
-  const names = programs.map(p => p.title.length > 25 ? p.title.slice(0, 25) + '...' : p.title);
-  // Sort rules ascending by min_programs
-  const rules = [...comboRules].sort((a, b) => a.min_programs - b.min_programs);
+  const rules = [...(comboRules || [])].sort((a, b) => a.min_programs - b.min_programs);
+  const comboPrograms = programsForComboBanner(programs, rules);
+  if (comboPrograms.length === 0) return null;
+
+  const names = comboPrograms.map((p) => (p.title.length > 25 ? `${p.title.slice(0, 25)}...` : p.title));
 
   const handleAddAll = () => {
-    const maxNeeded = Math.max(...rules.map((r) => Number(r.min_programs) || 2), 2);
     let added = 0;
-    programs.slice(0, maxNeeded).forEach((p) => {
+    comboPrograms.forEach((p) => {
       if (!items.some((i) => i.programId === p.id)) {
         addItem(p, 0);
         added++;
