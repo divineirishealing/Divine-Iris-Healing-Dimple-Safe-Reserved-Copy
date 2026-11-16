@@ -259,7 +259,8 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
     } catch (err) {
       const detail = err.response?.data?.detail;
       const first = Array.isArray(detail) ? detail[0]?.msg : detail;
-      setError(typeof first === 'string' ? first : err.message || 'Something went wrong. Please try again.');
+      const msg = typeof first === 'string' ? first : err.message || 'Something went wrong. Please try again.';
+      setError(msg);
       setBusy(false);
     }
   };

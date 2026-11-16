@@ -12,7 +12,6 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-import httpx
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -237,33 +236,25 @@ async def create_awrp_intro_checkout(body: AwrpIntroCheckoutBody):
     count = await db.payment_transactions.count_documents({"invoice_number": {"$regex": f"^{month_prefix}"}})
     invoice_number = f"{month_prefix}-{str(count + 1).zfill(3)}"
     session_key = f"rz_{uuid.uuid4().hex}"
-    receipt = f"AWRP-{invoice_number}"[:40]
+    from utils.razorpay_orders import create_razorpay_order, unique_razorpay_receipt
+
+    receipt = unique_razorpay_receipt(session_key, prefix="AWRP")
     amount_paise = int(round(price_inr * 100))
 
-    async with httpx.AsyncClient(timeout=45) as http:
-        ro = await http.post(
-            "https://api.razorpay.com/v1/orders",
-            auth=(key_id, key_secret),
-            json={
-                "amount": amount_paise,
-                "currency": "INR",
-                "receipt": receipt,
-                "notes": {
-                    "landing": "awrp-intro-call",
-                    "enrollment_id": enrollment_id,
-                    "item_id": item_id,
-                    "internal_session": session_key,
-                },
-            },
-        )
-    if ro.status_code >= 400:
-        logger.warning("AWRP intro Razorpay order error: %s", ro.text[:500])
-        raise HTTPException(status_code=502, detail="Could not start payment. Please try again.")
-
-    order = ro.json()
+    order = await create_razorpay_order(
+        key_id=key_id,
+        key_secret=key_secret,
+        amount_paise=amount_paise,
+        receipt=receipt,
+        notes={
+            "landing": "awrp-intro",
+            "enrollment_id": enrollment_id,
+            "item_id": item_id,
+            "session_key": session_key,
+        },
+        context="AWRP intro landing",
+    )
     order_id = order.get("id")
-    if not order_id:
-        raise HTTPException(status_code=502, detail="Could not start payment. Please try again.")
 
     transaction = {
         "id": str(uuid.uuid4()),
