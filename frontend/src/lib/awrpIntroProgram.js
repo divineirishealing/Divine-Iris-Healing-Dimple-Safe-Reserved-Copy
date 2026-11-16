@@ -3,6 +3,8 @@
 export const AWRP_INTRO_PROGRAM_TITLE = 'AWRP Intro Call';
 export const AWRP_INTRO_LANDING_PATH = '/awrp-intro-call';
 export const AWRP_INTRO_LANDING_PATH_INDIA = '/india/awrp-intro-call';
+/** Print/share only — QR on this page links to the India landing (not shown on the landing itself). */
+export const AWRP_INTRO_INDIA_PAYMENT_QR_PATH = '/india/awrp-intro-call/payment-qr';
 
 /** Payment success query — keeps post-checkout UI on isolated India landing (no main site). */
 export const INDIA_AWRP_SUCCESS_FROM = 'india-awrp-intro';

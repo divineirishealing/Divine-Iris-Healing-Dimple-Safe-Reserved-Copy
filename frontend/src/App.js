@@ -18,7 +18,7 @@ import SeoHead from './components/SeoHead';
 import BackendStatusBanner from './components/BackendStatusBanner';
 import PageAnalyticsBeacon from './components/PageAnalyticsBeacon';
 import FaviconFromSettings from './components/FaviconFromSettings';
-import { INDIA_AWRP_SUCCESS_FROM } from './lib/awrpIntroProgram';
+import { AWRP_INTRO_INDIA_PAYMENT_QR_PATH, INDIA_AWRP_SUCCESS_FROM } from './lib/awrpIntroProgram';
 
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const AllProgramsPage = lazy(() => import('./pages/AllProgramsPage'));
@@ -69,6 +69,7 @@ const DashboardCombinedCheckoutPage = lazy(() => import('./pages/DashboardCombin
 const TrustSplitLayoutPreviewPage = lazy(() => import('./pages/TrustSplitLayoutPreviewPage'));
 const MahalakshmiLandingPage = lazy(() => import('./pages/MahalakshmiLandingPage'));
 const AwrpIntroCallPage = lazy(() => import('./pages/AwrpIntroCallPage'));
+const AwrpIntroPaymentQrPage = lazy(() => import('./pages/AwrpIntroPaymentQrPage'));
 
 const RouteFallback = () => (
   <div className="min-h-[50vh] flex items-center justify-center bg-gray-50">
@@ -92,6 +93,7 @@ const AppContent = () => {
   const searchFrom = new URLSearchParams(location.search).get('from');
   const indiaAwrpIntroOnly =
     location.pathname === '/india/awrp-intro-call'
+    || location.pathname === AWRP_INTRO_INDIA_PAYMENT_QR_PATH
     || (location.pathname === '/payment/success' && searchFrom === INDIA_AWRP_SUCCESS_FROM);
 
   return (
@@ -139,6 +141,7 @@ const AppContent = () => {
         <Route path="/blog/:slug" element={<Lazy><BlogPostDetailPage /></Lazy>} />
         <Route path="/sponsor" element={<Lazy><SponsorPage /></Lazy>} />
         <Route path="/india/shri-mahalakshmi-akshaya-samriddhi" element={<Lazy><MahalakshmiLandingPage /></Lazy>} />
+        <Route path={AWRP_INTRO_INDIA_PAYMENT_QR_PATH} element={<Lazy><AwrpIntroPaymentQrPage /></Lazy>} />
         <Route path="/india/awrp-intro-call" element={<Lazy><AwrpIntroCallPage /></Lazy>} />
         <Route path="/awrp-intro-call" element={<Lazy><AwrpIntroCallPage surface="website" /></Lazy>} />
         <Route path="/login" element={<Lazy><LoginPage /></Lazy>} />
