@@ -563,18 +563,24 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
                     style={{ borderColor: AWRP_PURPLE_SOFT }}
                     data-testid="awrp-email"
                   />
-                  <label className="block text-xs font-semibold tracking-wide mb-1" htmlFor="awrp-phone">WhatsApp number</label>
+                  <label className="block text-xs font-semibold tracking-wide mb-1" htmlFor="awrp-phone">
+                    Phone number (with country code)
+                  </label>
                   <input
                     id="awrp-phone"
                     required
                     inputMode="tel"
-                    placeholder="10-digit mobile number"
+                    autoComplete="tel"
+                    placeholder="+91 98765 43210"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full mb-4 rounded-xl border px-3 py-2.5 text-sm"
                     style={{ borderColor: AWRP_PURPLE_SOFT }}
                     data-testid="awrp-phone"
                   />
+                  <p className="text-[11px] text-gray-500 mb-4 -mt-2">
+                    Include your country code (e.g. +91 for India). We may also use this for session updates.
+                  </p>
                   {error && (
                     <p className="text-sm text-red-600 mb-3 text-center" data-testid="awrp-error">
                       {error}
