@@ -3,6 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { AdLandingSuccessShell } from '../components/AdLandingChrome';
+import { INDIA_AWRP_SUCCESS_FROM } from '../lib/awrpIntroProgram';
 import { CheckCircle, Loader2, ExternalLink, MessageCircle, Video, Link as LinkIcon, Calendar, Clock } from 'lucide-react';
 import { formatSessionCalendarDateLabel } from '../lib/sessionCalendarSlots';
 
@@ -18,6 +20,7 @@ function PaymentSuccessPage() {
   const [paymentInfo, setPaymentInfo] = useState(null);
 
   const sessionId = searchParams.get('session_id');
+  const isolatedIndiaAwrp = searchParams.get('from') === INDIA_AWRP_SUCCESS_FROM;
 
   useEffect(() => {
     if (sessionId) { pollStatus(); }
@@ -42,10 +45,7 @@ function PaymentSuccessPage() {
   const sessionBookingTime = paymentInfo?.session_booking_time || '';
   const isSessionBooking = paymentInfo?.item_type === 'session' || sessionBookingDate || sessionBookingTime;
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <div className="pt-24 pb-20">
+  const pageBody = (
         <div className="container mx-auto px-4 max-w-2xl">
           {status === 'loading' ? (
             <div className="py-20 text-center">
@@ -220,17 +220,30 @@ function PaymentSuccessPage() {
               {/* Confirmation note */}
               <div className="text-center">
                 <p className="text-gray-400 text-xs mb-6">A detailed confirmation email has been sent to your registered email address.</p>
-                <button
-                  onClick={() => navigate('/')}
-                  data-testid="back-home-btn"
-                  className="bg-[#D4AF37] hover:bg-[#b8962e] text-white px-8 py-3 rounded-full text-sm tracking-wider transition-all"
-                >
-                  Back to Home
-                </button>
+                {!isolatedIndiaAwrp && (
+                  <button
+                    onClick={() => navigate('/')}
+                    data-testid="back-home-btn"
+                    className="bg-[#D4AF37] hover:bg-[#b8962e] text-white px-8 py-3 rounded-full text-sm tracking-wider transition-all"
+                  >
+                    Back to Home
+                  </button>
+                )}
               </div>
             </div>
           )}
         </div>
+  );
+
+  if (isolatedIndiaAwrp) {
+    return <AdLandingSuccessShell>{pageBody}</AdLandingSuccessShell>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <div className="pt-24 pb-20">
+        {pageBody}
       </div>
       <Footer />
     </div>

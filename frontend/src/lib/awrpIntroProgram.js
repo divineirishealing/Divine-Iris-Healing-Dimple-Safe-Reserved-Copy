@@ -4,6 +4,9 @@ export const AWRP_INTRO_PROGRAM_TITLE = 'AWRP Intro Call';
 export const AWRP_INTRO_LANDING_PATH = '/awrp-intro-call';
 export const AWRP_INTRO_LANDING_PATH_INDIA = '/india/awrp-intro-call';
 
+/** Payment success query — keeps post-checkout UI on isolated India landing (no main site). */
+export const INDIA_AWRP_SUCCESS_FROM = 'india-awrp-intro';
+
 /** Stable catalog id (matches backend bootstrap); override via REACT_APP_AWRP_INTRO_PROGRAM_ID if needed. */
 export const AWRP_INTRO_PROGRAM_ID = (
   process.env.REACT_APP_AWRP_INTRO_PROGRAM_ID || '8c4f1a2e-6d9b-4f12-9e3a-7b5c6d8e9f01'

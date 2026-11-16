@@ -1,13 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
+import { Loader2, Lock } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { AdLandingHeader } from '../components/AdLandingChrome';
 import { useSeoPage } from '../context/SeoPageContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { HEADING, BODY, GOLD, LABEL } from '../lib/designTokens';
 import {
   AWRP_INTRO_PROGRAM_ID,
+  AWRP_INTRO_LANDING_PATH,
+  AWRP_INTRO_LANDING_PATH_INDIA,
+  INDIA_AWRP_SUCCESS_FROM,
   AWRP_INTRO_PROGRAM_TITLE,
   findAwrpIntroProgram,
   isAwrpIntroProgram,
@@ -19,6 +24,20 @@ import patternImage from '../assets/awrp-pattern.jpg';
 import communityImage from '../assets/awrp-community.jpg';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+function loadRazorpayScript() {
+  return new Promise((resolve, reject) => {
+    if (window.Razorpay) {
+      resolve();
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Could not load Razorpay'));
+    document.body.appendChild(s);
+  });
+}
 
 const PAGE_BODY = {
   ...BODY,
@@ -121,11 +140,17 @@ function BookButton({ onClick, children, className = '', disabled = false }) {
 
 export default function AwrpIntroCallPage({ surface = 'india' }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { setPageSeo, clearPageSeo } = useSeoPage();
   const { getPrice, getOfferPrice, symbol } = useCurrency();
   const [program, setProgram] = useState(null);
   const isIndia = surface !== 'website';
   const [openFaq, setOpenFaq] = useState(0);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const applyProgram = (data) => {
@@ -147,10 +172,10 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
 
   const indiaAmount = Number(program?.offer_price_inr) > 0
     ? Number(program.offer_price_inr)
-    : (Number(program?.price_inr) > 0 ? Number(program.price_inr) : 0);
+    : (Number(program?.price_inr) > 0 ? Number(program.price_inr) : 2500);
   const websiteAmount = program ? Number(getOfferPrice(program) || getPrice(program) || 0) : 0;
   const priceText = isIndia
-    ? (indiaAmount > 0 ? `₹${indiaAmount.toLocaleString()}` : '')
+    ? `₹${indiaAmount.toLocaleString()}`
     : (websiteAmount > 0 ? `${symbol}${websiteAmount.toLocaleString()}` : '');
 
   const eventLine = useMemo(() => {
@@ -185,15 +210,72 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
     navigate(`/enroll/program/${program.id}`);
   };
 
+  const payWithRazorpay = async (event) => {
+    event.preventDefault();
+    setError('');
+    setBusy(true);
+    try {
+      await loadRazorpayScript();
+      const { data: co } = await axios.post(`${API}/landing/awrp-intro/checkout`, {
+        name,
+        email,
+        phone,
+        utm_source: searchParams.get('utm_source') || '',
+        utm_medium: searchParams.get('utm_medium') || '',
+        utm_campaign: searchParams.get('utm_campaign') || '',
+        utm_content: searchParams.get('utm_content') || '',
+      });
+      const rzp = new window.Razorpay({
+        key: co.key_id,
+        amount: co.amount,
+        currency: co.currency,
+        order_id: co.order_id,
+        name: 'Divine Iris Healing',
+        description: co.description,
+        method: { upi: true, card: true, netbanking: true, wallet: true },
+        prefill: { name: co.name, email: co.email, contact: co.phone },
+        handler: async (response) => {
+          try {
+            await axios.post(`${API}/payments/razorpay/verify`, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            navigate(
+              `/payment/success?session_id=${encodeURIComponent(co.session_id)}&from=${INDIA_AWRP_SUCCESS_FROM}`,
+            );
+          } catch (err) {
+            setError(err.response?.data?.detail || 'Payment verification failed. Please contact us with your payment reference.');
+            setBusy(false);
+          }
+        },
+        modal: { ondismiss: () => setBusy(false) },
+      });
+      rzp.on('payment.failed', () => {
+        setError('Payment was not completed.');
+        setBusy(false);
+      });
+      rzp.open();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      const first = Array.isArray(detail) ? detail[0]?.msg : detail;
+      setError(typeof first === 'string' ? first : err.message || 'Something went wrong. Please try again.');
+      setBusy(false);
+    }
+  };
+
+  const landingPath = isIndia ? AWRP_INTRO_LANDING_PATH_INDIA : AWRP_INTRO_LANDING_PATH;
+
   return (
     <div
       className="min-h-screen bg-[#faf7f2] text-[#2b241c]"
       data-awrp-intro-program-id={program?.id || AWRP_INTRO_PROGRAM_ID}
-      data-awrp-intro-landing-path="/awrp-intro-call"
+      data-awrp-intro-landing-path={landingPath}
+      data-awrp-intro-surface={isIndia ? 'india' : 'website'}
     >
-      <Header />
+      {isIndia ? <AdLandingHeader accentColor={AWRP_PURPLE} /> : <Header />}
       <main>
-        <section className="bg-white pt-16 md:pt-20 pb-14 md:pb-20">
+        <section className={`bg-white pb-14 md:pb-20 ${isIndia ? 'pt-8 md:pt-10' : 'pt-16 md:pt-20'}`}>
           <div className="container mx-auto px-6 md:px-8 max-w-3xl text-center">
             <div
               className="w-full overflow-hidden rounded-2xl mb-7 md:mb-9 mx-auto"
@@ -447,13 +529,86 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
                   Restart. Reconnect. Recreate the life you deserve.
                 </p>
               </div>
-              <BookButton
-                onClick={bookNow}
-                disabled={!program?.id}
-                className="text-lg md:text-xl px-10 py-4"
-              >
-                Book now
-              </BookButton>
+              {isIndia ? (
+                <form
+                  onSubmit={payWithRazorpay}
+                  className="rounded-3xl border-2 bg-white p-6 md:p-8 shadow-sm text-left mx-auto max-w-md"
+                  style={{ borderColor: AWRP_PURPLE_SOFT }}
+                  data-testid="awrp-intro-reserve-form"
+                >
+                  <div className="text-center mb-6">
+                    <p className="text-sm text-gray-500">Introductory call</p>
+                    <p className="text-4xl" style={{ ...HEADING, color: AWRP_PURPLE }}>{priceText}</p>
+                    <p className="text-xs text-gray-500 mt-1">{eventLine}</p>
+                  </div>
+                  <label className="block text-xs font-semibold tracking-wide mb-1" htmlFor="awrp-name">Full name</label>
+                  <input
+                    id="awrp-name"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full mb-4 rounded-xl border px-3 py-2.5 text-sm"
+                    style={{ borderColor: AWRP_PURPLE_SOFT }}
+                    data-testid="awrp-name"
+                  />
+                  <label className="block text-xs font-semibold tracking-wide mb-1" htmlFor="awrp-email">Email</label>
+                  <input
+                    id="awrp-email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full mb-4 rounded-xl border px-3 py-2.5 text-sm"
+                    style={{ borderColor: AWRP_PURPLE_SOFT }}
+                    data-testid="awrp-email"
+                  />
+                  <label className="block text-xs font-semibold tracking-wide mb-1" htmlFor="awrp-phone">WhatsApp number</label>
+                  <input
+                    id="awrp-phone"
+                    required
+                    inputMode="tel"
+                    placeholder="10-digit mobile number"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full mb-4 rounded-xl border px-3 py-2.5 text-sm"
+                    style={{ borderColor: AWRP_PURPLE_SOFT }}
+                    data-testid="awrp-phone"
+                  />
+                  {error && (
+                    <p className="text-sm text-red-600 mb-3 text-center" data-testid="awrp-error">
+                      {error}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    data-testid="awrp-pay-btn"
+                    className="w-full rounded-full py-3.5 text-base font-semibold text-[#1c1230] disabled:opacity-60"
+                    style={{ background: GOLD }}
+                  >
+                    {busy ? (
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <Loader2 size={16} className="animate-spin" />
+                        Opening Razorpay…
+                      </span>
+                    ) : (
+                      `Pay ${priceText} with Razorpay`
+                    )}
+                  </button>
+                  <p className="mt-3 text-center text-[11px] text-gray-400 inline-flex items-center justify-center gap-1 w-full">
+                    <Lock size={11} />
+                    UPI, cards, and netbanking. India payments via Razorpay only.
+                  </p>
+                </form>
+              ) : (
+                <BookButton
+                  onClick={bookNow}
+                  disabled={!program?.id}
+                  className="text-lg md:text-xl px-10 py-4"
+                >
+                  Book now
+                </BookButton>
+              )}
             </div>
           </div>
         </section>
@@ -490,16 +645,20 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
         <section className="bg-[#1c1230] text-white">
           <div className="container mx-auto px-6 md:px-8 py-10 max-w-3xl text-center">
             <p style={LABEL} className="mb-3">Divine Iris · Soulful Healing Studio</p>
-            <p className="mb-4 text-sm"><a href="https://www.divineirishealing.com" className="underline">www.divineirishealing.com</a></p>
-            <p className="mb-6 text-sm">
-              <Link to="/privacy" className="underline">Privacy Policy</Link>
-              <span> · </span>
-              <Link to="/terms" className="underline">Terms</Link>
-              <span> · </span>
-              <Link to="/refund-cancellation" className="underline">Refund Policy</Link>
-              <span> · </span>
-              <Link to="/contact" className="underline">Contact</Link>
-            </p>
+            {!isIndia && (
+              <>
+                <p className="mb-4 text-sm"><a href="https://www.divineirishealing.com" className="underline">www.divineirishealing.com</a></p>
+                <p className="mb-6 text-sm">
+                  <Link to="/privacy" className="underline">Privacy Policy</Link>
+                  <span> · </span>
+                  <Link to="/terms" className="underline">Terms</Link>
+                  <span> · </span>
+                  <Link to="/refund-cancellation" className="underline">Refund Policy</Link>
+                  <span> · </span>
+                  <Link to="/contact" className="underline">Contact</Link>
+                </p>
+              </>
+            )}
             <p className="text-xs leading-relaxed text-white/75">
               AWRP is a complementary well-being and personal-development program. It is not medical, psychological or financial advice and does not diagnose, treat or cure any condition. Testimonials reflect individual experiences; results vary. This site is not part of the Facebook or Meta website or Meta Platforms, Inc.
             </p>
@@ -512,7 +671,7 @@ export default function AwrpIntroCallPage({ surface = 'india' }) {
           Book your call{priceText ? ` · ${priceText}` : ''}
         </button>
       </div>
-      <Footer />
+      {!isIndia && <Footer />}
     </div>
   );
 }

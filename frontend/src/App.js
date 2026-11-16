@@ -18,6 +18,7 @@ import SeoHead from './components/SeoHead';
 import BackendStatusBanner from './components/BackendStatusBanner';
 import PageAnalyticsBeacon from './components/PageAnalyticsBeacon';
 import FaviconFromSettings from './components/FaviconFromSettings';
+import { INDIA_AWRP_SUCCESS_FROM } from './lib/awrpIntroProgram';
 
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const AllProgramsPage = lazy(() => import('./pages/AllProgramsPage'));
@@ -88,11 +89,16 @@ const AppContent = () => {
     return <AuthCallback />;
   }
 
+  const searchFrom = new URLSearchParams(location.search).get('from');
+  const indiaAwrpIntroOnly =
+    location.pathname === '/india/awrp-intro-call'
+    || (location.pathname === '/payment/success' && searchFrom === INDIA_AWRP_SUCCESS_FROM);
+
   return (
     <>
       <FaviconFromSettings />
       <PageAnalyticsBeacon />
-      <BackendStatusBanner />
+      {!indiaAwrpIntroOnly && <BackendStatusBanner />}
       <SeoHead />
       <Routes>
         <Route path="/" element={<HomePage />} />
