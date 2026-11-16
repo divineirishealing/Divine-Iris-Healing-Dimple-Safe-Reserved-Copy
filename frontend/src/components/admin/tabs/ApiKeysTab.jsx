@@ -23,7 +23,9 @@ const ApiKeysTab = () => {
       const vals = {};
       r.data.forEach(k => { vals[k.name] = k.value; });
       setEditedValues(vals);
-    }).catch(() => {}).finally(() => setLoading(false));
+    }).catch(() => {
+      toast({ title: 'Could not load API keys', description: 'Check admin login and try Refresh.', variant: 'destructive' });
+    }).finally(() => setLoading(false));
   };
 
   useEffect(() => { loadKeys(); }, []);
@@ -79,15 +81,27 @@ const ApiKeysTab = () => {
           <Button variant="outline" size="sm" onClick={loadKeys} disabled={loading} data-testid="refresh-keys-btn">
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           </Button>
-          {hasChanges && (
-            <Button size="sm" onClick={saveKeys} disabled={saving} className="bg-[#D4AF37] hover:bg-[#b8962e] text-white" data-testid="save-keys-btn">
-              {saving ? <Loader2 size={13} className="animate-spin mr-1" /> : <Save size={13} className="mr-1" />}
-              Save Changes
-            </Button>
-          )}
+          <Button
+            size="sm"
+            onClick={saveKeys}
+            disabled={saving || !hasChanges}
+            className="bg-[#D4AF37] hover:bg-[#b8962e] text-white disabled:opacity-50"
+            data-testid="save-keys-btn"
+          >
+            {saving ? <Loader2 size={13} className="animate-spin mr-1" /> : <Save size={13} className="mr-1" />}
+            Save Changes
+          </Button>
         </div>
       </div>
-      <p className="text-xs text-gray-500 mb-6">Edit your API keys and credentials below. Changes take effect immediately after saving.</p>
+      <p className="text-xs text-gray-500 mb-2">
+        Edit a field below — the Save button activates when something changed. Keys apply immediately after save (no restart).
+      </p>
+      {!hasChanges && keys.length > 0 && (
+        <p className="text-xs text-amber-700 mb-4" data-testid="api-keys-save-hint">
+          To update Razorpay: click the eye icon, replace Key ID and Secret from your Razorpay dashboard, then Save Changes.
+        </p>
+      )}
+      <div className="mb-6" />
 
       {Object.entries(grouped).map(([group, items]) => (
         <div key={group} className="mb-5">
@@ -150,11 +164,16 @@ const ApiKeysTab = () => {
         </div>
       </div>
 
-      {hasChanges && (
-        <div className="sticky bottom-4 mt-4">
-          <Button onClick={saveKeys} disabled={saving} className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-lg shadow-lg" data-testid="save-keys-bottom-btn">
+      {keys.length > 0 && (
+        <div className="sticky bottom-4 mt-4 z-10">
+          <Button
+            onClick={saveKeys}
+            disabled={saving || !hasChanges}
+            className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-lg shadow-lg disabled:opacity-50"
+            data-testid="save-keys-bottom-btn"
+          >
             {saving ? <Loader2 size={14} className="animate-spin mr-2" /> : <Save size={14} className="mr-2" />}
-            Save All Changes
+            {hasChanges ? 'Save All Changes' : 'Save Changes (edit a field first)'}
           </Button>
         </div>
       )}
