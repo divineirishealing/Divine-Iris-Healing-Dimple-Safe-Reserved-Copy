@@ -4,8 +4,10 @@ import axios from 'axios';
 import { Loader2, Lock, Monitor, Wifi } from 'lucide-react';
 import { GOLD, HEADING } from '../../lib/designTokens';
 import { websiteVisibleTierEntries } from '../../lib/programTierVisibility';
+import { getApiUrl } from '../../lib/config';
+import { programInrListPrice, programInrOfferPrice } from '../../lib/indiaProgramLanding';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const apiBase = () => getApiUrl();
 
 function loadRazorpayScript() {
   return new Promise((resolve, reject) => {
@@ -55,7 +57,7 @@ export default function IndiaProgramRazorpayReserve({
   const fetchQuote = useCallback(
     async (tier) => {
       if (!programId) return null;
-      const { data } = await axios.get(`${API}/landing/india-program/${programId}/quote`, {
+      const { data } = await axios.get(`${apiBase()}/landing/india-program/${programId}/quote`, {
         params: { tier_index: tier },
       });
       return data;
@@ -79,9 +81,24 @@ export default function IndiaProgramRazorpayReserve({
     };
   }, [programId, tierIndex, fetchQuote]);
 
-  const listInr = quote?.list_inr;
-  const chargedInr = quote?.charged_inr ?? listInr;
-  const priceText = chargedInr != null ? `₹${Number(chargedInr).toLocaleString()}` : '—';
+  /** Same INR as hero / homepage cards — not GST-stacked cart math. */
+  const catalogInr = useMemo(() => {
+    if (!program) return 0;
+    const offer = programInrOfferPrice(program, tierIndex);
+    if (offer > 0) return offer;
+    return programInrListPrice(program, tierIndex);
+  }, [program, tierIndex]);
+
+  const payableInr = useMemo(() => {
+    const fromQuote = quote?.charged_inr != null ? Number(quote.charged_inr) : null;
+    if (catalogInr > 0) {
+      if (fromQuote != null && fromQuote > catalogInr + 0.01) return catalogInr;
+      return fromQuote != null && fromQuote > 0 ? fromQuote : catalogInr;
+    }
+    return fromQuote;
+  }, [catalogInr, quote?.charged_inr]);
+
+  const priceText = payableInr != null && payableInr > 0 ? `₹${Number(payableInr).toLocaleString()}` : '—';
 
   const pay = async (event) => {
     event.preventDefault();
@@ -93,7 +110,7 @@ export default function IndiaProgramRazorpayReserve({
     setBusy(true);
     try {
       await loadRazorpayScript();
-      const { data: co } = await axios.post(`${API}/landing/india-program/${programId}/checkout`, {
+      const { data: co } = await axios.post(`${apiBase()}/landing/india-program/${programId}/checkout`, {
         name,
         email,
         phone,
@@ -104,6 +121,15 @@ export default function IndiaProgramRazorpayReserve({
         utm_campaign: searchParams.get('utm_campaign') || '',
         utm_content: searchParams.get('utm_content') || '',
       });
+      const expectedPaise = catalogInr > 0 ? Math.round(catalogInr * 100) : null;
+      if (expectedPaise != null && co?.amount != null && Math.abs(Number(co.amount) - expectedPaise) > 1) {
+        setError(
+          `Payment total must be ₹${Number(catalogInr).toLocaleString()} (same as the program card). `
+          + 'Refresh the page and try again, or contact support if this persists.',
+        );
+        setBusy(false);
+        return;
+      }
       const rzp = new window.Razorpay({
         key: co.key_id,
         amount: co.amount,
@@ -115,7 +141,7 @@ export default function IndiaProgramRazorpayReserve({
         prefill: { name: co.name, email: co.email, contact: co.phone },
         handler: async (response) => {
           try {
-            await axios.post(`${API}/payments/razorpay/verify`, {
+            await axios.post(`${apiBase()}/payments/razorpay/verify`, {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
