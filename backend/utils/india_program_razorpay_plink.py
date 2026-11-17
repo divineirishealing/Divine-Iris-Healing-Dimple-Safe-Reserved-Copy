@@ -435,6 +435,15 @@ async def fulfill_india_program_payment_link_payment(
         "referral_source": "",
         "referred_by_name": "",
     }
+    participants_for_enrollment = open_enrollment.get("participants") if open_enrollment else None
+    if isinstance(participants_for_enrollment, list) and participants_for_enrollment:
+        for p in participants_for_enrollment:
+            if isinstance(p, dict):
+                p.setdefault("notify", True)
+                if email and not (p.get("email") or "").strip():
+                    p["email"] = email
+    else:
+        participants_for_enrollment = [participant]
 
     from routes.payments import run_enrollment_razorpay_success_hooks
 
@@ -453,7 +462,8 @@ async def fulfill_india_program_payment_link_payment(
                     "status": "completed",
                     "booker_name": name or open_enrollment.get("booker_name"),
                     "phone": phone or open_enrollment.get("phone"),
-                    "participants": [participant],
+                    "participants": participants_for_enrollment,
+                    "participant_count": len(participants_for_enrollment),
                     "payment_method": "razorpay",
                     "paid_at": now.isoformat(),
                     "stripe_session_id": session_id,
@@ -479,7 +489,14 @@ async def fulfill_india_program_payment_link_payment(
                         "booker_name": name,
                         "booker_email": email,
                         "phone": participant["phone"],
-                        "participants": [participant],
+                        "participants": participants_for_enrollment,
+                        "participant_count": len(participants_for_enrollment),
+                        "item_type": "program",
+                        "item_id": program_id,
+                        "item_title": pending_title,
+                        "tier_index": tier_index,
+                        "amount": amount_inr,
+                        "currency": "inr",
                         "updated_at": now,
                     }
                 },
@@ -513,8 +530,8 @@ async def fulfill_india_program_payment_link_payment(
                     "booker_name": name,
                     "booker_email": email,
                     "phone": participant["phone"],
-                    "participants": [participant],
-                    "participant_count": 1,
+                    "participants": participants_for_enrollment,
+                    "participant_count": len(participants_for_enrollment),
                     "attendance": participant["attendance_mode"],
                     "paid_at": now.isoformat(),
                     "created_at": now,

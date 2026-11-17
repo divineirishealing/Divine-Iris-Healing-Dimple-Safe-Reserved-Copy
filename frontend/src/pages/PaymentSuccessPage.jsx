@@ -58,10 +58,13 @@ function PaymentSuccessPage() {
         if (sid) {
           const response = await axios.get(`${API}/payments/status/${sid}`);
           setPaymentInfo(response.data);
+          setStatus('success');
+          return;
         }
         setStatus('success');
-      } catch {
-        setStatus('success');
+      } catch (err) {
+        console.error('Payment link fulfill failed', err);
+        setStatus('error');
       }
     };
     fulfill();
@@ -73,8 +76,9 @@ function PaymentSuccessPage() {
       const response = await axios.get(`${API}/payments/status/${sessionId}`);
       setPaymentInfo(response.data);
       setStatus('success');
-    } catch {
-      setStatus('success');
+    } catch (err) {
+      console.error('Payment status poll failed', err);
+      setStatus('error');
     }
   };
 
@@ -93,6 +97,14 @@ function PaymentSuccessPage() {
             <div className="py-20 text-center">
               <Loader2 size={48} className="mx-auto text-[#D4AF37] animate-spin mb-6" />
               <p className="text-gray-500">Confirming your payment...</p>
+            </div>
+          ) : status === 'error' ? (
+            <div className="py-20 text-center">
+              <p className="text-gray-800 font-medium mb-2">We could not confirm this payment in the browser.</p>
+              <p className="text-gray-500 text-sm max-w-md mx-auto">
+                If Razorpay charged you, your receipt and WhatsApp group links will be emailed shortly.
+                Refresh this page in a minute, or contact support with your payment reference.
+              </p>
             </div>
           ) : (
             <div>

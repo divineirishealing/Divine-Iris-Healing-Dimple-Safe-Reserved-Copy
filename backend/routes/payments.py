@@ -941,12 +941,34 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
             from utils.enrollment_checkout_status import reconcile_enrollment_with_paid_transaction
 
             await reconcile_enrollment_with_paid_transaction(db, enrollment_id, tx)
+        if enrollment_id and not tx.get("emails_sent"):
+            try:
+                await run_enrollment_razorpay_success_hooks(session_id)
+            except Exception as ex:
+                logger.warning("Status poll: enrollment hooks %s: %s", session_id, ex)
         try:
             from routes.india_payments import sync_home_coming_emis_after_online_enrollment_payment
 
             await sync_home_coming_emis_after_online_enrollment_payment(session_id)
         except Exception as ex:
             logger.warning("Home Coming EMI sync (status check, already paid): %s", ex)
+        tx = await db.payment_transactions.find_one({"stripe_session_id": session_id}, {"_id": 0}) or tx
+        if tx.get("item_id") != item_id or not program_links:
+            item_id = tx.get("item_id") or item_id
+            item_type = tx.get("item_type") or item_type
+            if item_id and item_type == "program":
+                program = await db.programs.find_one({"id": item_id}, {"_id": 0})
+                if program:
+                    program_links = {}
+                    if program.get("show_whatsapp_link") and program.get("whatsapp_group_link"):
+                        program_links["whatsapp_group_link"] = program["whatsapp_group_link"]
+                    if program.get("show_whatsapp_link_2") and program.get("whatsapp_group_link_2"):
+                        program_links["whatsapp_group_link_2"] = program["whatsapp_group_link_2"]
+                    if program.get("show_zoom_link") and program.get("zoom_link"):
+                        program_links["zoom_link"] = program["zoom_link"]
+                    if program.get("show_custom_link") and program.get("custom_link"):
+                        program_links["custom_link"] = program["custom_link"]
+                        program_links["custom_link_label"] = program.get("custom_link_label", "Link")
         return {
             "status": "complete",
             "payment_status": "paid",
@@ -965,8 +987,14 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
 
     # Razorpay — no Stripe Checkout session to poll; client confirms via /razorpay/verify
     if session_id.startswith("rz_") or tx.get("payment_provider") == "razorpay":
+        pay_st = str(tx.get("payment_status") or "").lower()
+        if pay_st == "paid" and enrollment_id and not tx.get("emails_sent"):
+            try:
+                await run_enrollment_razorpay_success_hooks(session_id)
+            except Exception as ex:
+                logger.warning("Razorpay status: enrollment hooks %s: %s", session_id, ex)
         return {
-            "status": "open",
+            "status": "complete" if pay_st == "paid" else "open",
             "payment_status": tx.get("payment_status", "pending"),
             "amount": tx.get("amount", 0),
             "currency": tx.get("currency", "inr"),

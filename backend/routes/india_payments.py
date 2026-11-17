@@ -2763,10 +2763,12 @@ async def list_enrollments():
     from utils.payment_request_enrollment import backfill_payment_link_enrollments
     from utils.india_program_razorpay_plink import backfill_india_plink_checkout_orphans
     from utils.razorpay_india_reconcile import reconcile_india_landing_razorpay_checkouts
+    from utils.enrollment_email_backfill import backfill_paid_enrollment_emails
 
     await backfill_payment_link_enrollments(db, limit=200)
     await reconcile_india_landing_razorpay_checkouts(db, limit=200)
     await backfill_india_plink_checkout_orphans(db, limit=200)
+    await backfill_paid_enrollment_emails(db, limit=40)
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)
@@ -2879,10 +2881,12 @@ async def participant_enrollment_rows(paid_completed_only: bool = False):
     from utils.payment_request_enrollment import backfill_payment_link_enrollments
     from utils.india_program_razorpay_plink import backfill_india_plink_checkout_orphans
     from utils.razorpay_india_reconcile import reconcile_india_landing_razorpay_checkouts
+    from utils.enrollment_email_backfill import backfill_paid_enrollment_emails
 
     await backfill_payment_link_enrollments(db, limit=200)
     await reconcile_india_landing_razorpay_checkouts(db, limit=200)
     await backfill_india_plink_checkout_orphans(db, limit=200)
+    await backfill_paid_enrollment_emails(db, limit=40)
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)

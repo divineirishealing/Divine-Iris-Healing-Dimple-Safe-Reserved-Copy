@@ -181,4 +181,11 @@ async def reconcile_india_landing_razorpay_checkouts(db: AsyncIOMotorDatabase, *
                 logger.warning("plink fulfill %s for %s: %s", pay_id, eid, exc)
 
     await backfill_india_plink_checkout_orphans(db, limit=limit)
+    try:
+        from utils.enrollment_email_backfill import backfill_paid_enrollment_emails
+
+        meta["emails_backfilled"] = await backfill_paid_enrollment_emails(db, limit=40)
+    except Exception as exc:
+        logger.warning("reconcile email backfill: %s", exc)
+        meta["emails_backfilled"] = 0
     return meta
