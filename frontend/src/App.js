@@ -109,6 +109,8 @@ const AppContent = () => {
         )}
         <Route path="/admin" element={<Lazy><AdminPage /></Lazy>} />
         <Route path="/programs" element={<Lazy><AllProgramsPage /></Lazy>} />
+        <Route path="/india/programs" element={<RouteErrorBoundary><Lazy><AllProgramsPage surface="india" /></Lazy></RouteErrorBoundary>} />
+        <Route path="/india/program" element={<Navigate to="/india/programs" replace />} />
         <Route path="/program" element={<Navigate to="/programs" replace />} />
         <Route path="/program/:id" element={<RouteErrorBoundary><ProgramDetailRoute /></RouteErrorBoundary>} />
         <Route path="/india/program/:id" element={<RouteErrorBoundary><ProgramDetailRoute /></RouteErrorBoundary>} />

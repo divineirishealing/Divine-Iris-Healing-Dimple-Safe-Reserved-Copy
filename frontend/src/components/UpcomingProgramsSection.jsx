@@ -329,7 +329,7 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
 
   return (
     <div data-testid={`upcoming-card-${program.id}`}
-      className={`group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col h-full ${enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'}`}>
+      className={`group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col h-full w-full max-w-full lg:min-h-[32rem] ${enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'}`}>
       <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate(programPath)}>
         <img src={resolveImageUrl(program.image)} alt={program.title}
           className={`w-full h-full object-cover transition-transform duration-500 ${enrollStatus === 'open' ? 'group-hover:scale-105' : enrollStatus === 'closed' ? 'grayscale-[40%]' : ''}`}
@@ -809,8 +809,8 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
     return s === 'open';
   });
   const hasOpenRegistrations = openVisiblePrograms.length > 0;
-  const firstRowPrograms = sorted.slice(0, 3);
-  const restPrograms = sorted.slice(3);
+  /** Desktop program grid rows (3 cards per row) — sponsor column spans this many rows. */
+  const desktopProgramRowCount = Math.max(1, Math.ceil(sorted.length / 3));
   /** Desktop 4-col layout reserves 3 program slots; with 1–2 upcoming programs that leaves empty columns (looks like missing cards/images). */
   const useCompactUpcomingDesktop = sorted.length <= 2;
 
@@ -929,28 +929,26 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch lg:hidden">
               {sorted.map(renderUpcomingCard)}
             </div>
-            <div className={`hidden lg:grid gap-6 items-stretch h-full ${programGridColsClass(firstRowPrograms.length)}`}>
-              {firstRowPrograms.map(renderUpcomingCard)}
+            <div
+              className="hidden lg:grid gap-6 items-stretch grid-cols-3"
+              data-testid="upcoming-programs-desktop-grid"
+            >
+              {sorted.map(renderUpcomingCard)}
             </div>
           </div>
 
           <div
             data-testid="sponsor-card-column"
-            className="lg:col-start-4 lg:row-start-2 h-full"
+            className={cn(
+              'lg:col-start-4 lg:row-start-2 h-full',
+              desktopProgramRowCount >= 2 && 'lg:row-span-2',
+            )}
           >
             <div className="text-center mb-4 lg:hidden">
               <h2 className="text-2xl sm:text-3xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
             </div>
             <SponsorCard sponsorData={sponsorData} matchProgramRowHeight />
           </div>
-
-          {restPrograms.length > 0 && (
-            <div className="hidden lg:block lg:col-span-3 lg:row-start-3">
-              <div className="grid gap-6 items-stretch grid-cols-3">
-                {restPrograms.map(renderUpcomingCard)}
-              </div>
-            </div>
-          )}
 
           {(hasOpenRegistrations && comboDiscount && comboDiscount.rules?.length > 0) && (
             <div className="lg:hidden mt-6" data-testid="combo-banner-mobile">
