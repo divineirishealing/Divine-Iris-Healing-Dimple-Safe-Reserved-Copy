@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, useSearchParams, Navigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation, Navigate, Link } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -200,6 +201,7 @@ export function ProgramDetailPage({ surface = 'website' } = {}) {
       document.getElementById('india-razorpay-reserve')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
+    if (!program?.id) return;
     const ti = tierIdx !== undefined && tierIdx !== null && tierIdx !== '' ? tierIdx : heroTierIdx;
     navigate(`/enroll/program/${program.id}${enrollProgramQuery(ti)}`);
   };
@@ -281,7 +283,7 @@ export function ProgramDetailPage({ surface = 'website' } = {}) {
   if (loading) {
     return (
       <>
-        <Header />
+        {isIndiaRazorpay ? <AdLandingHeader /> : <Header />}
         <div className="min-h-[70vh] flex items-center justify-center bg-[#1a1a1a]">
           <p className="text-gray-400 text-xs" style={BODY}>Loading program...</p>
         </div>
@@ -291,7 +293,7 @@ export function ProgramDetailPage({ surface = 'website' } = {}) {
   if (!program) {
     return (
       <>
-        <Header />
+        {isIndiaRazorpay ? <AdLandingHeader /> : <Header />}
         <div className="min-h-[70vh] flex items-center justify-center bg-[#1a1a1a]">
           <div className="text-center px-6">
             <h2 className="text-white text-xl mb-4" style={{ ...HEADING, color: '#fff' }}>Program Not Found</h2>
@@ -1027,6 +1029,12 @@ export function ProgramDetailPage({ surface = 'website' } = {}) {
 
 export default function ProgramDetailRoute() {
   const { id } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isIndiaProgramPath = location.pathname.startsWith('/india/program/');
+  const [indiaGate, setIndiaGate] = useState(isIndiaProgramPath ? 'loading' : 'ready');
+  const [indiaLoadError, setIndiaLoadError] = useState('');
+
   const mahalakshmi = id === MAHALAKSHMI_PROGRAM_ID;
   const knownIntro = Boolean(AWRP_INTRO_PROGRAM_ID && id === AWRP_INTRO_PROGRAM_ID);
   const [useIntroLanding, setUseIntroLanding] = useState(
@@ -1034,7 +1042,46 @@ export default function ProgramDetailRoute() {
   );
 
   useEffect(() => {
-    if (mahalakshmi || knownIntro) return undefined;
+    if (!isIndiaProgramPath) return undefined;
+    let cancelled = false;
+    (async () => {
+      setIndiaGate('loading');
+      setIndiaLoadError('');
+      try {
+        const { data: prog } = await axios.get(`${API}/programs/${id}`);
+        if (cancelled) return;
+        if (isAwrpIntroProgram(prog)) {
+          navigate('/india/awrp-intro-call', { replace: true });
+          return;
+        }
+        if (prog.id === MAHALAKSHMI_PROGRAM_ID) {
+          navigate('/india/shri-mahalakshmi-akshaya-samriddhi', { replace: true });
+          return;
+        }
+        const dedicated = String(prog.link || '').trim().split('?')[0];
+        if (
+          dedicated.startsWith('/india/')
+          && !dedicated.startsWith('/india/program/')
+          && dedicated !== '/india/program'
+        ) {
+          navigate(dedicated, { replace: true });
+          return;
+        }
+        setIndiaGate('ready');
+      } catch (err) {
+        if (!cancelled) {
+          setIndiaLoadError(err.response?.data?.detail || 'Could not load this program.');
+          setIndiaGate('error');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, isIndiaProgramPath, navigate]);
+
+  useEffect(() => {
+    if (isIndiaProgramPath || mahalakshmi || knownIntro) return undefined;
     let cancelled = false;
     axios
       .get(`${API}/programs/${id}`)
@@ -1047,7 +1094,28 @@ export default function ProgramDetailRoute() {
     return () => {
       cancelled = true;
     };
-  }, [id, mahalakshmi, knownIntro]);
+  }, [id, mahalakshmi, knownIntro, isIndiaProgramPath]);
+
+  if (isIndiaProgramPath) {
+    if (indiaGate === 'loading') {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a]">
+          <Loader2 className="animate-spin text-[#D4AF37]" size={32} aria-label="Loading" />
+        </div>
+      );
+    }
+    if (indiaGate === 'error') {
+      return (
+        <div className="min-h-screen bg-[#faf7f2] px-6 py-20 text-center">
+          <p className="text-red-700 mb-4">{indiaLoadError || 'Program not found.'}</p>
+          <Link to="/programs" className="text-sm underline text-gray-700">
+            Back to programs
+          </Link>
+        </div>
+      );
+    }
+    return <ProgramDetailPage surface="india-razorpay" />;
+  }
 
   if (mahalakshmi) return <MahalakshmiLandingPage surface="website" />;
   if (id === AWRP_INTRO_PROGRAM_ID) {

@@ -179,11 +179,11 @@ export default function IndiaProgramRazorpayReserve({
                 onChange={(e) => onTierIndexChange?.(parseInt(e.target.value, 10))}
                 data-testid="india-landing-tier"
               >
-                {tierEntries.map((t) => (
-                  <option key={t.index} value={t.index}>
-                    {t.label || `Option ${t.index + 1}`}
-                  </option>
-                ))}
+              {tierEntries.map(({ tier, catalogIndex }) => (
+                <option key={catalogIndex} value={catalogIndex}>
+                  {tier?.label || `Option ${catalogIndex + 1}`}
+                </option>
+              ))}
               </select>
             </>
           )}
