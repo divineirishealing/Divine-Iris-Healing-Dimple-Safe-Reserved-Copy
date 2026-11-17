@@ -1,18 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { programs as mockPrograms } from '../mockData';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
+import UpcomingProgramsSection from '../components/UpcomingProgramsSection';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { HEADING } from '../lib/designTokens';
 import { programPublicPath } from '../lib/programRoutes';
-import { indiaProgramRazorpayPath } from '../lib/indiaProgramLanding';
 import { useSeoPage } from '../context/SeoPageContext';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 import { setCheckoutSurface } from '../lib/checkoutSurfaceStorage';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -27,16 +28,21 @@ export default function AllProgramsPage({ surface = 'website' } = {}) {
   const isIndia = surface === 'india';
   const navigate = useNavigate();
   const { setPageSeo, clearPageSeo } = useSeoPage();
+  const { settings } = useSiteSettings();
   const [programs, setPrograms] = useState(mockPrograms);
-  const [settings, setSettings] = useState(null);
+  const [settingsHero, setSettingsHero] = useState(null);
+
+  const upcomingSectionConfig = useMemo(() => {
+    const saved = settings?.homepage_sections;
+    const found = saved?.find((s) => s.id === 'upcoming');
+    return found || { id: 'upcoming', visible: true, title: 'Upcoming Programs' };
+  }, [settings?.homepage_sections]);
 
   useEffect(() => {
+    if (isIndia) return undefined;
     const loadPrograms = async () => {
       try {
-        const url = isIndia
-          ? `${API}/programs?visible_only=true&upcoming_only=true`
-          : `${API}/programs`;
-        const response = await axios.get(url);
+        const response = await axios.get(`${API}/programs`);
         if (response.data && response.data.length > 0) {
           setPrograms(response.data);
         }
@@ -45,7 +51,7 @@ export default function AllProgramsPage({ surface = 'website' } = {}) {
       }
     };
     loadPrograms();
-    axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
+    axios.get(`${API}/settings`).then((r) => setSettingsHero(r.data)).catch(() => {});
   }, [isIndia]);
 
   useEffect(() => {
@@ -55,33 +61,48 @@ export default function AllProgramsPage({ surface = 'website' } = {}) {
   useEffect(() => {
     if (!isIndia) return undefined;
     setPageSeo({
-      title: 'Upcoming programs — India booking',
-      description: 'View upcoming Divine Iris programs and book with Razorpay (UPI, cards, netbanking).',
+      title: 'Upcoming programs',
+      description: 'View upcoming Divine Iris healing programs — same experience as our homepage, with secure India checkout.',
     });
     return () => clearPageSeo();
   }, [isIndia, setPageSeo, clearPageSeo]);
 
-  const programLink = (program) => (isIndia ? indiaProgramRazorpayPath(program) : programPublicPath(program));
+  if (isIndia) {
+    return (
+      <>
+        <Header />
+        <div
+          className="min-h-screen pt-20"
+          style={{ background: 'linear-gradient(180deg, #f3edff 0%, #f5f0ff 20%, #faf8ff 45%, #ffffff 75%, #ffffff 100%)' }}
+          data-testid="india-programs-page"
+        >
+          <div className="container mx-auto px-4 py-12">
+            <UpcomingProgramsSection sectionConfig={upcomingSectionConfig} />
+          </div>
+        </div>
+        <Footer />
+        <FloatingButtons />
+      </>
+    );
+  }
 
-  const hero = settings?.page_heroes?.programs || {};
-  const defaultTitle = isIndia ? 'Upcoming Programs' : 'All Programs';
-  const defaultSubtitle = isIndia
-    ? 'Book with Razorpay — secure India checkout for each program below'
-    : 'Explore our comprehensive healing programs designed to transform your life at every level';
+  const hero = settingsHero?.page_heroes?.programs || {};
+  const defaultTitle = 'All Programs';
+  const defaultSubtitle = 'Explore our comprehensive healing programs designed to transform your life at every level';
 
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-white pt-20" data-testid={isIndia ? 'india-programs-page' : 'all-programs-page'}>
+      <div className="min-h-screen bg-white pt-20" data-testid="all-programs-page">
         <div className="container mx-auto px-4 py-12">
           <div className="relative text-center mb-12 py-12 -mt-12 -mx-4 px-4 overflow-hidden" style={{ background: hero.hero_image ? 'transparent' : undefined }}>
             {hero.hero_image && <div className="absolute inset-0" style={{ backgroundImage: `url(${resolveImageUrl(hero.hero_image)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
             {hero.hero_image && <div className="absolute inset-0" style={{ background: '#000', opacity: (hero.overlay_opacity || 60) / 100 }} />}
             <h1 className="relative z-10" style={applyStyle(hero.title_style, { ...HEADING, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', ...(hero.hero_image ? { color: '#fff' } : {}) })}>
-              {isIndia ? defaultTitle : (hero.title_text || defaultTitle)}
+              {hero.title_text || defaultTitle}
             </h1>
             <p className="relative z-10 max-w-2xl mx-auto mt-3" style={applyStyle(hero.subtitle_style, { color: hero.hero_image ? 'rgba(255,255,255,0.8)' : '#6b7280', fontFamily: "'Lato', sans-serif", fontSize: '1rem' })}>
-              {isIndia ? defaultSubtitle : (hero.subtitle_text || defaultSubtitle)}
+              {hero.subtitle_text || defaultSubtitle}
             </p>
           </div>
 
@@ -91,7 +112,7 @@ export default function AllProgramsPage({ surface = 'website' } = {}) {
                 key={program.id}
                 className="overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-0 shadow-lg cursor-pointer"
                 onClick={() => {
-                  const path = programLink(program);
+                  const path = programPublicPath(program);
                   if (path) navigate(path);
                 }}
               >
@@ -118,7 +139,7 @@ export default function AllProgramsPage({ surface = 'website' } = {}) {
                     variant="outline"
                     className="w-full border-yellow-600 text-yellow-600 hover:bg-yellow-600 hover:text-white transition-all duration-300"
                   >
-                    {isIndia ? 'Book with Razorpay' : 'Learn More'}
+                    Learn More
                   </Button>
                 </CardContent>
               </Card>
@@ -127,7 +148,7 @@ export default function AllProgramsPage({ surface = 'website' } = {}) {
         </div>
       </div>
       <Footer />
-      {!isIndia && <FloatingButtons />}
+      <FloatingButtons />
     </>
   );
 }
