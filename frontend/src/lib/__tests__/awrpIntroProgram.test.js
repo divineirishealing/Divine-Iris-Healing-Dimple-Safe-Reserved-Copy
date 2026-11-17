@@ -33,4 +33,9 @@ describe('awrpIntroProgram', () => {
     expect(programPublicPath(intro)).toBe('/awrp-intro-call');
     expect(programPublicPath({ ...intro, link: '/custom' })).toBe('/custom');
   });
+
+  it('ignores placeholder /program link and uses program id', () => {
+    const workshop = { id: 'heal-heart-id', title: 'Heal The Heart', link: '/program' };
+    expect(programPublicPath(workshop)).toBe('/program/heal-heart-id');
+  });
 });
