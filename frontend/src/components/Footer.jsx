@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Facebook, Instagram, Youtube, Linkedin, Mail, Phone, X, Send, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
@@ -7,7 +7,12 @@ import { BODY, GOLD, CONTAINER } from '../lib/designTokens';
 import { publicNavLinkLabel } from '../lib/navLinkLabels';
 import { applyBlogNavItems, blogNavEnabled } from '../lib/blogNav';
 import { useSiteSettings } from '../context/SiteSettingsContext';
-import { programPublicPath } from '../lib/programRoutes';
+import {
+  homePathForLocation,
+  isIndiaSite,
+  programLinkForHome,
+  toIndiaSitePath,
+} from '../lib/indiaHomeRoutes';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -144,6 +149,7 @@ const ContactFormDialog = ({ open, onClose, programs, sessions }) => {
 
 const Footer = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { settings } = useSiteSettings();
   const [programs, setPrograms] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -173,22 +179,25 @@ const Footer = () => {
   ).filter(item => item.visible !== false);
 
   const handleMenuClick = (href) => {
-    if (href.startsWith('/#')) {
-      const sectionId = href.replace('/#', '');
-      if (window.location.pathname === '/') {
+    const homePath = homePathForLocation(location.pathname);
+    const target = isIndiaSite(location.pathname) ? toIndiaSitePath(href, location.pathname) : href;
+
+    if (target.startsWith('/#') || target.startsWith(`${homePath}#`)) {
+      const sectionId = target.replace(`${homePath}#`, '').replace('/#', '');
+      const onHome = location.pathname === '/' || location.pathname === '/india';
+      if (onHome) {
         const el = document.getElementById(sectionId);
-        if (el) { const y = el.getBoundingClientRect().top + window.scrollY - 60; window.scrollTo({ top: y, behavior: 'smooth' }); }
+        if (el) {
+          const y = el.getBoundingClientRect().top + window.scrollY - 60;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
       } else {
-        navigate('/');
-        setTimeout(() => {
-          const el = document.getElementById(sectionId);
-          if (el) { const y = el.getBoundingClientRect().top + window.scrollY - 60; window.scrollTo({ top: y, behavior: 'smooth' }); }
-        }, 500);
+        navigate(`${homePath}#${sectionId}`);
       }
-    } else {
-      navigate(href);
-      window.scrollTo(0, 0);
+      return;
     }
+    navigate(target);
+    window.scrollTo(0, 0);
   };
 
   const socialLinks = [
@@ -257,7 +266,7 @@ const Footer = () => {
               <ul className="space-y-1.5 text-gray-400 text-[11px]" style={FONT_LATO}>
                 {[...programs].slice(0, 6).sort((a, b) => a.title.length - b.title.length).map(p => (
                   <li key={p.id}>
-                    <button data-testid={`footer-program-${p.id}`} onClick={() => { navigate(programPublicPath(p)); window.scrollTo(0, 0); }}
+                    <button data-testid={`footer-program-${p.id}`} onClick={() => { navigate(programLinkForHome(location.pathname, p)); window.scrollTo(0, 0); }}
                       className="hover:text-[#D4AF37] transition-colors text-left">{p.title}</button>
                   </li>
                 ))}
@@ -285,13 +294,13 @@ const Footer = () => {
               <div className="w-full h-px my-4" style={{ background: GOLD, opacity: 0.4 }} />
               <ul className="space-y-1.5 text-gray-400 text-[11px]" style={FONT_LATO}>
                 <li>
-                  <button onClick={() => navigate('/terms')} className="hover:text-[#D4AF37] transition-colors" data-testid="footer-terms-link">Terms & Conditions</button>
+                  <button onClick={() => handleMenuClick('/terms')} className="hover:text-[#D4AF37] transition-colors" data-testid="footer-terms-link">Terms & Conditions</button>
                 </li>
                 <li>
-                  <button onClick={() => navigate('/privacy')} className="hover:text-[#D4AF37] transition-colors" data-testid="footer-privacy-link">Privacy Policy</button>
+                  <button onClick={() => handleMenuClick('/privacy')} className="hover:text-[#D4AF37] transition-colors" data-testid="footer-privacy-link">Privacy Policy</button>
                 </li>
                 <li>
-                  <button onClick={() => navigate('/refund-cancellation')} className="hover:text-[#D4AF37] transition-colors" data-testid="footer-refund-cancellation-link">Refund & Cancellation</button>
+                  <button onClick={() => handleMenuClick('/refund-cancellation')} className="hover:text-[#D4AF37] transition-colors" data-testid="footer-refund-cancellation-link">Refund & Cancellation</button>
                 </li>
               </ul>
             </div>

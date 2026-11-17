@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Search, X, ArrowRight, BookOpen, Sparkles, MessageSquare } from 'lucide-react';
 import { resolveImageUrl } from '../lib/imageUtils';
+import { programLinkForHome, toIndiaSitePath } from '../lib/indiaHomeRoutes';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -12,6 +13,7 @@ const GlobalSearch = ({ isOpen, onClose }) => {
   const [loading, setLoading] = useState(false);
   const inputRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (isOpen) {
@@ -54,7 +56,7 @@ const GlobalSearch = ({ isOpen, onClose }) => {
 
   const handleNavigate = (path) => {
     onClose();
-    navigate(path);
+    navigate(toIndiaSitePath(path, location.pathname));
   };
 
   return (
@@ -107,7 +109,7 @@ const GlobalSearch = ({ isOpen, onClose }) => {
                     <button
                       key={p.id}
                       data-testid={`search-result-program-${p.id}`}
-                      onClick={() => handleNavigate(`/program/${p.slug || p.id}`)}
+                      onClick={() => handleNavigate(programLinkForHome(location.pathname, p))}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-purple-50 transition-colors text-left group"
                     >
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #f3edff, #ece4ff)' }}>

@@ -8,8 +8,7 @@ import { resolveImageUrl } from '../lib/imageUtils';
 import { publicNavLinkLabel } from '../lib/navLinkLabels';
 import { applyBlogNavItems, blogNavEnabled } from '../lib/blogNav';
 import { useSiteSettings } from '../context/SiteSettingsContext';
-import { programPublicPath } from '../lib/programRoutes';
-import { homePathForLocation, isIndiaMarketingHome, programLinkForHome } from '../lib/indiaHomeRoutes';
+import { homePathForLocation, isIndiaSite, programLinkForHome, toIndiaSitePath } from '../lib/indiaHomeRoutes';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -149,28 +148,31 @@ const Header = () => {
     return offerMenuItems.some(m => label.toLowerCase().includes(m.toLowerCase()));
   };
 
+  const scrollToSection = (sectionId) => {
+    const el = document.getElementById(sectionId);
+    if (el) {
+      const y = el.getBoundingClientRect().top + window.scrollY - 60;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    }
+  };
+
   const handleNav = (path) => {
     setMobileOpen(false);
     setProgramsOpen(false);
     const homePath = homePathForLocation(location.pathname);
-    if (path.startsWith('/#')) {
-      const sectionId = path.replace('/#', '');
-      if (location.pathname === '/' || location.pathname === '/india') {
-        const el = document.getElementById(sectionId);
-        if (el) {
-          const y = el.getBoundingClientRect().top + window.scrollY - 60;
-          window.scrollTo({ top: y, behavior: 'smooth' });
-        }
-      } else {
+    const target = isIndiaSite(location.pathname) ? toIndiaSitePath(path, location.pathname) : path;
+
+    if (target.startsWith('/#') || target.startsWith(`${homePath}#`)) {
+      const sectionId = target.replace(`${homePath}#`, '').replace('/#', '');
+      const onHome = location.pathname === '/' || location.pathname === '/india';
+      if (onHome) scrollToSection(sectionId);
+      else {
         navigate(`${homePath}#${sectionId}`);
       }
-    } else if (isIndiaMarketingHome(location.pathname) && path === '/') {
-      navigate('/india');
-      window.scrollTo(0, 0);
-    } else {
-      navigate(path);
-      window.scrollTo(0, 0);
+      return;
     }
+    navigate(target === '/' && isIndiaSite(location.pathname) ? '/india' : target);
+    window.scrollTo(0, 0);
   };
 
   const SocialIcon = ({ sKey, size = 16 }) => {
@@ -284,7 +286,7 @@ const Header = () => {
               <button data-testid="search-icon-btn" onClick={() => setSearchOpen(true)} className="text-white/80 hover:text-[#D4AF37] transition-colors ml-1">
                 <Search size={17} />
               </button>
-              <button data-testid="cart-icon-btn" onClick={() => navigate('/cart')} className="relative text-white/80 hover:text-[#D4AF37] transition-colors ml-2">
+              <button data-testid="cart-icon-btn" onClick={() => handleNav('/cart')} className="relative text-white/80 hover:text-[#D4AF37] transition-colors ml-2">
                 <ShoppingCart size={18} />
                 {itemCount > 0 && (
                   <span data-testid="cart-count-badge" className="absolute -top-2 -right-2 bg-[#D4AF37] text-white text-[8px] font-bold w-4 h-4 flex items-center justify-center rounded-full">

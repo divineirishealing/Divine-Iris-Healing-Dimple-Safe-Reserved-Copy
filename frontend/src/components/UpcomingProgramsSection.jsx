@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { useCurrency } from '../context/CurrencyContext';
@@ -24,6 +24,7 @@ import { programPublicPath } from '../lib/programRoutes';
 import { programsForComboBanner } from '../lib/comboBannerPrograms';
 import { useHomeCheckoutSurface } from '../context/HomeCheckoutSurfaceContext';
 import { setCheckoutSurface } from '../lib/checkoutSurfaceStorage';
+import { toIndiaSitePath } from '../lib/indiaHomeRoutes';
 import {
   indiaProgramRazorpayCheckoutPath,
   indiaProgramRazorpayPath,
@@ -611,6 +612,8 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
 
 const SponsorCard = ({ sponsorData, matchProgramRowHeight = false }) => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const sponsorPath = toIndiaSitePath('/sponsor', pathname);
   const h = sponsorData || {};
   const imgUrl = h.image ? resolveImageUrl(h.image) : '';
   return (
@@ -619,7 +622,7 @@ const SponsorCard = ({ sponsorData, matchProgramRowHeight = false }) => {
         'group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col hover:shadow-2xl',
         matchProgramRowHeight && 'h-full'
       )}>
-      <div className="relative h-48 overflow-hidden cursor-pointer shrink-0" onClick={() => navigate('/sponsor')}>
+      <div className="relative h-48 overflow-hidden cursor-pointer shrink-0" onClick={() => navigate(sponsorPath)}>
         {imgUrl ? (
           <img src={imgUrl} alt={h.title || 'Become a Sponsor'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
         ) : (
@@ -633,13 +636,13 @@ const SponsorCard = ({ sponsorData, matchProgramRowHeight = false }) => {
       </div>
       <div className={cn('p-4 flex flex-col', matchProgramRowHeight && 'flex-1 min-h-0')}>
         <p className="text-[#D4AF37] text-[11px] tracking-wider mb-1 uppercase">{h.subtitle || 'Conscious Support'}</p>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2 leading-tight cursor-pointer hover:text-[#D4AF37] transition-colors" onClick={() => navigate('/sponsor')}>{h.title || 'Sponsor A Life'}</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2 leading-tight cursor-pointer hover:text-[#D4AF37] transition-colors" onClick={() => navigate(sponsorPath)}>{h.title || 'Sponsor A Life'}</h3>
         <p className={cn(
           'text-sm text-gray-500 leading-relaxed mb-3',
           matchProgramRowHeight && 'flex-1'
         )}>{h.body_1 || 'Contribute towards someone\'s healing journey — anonymously or intentionally. When one heals, the collective heals.'}</p>
         <div className={cn('pt-2', matchProgramRowHeight && 'mt-auto')}>
-          <button onClick={() => navigate('/sponsor')} data-testid="sponsor-card-cta"
+          <button onClick={() => navigate(sponsorPath)} data-testid="sponsor-card-cta"
             className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-full text-xs tracking-wider transition-all duration-300 uppercase font-medium">
             {h.button_text || h.title || 'Sponsor a Life'}
           </button>

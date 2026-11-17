@@ -5,7 +5,6 @@ import { programs as mockPrograms } from '../mockData';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
-import { AdLandingHeader } from '../components/AdLandingChrome';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -72,8 +71,8 @@ export default function AllProgramsPage({ surface = 'website' } = {}) {
 
   return (
     <>
-      {isIndia ? <AdLandingHeader /> : <Header />}
-      <div className={`min-h-screen bg-white ${isIndia ? 'pt-4' : 'pt-20'}`} data-testid={isIndia ? 'india-programs-page' : 'all-programs-page'}>
+      <Header />
+      <div className="min-h-screen bg-white pt-20" data-testid={isIndia ? 'india-programs-page' : 'all-programs-page'}>
         <div className="container mx-auto px-4 py-12">
           <div className="relative text-center mb-12 py-12 -mt-12 -mx-4 px-4 overflow-hidden" style={{ background: hero.hero_image ? 'transparent' : undefined }}>
             {hero.hero_image && <div className="absolute inset-0" style={{ backgroundImage: `url(${resolveImageUrl(hero.hero_image)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}

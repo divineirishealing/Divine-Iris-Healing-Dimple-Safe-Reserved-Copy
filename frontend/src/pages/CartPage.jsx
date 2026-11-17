@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -27,6 +27,7 @@ import {
 import { effectiveParticipantEmail } from '../lib/dashboardCartPrefill';
 import { resolveEffectiveOffer } from '../lib/effectiveOfferPricing';
 import { mapCartItemForApi, primarySessionBookingFromCart } from '../lib/sessionBookingPayload';
+import { toIndiaSitePath } from '../lib/indiaHomeRoutes';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -458,6 +459,7 @@ const CartItemCard = ({
 
 function CartPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { items, removeItem, updateItemParticipants, clearCart } = useCart();
   const { getPrice, getOfferPrice, symbol, baseCurrency, toDisplay, country: detectedCountry } = useCurrency();
   const currency = baseCurrency;
@@ -740,7 +742,8 @@ function CartPage() {
       setEmailVerified(true);
       toast({ title: 'Email verified!' });
       // Navigate to payment page with enrollment ID
-      navigate(`/cart/checkout?eid=${enrollmentId}&promo=${promoResult?.code || ''}`);
+      const checkoutBase = toIndiaSitePath('/cart/checkout', location.pathname);
+      navigate(`${checkoutBase}?eid=${enrollmentId}&promo=${promoResult?.code || ''}`);
     } catch (err) {
       toast({ title: err.response?.data?.detail || 'Wrong code', variant: 'destructive' });
     } finally { setLoading(false); }

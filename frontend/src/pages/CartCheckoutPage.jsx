@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -18,6 +18,7 @@ import { resolveEffectiveOffer } from '../lib/effectiveOfferPricing';
 import { mapCartItemForApi } from '../lib/sessionBookingPayload';
 import { formatSessionCalendarDateLabel } from '../lib/sessionCalendarSlots';
 import { isIndiaCheckoutSurface } from '../lib/checkoutSurfaceStorage';
+import { toIndiaSitePath } from '../lib/indiaHomeRoutes';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -28,6 +29,9 @@ const StepDot = ({ active, done }) => (
 
 function CartCheckoutPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const cartPath = toIndiaSitePath('/cart', location.pathname);
+  const checkoutSelf = toIndiaSitePath('/cart/checkout', location.pathname);
   const { items, clearCart } = useCart();
   const { country: detectedCountry, symbol, baseCurrency, baseSymbol, displayCurrency, displaySymbol, isPrimary, getPrice, getOfferPrice, toDisplay } = useCurrency();
   const currency = baseCurrency;
@@ -57,9 +61,9 @@ function CartCheckoutPage() {
   const countryCode = firstP.phone_code || '';
 
   useEffect(() => {
-    if (items.length === 0) navigate('/cart');
-    if (!enrollmentId) navigate('/cart');
-  }, [items, navigate, enrollmentId]);
+    if (items.length === 0) navigate(cartPath);
+    if (!enrollmentId) navigate(cartPath);
+  }, [items, navigate, enrollmentId, cartPath]);
 
   // Validate promo on mount if provided (skipped when admin hides checkout promo)
   useEffect(() => {
@@ -445,7 +449,7 @@ function CartCheckoutPage() {
                         </div>
                         <button
                           onClick={() => {
-                            window.history.replaceState(null, '', `/cart/checkout?eid=${enrollmentId}&promo=${promoCode || ''}`);
+                            window.history.replaceState(null, '', `${checkoutSelf}?eid=${enrollmentId}&promo=${promoCode || ''}`);
                             const params = new URLSearchParams({
                               program: items.map(i => i.programTitle).join(', '),
                               price: String(subtotal || 0),
@@ -471,7 +475,7 @@ function CartCheckoutPage() {
                         {paymentSettings.manual_form_enabled && (
                           <button
                             onClick={() => {
-                              window.history.replaceState(null, '', `/cart/checkout?eid=${enrollmentId}&promo=${promoCode || ''}`);
+                              window.history.replaceState(null, '', `${checkoutSelf}?eid=${enrollmentId}&promo=${promoCode || ''}`);
                               navigate(`/manual-payment/${enrollmentId}`);
                             }}
                             className="flex items-center justify-between w-full border rounded-lg p-4 mt-2 hover:border-teal-400 hover:bg-teal-50/50 transition-all group"
@@ -492,7 +496,7 @@ function CartCheckoutPage() {
                     )}
 
                     <div className="flex gap-3">
-                      <Button variant="outline" onClick={() => navigate('/cart')} className="rounded-full"><ChevronLeft size={16} /></Button>
+                      <Button variant="outline" onClick={() => navigate(cartPath)} className="rounded-full"><ChevronLeft size={16} /></Button>
                       <Button data-testid="cart-pay-btn" onClick={handleCheckout} disabled={processing || (total > 0 && !enrollmentId)}
                         className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
                         {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {displayCheckoutTotal <= 0 ? 'Registering...' : 'Redirecting...'}</> : displayCheckoutTotal <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {symbol} {displayCheckoutTotal.toLocaleString()}</>}

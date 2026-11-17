@@ -19,6 +19,7 @@ import BackendStatusBanner from './components/BackendStatusBanner';
 import PageAnalyticsBeacon from './components/PageAnalyticsBeacon';
 import FaviconFromSettings from './components/FaviconFromSettings';
 import { AWRP_INTRO_INDIA_PAYMENT_QR_PATH, INDIA_AWRP_SUCCESS_FROM } from './lib/awrpIntroProgram';
+import IndiaSiteLayout from './layouts/IndiaSiteLayout';
 
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const AllProgramsPage = lazy(() => import('./pages/AllProgramsPage'));
@@ -83,6 +84,12 @@ const Lazy = ({ children }) => (
   </Suspense>
 );
 
+const IndiaPage = ({ children }) => (
+  <IndiaSiteLayout>
+    <Lazy>{children}</Lazy>
+  </IndiaSiteLayout>
+);
+
 const AppContent = () => {
   const location = useLocation();
 
@@ -110,11 +117,36 @@ const AppContent = () => {
         )}
         <Route path="/admin" element={<Lazy><AdminPage /></Lazy>} />
         <Route path="/programs" element={<Lazy><AllProgramsPage /></Lazy>} />
-        <Route path="/india/programs" element={<RouteErrorBoundary><Lazy><AllProgramsPage surface="india" /></Lazy></RouteErrorBoundary>} />
+        <Route path="/india/programs" element={<IndiaPage><AllProgramsPage surface="india" /></IndiaPage>} />
         <Route path="/india/program" element={<Navigate to="/india/programs" replace />} />
+        <Route path="/india/sessions" element={<IndiaPage><AllSessionsPage /></IndiaPage>} />
+        <Route path="/india/session/:id" element={<IndiaPage><SessionDetailPage /></IndiaPage>} />
+        <Route path="/india/services" element={<IndiaPage><ServicesPage /></IndiaPage>} />
+        <Route path="/india/media" element={<IndiaPage><MediaPage /></IndiaPage>} />
+        <Route path="/india/transformations" element={<IndiaPage><TransformationsPage /></IndiaPage>} />
+        <Route path="/india/case-studies" element={<IndiaPage><CaseStudiesPage /></IndiaPage>} />
+        <Route path="/india/case-studies/:slug" element={<IndiaPage><CaseStudyDetailPage /></IndiaPage>} />
+        <Route path="/india/blueprint-immersion" element={<IndiaPage><BlueprintImmersionDetailPage /></IndiaPage>} />
+        <Route path="/india/contact" element={<IndiaPage><ContactPage /></IndiaPage>} />
+        <Route path="/india/about" element={<IndiaPage><AboutPage /></IndiaPage>} />
+        <Route path="/india/blog" element={<IndiaPage><BlogPage /></IndiaPage>} />
+        <Route path="/india/blog/:slug" element={<IndiaPage><BlogPostDetailPage /></IndiaPage>} />
+        <Route path="/india/sponsor" element={<IndiaPage><SponsorPage /></IndiaPage>} />
+        <Route path="/india/cart" element={<IndiaPage><CartPage /></IndiaPage>} />
+        <Route path="/india/cart/checkout" element={<IndiaPage><CartCheckoutPage /></IndiaPage>} />
+        <Route path="/india/terms" element={<IndiaPage><TermsPage /></IndiaPage>} />
+        <Route path="/india/privacy" element={<IndiaPage><PrivacyPage /></IndiaPage>} />
+        <Route path="/india/refund-cancellation" element={<IndiaPage><RefundCancellationPolicyPage /></IndiaPage>} />
         <Route path="/program" element={<Navigate to="/programs" replace />} />
         <Route path="/program/:id" element={<RouteErrorBoundary><ProgramDetailRoute /></RouteErrorBoundary>} />
-        <Route path="/india/program/:id" element={<RouteErrorBoundary><ProgramDetailRoute /></RouteErrorBoundary>} />
+        <Route
+          path="/india/program/:id"
+          element={(
+            <IndiaSiteLayout>
+              <RouteErrorBoundary><ProgramDetailRoute /></RouteErrorBoundary>
+            </IndiaSiteLayout>
+          )}
+        />
         <Route path="/services" element={<Lazy><ServicesPage /></Lazy>} />
         <Route path="/sessions" element={<Lazy><AllSessionsPage /></Lazy>} />
         <Route path="/session/:id" element={<RouteErrorBoundary><SessionDetailPage /></RouteErrorBoundary>} />
