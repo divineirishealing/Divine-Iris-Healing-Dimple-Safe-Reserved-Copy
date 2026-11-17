@@ -77,7 +77,7 @@ const SUMMARY_COLUMN_DEFS = [
   { id: 'invoice', label: 'Invoice', weight: 7, headClass: 'text-left leading-tight' },
   { id: 'booker', label: 'Booker', weight: 13, headClass: 'text-left leading-tight' },
   { id: 'program', label: 'Program', weight: 13, headClass: 'text-left leading-tight' },
-  { id: 'origin', label: 'Src', weight: 5, headClass: 'text-left' },
+  { id: 'origin', label: 'Channel', weight: 6, headClass: 'text-left' },
   { id: 'pax', label: 'Pax', weight: 4, headClass: 'text-center' },
   { id: 'attend', label: 'Attend.', weight: 7, headClass: 'text-left leading-tight' },
   { id: 'pay', label: 'Pay', weight: 7, headClass: 'text-left leading-tight' },
@@ -128,7 +128,7 @@ const PROGRAM_BATCH_COLUMN_DEFS = [
   { id: 'progStart', label: 'Start', weight: 7, headClass: 'text-left leading-tight' },
   { id: 'progEnd', label: 'End', weight: 7, headClass: 'text-left leading-tight' },
   { id: 'mode', label: 'Mode', weight: 7, headClass: 'text-left' },
-  { id: 'origin', label: 'Src', weight: 6, headClass: 'text-left' },
+  { id: 'origin', label: 'Channel', weight: 6, headClass: 'text-left' },
   { id: 'pay', label: 'Pay', weight: 7, headClass: 'text-left leading-tight' },
   { id: 'status', label: 'Status', weight: 9, headClass: 'text-left leading-tight' },
   { id: 'paidWhen', label: 'Paid when', weight: 10, headClass: 'text-left leading-tight' },
@@ -150,7 +150,7 @@ const THREE_MO_MONTHLY_COLUMN_DEFS = [
   { id: 'city', label: 'City', weight: 8, headClass: 'text-left' },
   { id: 'country', label: 'Ctry', weight: 6, headClass: 'text-left' },
   { id: 'mode', label: 'Mode', weight: 6, headClass: 'text-left' },
-  { id: 'origin', label: 'Src', weight: 5, headClass: 'text-left' },
+  { id: 'origin', label: 'Channel', weight: 6, headClass: 'text-left' },
   { id: 'invoice', label: 'Inv', weight: 8, headClass: 'text-left' },
   { id: 'enrollId', label: 'Enroll ID', weight: 10, headClass: 'text-left font-mono' },
 ];
@@ -216,17 +216,33 @@ function enrollmentOriginKey(originish) {
   return 'website';
 }
 
+/** Stripe vs India page vs India QR (plus dashboard / admin pay link). */
+function checkoutChannelKey(rowOrEnrollment) {
+  const ch = String(rowOrEnrollment?.checkout_channel || '').toLowerCase();
+  if (ch) return ch;
+  const legacy = enrollmentOriginKey(rowOrEnrollment?.enrollment_origin);
+  if (legacy === 'dashboard' || legacy === 'payment_link') return legacy;
+  return 'stripe';
+}
+
 function isPaymentLinkEnrollment(e) {
   return !!(e?.payment_request_id || e?.enrollment_origin === 'payment_link' || e?.item_type === 'payment_link');
 }
 
-function participantOriginBadge(row) {
-  const o = row?.enrollment_origin;
-  const isLink = isPaymentLinkEnrollment(row);
-  if (o === 'dashboard') return { label: 'Dash', className: 'bg-amber-100 text-amber-900' };
-  if (o === 'payment_link' || isLink) return { label: 'Link', className: 'bg-emerald-100 text-emerald-900' };
-  return { label: 'Web', className: 'bg-slate-100 text-slate-700' };
+function checkoutChannelBadge(row) {
+  const ch = checkoutChannelKey(row);
+  if (ch === 'india_qr') return { label: 'QR', className: 'bg-cyan-100 text-cyan-900' };
+  if (ch === 'india_page') return { label: 'India', className: 'bg-violet-100 text-violet-900' };
+  if (ch === 'stripe') return { label: 'Stripe', className: 'bg-blue-100 text-blue-900' };
+  if (ch === 'dashboard') return { label: 'Dash', className: 'bg-amber-100 text-amber-900' };
+  if (ch === 'payment_link' || isPaymentLinkEnrollment(row)) {
+    return { label: 'Link', className: 'bg-emerald-100 text-emerald-900' };
+  }
+  return { label: 'Stripe', className: 'bg-slate-100 text-slate-700' };
 }
+
+/** @deprecated use checkoutChannelBadge */
+const participantOriginBadge = checkoutChannelBadge;
 
 function getParticipantPaymentMode(row) {
   const method = String(row?.payment_method || '').toLowerCase();
@@ -382,12 +398,34 @@ function participantAttendanceLabel(mode) {
   return 'Online';
 }
 
-function originLabel(origin) {
-  const o = String(origin || '').toLowerCase();
+function checkoutChannelLabel(row) {
+  if (row?.checkout_channel_label) return row.checkout_channel_label;
+  const ch = checkoutChannelKey(row);
+  if (ch === 'india_qr') return 'India QR';
+  if (ch === 'india_page') return 'India page';
+  if (ch === 'dashboard') return 'Dashboard';
+  if (ch === 'payment_link') return 'Pay link';
+  return 'Stripe';
+}
+
+function originLabel(originOrRow) {
+  if (originOrRow && typeof originOrRow === 'object') return checkoutChannelLabel(originOrRow);
+  const o = String(originOrRow || '').toLowerCase();
   if (o === 'dashboard') return 'Dashboard';
   if (o === 'payment_link') return 'Pay link';
-  return 'Website';
+  if (o === 'india_qr') return 'India QR';
+  if (o === 'india_page') return 'India page';
+  return 'Stripe';
 }
+
+const ORIGIN_FILTER_OPTIONS = [
+  { k: 'all', label: 'All' },
+  { k: 'stripe', label: 'Stripe' },
+  { k: 'india_page', label: 'India page' },
+  { k: 'india_qr', label: 'QR' },
+  { k: 'dashboard', label: 'Dashboard' },
+  { k: 'payment_link', label: 'Pay link' },
+];
 
 const FILTER_BLANKS = '(Blanks)';
 
@@ -954,7 +992,7 @@ const EnrollmentsTab = () => {
         const mode = getPaymentMode(e);
         const matchPayment = paymentFilter === 'all' || mode === paymentFilter;
         const matchOrigin =
-          originFilter === 'all' || enrollmentOriginKey(e.enrollment_origin) === originFilter;
+          originFilter === 'all' || checkoutChannelKey(e) === originFilter;
         return matchSearch && matchStatus && matchPayment && matchOrigin;
       }),
     [enrollments, search, statusFilter, paymentFilter, originFilter],
@@ -988,7 +1026,7 @@ const EnrollmentsTab = () => {
 
   const filteredParticipants = participantRows.filter((row) => {
     const matchOrigin =
-      originFilter === 'all' || enrollmentOriginKey(row.enrollment_origin) === originFilter;
+      originFilter === 'all' || checkoutChannelKey(row) === originFilter;
     if (!matchOrigin) return false;
     if (!participantSearch.trim()) return true;
     const q = participantSearch.toLowerCase();
@@ -1050,7 +1088,7 @@ const EnrollmentsTab = () => {
       ) {
         return;
       }
-      if (originFilter !== 'all' && enrollmentOriginKey(row.enrollment_origin) !== originFilter) {
+      if (originFilter !== 'all' && checkoutChannelKey(row) !== originFilter) {
         return;
       }
       const key = programBatchWindowKey(row);
@@ -1086,7 +1124,7 @@ const EnrollmentsTab = () => {
       ) {
         return false;
       }
-      if (originFilter !== 'all' && enrollmentOriginKey(row.enrollment_origin) !== originFilter) {
+      if (originFilter !== 'all' && checkoutChannelKey(row) !== originFilter) {
         return false;
       }
       if (selectedBatchKeys != null && selectedBatchKeys.length > 0) {
@@ -1317,7 +1355,7 @@ const EnrollmentsTab = () => {
             esc(formatProgramYmd(row.chosen_start_date)),
             esc(formatProgramYmd(row.chosen_end_date)),
             esc(participantAttendanceLabel(row.attendance_mode)),
-            esc(originLabel(row.enrollment_origin)),
+            esc(checkoutChannelLabel(row)),
             esc(getProgramBatchFilterValue(row, 'pay', fxRates)),
             esc(row.enrollment_status || row.payment_status),
             esc(formatEnrollReportDateTime(row.paid_at)),
@@ -1683,12 +1721,8 @@ const EnrollmentsTab = () => {
             Paid / completed only
           </label>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[9px] text-gray-500 font-medium uppercase tracking-wide">Origin</span>
-            {[
-              { k: 'all', label: 'All' },
-              { k: 'dashboard', label: 'Dash' },
-              { k: 'website', label: 'Web' },
-            ].map(({ k, label }) => (
+            <span className="text-[9px] text-gray-500 font-medium uppercase tracking-wide">Channel</span>
+            {ORIGIN_FILTER_OPTIONS.map(({ k, label }) => (
               <button
                 key={k}
                 type="button"
@@ -1725,12 +1759,8 @@ const EnrollmentsTab = () => {
             Paid / completed only
           </label>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[9px] text-gray-500 font-medium uppercase tracking-wide">Origin</span>
-            {[
-              { k: 'all', label: 'All' },
-              { k: 'dashboard', label: 'Dash' },
-              { k: 'website', label: 'Web' },
-            ].map(({ k, label }) => (
+            <span className="text-[9px] text-gray-500 font-medium uppercase tracking-wide">Channel</span>
+            {ORIGIN_FILTER_OPTIONS.map(({ k, label }) => (
               <button
                 key={k}
                 type="button"
@@ -1973,13 +2003,8 @@ const EnrollmentsTab = () => {
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap w-full sm:w-auto">
-          <span className="text-[9px] text-gray-500 font-medium uppercase tracking-wide">Origin</span>
-          {[
-            { k: 'all', label: 'All' },
-            { k: 'dashboard', label: 'Dashboard' },
-            { k: 'website', label: 'Website' },
-            { k: 'payment_link', label: 'Pay link' },
-          ].map(({ k, label }) => (
+          <span className="text-[9px] text-gray-500 font-medium uppercase tracking-wide">Channel</span>
+          {ORIGIN_FILTER_OPTIONS.map(({ k, label }) => (
             <button
               key={k}
               type="button"
@@ -2095,20 +2120,16 @@ const EnrollmentsTab = () => {
                                 )}
                               </td>
                             );
-                          case 'origin':
+                          case 'origin': {
+                            const chBadge = checkoutChannelBadge(e);
                             return (
-                              <td key={def.id} className={tc}>
-                                <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-md font-medium ${
-                                  e.enrollment_origin === 'dashboard'
-                                    ? 'bg-amber-100 text-amber-900'
-                                    : e.enrollment_origin === 'payment_link'
-                                      ? 'bg-emerald-100 text-emerald-900'
-                                      : 'bg-slate-100 text-slate-700'
-                                }`}>
-                                  {e.enrollment_origin === 'dashboard' ? 'Dash' : e.enrollment_origin === 'payment_link' ? 'Link' : 'Web'}
+                              <td key={def.id} className={tc} title={checkoutChannelLabel(e)}>
+                                <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-md font-medium ${chBadge.className}`}>
+                                  {chBadge.label}
                                 </span>
                               </td>
                             );
+                          }
                           case 'pax':
                             return (
                               <td key={def.id} className={`${tc} text-center tabular-nums`}>
@@ -2207,7 +2228,7 @@ const EnrollmentsTab = () => {
                           <div className="space-y-3">
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[10px]">
                             <div><span className="text-gray-400 block">Enrollment ID</span><span className="font-mono">{e.id}</span></div>
-                            <div><span className="text-gray-400 block">Origin</span>{e.enrollment_origin === 'dashboard' ? 'Dashboard' : 'Website'}</div>
+                            <div><span className="text-gray-400 block">Checkout channel</span>{checkoutChannelLabel(e)}</div>
                             <div><span className="text-gray-400 block">Country</span>{e.booker_country || '-'}</div>
                             <div><span className="text-gray-400 block">Booker phone</span>{e.phone || '—'}</div>
                             <div><span className="text-gray-400 block">Stored currency</span>{(currency || '').toUpperCase() || '—'}</div>

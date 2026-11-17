@@ -188,6 +188,7 @@ async def india_program_checkout(program_id: str, body: IndiaProgramLandingCheck
         "currency": "inr",
         "amount": list_inr,
         "created_via": "india_landing",
+        "checkout_channel": "india_page",
         "landing_path": landing_path,
         "ad_utm": {
             "utm_source": body.utm_source,

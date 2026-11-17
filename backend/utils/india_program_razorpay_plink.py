@@ -458,6 +458,7 @@ async def fulfill_india_program_payment_link_payment(
                     "paid_at": now.isoformat(),
                     "stripe_session_id": session_id,
                     "ad_utm": {**(open_enrollment.get("ad_utm") or {}), "utm_medium": "razorpay_plink"},
+                    "checkout_channel": "india_qr",
                     "updated_at": now.isoformat(),
                 }
             },
@@ -544,6 +545,7 @@ async def fulfill_india_program_payment_link_payment(
         "currency": "inr",
         "amount": amount_inr,
         "created_via": "india_landing",
+        "checkout_channel": "india_qr",
         "landing_path": landing_path,
         "payment_method": "razorpay",
         "ad_utm": {"utm_medium": "razorpay_plink"},

@@ -123,13 +123,11 @@ async def _transactions_grouped_by_enrollment(enrollment_ids: List[str]) -> Dict
     return out
 
 
-def _enrollment_origin(e: dict) -> str:
+def _enrollment_origin(e: dict, txn: Optional[dict] = None) -> str:
     """Rough source: dashboard, custom payment link, or public website checkout."""
-    if e.get("payment_request_id") or e.get("enrollment_origin") == "payment_link":
-        return "payment_link"
-    if e.get("dashboard_checkout_ready") or e.get("dashboard_mixed_total") is not None:
-        return "dashboard"
-    return "website"
+    from utils.checkout_channel import checkout_channel_fields
+
+    return checkout_channel_fields(e, txn).get("enrollment_origin") or "website"
 
 
 def _payment_tracking_fields_for_report(e: dict, txn: Optional[dict]) -> dict:
@@ -1402,7 +1400,10 @@ def build_participant_report_rows(
         booker_country = _clean_str(e.get("booker_country"))
         created = _clean_str(e.get("created_at"))
         paid_at = _paid_at_for_report(e, txn, is_done=is_done)
-        origin = _enrollment_origin(e)
+        from utils.checkout_channel import checkout_channel_fields
+
+        channel_fields = checkout_channel_fields(e, txn)
+        origin = channel_fields["enrollment_origin"]
 
         booker_email_key = (_clean_str(e.get("booker_email")) or "").strip().lower()
         payer_email_key = (_clean_str((txn or {}).get("payer_email")) or "").strip().lower()
@@ -1472,6 +1473,8 @@ def build_participant_report_rows(
                     "item_type": item_type,
                     "enrollment_status": _clean_str(display_status),
                     "enrollment_origin": origin,
+                    "checkout_channel": channel_fields["checkout_channel"],
+                    "checkout_channel_label": channel_fields["checkout_channel_label"],
                     "booker_name": booker_name,
                     "booker_email": booker_email,
                     "booker_phone": booker_phone,
@@ -1523,6 +1526,8 @@ def build_participant_report_rows(
                 "item_type": item_type,
                 "enrollment_status": _clean_str(display_status),
                 "enrollment_origin": origin,
+                "checkout_channel": channel_fields["checkout_channel"],
+                "checkout_channel_label": channel_fields["checkout_channel_label"],
                 "booker_name": booker_name,
                 "booker_email": booker_email,
                 "booker_phone": booker_phone,
@@ -2781,7 +2786,12 @@ async def list_enrollments():
             stripe_polls += 1
         await _enrich_enrollment_row_with_payment(e, by_e, stripe_key, poll_stripe=needs_poll)
         txn = e.get("payment")
-        e["enrollment_origin"] = _enrollment_origin(e)
+        from utils.checkout_channel import checkout_channel_fields
+
+        ch = checkout_channel_fields(e, txn)
+        e["checkout_channel"] = ch["checkout_channel"]
+        e["checkout_channel_label"] = ch["checkout_channel_label"]
+        e["enrollment_origin"] = ch["enrollment_origin"]
         if txn and txn.get("invoice_number"):
             e["invoice_number"] = txn["invoice_number"]
         merged_pp = _merge_participants_for_report(e, txn)
@@ -2937,7 +2947,7 @@ def _participant_report_rows_to_xlsx_bytes(rows: List[dict], *, sheet_title: str
         "Chosen end",
         "3-month tier",
         "Enrollment status",
-        "Origin",
+        "Checkout channel",
         "Booker name",
         "Booker email",
         "Booker phone",
@@ -3027,7 +3037,7 @@ def _participant_report_rows_to_xlsx_bytes(rows: List[dict], *, sheet_title: str
                 _clean_str(r.get("chosen_end_date")),
                 "yes" if r.get("is_three_month_tier") else "no",
                 _clean_str(r.get("enrollment_status")),
-                _clean_str(r.get("enrollment_origin")),
+                _clean_str(r.get("checkout_channel_label") or r.get("enrollment_origin")),
                 _clean_str(r.get("booker_name")),
                 _clean_str(r.get("booker_email")),
                 _clean_str(r.get("booker_phone")),
@@ -3138,7 +3148,12 @@ async def build_program_batch_xlsx_bytes(
             ]
     ok_origin = (_clean_str(origin_key) or "").lower()
     if ok_origin and ok_origin != "all":
-        rows = [r for r in rows if (_clean_str(r.get("enrollment_origin")).lower() or "website") == ok_origin]
+        if ok_origin == "website":
+            rows = [r for r in rows if (_clean_str(r.get("checkout_channel")).lower() or "stripe") == "stripe"]
+        elif ok_origin in ("stripe", "india_page", "india_qr", "dashboard", "payment_link"):
+            rows = [r for r in rows if (_clean_str(r.get("checkout_channel")).lower() or "") == ok_origin]
+        else:
+            rows = [r for r in rows if (_clean_str(r.get("enrollment_origin")).lower() or "website") == ok_origin]
     q = (_clean_str(search) or "").strip().lower()
     if q:
 
