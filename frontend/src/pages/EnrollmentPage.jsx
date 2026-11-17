@@ -819,7 +819,7 @@ function EnrollmentPage() {
       : total;
 
   const razorpayEligible = useMemo(() => {
-    if (paymentSettings.enrollment_razorpay_enabled === false) return false;
+    if (!indiaRazorpayOnly && paymentSettings.enrollment_razorpay_enabled === false) return false;
     if (!razorpayConfig?.enabled || !enrollmentId) return false;
     if (String(priceCurrency || '').toLowerCase() !== 'inr') return false;
     if (displayCheckoutTotal <= 0) return false;

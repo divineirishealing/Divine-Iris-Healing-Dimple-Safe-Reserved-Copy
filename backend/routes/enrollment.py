@@ -964,13 +964,12 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
             "dashboard_sacred_home_annual_program_id": 1,
         },
     )
-    if (ss_doc or {}).get("enrollment_razorpay_enabled") is False:
+    india_site = bool(getattr(data, "india_site_checkout", None))
+    if (ss_doc or {}).get("enrollment_razorpay_enabled") is False and not india_site:
         raise HTTPException(
             status_code=403,
             detail="Razorpay enrollment checkout is turned off in site settings.",
         )
-
-    india_site = bool(getattr(data, "india_site_checkout", None))
     if not india_site:
         ip_country, _ = await detect_ip_info(request)
         if (ip_country or "").upper() != "IN":

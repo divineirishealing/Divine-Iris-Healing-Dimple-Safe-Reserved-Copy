@@ -25,7 +25,7 @@ import {
   sumCrossSellLineDiscount,
 } from '../lib/crossSellPricing';
 import { effectiveParticipantEmail } from '../lib/dashboardCartPrefill';
-import { resolveEffectiveOffer } from '../lib/effectiveOfferPricing';
+import { resolveEffectiveOffer, shouldShowStrikethroughListPrice } from '../lib/effectiveOfferPricing';
 import { mapCartItemForApi, primarySessionBookingFromCart } from '../lib/sessionBookingPayload';
 import { toIndiaSitePath } from '../lib/indiaHomeRoutes';
 import { useCartCheckoutCurrency, cartItemListPrice, cartItemOfferPrice } from '../hooks/useCartCheckoutCurrency';
@@ -215,7 +215,13 @@ const CartItemCard = ({
                 </span>
               )
             ) : offerPrice > 0 ? (
-              <span className="text-[10px] text-gray-400"><span className="text-[#D4AF37] font-medium">{symbol} {offerPrice.toLocaleString()}</span> <span className="line-through">{symbol} {price.toLocaleString()}</span> / person</span>
+              <span className="text-[10px] text-gray-400">
+                <span className="text-[#D4AF37] font-medium">{symbol} {offerPrice.toLocaleString()}</span>
+                {shouldShowStrikethroughListPrice(price, offerPrice) && (
+                  <span className="line-through"> {symbol} {price.toLocaleString()}</span>
+                )}
+                {' '}/ person
+              </span>
             ) : (
               <span className="text-[10px] text-gray-400">{symbol} {price.toLocaleString()} / person</span>
             )}
