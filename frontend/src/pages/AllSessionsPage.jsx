@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { toIndiaSitePath } from '../lib/indiaHomeRoutes';
 import axios from 'axios';
 import { Wifi, MapPin, Clock, Quote, ArrowRight } from 'lucide-react';
 import Header from '../components/Header';
@@ -21,6 +22,7 @@ const applyStyle = (styleObj, defaults = {}) => {
 
 function AllSessionsPage() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { settings } = useSiteSettings();
 
   useEffect(() => {
@@ -73,7 +75,7 @@ function AllSessionsPage() {
               <div
                 key={session.id}
                 data-testid={`session-card-${session.id}`}
-                onClick={() => navigate(`/session/${session.id}`)}
+                onClick={() => navigate(toIndiaSitePath(`/session/${session.id}`, pathname))}
                 className="group bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden hover:-translate-y-1"
               >
                 {/* Gradient top bar */}

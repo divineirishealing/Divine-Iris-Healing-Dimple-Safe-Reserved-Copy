@@ -1,4 +1,6 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
+import { toIndiaSitePath } from '../lib/indiaHomeRoutes';
 import { HEADING, BODY, GOLD, CONTAINER } from '../lib/designTokens';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import { resolveImageUrl } from '../lib/imageUtils';
@@ -18,6 +20,7 @@ const applyStyle = (styleObj, defaults = {}) => {
 };
 
 const SponsorSection = ({ sectionConfig, inline }) => {
+  const { pathname } = useLocation();
   const { settings } = useSiteSettings();
   const h = settings?.sponsor_home || {};
   const imgUrl = h.image ? resolveImageUrl(h.image) : '';
@@ -38,7 +41,7 @@ const SponsorSection = ({ sectionConfig, inline }) => {
       <p className="font-medium mb-6 text-sm" style={applyStyle(h.quote_style, { color: '#333', fontStyle: 'italic' })}>
         {h.quote || 'Because healing should never wait for circumstances'}
       </p>
-      <a href="/sponsor" data-testid="become-sponsor-btn"
+      <a href={toIndiaSitePath('/sponsor', pathname)} data-testid="become-sponsor-btn"
         className="inline-block text-white px-8 py-3 rounded-full text-sm transition-all duration-300 shadow-lg hover:shadow-xl tracking-wider"
         style={{ background: GOLD }}>
         {h.button_text || 'Become a Sponsor'}

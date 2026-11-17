@@ -10,15 +10,17 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import {
   Tag, CreditCard, Mail, Lock, Loader2, Check, ChevronLeft, ChevronRight,
-  ShieldCheck, ShieldAlert, ShoppingCart, FileText, Gift
+  ShieldCheck, ShieldAlert, ShoppingCart, FileText, Gift, IndianRupee
 } from 'lucide-react';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
 import { normalizeCartItemTierIndex } from '../lib/crossSellPricing';
 import { resolveEffectiveOffer } from '../lib/effectiveOfferPricing';
 import { mapCartItemForApi } from '../lib/sessionBookingPayload';
 import { formatSessionCalendarDateLabel } from '../lib/sessionCalendarSlots';
-import { isIndiaCheckoutSurface } from '../lib/checkoutSurfaceStorage';
 import { toIndiaSitePath } from '../lib/indiaHomeRoutes';
+import { useCartCheckoutCurrency, cartItemListPrice, cartItemOfferPrice } from '../hooks/useCartCheckoutCurrency';
+import { shouldUseIndiaRazorpayOnly, loadRazorpayScript } from '../lib/razorpayCheckout';
+import { shouldShowStrikethroughListPrice } from '../lib/effectiveOfferPricing';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -33,9 +35,15 @@ function CartCheckoutPage() {
   const cartPath = toIndiaSitePath('/cart', location.pathname);
   const checkoutSelf = toIndiaSitePath('/cart/checkout', location.pathname);
   const { items, clearCart } = useCart();
-  const { country: detectedCountry, symbol, baseCurrency, baseSymbol, displayCurrency, displaySymbol, isPrimary, getPrice, getOfferPrice, toDisplay } = useCurrency();
-  const currency = baseCurrency;
+  const { country: detectedCountry, symbol, baseCurrency, displayCurrency, isPrimary, toDisplay } = useCurrency();
+  const indiaOnly = shouldUseIndiaRazorpayOnly(location.pathname);
+  const cartCur = useCartCheckoutCurrency();
+  const currency = (indiaOnly || cartCur.isIndiaCart) ? cartCur.currency : baseCurrency;
+  const checkoutSymbol = (indiaOnly || cartCur.isIndiaCart) ? cartCur.symbol : symbol;
+  const checkoutToDisplay = (indiaOnly || cartCur.isIndiaCart) ? cartCur.toDisplay : toDisplay;
   const { toast } = useToast();
+  const [razorpayConfig, setRazorpayConfig] = useState({ enabled: false });
+  const [razorpayBusy, setRazorpayBusy] = useState(false);
   const [searchParams] = useSearchParams();
 
   // Enrollment ID and promo come from cart page via URL
@@ -98,22 +106,32 @@ function CartCheckoutPage() {
     }).catch(() => { setCheckoutPromoVisible(true); });
   }, []);
 
+  useEffect(() => {
+    axios.get(`${API}/payments/razorpay/config`).then((r) => setRazorpayConfig(r.data || { enabled: false })).catch(() => {});
+  }, []);
+
   // Local price getters using active currency
   const getItemPrice = (item) => {
+    if (indiaOnly || cartCur.isIndiaCart) {
+      return checkoutToDisplay(cartItemListPrice(item, currency));
+    }
     const tiers = item.durationTiers || [];
     const hasTiers = item.isFlagship && tiers.length > 0;
     const tier = hasTiers ? tiers[item.tierIndex] : null;
     const key = `price_${currency}`;
     const base = tier ? (tier[key] || 0) : (item[key] || 0);
-    return toDisplay(base);
+    return checkoutToDisplay(base);
   };
 
   const getItemOfferPrice = (item) => {
+    if (indiaOnly || cartCur.isIndiaCart) {
+      return cartItemOfferPrice(item, currency, checkoutToDisplay);
+    }
     const tiers = item.durationTiers || [];
     const hasTiers = item.isFlagship && tiers.length > 0;
     const tier = hasTiers ? tiers[item.tierIndex] : null;
     const source = tier || item;
-    return toDisplay(resolveEffectiveOffer(source, currency).price);
+    return checkoutToDisplay(resolveEffectiveOffer(source, currency).price);
   };
 
   const getEffectivePrice = (item) => {
@@ -251,6 +269,79 @@ function CartCheckoutPage() {
     }
   };
 
+  const razorpayEligible = useMemo(() => {
+    if (!indiaOnly) return false;
+    if (!razorpayConfig?.enabled || !enrollmentId) return false;
+    if (String(currency || '').toLowerCase() !== 'inr') return false;
+    if (displayCheckoutTotal <= 0) return false;
+    return true;
+  }, [indiaOnly, razorpayConfig, enrollmentId, currency, displayCheckoutTotal]);
+
+  const handleRazorpayCheckout = async () => {
+    if (!razorpayEligible || !enrollmentId) return;
+    setRazorpayBusy(true);
+    try {
+      await loadRazorpayScript();
+      const firstItem = items[0];
+      const { data: co } = await axios.post(`${API}/enrollment/${enrollmentId}/checkout-razorpay`, {
+        enrollment_id: enrollmentId,
+        item_type: firstItem.type === 'session' ? 'session' : 'program',
+        item_id: firstItem.programId,
+        currency,
+        display_currency: currency,
+        display_rate: 1,
+        origin_url: window.location.origin,
+        promo_code: promoResult?.code || null,
+        tier_index: firstItem.type === 'session' ? firstItem.tierIndex ?? null : normalizeCartItemTierIndex(firstItem),
+        points_to_redeem: pointsSummary?.enabled ? Math.max(0, parseInt(String(pointsToRedeem), 10) || 0) : 0,
+        cart_items: items.map((i) => mapCartItemForApi(i, { tierIndexFn: normalizeCartItemTierIndex })),
+        browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
+        client_declared_payable: displayCheckoutTotal,
+        india_site_checkout: true,
+      });
+      const options = {
+        key: co.key_id,
+        amount: co.amount,
+        currency: co.currency,
+        order_id: co.order_id,
+        name: 'Divine Iris Healing',
+        description: co.description || 'Cart checkout',
+        method: { upi: true, card: true, netbanking: true, wallet: true },
+        prefill: { name: co.name || bookerName, email: co.email || bookerEmail },
+        handler: async (response) => {
+          try {
+            await axios.post(`${API}/payments/razorpay/verify`, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            clearCart();
+            navigate(`/payment/success?session_id=${encodeURIComponent(co.session_id)}`);
+          } catch (err) {
+            toast({
+              title: 'Payment verification failed',
+              description: err.response?.data?.detail || err.message || 'Contact support',
+              variant: 'destructive',
+            });
+          } finally {
+            setRazorpayBusy(false);
+          }
+        },
+        modal: { ondismiss: () => setRazorpayBusy(false) },
+      };
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', () => {
+        toast({ title: 'Payment failed', description: 'Please try again.', variant: 'destructive' });
+        setRazorpayBusy(false);
+      });
+      rzp.open();
+    } catch (err) {
+      toast({ title: 'Payment Error', description: err.response?.data?.detail || 'Try again', variant: 'destructive' });
+      setRazorpayBusy(false);
+    }
+  };
+
   if (items.length === 0) return null;
 
   return (
@@ -291,49 +382,54 @@ function CartCheckoutPage() {
                     </div>
                     <span className="text-xs font-bold text-gray-900">
                       {getItemOfferPrice(item) > 0 ? (
-                        <><span className="text-[#D4AF37]">{symbol} {(getItemOfferPrice(item) * item.participants.length).toLocaleString()}</span>{' '}<span className="line-through text-gray-400 font-normal">{symbol} {(getItemPrice(item) * item.participants.length).toLocaleString()}</span></>
-                      ) : `${symbol} ${(getItemPrice(item) * item.participants.length).toLocaleString()}`}
+                        <>
+                          <span className="text-[#D4AF37]">{checkoutSymbol} {(getItemOfferPrice(item) * item.participants.length).toLocaleString()}</span>
+                          {shouldShowStrikethroughListPrice(getItemPrice(item) * item.participants.length, getItemOfferPrice(item) * item.participants.length) && (
+                            <span className="line-through text-gray-400 font-normal">{checkoutSymbol} {(getItemPrice(item) * item.participants.length).toLocaleString()}</span>
+                          )}
+                        </>
+                      ) : `${checkoutSymbol} ${(getItemPrice(item) * item.participants.length).toLocaleString()}`}
                     </span>
                   </div>
                 ))}
                 <div className="border-t mt-3 pt-3 space-y-1">
                   <div className="flex justify-between text-xs text-gray-600">
-                    <span>Subtotal</span><span>{symbol} {subtotal.toLocaleString()}</span>
+                    <span>Subtotal</span><span>{checkoutSymbol} {subtotal.toLocaleString()}</span>
                   </div>
                   {autoDiscounts.group_discount > 0 && (
                     <div className="flex justify-between text-xs text-green-600" data-testid="discount-group">
-                      <span>Group Discount ({totalParticipants} people)</span><span>-{symbol} {autoDiscounts.group_discount.toLocaleString()}</span>
+                      <span>Group Discount ({totalParticipants} people)</span><span>-{checkoutSymbol} {autoDiscounts.group_discount.toLocaleString()}</span>
                     </div>
                   )}
                   {autoDiscounts.combo_discount > 0 && (
                     <div className="flex justify-between text-xs text-green-600" data-testid="discount-combo">
-                      <span>Combo Discount ({numPrograms} programs)</span><span>-{symbol} {autoDiscounts.combo_discount.toLocaleString()}</span>
+                      <span>Combo Discount ({numPrograms} programs)</span><span>-{checkoutSymbol} {autoDiscounts.combo_discount.toLocaleString()}</span>
                     </div>
                   )}
                   {autoDiscounts.loyalty_discount > 0 && (
                     <div className="flex justify-between text-xs text-green-600" data-testid="discount-loyalty">
-                      <span>Loyalty Discount</span><span>-{symbol} {autoDiscounts.loyalty_discount.toLocaleString()}</span>
+                      <span>Loyalty Discount</span><span>-{checkoutSymbol} {autoDiscounts.loyalty_discount.toLocaleString()}</span>
                     </div>
                   )}
                   {autoDiscounts.cross_sell_discount > 0 && (
                     <div className="flex justify-between text-xs text-green-600" data-testid="discount-cross-sell">
                       <span>Bundle / cross-sell</span>
-                      <span>-{symbol} {autoDiscounts.cross_sell_discount.toLocaleString()}</span>
+                      <span>-{checkoutSymbol} {autoDiscounts.cross_sell_discount.toLocaleString()}</span>
                     </div>
                   )}
                   {discount > 0 && (
                     <div className="flex justify-between text-xs text-green-600">
-                      <span>Promo ({promoResult.code})</span><span>-{symbol} {discount.toLocaleString()}</span>
+                      <span>Promo ({promoResult.code})</span><span>-{checkoutSymbol} {discount.toLocaleString()}</span>
                     </div>
                   )}
                   {pointsSummary?.enabled && total > 0 && pointsCashEstimate > 0 && (
                     <div className="flex justify-between text-xs text-amber-700" data-testid="cart-points-discount">
-                      <span>Points</span><span>-{symbol} {pointsCashEstimate.toLocaleString()}</span>
+                      <span>Points</span><span>-{checkoutSymbol} {pointsCashEstimate.toLocaleString()}</span>
                     </div>
                   )}
                   <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2">
                     <span>Total</span>
-                    <span className="text-[#D4AF37]">{displayCheckoutTotal <= 0 ? 'FREE' : `${symbol} ${displayCheckoutTotal.toLocaleString()}`}</span>
+                    <span className="text-[#D4AF37]">{displayCheckoutTotal <= 0 ? 'FREE' : `${checkoutSymbol} ${displayCheckoutTotal.toLocaleString()}`}</span>
                   </div>
                 </div>
               </div>
@@ -377,20 +473,20 @@ function CartCheckoutPage() {
                       {items.map(item => (
                         <div key={item.id} className="flex justify-between text-xs text-gray-700 py-1 border-b">
                           <span>{item.programTitle} ({item.tierLabel}) x{item.participants.length}</span>
-                          <span className="font-medium">{symbol} {(getEffectivePrice(item) * item.participants.length).toLocaleString()}</span>
+                          <span className="font-medium">{checkoutSymbol} {(getEffectivePrice(item) * item.participants.length).toLocaleString()}</span>
                         </div>
                       ))}
                       {discount > 0 && (
-                        <div className="flex justify-between text-xs text-green-600"><span>Promo ({promoResult.code})</span><span>-{symbol} {discount.toLocaleString()}</span></div>
+                        <div className="flex justify-between text-xs text-green-600"><span>Promo ({promoResult.code})</span><span>-{checkoutSymbol} {discount.toLocaleString()}</span></div>
                       )}
                       {totalAutoDiscount > 0 && (
-                        <div className="flex justify-between text-xs text-green-600"><span>Discounts</span><span>-{symbol} {totalAutoDiscount.toLocaleString()}</span></div>
+                        <div className="flex justify-between text-xs text-green-600"><span>Discounts</span><span>-{checkoutSymbol} {totalAutoDiscount.toLocaleString()}</span></div>
                       )}
                     </div>
 
                     <div className="flex justify-between font-bold text-lg border-t pt-3 mb-5">
                       <span>Total</span>
-                      <span className="text-[#D4AF37]">{displayCheckoutTotal <= 0 ? 'FREE' : `${symbol} ${displayCheckoutTotal.toLocaleString()}`}</span>
+                      <span className="text-[#D4AF37]">{displayCheckoutTotal <= 0 ? 'FREE' : `${checkoutSymbol} ${displayCheckoutTotal.toLocaleString()}`}</span>
                     </div>
 
                     {pointsSummary?.enabled && total > 0 && pointsSummary.redeem_blocked && (
@@ -419,13 +515,20 @@ function CartCheckoutPage() {
                         />
                         <div className="flex justify-between text-[10px] text-gray-700 mt-1">
                           <span>{Math.min(pointsToRedeem, pointsSummary.max_points_usable || 0)} pts</span>
-                          <span className="text-amber-800">-{symbol}{pointsCashEstimate.toLocaleString()}</span>
+                          <span className="text-amber-800">-{checkoutSymbol}{pointsCashEstimate.toLocaleString()}</span>
                         </div>
                       </div>
                     )}
 
-                    {/* India payment options — matching EnrollmentPage */}
-                    {(isIndiaCheckoutSurface() || detectedCountry === 'IN') && paymentSettings.india_enabled && total > 0 && (
+                    {indiaOnly && total > 0 && razorpayEligible && (
+                      <div className="mb-4 border border-amber-200 rounded-lg p-4 bg-amber-50/40" data-testid="cart-india-razorpay-only">
+                        <p className="text-sm font-semibold text-gray-900 mb-1">Pay with Razorpay</p>
+                        <p className="text-[10px] text-gray-600">India site checkout — UPI, cards, and netbanking only.</p>
+                      </div>
+                    )}
+
+                    {/* Legacy India options (global site only) */}
+                    {!indiaOnly && (detectedCountry === 'IN') && paymentSettings.india_enabled && total > 0 && (
                       <div className="mb-4" data-testid="cart-india-payment-options">
                         <div className="border-2 border-[#D4AF37] rounded-lg p-4 mb-3 bg-[#D4AF37]/5">
                           <div className="flex items-center gap-2 mb-2">
@@ -497,10 +600,25 @@ function CartCheckoutPage() {
 
                     <div className="flex gap-3">
                       <Button variant="outline" onClick={() => navigate(cartPath)} className="rounded-full"><ChevronLeft size={16} /></Button>
-                      <Button data-testid="cart-pay-btn" onClick={handleCheckout} disabled={processing || (total > 0 && !enrollmentId)}
-                        className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
-                        {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {displayCheckoutTotal <= 0 ? 'Registering...' : 'Redirecting...'}</> : displayCheckoutTotal <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {symbol} {displayCheckoutTotal.toLocaleString()}</>}
-                      </Button>
+                      {indiaOnly && displayCheckoutTotal > 0 ? (
+                        <Button
+                          data-testid="cart-pay-btn"
+                          onClick={handleRazorpayCheckout}
+                          disabled={!razorpayEligible || razorpayBusy || processing || !enrollmentId}
+                          className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full"
+                        >
+                          {razorpayBusy ? (
+                            <><Loader2 className="animate-spin mr-2" size={16} /> Opening Razorpay...</>
+                          ) : (
+                            <><IndianRupee size={14} className="mr-2" /> Pay {checkoutSymbol} {displayCheckoutTotal.toLocaleString()} with Razorpay</>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button data-testid="cart-pay-btn" onClick={handleCheckout} disabled={processing || razorpayBusy || (total > 0 && !enrollmentId)}
+                          className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
+                          {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {displayCheckoutTotal <= 0 ? 'Registering...' : 'Redirecting...'}</> : displayCheckoutTotal <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {checkoutSymbol} {displayCheckoutTotal.toLocaleString()}</>}
+                        </Button>
+                      )}
                     </div>
 
                     {total > 0 && (
@@ -518,7 +636,9 @@ function CartCheckoutPage() {
                             </p>
                           </div>
                         )}
-                        <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1"><Lock size={10} /> Secure payment via Stripe</p>
+                        <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1">
+                          <Lock size={10} /> {indiaOnly ? 'Secure payment via Razorpay' : 'Secure payment via Stripe'}
+                        </p>
                       </>
                     )}
                   </div>

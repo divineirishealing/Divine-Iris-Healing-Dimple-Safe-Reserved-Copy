@@ -214,6 +214,8 @@ class EnrollmentSubmit(BaseModel):
     home_coming_catalog_checkout: Optional[bool] = None
     # Session pay-as-you-wish (INR): amount chosen by client on enrollment checkout.
     client_chosen_amount: Optional[float] = None
+    # True when paying from /india/* marketing site (skip IP / booker-country Razorpay gates).
+    india_site_checkout: Optional[bool] = None
 
 
 def _ordinal(n: int) -> str:
@@ -968,19 +970,21 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
             detail="Razorpay enrollment checkout is turned off in site settings.",
         )
 
-    ip_country, _ = await detect_ip_info(request)
-    if (ip_country or "").upper() != "IN":
-        raise HTTPException(
-            status_code=403,
-            detail="Razorpay is only available when your connection is detected from India.",
-        )
+    india_site = bool(getattr(data, "india_site_checkout", None))
+    if not india_site:
+        ip_country, _ = await detect_ip_info(request)
+        if (ip_country or "").upper() != "IN":
+            raise HTTPException(
+                status_code=403,
+                detail="Razorpay is only available when your connection is detected from India.",
+            )
 
-    booker_cc = normalize_country_iso2(str(enrollment.get("booker_country") or ""))
-    if booker_cc != "IN":
-        raise HTTPException(
-            status_code=403,
-            detail="Razorpay requires India as the selected base country for this enrollment.",
-        )
+        booker_cc = normalize_country_iso2(str(enrollment.get("booker_country") or ""))
+        if booker_cc != "IN":
+            raise HTTPException(
+                status_code=403,
+                detail="Razorpay requires India as the selected base country for this enrollment.",
+            )
 
     currency = (prep.get("currency") or "").lower()
     if currency != "inr":

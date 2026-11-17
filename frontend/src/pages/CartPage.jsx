@@ -28,6 +28,7 @@ import { effectiveParticipantEmail } from '../lib/dashboardCartPrefill';
 import { resolveEffectiveOffer } from '../lib/effectiveOfferPricing';
 import { mapCartItemForApi, primarySessionBookingFromCart } from '../lib/sessionBookingPayload';
 import { toIndiaSitePath } from '../lib/indiaHomeRoutes';
+import { useCartCheckoutCurrency, cartItemListPrice, cartItemOfferPrice } from '../hooks/useCartCheckoutCurrency';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -462,7 +463,9 @@ function CartPage() {
   const location = useLocation();
   const { items, removeItem, updateItemParticipants, clearCart } = useCart();
   const { getPrice, getOfferPrice, symbol, baseCurrency, toDisplay, country: detectedCountry } = useCurrency();
-  const currency = baseCurrency;
+  const cartCur = useCartCheckoutCurrency();
+  const currency = cartCur.isIndiaCart ? cartCur.currency : baseCurrency;
+  const cartSymbol = cartCur.isIndiaCart ? cartCur.symbol : symbol;
   const { toast } = useToast();
   const { user } = useAuth();
   const [discountSettings, setDiscountSettings] = useState({ enable_referral: true, checkout_promo_code_visible: true });
@@ -524,6 +527,9 @@ function CartPage() {
   };
 
   const getItemPrice = (item) => {
+    if (cartCur.isIndiaCart) {
+      return cartCur.toDisplay(cartItemListPrice(item, currency));
+    }
     if (item.type === 'session') {
       const fakeProgram = { is_flagship: false, duration_tiers: [], price_aed: item.price_aed, price_inr: item.price_inr, price_usd: item.price_usd };
       return getPrice(fakeProgram);
@@ -536,6 +542,9 @@ function CartPage() {
   const getItemOfferPrice = (item) => {
     const portalUnit = getPortalSyncedUnitOffer(item);
     if (portalUnit != null) return portalUnit;
+    if (cartCur.isIndiaCart) {
+      return cartItemOfferPrice(item, currency, cartCur.toDisplay);
+    }
     const tiers = item.durationTiers || [];
     const hasTiers = item.isFlagship && tiers.length > 0;
     const tier = hasTiers ? tiers[item.tierIndex] : null;
@@ -821,7 +830,7 @@ function CartPage() {
               <CartItemCard key={item.id} item={item}
                 onRemove={() => removeItem(item.id)}
                 onUpdateParticipants={(p) => updateItemParticipants(item.id, p)}
-                symbol={symbol} getItemPrice={getItemPrice} getItemOfferPrice={getItemOfferPrice}
+                symbol={cartSymbol} getItemPrice={getItemPrice} getItemOfferPrice={getItemOfferPrice}
                 showReferral={discountSettings.enable_referral} detectedCountry={detectedCountry}
                 copySource={itemIdx > 0 ? items[0] : null}
                 crossSellDiscount={summ.total > 0 ? itemCrossSell : null}

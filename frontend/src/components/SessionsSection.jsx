@@ -93,7 +93,8 @@ const PurpleGoldScrollbar = ({ scrollRef, containerHeight = 520 }) => {
     </div>
   );
 };
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { toIndiaSitePath } from '../lib/indiaHomeRoutes';
 import axios from 'axios';
 import { ChevronRight, ChevronLeft, Clock, Wifi, MapPin, Quote, Calendar as CalendarIcon, ShoppingCart } from 'lucide-react';
 import { HEADING, BODY, GOLD, CONTAINER, applySectionStyle } from '../lib/designTokens';
@@ -194,6 +195,7 @@ const MiniCalendar = ({ availableDates = [], onSelectDate, selectedDate }) => {
 
 const SessionsSection = ({ sectionConfig }) => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { getPrice, formatPrice, baseCurrency } = useCurrency();
   const { settings } = useSiteSettings();
   const { addSessionItem } = useCart();
@@ -511,7 +513,7 @@ const SessionsSection = ({ sectionConfig }) => {
                           {!selectedDate ? 'Select a date to proceed' : 'Select a time slot to proceed'}
                         </p>
                       )}
-                      <button onClick={() => navigate(`/session/${selectedSession.id}`)} data-testid="book-session-btn"
+                      <button onClick={() => navigate(toIndiaSitePath(`/session/${selectedSession.id}`, pathname))} data-testid="book-session-btn"
                         className="w-full py-3.5 rounded-full text-[11px] tracking-[0.2em] uppercase font-medium transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-[1.02]"
                         style={{ background: `linear-gradient(135deg, ${buttonBg}, ${buttonBg}dd)`, color: buttonText }}>
                         View Details & Book

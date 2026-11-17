@@ -31,6 +31,8 @@ import { resolveProgramDurationDisplay } from '../lib/programDurationDisplay';
 import { resolveEnrollTierIndex, programHasWebsiteVisibleTiers } from '../lib/programTierVisibility';
 import { sessionBookingFromParams } from '../lib/sessionBookingPayload';
 import { formatSessionCalendarDateLabel } from '../lib/sessionCalendarSlots';
+import { isIndiaCheckoutSurface } from '../lib/checkoutSurfaceStorage';
+import { loadRazorpayScript } from '../lib/razorpayCheckout';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -53,24 +55,6 @@ const COUNTRIES = [
   { code: "IT", name: "Italy", phone: "+39" }, { code: "ES", name: "Spain", phone: "+34" },
   { code: "NL", name: "Netherlands", phone: "+31" }, { code: "NZ", name: "New Zealand", phone: "+64" },
 ].sort((a, b) => a.name.localeCompare(b.name));
-
-function loadRazorpayScript() {
-  return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined') {
-      reject(new Error('No window'));
-      return;
-    }
-    if (window.Razorpay) {
-      resolve();
-      return;
-    }
-    const s = document.createElement('script');
-    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('Could not load Razorpay'));
-    document.body.appendChild(s);
-  });
-}
 
 function splitPhoneForEnrollment(fullPhone, countries) {
   const raw = String(fullPhone || '').replace(/[\s-]/g, '');
@@ -544,7 +528,10 @@ function EnrollmentPage() {
   }, [inrToken]);
 
   // Local price getters — INR hub (same as India): token, whitelist, user override, or currency detect
+  const indiaRazorpayOnly = isIndiaCheckoutSurface();
+
   const showIndiaHubPricing = useMemo(() => {
+    if (indiaRazorpayOnly) return true;
     if (inrTokenActive) return true;
     if (baseCurrency === 'inr') return true;
     if ((user?.pricing_country_override || '').toUpperCase() === 'IN') return true;
@@ -552,7 +539,7 @@ function EnrollmentPage() {
     const em = (bookerEmail || user?.email || '').toLowerCase().trim();
     if (em && wl.includes(em)) return true;
     return false;
-  }, [inrTokenActive, baseCurrency, user?.pricing_country_override, user?.email, bookerEmail, inrWhitelistEmails]);
+  }, [indiaRazorpayOnly, inrTokenActive, baseCurrency, user?.pricing_country_override, user?.email, bookerEmail, inrWhitelistEmails]);
 
   const priceCurrency = showIndiaHubPricing ? 'inr' : currency;
   const priceSymbol = showIndiaHubPricing ? '₹' : rawSymbol;
@@ -835,11 +822,12 @@ function EnrollmentPage() {
     if (paymentSettings.enrollment_razorpay_enabled === false) return false;
     if (!razorpayConfig?.enabled || !enrollmentId) return false;
     if (String(priceCurrency || '').toLowerCase() !== 'inr') return false;
+    if (displayCheckoutTotal <= 0) return false;
+    if (indiaRazorpayOnly) return true;
     if (detectedCountry !== 'IN') return false;
     if (String(bookerCountry || '').toUpperCase() !== 'IN') return false;
-    if (displayCheckoutTotal <= 0) return false;
     return true;
-  }, [paymentSettings.enrollment_razorpay_enabled, razorpayConfig, enrollmentId, priceCurrency, detectedCountry, bookerCountry, displayCheckoutTotal]);
+  }, [paymentSettings.enrollment_razorpay_enabled, razorpayConfig, enrollmentId, priceCurrency, detectedCountry, bookerCountry, displayCheckoutTotal, indiaRazorpayOnly]);
 
   const validatePromo = async () => {
     if (!promoCode.trim()) return;
@@ -1062,6 +1050,7 @@ function EnrollmentPage() {
           booking_time: sessionBookingPayload.session_booking_time,
         }] : undefined,
         ...payWishCheckoutExtra,
+        india_site_checkout: indiaRazorpayOnly || undefined,
       });
       const options = {
         key: co.key_id,
@@ -1572,8 +1561,17 @@ function EnrollmentPage() {
                       </div>
                     )}
 
-                    {/* India + INR: Stripe and Razorpay together (does not require “India payment options” admin toggle). */}
-                    {detectedCountry === 'IN' && String(priceCurrency || '').toLowerCase() === 'inr' && displayCheckoutTotal > 0 && (
+                    {indiaRazorpayOnly && displayCheckoutTotal > 0 && razorpayEligible && (
+                      <div className="mb-4 border border-amber-200 rounded-lg p-4 bg-amber-50/40" data-testid="india-razorpay-only-block">
+                        <p className="text-sm font-semibold text-gray-900 mb-1">Pay with Razorpay</p>
+                        <p className="text-[10px] text-gray-600">
+                          Secure India checkout — UPI, cards, and netbanking. Total may include GST and platform charges per site settings.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* India + INR: Stripe and Razorpay together (global site only). */}
+                    {!indiaRazorpayOnly && detectedCountry === 'IN' && String(priceCurrency || '').toLowerCase() === 'inr' && displayCheckoutTotal > 0 && (
                       <div className="mb-4" data-testid="india-stripe-razorpay-block">
                         <div className="border-2 border-[#D4AF37] rounded-lg p-4 mb-3 bg-[#D4AF37]/5">
                           <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -1618,8 +1616,8 @@ function EnrollmentPage() {
                       </div>
                     )}
 
-                    {/* Exly / manual — only when India options enabled in admin */}
-                    {detectedCountry === 'IN' && paymentSettings.india_enabled && displayCheckoutTotal > 0 && (
+                    {/* Exly / manual — only when India options enabled in admin (global site). */}
+                    {!indiaRazorpayOnly && detectedCountry === 'IN' && paymentSettings.india_enabled && displayCheckoutTotal > 0 && (
                       <div className="mb-4" data-testid="india-payment-options">
                         <div className="relative my-3">
                           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
@@ -1691,13 +1689,30 @@ function EnrollmentPage() {
 
                     <div className="flex gap-3">
                       <Button variant="outline" onClick={goBackFromPayStep} className="rounded-full"><ChevronLeft size={16} /></Button>
-                      <Button data-testid="pay-now-btn" onClick={handleCheckout} disabled={processing || razorpayBusy || (isPayAsYouWishCheckout && !payWishAmountValid)}
-                        className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
-                        {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {displayCheckoutTotal <= 0 ? 'Registering...' : 'Redirecting...'}</> : displayCheckoutTotal <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {effectiveSymbol} {displayCheckoutTotal.toLocaleString()}</>}
-                      </Button>
+                      {indiaRazorpayOnly && displayCheckoutTotal > 0 ? (
+                        <Button
+                          data-testid="pay-now-btn"
+                          onClick={handleRazorpayCheckout}
+                          disabled={!razorpayEligible || razorpayBusy || processing || (isPayAsYouWishCheckout && !payWishAmountValid)}
+                          className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full"
+                        >
+                          {razorpayBusy ? (
+                            <><Loader2 className="animate-spin mr-2" size={16} /> Opening Razorpay...</>
+                          ) : (
+                            <><IndianRupee size={14} className="mr-2" /> Pay {effectiveSymbol} {displayCheckoutTotal.toLocaleString()} with Razorpay</>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button data-testid="pay-now-btn" onClick={handleCheckout} disabled={processing || razorpayBusy || (isPayAsYouWishCheckout && !payWishAmountValid)}
+                          className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
+                          {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {displayCheckoutTotal <= 0 ? 'Registering...' : 'Redirecting...'}</> : displayCheckoutTotal <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {effectiveSymbol} {displayCheckoutTotal.toLocaleString()}</>}
+                        </Button>
+                      )}
                     </div>
 
-                    <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1"><Lock size={10} /> {razorpayEligible ? 'Secure payment via Stripe or Razorpay' : 'Secure payment via Stripe'}</p>
+                    <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1">
+                      <Lock size={10} /> {indiaRazorpayOnly ? 'Secure payment via Razorpay' : razorpayEligible ? 'Secure payment via Stripe or Razorpay' : 'Secure payment via Stripe'}
+                    </p>
                       </>
                     )}
                   </div>

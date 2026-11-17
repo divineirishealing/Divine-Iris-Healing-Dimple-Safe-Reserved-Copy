@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Lock } from 'lucide-react';
 import Header from '../components/Header';
@@ -8,6 +9,8 @@ import FloatingButtons from '../components/FloatingButtons';
 import { useCurrency } from '../context/CurrencyContext';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, SECTION_PY } from '../lib/designTokens';
+import { shouldUseIndiaRazorpayOnly } from '../lib/razorpayCheckout';
+import { toIndiaSitePath } from '../lib/indiaHomeRoutes';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -20,6 +23,8 @@ const applyStyle = (styleObj, defaults = {}) => {
 const CURRENCY_BADGES = { inr: 'INR', usd: 'USD', aed: 'AED', eur: 'EUR', gbp: 'GBP' };
 
 export default function SponsorPage() {
+  const { pathname } = useLocation();
+  const indiaOnly = shouldUseIndiaRazorpayOnly(pathname);
   const [settings, setSettings] = useState(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -38,7 +43,7 @@ export default function SponsorPage() {
 
   const hero = settings?.page_heroes?.sponsor || {};
   const p = settings?.sponsor_page || {};
-  const badge = CURRENCY_BADGES[currency] || currency.toUpperCase();
+  const badge = indiaOnly ? 'INR' : (CURRENCY_BADGES[currency] || currency.toUpperCase());
 
   const handleVerify = () => {
     if (!email || !/\S+@\S+\.\S+/.test(email)) { setError('Please enter a valid email'); return; }
@@ -47,6 +52,10 @@ export default function SponsorPage() {
   };
 
   const handleSubmit = async () => {
+    if (indiaOnly) {
+      setError('On the India site, sponsorship is handled via Razorpay only. Use Contact and we will send a secure payment link.');
+      return;
+    }
     if (!name.trim()) { setError('Please enter your name'); return; }
     if (!emailVerified) { setError('Please verify your email first'); return; }
     if (!amount || parseFloat(amount) <= 0) { setError('Please enter a valid amount'); return; }
@@ -148,14 +157,25 @@ export default function SponsorPage() {
                   <span className="text-sm text-gray-600">Make my contribution anonymous</span>
                 </label>
 
-                <button data-testid="sponsor-submit-btn" onClick={handleSubmit} disabled={loading}
-                  className="w-full py-3.5 text-xs font-semibold tracking-[0.15em] uppercase transition-all duration-300 text-white disabled:opacity-50"
-                  style={{ background: loading ? '#999' : GOLD }}>
-                  {loading ? 'Processing...' : (p.submit_text || 'Proceed to Payment')}
-                </button>
+                {indiaOnly ? (
+                  <a
+                    href={toIndiaSitePath('/contact', pathname)}
+                    data-testid="sponsor-india-razorpay-contact"
+                    className="block w-full py-3.5 text-center text-xs font-semibold tracking-[0.15em] uppercase transition-all duration-300 text-white"
+                    style={{ background: GOLD }}
+                  >
+                    Contact for Razorpay sponsorship
+                  </a>
+                ) : (
+                  <button data-testid="sponsor-submit-btn" onClick={handleSubmit} disabled={loading}
+                    className="w-full py-3.5 text-xs font-semibold tracking-[0.15em] uppercase transition-all duration-300 text-white disabled:opacity-50"
+                    style={{ background: loading ? '#999' : GOLD }}>
+                    {loading ? 'Processing...' : (p.submit_text || 'Proceed to Payment')}
+                  </button>
+                )}
 
                 <p className="text-center text-[10px] text-gray-400 flex items-center justify-center gap-1">
-                  <Lock size={10} /> Secure Payment via Stripe
+                  <Lock size={10} /> {indiaOnly ? 'India site — Razorpay only (no Stripe)' : 'Secure Payment via Stripe'}
                 </p>
               </div>
             </div>
