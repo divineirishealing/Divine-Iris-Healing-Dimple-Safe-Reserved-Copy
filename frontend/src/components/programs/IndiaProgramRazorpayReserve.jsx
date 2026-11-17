@@ -82,7 +82,6 @@ export default function IndiaProgramRazorpayReserve({
   const listInr = quote?.list_inr;
   const chargedInr = quote?.charged_inr ?? listInr;
   const priceText = chargedInr != null ? `₹${Number(chargedInr).toLocaleString()}` : '—';
-  const showGstNote = listInr != null && chargedInr != null && Number(chargedInr) > Number(listInr);
 
   const pay = async (event) => {
     event.preventDefault();
@@ -161,14 +160,9 @@ export default function IndiaProgramRazorpayReserve({
         </p>
 
         <div className="rounded-2xl border bg-white p-6 md:p-8 shadow-sm" style={{ borderColor: `${accent}55` }}>
-          <p className="text-center text-3xl mb-1" style={{ ...HEADING, color: accent }}>
+          <p className="text-center text-3xl mb-6" style={{ ...HEADING, color: accent }}>
             {priceText}
           </p>
-          {showGstNote && listInr != null && (
-            <p className="text-center text-[11px] text-gray-500 mb-4">
-              Includes GST and platform charges (list ₹{Number(listInr).toLocaleString()}).
-            </p>
-          )}
 
           {tierEntries.length > 1 && (
             <>

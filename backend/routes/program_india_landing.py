@@ -78,28 +78,19 @@ def _is_dedicated_landing(program: dict) -> Optional[str]:
 
 
 async def _inr_totals(program: dict, tier_index: int) -> Tuple[float, float, dict]:
+    """Catalog offer INR (same as homepage cards) — all-in Razorpay amount, no GST/platform add-on."""
     from routes.enrollment import _per_person_price_for_program
 
     list_inr = float(_per_person_price_for_program(program, tier_index, "inr"))
     if list_inr <= 0:
         raise HTTPException(status_code=400, detail="Set an INR price for this program in admin.")
 
-    ss_doc = await db.site_settings.find_one(
-        {"id": "site_settings"},
-        {
-            "_id": 0,
-            "india_gst_percent": 1,
-            "india_platform_charge_percent": 1,
-        },
-    )
-    from utils.india_checkout_math import compute_india_checkout_breakdown
-
-    india_br = compute_india_checkout_breakdown(list_inr, None, ss_doc, 1)
-    if not india_br or float(india_br.get("rounded_total_inr", 0)) <= 0:
-        charged = list_inr
-        india_br = {"rounded_total_inr": list_inr, "list_inr": list_inr}
-    else:
-        charged = float(india_br["rounded_total_inr"])
+    charged = float(round(list_inr))
+    india_br = {
+        "list_price_inr": round(list_inr, 2),
+        "rounded_total_inr": charged,
+        "landing_price_all_inclusive": True,
+    }
     return list_inr, charged, india_br
 
 
