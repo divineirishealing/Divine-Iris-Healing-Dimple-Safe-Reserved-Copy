@@ -22,6 +22,13 @@ import {
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { programPublicPath } from '../lib/programRoutes';
 import { programsForComboBanner } from '../lib/comboBannerPrograms';
+import { useHomeCheckoutSurface } from '../context/HomeCheckoutSurfaceContext';
+import {
+  indiaProgramRazorpayCheckoutPath,
+  indiaProgramRazorpayPath,
+  programInrListPrice,
+  programInrOfferPrice,
+} from '../lib/indiaProgramLanding';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -218,7 +225,10 @@ export function compactTierButtonLabel(raw) {
 
 const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   const navigate = useNavigate();
-  const programPath = programPublicPath(program);
+  const { isIndiaRazorpay } = useHomeCheckoutSurface();
+  const programPath = isIndiaRazorpay
+    ? (indiaProgramRazorpayPath(program) || programPublicPath(program))
+    : programPublicPath(program);
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const { addItem, items } = useCart();
   const { toast } = useToast();
@@ -237,9 +247,19 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
 
   const isAnnual = tier && (tier.label.toLowerCase().includes('annual') || tier.label.toLowerCase().includes('year') || tier.duration_unit === 'year');
   const pricingTierIndex = resolveCardPricingTierIndex(program, selectedTier, hasTiers);
-  const price = getPrice(program, pricingTierIndex);
-  const offerPrice = getOfferPrice(program, pricingTierIndex);
+  const price = isIndiaRazorpay
+    ? programInrListPrice(program, pricingTierIndex)
+    : getPrice(program, pricingTierIndex);
+  const offerPrice = isIndiaRazorpay
+    ? programInrOfferPrice(program, pricingTierIndex)
+    : getOfferPrice(program, pricingTierIndex);
+  const displaySymbol = isIndiaRazorpay ? '₹' : symbol;
   const payWishEnabled = catalogPayAsYouWishEnabled(program);
+
+  const goIndiaCheckout = () => {
+    const path = indiaProgramRazorpayCheckoutPath(program);
+    if (path) navigate(path);
+  };
 
   const showContact = isAnnual && price === 0;
   const inCart = items.some(i => i.programId === program.id && i.tierIndex === selectedTier);
@@ -503,11 +523,11 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
                         </>
                       ) : offerPrice > 0 ? (
                         <>
-                          <span className="text-xl font-bold text-[#D4AF37]">{symbol} {offerPrice.toLocaleString()}</span>
-                          <span className="text-xs text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
+                          <span className="text-xl font-bold text-[#D4AF37]">{displaySymbol} {offerPrice.toLocaleString()}</span>
+                          <span className="text-xs text-gray-400 line-through">{displaySymbol} {price.toLocaleString()}</span>
                         </>
                       ) : price > 0 ? (
-                        <span className="text-xl font-bold text-gray-900">{symbol} {price.toLocaleString()}</span>
+                        <span className="text-xl font-bold text-gray-900">{displaySymbol} {price.toLocaleString()}</span>
                       ) : (
                         <span className="text-xl font-bold text-green-600">FREE</span>
                       )}
@@ -518,7 +538,7 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
                       className="flex-1 bg-[#1a1a1a] hover:bg-[#333] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
                       Know More
                     </button>
-                    {(price > 0 || payWishEnabled) && (
+                    {!isIndiaRazorpay && (price > 0 || payWishEnabled) && (
                       <button onClick={handleAddToCart} data-testid={`upcoming-add-cart-${program.id}`}
                         disabled={inCart || justAdded}
                         className={`flex items-center justify-center px-2.5 py-2 rounded-full text-[10px] transition-all font-medium border ${
@@ -527,9 +547,14 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
                         {inCart || justAdded ? <Check size={11} /> : <ShoppingCart size={11} />}
                       </button>
                     )}
-                    <button onClick={() => navigate(`/enroll/program/${program.id}?tier=${selectedTier}`)} data-testid={`upcoming-enroll-${program.id}`}
-                      className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
-                      {payWishEnabled || price > 0 ? 'Enroll Now' : 'Register Free'}
+                    <button
+                      onClick={() => (isIndiaRazorpay ? goIndiaCheckout() : navigate(`/enroll/program/${program.id}?tier=${selectedTier}`))}
+                      data-testid={`upcoming-enroll-${program.id}`}
+                      className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
+                    >
+                      {isIndiaRazorpay
+                        ? (payWishEnabled || price > 0 ? 'Book with Razorpay' : 'Register Free')
+                        : (payWishEnabled || price > 0 ? 'Enroll Now' : 'Register Free')}
                     </button>
                   </div>
                 </>

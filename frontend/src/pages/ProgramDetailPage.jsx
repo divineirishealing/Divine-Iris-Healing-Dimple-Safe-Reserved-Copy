@@ -211,6 +211,15 @@ export function ProgramDetailPage({ surface = 'website' } = {}) {
     loadData();
   }, [id]);
 
+  useEffect(() => {
+    if (!isIndiaRazorpay || loading) return;
+    if (window.location.hash !== '#india-razorpay-reserve') return;
+    const t = setTimeout(() => {
+      document.getElementById('india-razorpay-reserve')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [isIndiaRazorpay, loading, id]);
+
   /** Sync tier selection from enroll links (?tier=N) once program is loaded. */
   useEffect(() => {
     if (!program?.duration_tiers?.length) return;

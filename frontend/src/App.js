@@ -104,6 +104,7 @@ const AppContent = () => {
       <SeoHead />
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/india" element={<HomePage checkoutSurface="india" />} />
         {process.env.NODE_ENV === 'development' && (
           <Route path="/preview/trust-split" element={<Lazy><TrustSplitLayoutPreviewPage /></Lazy>} />
         )}

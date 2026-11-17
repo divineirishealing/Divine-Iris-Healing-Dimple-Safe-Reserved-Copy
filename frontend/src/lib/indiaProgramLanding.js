@@ -21,6 +21,19 @@ export function indiaProgramRazorpayPath(program) {
   return `${INDIA_PROGRAM_LANDING_PREFIX}/${program.id}`;
 }
 
+/** Program detail URLs for homepage India cards — scroll to Razorpay block on generic landings. */
+export function indiaProgramRazorpayCheckoutPath(program, { scrollToReserve = true } = {}) {
+  const base = indiaProgramRazorpayPath(program);
+  if (!base) return null;
+  if (
+    scrollToReserve
+    && base.startsWith(`${INDIA_PROGRAM_LANDING_PREFIX}/`)
+  ) {
+    return `${base}#india-razorpay-reserve`;
+  }
+  return base;
+}
+
 export function programInrListPrice(program, tierIndex = null) {
   if (!program) return 0;
   const tiers = program.duration_tiers || [];

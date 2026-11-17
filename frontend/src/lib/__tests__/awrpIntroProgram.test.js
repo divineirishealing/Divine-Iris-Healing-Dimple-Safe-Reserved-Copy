@@ -5,7 +5,7 @@ import {
   showInWebsiteProgramsSection,
 } from '../awrpIntroProgram';
 import { programPublicPath } from '../programRoutes';
-import { indiaProgramRazorpayPath } from '../indiaProgramLanding';
+import { indiaProgramRazorpayPath, indiaProgramRazorpayCheckoutPath } from '../indiaProgramLanding';
 
 describe('awrpIntroProgram', () => {
   const intro = { id: 'intro-1', title: AWRP_INTRO_PROGRAM_TITLE };
@@ -51,6 +51,15 @@ describe('indiaProgramRazorpayPath', () => {
   it('routes intro to dedicated india landing', () => {
     expect(
       indiaProgramRazorpayPath({ id: 'intro-1', title: 'AWRP Intro Call', link: '/program/intro-1' }),
+    ).toBe('/india/awrp-intro-call');
+  });
+
+  it('appends razorpay hash for generic india program checkout', () => {
+    expect(
+      indiaProgramRazorpayCheckoutPath({ id: 'stress-id', title: 'Stress Detox' }),
+    ).toBe('/india/program/stress-id#india-razorpay-reserve');
+    expect(
+      indiaProgramRazorpayCheckoutPath({ id: 'intro-1', title: 'AWRP Intro Call' }),
     ).toBe('/india/awrp-intro-call');
   });
 });
