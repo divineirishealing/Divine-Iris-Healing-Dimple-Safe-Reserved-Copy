@@ -5,7 +5,8 @@ import { Loader2, Lock, Monitor, Wifi } from 'lucide-react';
 import { GOLD, HEADING } from '../../lib/designTokens';
 import { websiteVisibleTierEntries } from '../../lib/programTierVisibility';
 import { getApiUrl } from '../../lib/config';
-import { programInrListPrice, programInrOfferPrice } from '../../lib/indiaProgramLanding';
+import { programInrListPrice, programInrOfferPrice, indiaProgramPaymentQrPath } from '../../lib/indiaProgramLanding';
+import { Link } from 'react-router-dom';
 
 const apiBase = () => getApiUrl();
 
@@ -279,6 +280,17 @@ export default function IndiaProgramRazorpayReserve({
               Secure payment
             </p>
           </form>
+          {indiaProgramPaymentQrPath(program) ? (
+            <p className="mt-4 text-center text-[11px]">
+              <Link
+                to={indiaProgramPaymentQrPath(program)}
+                className="text-[#6d2d91] underline underline-offset-2 font-medium"
+                data-testid="india-program-payment-qr-link"
+              >
+                Payment QR for posters &amp; WhatsApp
+              </Link>
+            </p>
+          ) : null}
         </div>
       </div>
     </section>

@@ -1,11 +1,13 @@
 import {
   AWRP_INTRO_LANDING_PATH_INDIA,
+  AWRP_INTRO_INDIA_PAYMENT_QR_PATH,
   isAwrpIntroProgram,
 } from './awrpIntroProgram';
 import { pricingSourceForProgram, resolveEffectiveOffer } from './effectiveOfferPricing';
 
 export const MAHALAKSHMI_PROGRAM_ID = '4e564441-9f90-400b-ae44-b192fedf2f15';
 export const INDIA_PROGRAM_LANDING_PREFIX = '/india/program';
+export const INDIA_PROGRAM_PLINK_SUCCESS_FROM = 'india-program-plink';
 
 /** India ads / Razorpay-only checkout URL for a catalog program. */
 export function indiaProgramRazorpayPath(program) {
@@ -32,6 +34,15 @@ export function indiaProgramRazorpayCheckoutPath(program, { scrollToReserve = tr
     return `${base}#india-razorpay-reserve`;
   }
   return base;
+}
+
+/** Printable Razorpay payment-link QR (posters / WhatsApp). */
+export function indiaProgramPaymentQrPath(program) {
+  if (!program?.id) return null;
+  if (isAwrpIntroProgram(program)) return AWRP_INTRO_INDIA_PAYMENT_QR_PATH;
+  const landing = indiaProgramRazorpayPath(program);
+  if (!landing || !landing.startsWith(`${INDIA_PROGRAM_LANDING_PREFIX}/`)) return null;
+  return `${INDIA_PROGRAM_LANDING_PREFIX}/${program.id}/payment-qr`;
 }
 
 export function programInrListPrice(program, tierIndex = null) {

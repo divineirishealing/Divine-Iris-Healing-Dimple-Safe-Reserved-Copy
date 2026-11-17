@@ -5,7 +5,7 @@ import {
   showInWebsiteProgramsSection,
 } from '../awrpIntroProgram';
 import { programPublicPath } from '../programRoutes';
-import { indiaProgramRazorpayPath, indiaProgramRazorpayCheckoutPath } from '../indiaProgramLanding';
+import { indiaProgramRazorpayPath, indiaProgramRazorpayCheckoutPath, indiaProgramPaymentQrPath } from '../indiaProgramLanding';
 
 describe('awrpIntroProgram', () => {
   const intro = { id: 'intro-1', title: AWRP_INTRO_PROGRAM_TITLE };
@@ -45,6 +45,9 @@ describe('indiaProgramRazorpayPath', () => {
   it('uses generic india program path for workshops', () => {
     expect(indiaProgramRazorpayPath({ id: 'stress-id', title: 'Stress Detox' })).toBe(
       '/india/program/stress-id',
+    );
+    expect(indiaProgramPaymentQrPath({ id: 'stress-id', title: 'Stress Detox' })).toBe(
+      '/india/program/stress-id/payment-qr',
     );
   });
 

@@ -5,6 +5,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { AdLandingSuccessShell } from '../components/AdLandingChrome';
 import { INDIA_AWRP_SUCCESS_FROM } from '../lib/awrpIntroProgram';
+import { INDIA_PROGRAM_PLINK_SUCCESS_FROM } from '../lib/indiaProgramLanding';
 import { CheckCircle, Loader2, ExternalLink, MessageCircle, Video, Link as LinkIcon, Calendar, Clock } from 'lucide-react';
 import { formatSessionCalendarDateLabel } from '../lib/sessionCalendarSlots';
 
@@ -21,6 +22,8 @@ function PaymentSuccessPage() {
 
   const sessionId = searchParams.get('session_id');
   const isolatedIndiaAwrp = searchParams.get('from') === INDIA_AWRP_SUCCESS_FROM;
+  const isolatedIndiaProgram = searchParams.get('from') === INDIA_PROGRAM_PLINK_SUCCESS_FROM;
+  const programIdFromQuery = searchParams.get('program_id') || '';
   const razorpayPlink = searchParams.get('plink') === '1';
   const razorpayPaymentId = searchParams.get('razorpay_payment_id');
 
@@ -29,23 +32,28 @@ function PaymentSuccessPage() {
       pollStatus();
       return;
     }
-    if (!isolatedIndiaAwrp || !razorpayPlink) return;
+    if (!razorpayPlink || (!isolatedIndiaAwrp && !isolatedIndiaProgram)) return;
 
     if (!razorpayPaymentId) {
       setStatus('success');
       return;
     }
 
+    const fulfillBody = {
+      razorpay_payment_id: razorpayPaymentId,
+      razorpay_payment_link_id: searchParams.get('razorpay_payment_link_id') || '',
+      razorpay_payment_link_reference_id: searchParams.get('razorpay_payment_link_reference_id') || '',
+      razorpay_payment_link_status: searchParams.get('razorpay_payment_link_status') || 'paid',
+      razorpay_signature: searchParams.get('razorpay_signature') || '',
+    };
+
     const fulfill = async () => {
       setStatus('loading');
       try {
-        const { data } = await axios.post(`${API}/landing/awrp-intro/fulfill-payment-link`, {
-          razorpay_payment_id: razorpayPaymentId,
-          razorpay_payment_link_id: searchParams.get('razorpay_payment_link_id') || '',
-          razorpay_payment_link_reference_id: searchParams.get('razorpay_payment_link_reference_id') || '',
-          razorpay_payment_link_status: searchParams.get('razorpay_payment_link_status') || 'paid',
-          razorpay_signature: searchParams.get('razorpay_signature') || '',
-        });
+        const url = isolatedIndiaProgram && programIdFromQuery
+          ? `${API}/landing/india-program/${programIdFromQuery}/fulfill-payment-link`
+          : `${API}/landing/awrp-intro/fulfill-payment-link`;
+        const { data } = await axios.post(url, fulfillBody);
         const sid = data?.session_id;
         if (sid) {
           const response = await axios.get(`${API}/payments/status/${sid}`);
@@ -58,7 +66,7 @@ function PaymentSuccessPage() {
     };
     fulfill();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fulfill once per payment id in URL
-  }, [sessionId, isolatedIndiaAwrp, razorpayPlink, razorpayPaymentId]);
+  }, [sessionId, isolatedIndiaAwrp, isolatedIndiaProgram, razorpayPlink, razorpayPaymentId, programIdFromQuery]);
 
   const pollStatus = async () => {
     try {

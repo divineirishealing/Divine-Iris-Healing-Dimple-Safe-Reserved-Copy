@@ -188,14 +188,15 @@ async def razorpay_webhook(request: Request):
         pay_ent = (ent.get("payment") or {}).get("entity") or {}
         payment_id = (pay_ent.get("id") or "").strip()
         notes = pay_ent.get("notes") or {}
-        if (notes.get("landing") or "") != "awrp-intro":
-            return {"status": "ok", "note": "not_awrp_intro"}
+        landing = (notes.get("landing") or "").strip()
+        if landing not in ("awrp-intro", "india-program"):
+            return {"status": "ok", "note": "not_landing_plink"}
 
     if not payment_id:
         return {"status": "ok", "note": "no_payment_id"}
 
     from key_manager import get_key as get_rzp_key
-    from utils.awrp_intro_razorpay_plink import fulfill_awrp_intro_payment_link_payment
+    from utils.razorpay_payment_links import fetch_razorpay_payment
 
     key_id = (await get_rzp_key("razorpay_key_id") or "").strip()
     key_secret = (await get_rzp_key("razorpay_key_secret") or "").strip()
@@ -203,13 +204,32 @@ async def razorpay_webhook(request: Request):
         return {"status": "error", "message": "razorpay_not_configured"}
 
     try:
-        await fulfill_awrp_intro_payment_link_payment(
-            db,
+        payment = await fetch_razorpay_payment(
+            payment_id=payment_id,
             key_id=key_id,
             key_secret=key_secret,
-            payment_id=payment_id,
-            payment_link_id=payment_link_id or None,
         )
+        landing = ((payment.get("notes") or {}).get("landing") or "").strip()
+        if landing == "india-program":
+            from utils.india_program_razorpay_plink import fulfill_india_program_payment_link_payment
+
+            await fulfill_india_program_payment_link_payment(
+                db,
+                key_id=key_id,
+                key_secret=key_secret,
+                payment_id=payment_id,
+                payment_link_id=payment_link_id or None,
+            )
+        else:
+            from utils.awrp_intro_razorpay_plink import fulfill_awrp_intro_payment_link_payment
+
+            await fulfill_awrp_intro_payment_link_payment(
+                db,
+                key_id=key_id,
+                key_secret=key_secret,
+                payment_id=payment_id,
+                payment_link_id=payment_link_id or None,
+            )
     except Exception as exc:
         logger.exception("Razorpay webhook fulfillment failed: %s", exc)
         return {"status": "error", "message": str(exc)[:200]}

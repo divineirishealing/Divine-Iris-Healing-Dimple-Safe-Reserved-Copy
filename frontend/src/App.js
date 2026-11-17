@@ -71,6 +71,7 @@ const TrustSplitLayoutPreviewPage = lazy(() => import('./pages/TrustSplitLayoutP
 const MahalakshmiLandingPage = lazy(() => import('./pages/MahalakshmiLandingPage'));
 const AwrpIntroCallPage = lazy(() => import('./pages/AwrpIntroCallPage'));
 const AwrpIntroPaymentQrPage = lazy(() => import('./pages/AwrpIntroPaymentQrPage'));
+const IndiaProgramPaymentQrPage = lazy(() => import('./pages/IndiaProgramPaymentQrPage'));
 
 const RouteFallback = () => (
   <div className="min-h-[50vh] flex items-center justify-center bg-gray-50">
@@ -139,6 +140,14 @@ const AppContent = () => {
         <Route path="/india/refund-cancellation" element={<IndiaPage><RefundCancellationPolicyPage /></IndiaPage>} />
         <Route path="/program" element={<Navigate to="/programs" replace />} />
         <Route path="/program/:id" element={<RouteErrorBoundary><ProgramDetailRoute /></RouteErrorBoundary>} />
+        <Route
+          path="/india/program/:id/payment-qr"
+          element={(
+            <IndiaPage>
+              <IndiaProgramPaymentQrPage />
+            </IndiaPage>
+          )}
+        />
         <Route
           path="/india/program/:id"
           element={(

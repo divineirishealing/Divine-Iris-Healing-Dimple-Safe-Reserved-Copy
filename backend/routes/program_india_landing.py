@@ -9,6 +9,7 @@ from typing import Optional, Tuple
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 
@@ -284,3 +285,96 @@ async def india_program_checkout(program_id: str, body: IndiaProgramLandingCheck
         "list_inr": round(list_inr, 2),
         "charged_inr": round(charged_inr, 2),
     }
+
+
+class IndiaProgramPlinkFulfillBody(BaseModel):
+    razorpay_payment_id: str
+    razorpay_payment_link_id: str = ""
+    razorpay_payment_link_reference_id: str = ""
+    razorpay_payment_link_status: str = ""
+    razorpay_signature: str = ""
+
+
+@router.get("/{program_id}/razorpay-payment-link")
+async def get_india_program_razorpay_payment_link(
+    program_id: str,
+    tier_index: int = Query(0, ge=0),
+):
+    """Public: Razorpay Payment Link short URL for workshop QR posters."""
+    from key_manager import get_key
+    from utils.india_program_razorpay_plink import ensure_india_program_payment_link
+
+    program = await _load_program(program_id)
+    dedicated = _is_dedicated_landing(program)
+    if dedicated:
+        raise HTTPException(
+            status_code=400,
+            detail=f"This program uses a dedicated India page at {dedicated}.",
+        )
+
+    key_id = (await get_key("razorpay_key_id") or "").strip()
+    key_secret = (await get_key("razorpay_key_secret") or "").strip()
+    if not key_id or not key_secret:
+        raise HTTPException(status_code=503, detail="Razorpay is not configured.")
+
+    _list_inr, charged_inr, _breakdown = await _inr_totals(program, tier_index)
+    item_title = (program.get("title") or "Program").strip()
+    landing_path = _landing_path(program_id)
+
+    cached = await ensure_india_program_payment_link(
+        db,
+        key_id=key_id,
+        key_secret=key_secret,
+        program_id=program_id,
+        amount_inr=charged_inr,
+        item_title=item_title,
+        landing_path=landing_path,
+        tier_index=tier_index,
+    )
+    return {
+        "payment_link_id": cached.get("payment_link_id"),
+        "short_url": cached.get("short_url"),
+        "amount_inr": charged_inr,
+        "title": item_title,
+        "program_id": program_id,
+        "landing_path": landing_path,
+        "tier_index": tier_index,
+        "provider": "razorpay",
+    }
+
+
+@router.post("/{program_id}/fulfill-payment-link")
+async def fulfill_india_program_payment_link(program_id: str, body: IndiaProgramPlinkFulfillBody):
+    """After Razorpay Payment Link checkout — enroll + confirmation emails."""
+    from key_manager import get_key
+    from utils.india_program_razorpay_plink import fulfill_india_program_payment_link_payment
+    from utils.awrp_intro_razorpay_plink import verify_payment_link_callback_signature
+
+    key_secret = (await get_key("razorpay_key_secret") or "").strip()
+    key_id = (await get_key("razorpay_key_id") or "").strip()
+    if not key_id or not key_secret:
+        raise HTTPException(status_code=503, detail="Razorpay is not configured.")
+
+    pid = (body.razorpay_payment_id or "").strip()
+    plink = (body.razorpay_payment_link_id or "").strip()
+    sig = (body.razorpay_signature or "").strip()
+    if sig and plink and pid:
+        ok = verify_payment_link_callback_signature(
+            payment_link_id=plink,
+            payment_id=pid,
+            status=(body.razorpay_payment_link_status or "paid").strip(),
+            reference_id=(body.razorpay_payment_link_reference_id or "").strip(),
+            signature=sig,
+            key_secret=key_secret,
+        )
+        if not ok:
+            raise HTTPException(status_code=400, detail="Invalid Razorpay signature.")
+
+    return await fulfill_india_program_payment_link_payment(
+        db,
+        key_id=key_id,
+        key_secret=key_secret,
+        payment_id=pid,
+        payment_link_id=plink or None,
+        expected_program_id=program_id,
+    )
