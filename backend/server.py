@@ -33,6 +33,7 @@ from routes import revenue as revenue_module
 from routes import payment_requests as payment_requests_module
 from routes import mahalakshmi_landing
 from routes import awrp_intro_landing
+from routes import program_india_landing
 import asyncio
 
 ROOT_DIR = Path(__file__).parent
@@ -310,6 +311,7 @@ app.include_router(revenue_module.router)
 app.include_router(payment_requests_module.router)
 app.include_router(mahalakshmi_landing.router)
 app.include_router(awrp_intro_landing.router)
+app.include_router(program_india_landing.router)
 app.include_router(site_analytics.collect_router)
 app.include_router(site_analytics.admin_router)
 

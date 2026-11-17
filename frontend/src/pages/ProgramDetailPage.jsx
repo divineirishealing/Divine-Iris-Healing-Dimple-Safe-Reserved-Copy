@@ -4,6 +4,9 @@ import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
+import { AdLandingHeader } from '../components/AdLandingChrome';
+import IndiaProgramRazorpayReserve from '../components/programs/IndiaProgramRazorpayReserve';
+import { programInrListPrice, programInrOfferPrice } from '../lib/indiaProgramLanding';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import ProgramExperienceMoment from '../components/ProgramExperienceMoment';
@@ -154,14 +157,22 @@ function formatProgramDateDisplay(raw) {
   return t;
 }
 
-function ProgramDetailPage() {
+export function ProgramDetailPage({ surface = 'website' } = {}) {
+  const isIndiaRazorpay = surface === 'india-razorpay';
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const promoFromQuery = (searchParams.get('promo') || '').trim();
   const sourceDashboard = searchParams.get('source') === 'dashboard';
   const { setPageSeo, clearPageSeo } = useSeoPage();
-  const { getPrice, getOfferPrice, symbol } = useCurrency();
+  const {
+    getPrice: ctxGetPrice,
+    getOfferPrice: ctxGetOfferPrice,
+    symbol: ctxSymbol,
+  } = useCurrency();
+  const symbol = isIndiaRazorpay ? '₹' : ctxSymbol;
+  const getPrice = isIndiaRazorpay ? programInrListPrice : ctxGetPrice;
+  const getOfferPrice = isIndiaRazorpay ? programInrOfferPrice : ctxGetOfferPrice;
 
   const enrollProgramQuery = (tierIdx) => {
     const q = new URLSearchParams();
@@ -180,6 +191,18 @@ function ProgramDetailPage() {
   const [selectedEmbed, setSelectedEmbed]       = useState(null);
   const [lightboxImg, setLightboxImg] = useState(null);
   const [heroTierIdx, setHeroTierIdx] = useState(0);
+
+  const goToCheckout = (tierIdx) => {
+    if (tierIdx !== undefined && tierIdx !== null && tierIdx !== '') {
+      setHeroTierIdx(tierIdx);
+    }
+    if (isIndiaRazorpay) {
+      document.getElementById('india-razorpay-reserve')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    const ti = tierIdx !== undefined && tierIdx !== null && tierIdx !== '' ? tierIdx : heroTierIdx;
+    navigate(`/enroll/program/${program.id}${enrollProgramQuery(ti)}`);
+  };
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -498,8 +521,8 @@ function ProgramDetailPage() {
   };
 
   return (
-    <div className="min-h-screen">
-      <Header />
+    <div className="min-h-screen" data-testid={isIndiaRazorpay ? 'india-program-landing-full' : 'program-detail-page'}>
+      {isIndiaRazorpay ? <AdLandingHeader /> : <Header />}
 
       {/* HERO — title centered; schedule & single-tier price bottom-left; duration tiers stacked bottom-right when tier UI is on */}
       <section
@@ -601,11 +624,11 @@ function ProgramDetailPage() {
                     <button
                       type="button"
                       data-testid="hero-enroll-btn"
-                      onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery(heroTierIdx)}`)}
+                      onClick={() => goToCheckout(heroTierIdx)}
                       className="rounded-sm px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.18em] text-white shadow-md transition-opacity hover:opacity-90 md:text-xs md:tracking-[0.2em]"
                       style={{ background: heroAccent }}
                     >
-                      ENROLL NOW
+                      {isIndiaRazorpay ? 'BOOK NOW' : 'ENROLL NOW'}
                     </button>
                   </div>
                 )}
@@ -635,10 +658,7 @@ function ProgramDetailPage() {
                           <button
                             type="button"
                             data-testid={`hero-tier-${tIdx}`}
-                            onClick={() => {
-                              setHeroTierIdx(tIdx);
-                              navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`);
-                            }}
+                            onClick={() => goToCheckout(tIdx)}
                             className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90"
                             style={{ color: heroAccent, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                           >
@@ -658,10 +678,7 @@ function ProgramDetailPage() {
                           <button
                             type="button"
                             data-testid={`hero-tier-${tIdx}`}
-                            onClick={() => {
-                              setHeroTierIdx(tIdx);
-                              navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`);
-                            }}
+                            onClick={() => goToCheckout(tIdx)}
                             className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90"
                             style={{ color: heroAccent, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                           >
@@ -676,10 +693,7 @@ function ProgramDetailPage() {
                           <button
                             type="button"
                             data-testid={`hero-tier-${tIdx}`}
-                            onClick={() => {
-                              setHeroTierIdx(tIdx);
-                              navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`);
-                            }}
+                            onClick={() => goToCheckout(tIdx)}
                             className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90"
                             style={{ color: heroAccent, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                           >
@@ -706,10 +720,7 @@ function ProgramDetailPage() {
                         <button
                           type="button"
                           data-testid={`hero-tier-${tIdx}`}
-                          onClick={() => {
-                            setHeroTierIdx(tIdx);
-                            navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`);
-                          }}
+                          onClick={() => goToCheckout(tIdx)}
                           className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90"
                           style={{ color: heroAccent, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                         >
@@ -750,7 +761,7 @@ function ProgramDetailPage() {
                       return (
                         <div key={tIdx} data-testid={`tier-${tIdx}`}
                           className="border border-gray-200 hover:border-[#D4AF37] rounded-lg p-5 transition-all duration-300 cursor-pointer group hover:shadow-md"
-                          onClick={() => showContact ? navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`) : navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`)}>
+                          onClick={() => showContact ? navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`) : goToCheckout(tIdx)}>
                           <p className="text-sm font-medium text-gray-900 transition-colors mb-2" style={{ fontFamily: "'Lato', sans-serif" }}>{tier.label}</p>
                           {showContact ? (
                             <div><p className="text-gray-400 text-[10px] mb-3">Contact for customised pricing</p>
@@ -793,7 +804,7 @@ function ProgramDetailPage() {
                     {detailEnrollStatus === 'open' ? (
                       <button
                         data-testid="enroll-btn-no-price"
-                        onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery(heroTierIdx)}`)}
+                        onClick={() => goToCheckout(heroTierIdx)}
                         className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90"
                         style={{ background: heroAccent }}
                       >
@@ -849,7 +860,7 @@ function ProgramDetailPage() {
                     return hasTiers ? null : ( // tiers block above already shows the button
                       <button
                         data-testid="enroll-btn-no-price-solo"
-                        onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery()}`)}
+                        onClick={() => goToCheckout()}
                         className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90"
                         style={{ background: heroAccent }}
                       >
@@ -863,8 +874,8 @@ function ProgramDetailPage() {
                 // Prices shown and enrollment allows checkout → Enroll Now; else interest (e.g. coming_soon)
                 if (detailEnrollStatus === 'open') {
                   return (
-                    <button data-testid="enroll-btn" onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery()}`)}
-                      className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90" style={{ background: heroAccent }}>Enroll Now</button>
+                    <button data-testid="enroll-btn" onClick={() => goToCheckout()}
+                      className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90" style={{ background: heroAccent }}>{isIndiaRazorpay ? 'Book Now' : 'Enroll Now'}</button>
                   );
                 }
                 return <ExpressInterestInline programId={program.id} programTitle={program.title} accent={heroAccent} />;
@@ -873,6 +884,15 @@ function ProgramDetailPage() {
           </div>
         </div>
       </section>
+
+      {isIndiaRazorpay && (
+        <IndiaProgramRazorpayReserve
+          program={program}
+          tierIndex={heroTierIdx}
+          onTierIndexChange={setHeroTierIdx}
+          accent={heroAccent}
+        />
+      )}
 
       {testimonials.filter(t => t.type === 'template' || (t.type === 'video' && (t.video_url || t.videoId))).length > 0 && (() => {
         const rawCards = testimonials.filter(t =>
@@ -1000,7 +1020,7 @@ function ProgramDetailPage() {
       )}
 
       <Footer />
-      <FloatingButtons />
+      {!isIndiaRazorpay && <FloatingButtons />}
     </div>
   );
 }
@@ -1041,5 +1061,5 @@ export default function ProgramDetailRoute() {
       </div>
     );
   }
-  return <ProgramDetailPage />;
+  return <ProgramDetailPage surface="website" />;
 }

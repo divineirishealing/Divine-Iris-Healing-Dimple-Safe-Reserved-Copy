@@ -70,6 +70,7 @@ const TrustSplitLayoutPreviewPage = lazy(() => import('./pages/TrustSplitLayoutP
 const MahalakshmiLandingPage = lazy(() => import('./pages/MahalakshmiLandingPage'));
 const AwrpIntroCallPage = lazy(() => import('./pages/AwrpIntroCallPage'));
 const AwrpIntroPaymentQrPage = lazy(() => import('./pages/AwrpIntroPaymentQrPage'));
+const IndiaProgramLandingPage = lazy(() => import('./pages/IndiaProgramLandingPage'));
 
 const RouteFallback = () => (
   <div className="min-h-[50vh] flex items-center justify-center bg-gray-50">
@@ -141,6 +142,7 @@ const AppContent = () => {
         <Route path="/blog" element={<Lazy><BlogPage /></Lazy>} />
         <Route path="/blog/:slug" element={<Lazy><BlogPostDetailPage /></Lazy>} />
         <Route path="/sponsor" element={<Lazy><SponsorPage /></Lazy>} />
+        <Route path="/india/program/:id" element={<Lazy><IndiaProgramLandingPage /></Lazy>} />
         <Route path="/india/shri-mahalakshmi-akshaya-samriddhi" element={<Lazy><MahalakshmiLandingPage /></Lazy>} />
         <Route path={AWRP_INTRO_INDIA_PAYMENT_QR_PATH} element={<Lazy><AwrpIntroPaymentQrPage /></Lazy>} />
         <Route path="/india/awrp-intro-call" element={<Lazy><AwrpIntroCallPage /></Lazy>} />
