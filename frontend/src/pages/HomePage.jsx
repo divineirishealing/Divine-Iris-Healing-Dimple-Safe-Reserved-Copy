@@ -19,6 +19,7 @@ import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { HomeCheckoutSurfaceProvider } from '../context/HomeCheckoutSurfaceContext';
 import { useSeoPage } from '../context/SeoPageContext';
+import { setCheckoutSurface } from '../lib/checkoutSurfaceStorage';
 
 const COMPONENT_MAP = {
   HeroSection,
@@ -93,6 +94,10 @@ function HomePage({ checkoutSurface = 'website' } = {}) {
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
   }, [refreshSettings]);
+
+  useEffect(() => {
+    setCheckoutSurface(isIndiaHome ? 'india' : 'website');
+  }, [isIndiaHome]);
 
   useEffect(() => {
     if (!isIndiaHome) return undefined;

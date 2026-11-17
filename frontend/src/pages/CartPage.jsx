@@ -27,6 +27,11 @@ import {
 import { effectiveParticipantEmail } from '../lib/dashboardCartPrefill';
 import { resolveEffectiveOffer } from '../lib/effectiveOfferPricing';
 import { mapCartItemForApi, primarySessionBookingFromCart } from '../lib/sessionBookingPayload';
+import {
+  useCartCheckoutCurrency,
+  cartItemListPrice,
+  cartItemOfferPrice,
+} from '../hooks/useCartCheckoutCurrency';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -459,7 +464,8 @@ const CartItemCard = ({
 function CartPage() {
   const navigate = useNavigate();
   const { items, removeItem, updateItemParticipants, clearCart } = useCart();
-  const { getPrice, getOfferPrice, symbol, baseCurrency, toDisplay, country: detectedCountry } = useCurrency();
+  const { getPrice, getOfferPrice, country: detectedCountry } = useCurrency();
+  const { isIndiaCart, currency, symbol, toDisplay } = useCartCheckoutCurrency();
   const { toast } = useToast();
   const { user } = useAuth();
   const [discountSettings, setDiscountSettings] = useState({ enable_referral: true, checkout_promo_code_visible: true });
@@ -475,7 +481,6 @@ function CartPage() {
   const [vpnDetected, setVpnDetected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [urgencyQuotes, setUrgencyQuotes] = useState([]);
-  const currency = baseCurrency;
   const showCheckoutPromo = discountSettings.checkout_promo_code_visible !== false;
 
   useEffect(() => {
@@ -522,6 +527,9 @@ function CartPage() {
   };
 
   const getItemPrice = (item) => {
+    if (isIndiaCart) {
+      return toDisplay(cartItemListPrice(item, currency));
+    }
     if (item.type === 'session') {
       const fakeProgram = { is_flagship: false, duration_tiers: [], price_aed: item.price_aed, price_inr: item.price_inr, price_usd: item.price_usd };
       return getPrice(fakeProgram);
@@ -534,11 +542,14 @@ function CartPage() {
   const getItemOfferPrice = (item) => {
     const portalUnit = getPortalSyncedUnitOffer(item);
     if (portalUnit != null) return portalUnit;
+    if (isIndiaCart) {
+      return cartItemOfferPrice(item, currency, toDisplay);
+    }
     const tiers = item.durationTiers || [];
     const hasTiers = item.isFlagship && tiers.length > 0;
     const tier = hasTiers ? tiers[item.tierIndex] : null;
     const source = tier || item;
-    return toDisplay(resolveEffectiveOffer(source, baseCurrency).price);
+    return toDisplay(resolveEffectiveOffer(source, currency).price);
   };
 
   const getEffectivePrice = (item) => {
@@ -623,7 +634,7 @@ function CartPage() {
       try {
         const res = await axios.post(`${API}/discounts/calculate`, {
           num_programs: numPrograms, num_participants: totalParticipants,
-          subtotal: totalAmount, email: '', currency: baseCurrency,
+          subtotal: totalAmount, email: '', currency,
           program_ids: items.map(i => i.programId),
           cart_items: items.map((i) => mapCartItemForApi(i)),
         });

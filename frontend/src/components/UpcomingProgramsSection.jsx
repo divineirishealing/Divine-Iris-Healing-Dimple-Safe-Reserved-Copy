@@ -23,6 +23,7 @@ import { useSiteSettings } from '../context/SiteSettingsContext';
 import { programPublicPath } from '../lib/programRoutes';
 import { programsForComboBanner } from '../lib/comboBannerPrograms';
 import { useHomeCheckoutSurface } from '../context/HomeCheckoutSurfaceContext';
+import { setCheckoutSurface } from '../lib/checkoutSurfaceStorage';
 import {
   indiaProgramRazorpayCheckoutPath,
   indiaProgramRazorpayPath,
@@ -659,6 +660,7 @@ const SponsorCard = ({ sponsorData, matchProgramRowHeight = false }) => {
 const ComboBanner = ({ programs, comboRules }) => {
   const { addItem, items } = useCart();
   const { toast } = useToast();
+  const { isIndiaRazorpay } = useHomeCheckoutSurface();
 
   const rules = [...(comboRules || [])].sort((a, b) => a.min_programs - b.min_programs);
   const comboPrograms = programsForComboBanner(programs, rules);
@@ -667,6 +669,7 @@ const ComboBanner = ({ programs, comboRules }) => {
   const names = comboPrograms.map((p) => (p.title.length > 25 ? `${p.title.slice(0, 25)}...` : p.title));
 
   const handleAddAll = () => {
+    if (isIndiaRazorpay) setCheckoutSurface('india');
     let added = 0;
     comboPrograms.forEach((p) => {
       if (!items.some((i) => i.programId === p.id)) {
@@ -674,7 +677,13 @@ const ComboBanner = ({ programs, comboRules }) => {
         added++;
       }
     });
-    toast({ title: added > 0 ? `${added} program${added > 1 ? 's' : ''} added to cart!` : 'Already in cart' });
+    const description = isIndiaRazorpay
+      ? 'Combo discount applies at cart checkout in INR (Razorpay).'
+      : undefined;
+    toast({
+      title: added > 0 ? `${added} program${added > 1 ? 's' : ''} added to cart!` : 'Already in cart',
+      ...(description ? { description } : {}),
+    });
   };
 
   return (
@@ -711,7 +720,9 @@ const ComboBanner = ({ programs, comboRules }) => {
 };
 
 export const CrossSellBanner = ({ rules, programs }) => {
-  const { symbol } = useCurrency();
+  const { symbol: ctxSymbol } = useCurrency();
+  const { isIndiaRazorpay } = useHomeCheckoutSurface();
+  const symbol = isIndiaRazorpay ? '₹' : ctxSymbol;
 
   const allOffers = rules.flatMap(rule => {
     const buyProg = programs.find(p => String(p.id) === String(rule.buy_program_id));

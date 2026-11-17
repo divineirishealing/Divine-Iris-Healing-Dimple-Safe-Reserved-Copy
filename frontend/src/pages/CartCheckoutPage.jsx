@@ -17,6 +17,11 @@ import { normalizeCartItemTierIndex } from '../lib/crossSellPricing';
 import { resolveEffectiveOffer } from '../lib/effectiveOfferPricing';
 import { mapCartItemForApi } from '../lib/sessionBookingPayload';
 import { formatSessionCalendarDateLabel } from '../lib/sessionCalendarSlots';
+import {
+  useCartCheckoutCurrency,
+  cartItemListPrice,
+  cartItemOfferPrice,
+} from '../hooks/useCartCheckoutCurrency';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -28,9 +33,9 @@ const StepDot = ({ active, done }) => (
 function CartCheckoutPage() {
   const navigate = useNavigate();
   const { items, clearCart } = useCart();
-  const { country: detectedCountry, symbol, baseCurrency, baseSymbol, displayCurrency, displaySymbol, isPrimary, getPrice, getOfferPrice, toDisplay } = useCurrency();
+  const { country: detectedCountry, baseSymbol, displayCurrency, displaySymbol, isPrimary, getPrice, getOfferPrice } = useCurrency();
+  const { isIndiaCart, currency, symbol, toDisplay } = useCartCheckoutCurrency();
   const { toast } = useToast();
-  const currency = baseCurrency;
   const [searchParams] = useSearchParams();
 
   // Enrollment ID and promo come from cart page via URL
@@ -95,6 +100,7 @@ function CartCheckoutPage() {
 
   // Local price getters using active currency
   const getItemPrice = (item) => {
+    if (isIndiaCart) return toDisplay(cartItemListPrice(item, currency));
     const tiers = item.durationTiers || [];
     const hasTiers = item.isFlagship && tiers.length > 0;
     const tier = hasTiers ? tiers[item.tierIndex] : null;
@@ -104,6 +110,7 @@ function CartCheckoutPage() {
   };
 
   const getItemOfferPrice = (item) => {
+    if (isIndiaCart) return cartItemOfferPrice(item, currency, toDisplay);
     const tiers = item.durationTiers || [];
     const hasTiers = item.isFlagship && tiers.length > 0;
     const tier = hasTiers ? tiers[item.tierIndex] : null;

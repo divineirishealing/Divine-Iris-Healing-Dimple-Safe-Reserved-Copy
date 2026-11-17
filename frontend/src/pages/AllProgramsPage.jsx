@@ -14,6 +14,7 @@ import { HEADING } from '../lib/designTokens';
 import { programPublicPath } from '../lib/programRoutes';
 import { indiaProgramRazorpayPath } from '../lib/indiaProgramLanding';
 import { useSeoPage } from '../context/SeoPageContext';
+import { setCheckoutSurface } from '../lib/checkoutSurfaceStorage';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -46,6 +47,10 @@ export default function AllProgramsPage({ surface = 'website' } = {}) {
     };
     loadPrograms();
     axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
+  }, [isIndia]);
+
+  useEffect(() => {
+    if (isIndia) setCheckoutSurface('india');
   }, [isIndia]);
 
   useEffect(() => {

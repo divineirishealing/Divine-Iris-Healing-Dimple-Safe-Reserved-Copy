@@ -8,6 +8,7 @@ import FloatingButtons from '../components/FloatingButtons';
 import { AdLandingHeader } from '../components/AdLandingChrome';
 import IndiaProgramRazorpayReserve from '../components/programs/IndiaProgramRazorpayReserve';
 import { programInrListPrice, programInrOfferPrice } from '../lib/indiaProgramLanding';
+import { setCheckoutSurface } from '../lib/checkoutSurfaceStorage';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import ProgramExperienceMoment from '../components/ProgramExperienceMoment';
@@ -192,6 +193,10 @@ export function ProgramDetailPage({ surface = 'website' } = {}) {
   const [selectedEmbed, setSelectedEmbed]       = useState(null);
   const [lightboxImg, setLightboxImg] = useState(null);
   const [heroTierIdx, setHeroTierIdx] = useState(0);
+
+  useEffect(() => {
+    if (isIndiaRazorpay) setCheckoutSurface('india');
+  }, [isIndiaRazorpay]);
 
   const goToCheckout = (tierIdx) => {
     if (tierIdx !== undefined && tierIdx !== null && tierIdx !== '') {
