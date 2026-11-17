@@ -2754,8 +2754,10 @@ async def _enrich_enrollment_row_with_payment(e: dict, by_e: Dict[str, List[dict
 async def list_enrollments():
     """Admin: list all enrollments with payment details (all checkout paths use `enrollments`)."""
     from utils.payment_request_enrollment import backfill_payment_link_enrollments
+    from utils.india_program_razorpay_plink import backfill_india_plink_checkout_orphans
 
     await backfill_payment_link_enrollments(db, limit=200)
+    await backfill_india_plink_checkout_orphans(db, limit=200)
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)
@@ -2794,6 +2796,24 @@ async def reconcile_enrollment_payment(request: Request):
     body = await request.json()
     enrollment_id = _clean_str(body.get("enrollment_id"))
     invoice_number = _clean_str(body.get("invoice_number"))
+    razorpay_payment_id = _clean_str(body.get("razorpay_payment_id"))
+    program_id = _clean_str(body.get("program_id"))
+
+    if razorpay_payment_id:
+        from key_manager import get_key
+        from utils.india_program_razorpay_plink import fulfill_india_program_payment_link_payment
+
+        key_id = (await get_key("razorpay_key_id") or "").strip()
+        key_secret = (await get_key("razorpay_key_secret") or "").strip()
+        if not key_id or not key_secret:
+            raise HTTPException(status_code=503, detail="Razorpay is not configured.")
+        await fulfill_india_program_payment_link_payment(
+            db,
+            key_id=key_id,
+            key_secret=key_secret,
+            payment_id=razorpay_payment_id,
+            expected_program_id=program_id or None,
+        )
 
     enrollment = None
     if enrollment_id:
@@ -2838,8 +2858,10 @@ async def participant_enrollment_rows(paid_completed_only: bool = False):
     Payment amount/currency is the checkout total (repeated on each row for multi-seat enrollments).
     """
     from utils.payment_request_enrollment import backfill_payment_link_enrollments
+    from utils.india_program_razorpay_plink import backfill_india_plink_checkout_orphans
 
     await backfill_payment_link_enrollments(db, limit=200)
+    await backfill_india_plink_checkout_orphans(db, limit=200)
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
     by_e = await _transactions_grouped_by_enrollment(eids)

@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from fastapi import HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -110,6 +111,189 @@ async def ensure_india_program_payment_link(
     return {k: v for k, v in doc.items() if k != "_id"}
 
 
+async def _program_id_from_payment_link_cache(
+    db: AsyncIOMotorDatabase,
+    payment_link_id: Optional[str],
+) -> Tuple[str, int, str]:
+    """Resolve program_id / tier / landing_path from our cached Razorpay payment link row."""
+    plink = (payment_link_id or "").strip()
+    if not plink:
+        return "", 0, ""
+    cached = await db.razorpay_cached_payment_links.find_one({"payment_link_id": plink}, {"_id": 0})
+    if not cached:
+        return "", 0, ""
+    pid = (cached.get("program_id") or "").strip()
+    tier = 0
+    try:
+        tier = int(cached.get("tier_index") or 0)
+    except (TypeError, ValueError):
+        tier = 0
+    landing = (cached.get("landing_path") or "").strip()
+    return pid, tier, landing
+
+
+async def _find_open_india_landing_enrollment(
+    db: AsyncIOMotorDatabase,
+    *,
+    program_id: str,
+    email: str,
+) -> Optional[dict]:
+    """Booking form left checkout_started; payer used QR payment link instead."""
+    from utils.enrollment_checkout_status import INCOMPLETE_CHECKOUT_STATUSES
+
+    email_norm = (email or "").strip().lower()
+    pid = (program_id or "").strip()
+    if not email_norm or not pid:
+        return None
+    cursor = db.enrollments.find(
+        {
+            "item_id": pid,
+            "item_type": "program",
+            "created_via": "india_landing",
+            "status": {"$in": list(INCOMPLETE_CHECKOUT_STATUSES)},
+        },
+        {"_id": 0},
+    ).sort("created_at", -1)
+    async for row in cursor:
+        if (row.get("booker_email") or "").strip().lower() == email_norm:
+            return row
+    return None
+
+
+async def _pending_txn_for_enrollment(db: AsyncIOMotorDatabase, enrollment_id: str) -> Optional[dict]:
+    from utils.enrollment_checkout_status import transaction_is_paid
+
+    eid = (enrollment_id or "").strip()
+    if not eid:
+        return None
+    txns = await db.payment_transactions.find({"enrollment_id": eid}, {"_id": 0}).sort("created_at", -1).to_list(10)
+    for txn in txns:
+        if not transaction_is_paid(txn):
+            return txn
+    return txns[0] if txns else None
+
+
+async def backfill_india_plink_checkout_orphans(db, *, limit: int = 100) -> int:
+    """
+    Heal checkout_started India landings when Razorpay Payment Link paid on a duplicate enrollment.
+    Relinks the paid plink transaction onto the original invoice/enrollment.
+    """
+    from routes.payments import run_enrollment_razorpay_success_hooks
+    from utils.enrollment_checkout_status import (
+        INCOMPLETE_CHECKOUT_STATUSES,
+        reconcile_enrollment_with_paid_transaction,
+        transaction_is_paid,
+    )
+
+    fixed = 0
+    enrollments = await db.enrollments.find(
+        {
+            "status": {"$in": list(INCOMPLETE_CHECKOUT_STATUSES)},
+            "created_via": "india_landing",
+            "item_type": "program",
+        },
+        {"_id": 0},
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+
+    for enrollment in enrollments:
+        eid = (enrollment.get("id") or "").strip()
+        email = (enrollment.get("booker_email") or "").strip().lower()
+        program_id = (enrollment.get("item_id") or "").strip()
+        if not eid or not email or not program_id:
+            continue
+
+        pending = await _pending_txn_for_enrollment(db, eid)
+        if pending and transaction_is_paid(pending):
+            continue
+
+        paid_plink = await db.payment_transactions.find_one(
+            {
+                "razorpay_payment_link": True,
+                "item_id": program_id,
+                "payment_status": {"$in": ["paid", "complete", "completed"]},
+                "booker_email": {"$regex": f"^{re.escape(email)}$", "$options": "i"},
+            },
+            sort=[("paid_at", -1), ("created_at", -1)],
+        )
+        if not paid_plink:
+            continue
+
+        other_eid = (paid_plink.get("enrollment_id") or "").strip()
+        if other_eid == eid:
+            await reconcile_enrollment_with_paid_transaction(db, eid, paid_plink, enrollment=enrollment)
+            fixed += 1
+            continue
+
+        invoice_number = (pending or {}).get("invoice_number") or paid_plink.get("invoice_number")
+        session_id = (pending or {}).get("stripe_session_id") or paid_plink.get("stripe_session_id")
+        if not session_id:
+            session_id = f"rz_{uuid.uuid4().hex}"
+
+        await db.payment_transactions.update_one(
+            {"id": paid_plink["id"]},
+            {
+                "$set": {
+                    "enrollment_id": eid,
+                    "invoice_number": invoice_number,
+                    "stripe_session_id": session_id,
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+        )
+        if pending and pending.get("id") and pending["id"] != paid_plink.get("id"):
+            await db.payment_transactions.update_one(
+                {"id": pending["id"]},
+                {
+                    "$set": {
+                        "payment_status": "superseded",
+                        "superseded_by_txn_id": paid_plink["id"],
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+
+        paid_doc = {
+            **paid_plink,
+            "enrollment_id": eid,
+            "invoice_number": invoice_number,
+            "stripe_session_id": session_id,
+        }
+        now = datetime.now(timezone.utc)
+        await db.enrollments.update_one(
+            {"id": eid},
+            {
+                "$set": {
+                    "status": "completed",
+                    "payment_method": "razorpay",
+                    "paid_at": paid_plink.get("paid_at") or now.isoformat(),
+                    "stripe_session_id": session_id,
+                    "updated_at": now.isoformat(),
+                }
+            },
+        )
+
+        if other_eid and other_eid != eid:
+            await db.enrollments.update_one(
+                {"id": other_eid},
+                {
+                    "$set": {
+                        "status": "cancelled",
+                        "cancel_reason": "india_plink_merged_into_checkout",
+                        "merged_into_enrollment_id": eid,
+                        "updated_at": now.isoformat(),
+                    }
+                },
+            )
+
+        try:
+            await run_enrollment_razorpay_success_hooks(session_id)
+        except Exception as exc:
+            logger.warning("backfill india plink hooks %s: %s", eid, exc)
+        fixed += 1
+
+    return fixed
+
+
 async def fulfill_india_program_payment_link_payment(
     db: AsyncIOMotorDatabase,
     *,
@@ -153,6 +337,12 @@ async def fulfill_india_program_payment_link_payment(
     except (TypeError, ValueError):
         tier_index = 0
 
+    if not program_id:
+        cached_pid, cached_tier, _cached_path = await _program_id_from_payment_link_cache(db, payment_link_id)
+        program_id = cached_pid or program_id
+        if cached_tier and tier_index == 0:
+            tier_index = cached_tier
+
     if payment_link_id and program_id:
         cached = await db.razorpay_cached_payment_links.find_one(
             {"_id": _cache_id(program_id)},
@@ -184,9 +374,9 @@ async def fulfill_india_program_payment_link_payment(
             detail="Payment has no email — ask the payer to retry with email on the Razorpay page.",
         )
 
-    session_id = f"rz_{uuid.uuid4().hex}"
-    enrollment_id = await _next_receipt_id(db)
     now = datetime.now(timezone.utc)
+    order_id = (payment.get("order_id") or "").strip()
+    open_enrollment = await _find_open_india_landing_enrollment(db, program_id=program_id, email=email)
 
     participant = {
         "name": name,
@@ -196,17 +386,106 @@ async def fulfill_india_program_payment_link_payment(
         "country": "IN",
         "city": "",
         "state": "",
-        "attendance_mode": "online",
+        "attendance_mode": (open_enrollment or {}).get("attendance") or "online",
         "notify": True,
         "email": email,
-        "phone": phone,
-        "whatsapp": phone,
+        "phone": phone or (open_enrollment or {}).get("phone") or "",
+        "whatsapp": phone or (open_enrollment or {}).get("phone") or "",
         "program_id": program_id,
         "program_title": pending_title,
         "is_first_time": True,
         "referral_source": "",
         "referred_by_name": "",
     }
+
+    from routes.payments import run_enrollment_razorpay_success_hooks
+
+    if open_enrollment:
+        enrollment_id = open_enrollment["id"]
+        pending_txn = await _pending_txn_for_enrollment(db, enrollment_id)
+        session_id = (pending_txn or {}).get("stripe_session_id") or open_enrollment.get("stripe_session_id")
+        if not session_id:
+            session_id = f"rz_{uuid.uuid4().hex}"
+        invoice_number = (pending_txn or {}).get("invoice_number")
+
+        await db.enrollments.update_one(
+            {"id": enrollment_id},
+            {
+                "$set": {
+                    "status": "completed",
+                    "booker_name": name or open_enrollment.get("booker_name"),
+                    "phone": phone or open_enrollment.get("phone"),
+                    "participants": [participant],
+                    "payment_method": "razorpay",
+                    "paid_at": now.isoformat(),
+                    "stripe_session_id": session_id,
+                    "ad_utm": {**(open_enrollment.get("ad_utm") or {}), "utm_medium": "razorpay_plink"},
+                    "updated_at": now.isoformat(),
+                }
+            },
+        )
+
+        if pending_txn and pending_txn.get("id"):
+            await db.payment_transactions.update_one(
+                {"id": pending_txn["id"]},
+                {
+                    "$set": {
+                        "payment_status": "paid",
+                        "razorpay_payment_id": pid,
+                        "razorpay_payment_link_id": (payment_link_id or "").strip(),
+                        "razorpay_payment_link": True,
+                        "paid_at": now.isoformat(),
+                        "booker_name": name,
+                        "booker_email": email,
+                        "phone": participant["phone"],
+                        "participants": [participant],
+                        "updated_at": now,
+                    }
+                },
+            )
+        else:
+            month_prefix = now.strftime("%Y-%m")
+            count = await db.payment_transactions.count_documents({"invoice_number": {"$regex": f"^{month_prefix}"}})
+            invoice_number = invoice_number or f"{month_prefix}-{str(count + 1).zfill(3)}"
+            await db.payment_transactions.insert_one(
+                {
+                    "id": str(uuid.uuid4()),
+                    "invoice_number": invoice_number,
+                    "enrollment_id": enrollment_id,
+                    "stripe_session_id": session_id,
+                    "razorpay_order_id": order_id,
+                    "razorpay_payment_id": pid,
+                    "razorpay_payment_link_id": (payment_link_id or "").strip(),
+                    "payment_provider": "razorpay",
+                    "razorpay_landing": True,
+                    "razorpay_payment_link": True,
+                    "created_via": "india_landing_plink",
+                    "item_type": "program",
+                    "item_id": program_id,
+                    "item_title": pending_title,
+                    "tier_index": tier_index,
+                    "amount": amount_inr,
+                    "currency": "inr",
+                    "stripe_currency": "inr",
+                    "stripe_amount": amount_inr,
+                    "payment_status": "paid",
+                    "booker_name": name,
+                    "booker_email": email,
+                    "phone": participant["phone"],
+                    "participants": [participant],
+                    "participant_count": 1,
+                    "attendance": participant["attendance_mode"],
+                    "paid_at": now.isoformat(),
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            )
+
+        await run_enrollment_razorpay_success_hooks(session_id)
+        return {"ok": True, "session_id": session_id, "already_fulfilled": False, "merged_checkout": True}
+
+    session_id = f"rz_{uuid.uuid4().hex}"
+    enrollment_id = await _next_receipt_id(db)
     enrollment = {
         "id": enrollment_id,
         "status": "completed",
@@ -241,7 +520,6 @@ async def fulfill_india_program_payment_link_payment(
     month_prefix = now.strftime("%Y-%m")
     count = await db.payment_transactions.count_documents({"invoice_number": {"$regex": f"^{month_prefix}"}})
     invoice_number = f"{month_prefix}-{str(count + 1).zfill(3)}"
-    order_id = (payment.get("order_id") or "").strip()
 
     transaction = {
         "id": str(uuid.uuid4()),
@@ -284,8 +562,6 @@ async def fulfill_india_program_payment_link_payment(
         await ensure_client_from_enrollment_lead(enrollment)
     except Exception as exc:
         logger.warning("india program plink lead client: %s", exc)
-
-    from routes.payments import run_enrollment_razorpay_success_hooks
 
     await run_enrollment_razorpay_success_hooks(session_id)
     return {"ok": True, "session_id": session_id, "already_fulfilled": False}

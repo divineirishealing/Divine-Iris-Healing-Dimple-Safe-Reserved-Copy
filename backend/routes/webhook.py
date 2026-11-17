@@ -179,11 +179,16 @@ async def razorpay_webhook(request: Request):
 
     payment_id = ""
     payment_link_id = ""
+    plink_landing = ""
+    plink_program_id = ""
     if event == "payment_link.paid":
         pl_ent = (ent.get("payment_link") or {}).get("entity") or {}
         pay_ent = (ent.get("payment") or {}).get("entity") or {}
         payment_link_id = (pl_ent.get("id") or "").strip()
         payment_id = (pay_ent.get("id") or "").strip()
+        pl_notes = pl_ent.get("notes") or {}
+        plink_landing = (pl_notes.get("landing") or "").strip()
+        plink_program_id = (pl_notes.get("program_id") or pl_notes.get("item_id") or "").strip()
     elif event == "payment.captured":
         pay_ent = (ent.get("payment") or {}).get("entity") or {}
         payment_id = (pay_ent.get("id") or "").strip()
@@ -209,7 +214,15 @@ async def razorpay_webhook(request: Request):
             key_id=key_id,
             key_secret=key_secret,
         )
-        landing = ((payment.get("notes") or {}).get("landing") or "").strip()
+        landing = ((payment.get("notes") or {}).get("landing") or "").strip() or plink_landing
+        if landing not in ("awrp-intro", "india-program") and payment_link_id:
+            from utils.india_program_razorpay_plink import _program_id_from_payment_link_cache
+
+            cached_pid, _tier, _path = await _program_id_from_payment_link_cache(db, payment_link_id)
+            if cached_pid:
+                landing = "india-program"
+                if not plink_program_id:
+                    plink_program_id = cached_pid
         if landing == "india-program":
             from utils.india_program_razorpay_plink import fulfill_india_program_payment_link_payment
 
@@ -219,8 +232,9 @@ async def razorpay_webhook(request: Request):
                 key_secret=key_secret,
                 payment_id=payment_id,
                 payment_link_id=payment_link_id or None,
+                expected_program_id=plink_program_id or None,
             )
-        else:
+        elif landing == "awrp-intro":
             from utils.awrp_intro_razorpay_plink import fulfill_awrp_intro_payment_link_payment
 
             await fulfill_awrp_intro_payment_link_payment(
@@ -230,6 +244,25 @@ async def razorpay_webhook(request: Request):
                 payment_id=payment_id,
                 payment_link_id=payment_link_id or None,
             )
+        elif event == "payment_link.paid" and payment_link_id:
+            from utils.awrp_intro_razorpay_plink import CACHE_DOC_ID, fulfill_awrp_intro_payment_link_payment
+
+            linked = await db.razorpay_cached_payment_links.find_one(
+                {"payment_link_id": payment_link_id},
+                {"_id": 1},
+            )
+            if linked and linked.get("_id") == CACHE_DOC_ID:
+                await fulfill_awrp_intro_payment_link_payment(
+                    db,
+                    key_id=key_id,
+                    key_secret=key_secret,
+                    payment_id=payment_id,
+                    payment_link_id=payment_link_id or None,
+                )
+            else:
+                return {"status": "ok", "note": "unknown_payment_link"}
+        else:
+            return {"status": "ok", "note": "not_landing_plink"}
     except Exception as exc:
         logger.exception("Razorpay webhook fulfillment failed: %s", exc)
         return {"status": "error", "message": str(exc)[:200]}
