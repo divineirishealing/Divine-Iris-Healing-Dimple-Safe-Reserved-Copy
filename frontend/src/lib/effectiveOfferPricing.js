@@ -97,3 +97,10 @@ export function nearestOfferCountdownAcrossPrograms(programs, resolveTierIndex) 
   }
   return { deadline: bestDeadline, program: bestProgram };
 }
+
+/** Strikethrough list/compare-at price only when offer is strictly below list. */
+export function shouldShowStrikethroughListPrice(listPrice, offerPrice) {
+  const list = Number(listPrice) || 0;
+  const offer = Number(offerPrice) || 0;
+  return offer > 0 && list > offer;
+}

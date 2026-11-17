@@ -10,6 +10,7 @@ import { HEADING, BODY, CONTAINER, applySectionStyle } from '../lib/designTokens
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { UpcomingCard } from './UpcomingProgramsSection';
 import { catalogPayAsYouWishEnabled } from '../lib/payAsYouWish';
+import { shouldShowStrikethroughListPrice } from '../lib/effectiveOfferPricing';
 import {
   websiteVisibleTierEntries,
   firstWebsiteVisibleTierIndex,
@@ -166,7 +167,9 @@ const SimpleFlagshipCard = ({ program }) => {
                   {offerPrice > 0 ? (
                     <>
                       <span className="text-lg font-bold text-[#D4AF37]">{symbol} {offerPrice.toLocaleString()}</span>
-                      <span className="text-xs text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
+                      {shouldShowStrikethroughListPrice(price, offerPrice) && (
+                        <span className="text-xs text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
+                      )}
                     </>
                   ) : price > 0 ? (
                     <span className="text-lg font-bold text-gray-900">{symbol} {price.toLocaleString()}</span>

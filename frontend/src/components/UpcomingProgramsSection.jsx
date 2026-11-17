@@ -8,7 +8,7 @@ import { useToast } from '../hooks/use-toast';
 import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart, Gift, Users } from 'lucide-react';
 import { cn, formatDateDdMonYyyy } from '../lib/utils';
 import { catalogPayAsYouWishEnabled } from '../lib/payAsYouWish';
-import { getOfferCountdownDeadline, resolveProgramOffer, parsePricingDate } from '../lib/effectiveOfferPricing';
+import { getOfferCountdownDeadline, resolveProgramOffer, parsePricingDate, shouldShowStrikethroughListPrice } from '../lib/effectiveOfferPricing';
 import { resolveProgramDurationDisplay } from '../lib/programDurationDisplay';
 import { durationPillDisplay } from '../lib/upcomingHomepagePresentation';
 import {
@@ -520,7 +520,9 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
                       ) : offerPrice > 0 ? (
                         <>
                           <span className="text-xl font-bold text-[#D4AF37]">{symbol} {offerPrice.toLocaleString()}</span>
-                          <span className="text-xs text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
+                          {shouldShowStrikethroughListPrice(price, offerPrice) && (
+                            <span className="text-xs text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
+                          )}
                         </>
                       ) : price > 0 ? (
                         <span className="text-xl font-bold text-gray-900">{symbol} {price.toLocaleString()}</span>
@@ -834,8 +836,6 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
     return s === 'open';
   });
   const hasOpenRegistrations = openVisiblePrograms.length > 0;
-  /** Desktop program grid rows (3 cards per row) — sponsor column spans this many rows. */
-  const desktopProgramRowCount = Math.max(1, Math.ceil(sorted.length / 3));
   /** Desktop 4-col layout reserves 3 program slots; with 1–2 upcoming programs that leaves empty columns (looks like missing cards/images). */
   const useCompactUpcomingDesktop = sorted.length <= 2;
 
@@ -908,11 +908,11 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
             {sorted.map(renderUpcomingCard)}
           </div>
 
-          <div data-testid="sponsor-card-column" className="h-full">
+          <div data-testid="sponsor-card-column" className="self-start">
             <div className="text-center mb-4 lg:hidden">
               <h2 className="text-2xl sm:text-3xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
             </div>
-            <SponsorCard sponsorData={sponsorData} matchProgramRowHeight />
+            <SponsorCard sponsorData={sponsorData} />
           </div>
 
           {(hasOpenRegistrations && comboDiscount && comboDiscount.rules?.length > 0) && (
@@ -964,15 +964,12 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
 
           <div
             data-testid="sponsor-card-column"
-            className={cn(
-              'lg:col-start-4 lg:row-start-2 h-full',
-              desktopProgramRowCount >= 2 && 'lg:row-span-2',
-            )}
+            className="lg:col-start-4 lg:row-start-2 self-start"
           >
             <div className="text-center mb-4 lg:hidden">
               <h2 className="text-2xl sm:text-3xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
             </div>
-            <SponsorCard sponsorData={sponsorData} matchProgramRowHeight />
+            <SponsorCard sponsorData={sponsorData} />
           </div>
 
           {(hasOpenRegistrations && comboDiscount && comboDiscount.rules?.length > 0) && (

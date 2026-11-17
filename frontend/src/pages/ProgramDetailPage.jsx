@@ -8,6 +8,7 @@ import FloatingButtons from '../components/FloatingButtons';
 import { AdLandingHeader } from '../components/AdLandingChrome';
 import IndiaProgramRazorpayReserve from '../components/programs/IndiaProgramRazorpayReserve';
 import { programInrListPrice, programInrOfferPrice } from '../lib/indiaProgramLanding';
+import { shouldShowStrikethroughListPrice } from '../lib/effectiveOfferPricing';
 import { setCheckoutSurface } from '../lib/checkoutSurfaceStorage';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
@@ -789,7 +790,7 @@ export function ProgramDetailPage({ surface = 'website' } = {}) {
                             </div><span className="inline-block bg-gray-900 text-white text-[10px] py-2 px-6 tracking-[0.15em] uppercase transition-colors">Select</span></div>
                           ) : (
                             <div><div className="mb-3">
-                              {tierOffer > 0 ? (<><p className="text-base font-semibold" style={{ ...globalPricingStyle, fontSize: '1rem' }}>{symbol} {tierOffer.toLocaleString()}</p><p className="text-[10px] text-gray-400 line-through">{symbol} {tierPrice.toLocaleString()}</p></>) : tierPrice > 0 ? (<p className="text-base font-semibold" style={{ ...globalPricingStyle, fontSize: '1rem' }}>{symbol} {tierPrice.toLocaleString()}</p>) : (<p className="text-xs text-gray-400 italic">Contact for customised pricing</p>)}
+                              {tierOffer > 0 ? (<><p className="text-base font-semibold" style={{ ...globalPricingStyle, fontSize: '1rem' }}>{symbol} {tierOffer.toLocaleString()}</p>{shouldShowStrikethroughListPrice(tierPrice, tierOffer) && <p className="text-[10px] text-gray-400 line-through">{symbol} {tierPrice.toLocaleString()}</p>}</>) : tierPrice > 0 ? (<p className="text-base font-semibold" style={{ ...globalPricingStyle, fontSize: '1rem' }}>{symbol} {tierPrice.toLocaleString()}</p>) : (<p className="text-xs text-gray-400 italic">Contact for customised pricing</p>)}
                             </div><span className="inline-block bg-gray-900 text-white text-[10px] py-2 px-6 tracking-[0.15em] uppercase transition-colors">Select</span></div>
                           )}
                         </div>
@@ -853,7 +854,9 @@ export function ProgramDetailPage({ surface = 'website' } = {}) {
                     return offerP > 0 ? (
                       <div className="mb-4">
                         <p className="text-2xl font-semibold" style={pricingStyle}>{symbol} {offerP.toLocaleString()}</p>
-                        <p className="text-sm text-gray-400 line-through mt-1">{symbol} {basePrice.toLocaleString()}</p>
+                        {shouldShowStrikethroughListPrice(basePrice, offerP) && (
+                          <p className="text-sm text-gray-400 line-through mt-1">{symbol} {basePrice.toLocaleString()}</p>
+                        )}
                         {program.offer_text && <p className="text-xs mt-2 px-3 py-1 rounded-full inline-block" style={{ background: heroAccent + '15', color: heroAccent }}>{program.offer_text}</p>}
                       </div>
                     ) : basePrice > 0 ? (
