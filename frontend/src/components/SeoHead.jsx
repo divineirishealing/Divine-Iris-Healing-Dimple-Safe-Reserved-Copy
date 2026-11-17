@@ -46,7 +46,7 @@ export default function SeoHead() {
   const routeSeo = getRouteSeo(pathname);
 
   const fullTitle = useMemo(() => {
-    if (pathname === '/') return defaultTitle;
+    if (pathname === '/' || pathname === '/india') return defaultTitle;
     if (pageSeo.title) return `${pageSeo.title} | ${brand}`;
     if (routeSeo?.title) return `${routeSeo.title} | ${brand}`;
     return brand;
@@ -84,7 +84,7 @@ export default function SeoHead() {
     pathname.startsWith('/cart/checkout');
   const noIndex = noIndexPrivate || pageSeo.noIndex;
   const orgJsonLd = useMemo(() => {
-    if (pathname !== '/') return null;
+    if (pathname !== '/' && pathname !== '/india') return null;
     const sameAs = [
       settings?.social_instagram,
       settings?.social_facebook,

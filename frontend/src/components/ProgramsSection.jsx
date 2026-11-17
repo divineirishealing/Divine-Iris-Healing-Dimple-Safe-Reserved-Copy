@@ -23,9 +23,8 @@ import { useHomeCheckoutSurface } from '../context/HomeCheckoutSurfaceContext';
 import {
   indiaProgramRazorpayCheckoutPath,
   indiaProgramRazorpayPath,
-  programInrListPrice,
-  programInrOfferPrice,
 } from '../lib/indiaProgramLanding';
+import { setCheckoutSurface } from '../lib/checkoutSurfaceStorage';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -57,13 +56,8 @@ const SimpleFlagshipCard = ({ program }) => {
   const tier = showTiers ? program.duration_tiers[selectedTier] : null;
   const isAnnual = tier && (tier.label.toLowerCase().includes('annual') || tier.label.toLowerCase().includes('year'));
   const pricingTierIndex = resolveCardPricingTierIndex(program, selectedTier, showTiers);
-  const price = isIndiaRazorpay
-    ? programInrListPrice(program, pricingTierIndex)
-    : getPrice(program, pricingTierIndex);
-  const offerPrice = isIndiaRazorpay
-    ? programInrOfferPrice(program, pricingTierIndex)
-    : getOfferPrice(program, pricingTierIndex);
-  const displaySymbol = isIndiaRazorpay ? '₹' : symbol;
+  const price = getPrice(program, pricingTierIndex);
+  const offerPrice = getOfferPrice(program, pricingTierIndex);
   const showContact = isAnnual && price === 0;
 
   const goIndiaCheckout = () => {
@@ -82,6 +76,7 @@ const SimpleFlagshipCard = ({ program }) => {
     : program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
 
   const handleAddToCart = () => {
+    if (isIndiaRazorpay) setCheckoutSurface('india');
     const added = addItem(program, selectedTier);
     if (added) {
       setJustAdded(true);
@@ -170,11 +165,11 @@ const SimpleFlagshipCard = ({ program }) => {
                 <div className="flex items-baseline gap-2 flex-wrap">
                   {offerPrice > 0 ? (
                     <>
-                      <span className="text-lg font-bold text-[#D4AF37]">{displaySymbol} {offerPrice.toLocaleString()}</span>
-                      <span className="text-xs text-gray-400 line-through">{displaySymbol} {price.toLocaleString()}</span>
+                      <span className="text-lg font-bold text-[#D4AF37]">{symbol} {offerPrice.toLocaleString()}</span>
+                      <span className="text-xs text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
                     </>
                   ) : price > 0 ? (
-                    <span className="text-lg font-bold text-gray-900">{displaySymbol} {price.toLocaleString()}</span>
+                    <span className="text-lg font-bold text-gray-900">{symbol} {price.toLocaleString()}</span>
                   ) : (
                     <span className="text-lg font-bold text-green-600">FREE</span>
                   )}
@@ -193,21 +188,19 @@ const SimpleFlagshipCard = ({ program }) => {
                 className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
                 Know More
               </button>
-              {!isIndiaRazorpay && (
-                <button onClick={handleAddToCart} data-testid={`flagship-add-cart-${program.id}`}
-                  disabled={inCart || justAdded}
-                  className={`flex items-center justify-center px-2.5 py-2 rounded-full text-[10px] transition-all font-medium border ${
-                    inCart || justAdded ? 'bg-green-50 text-green-600 border-green-200' : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]'
-                  }`}>
-                  {inCart || justAdded ? <Check size={11} /> : <ShoppingCart size={11} />}
-                </button>
-              )}
+              <button onClick={handleAddToCart} data-testid={`flagship-add-cart-${program.id}`}
+                disabled={inCart || justAdded}
+                className={`flex items-center justify-center px-2.5 py-2 rounded-full text-[10px] transition-all font-medium border ${
+                  inCart || justAdded ? 'bg-green-50 text-green-600 border-green-200' : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                }`}>
+                {inCart || justAdded ? <Check size={11} /> : <ShoppingCart size={11} />}
+              </button>
               <button
                 onClick={() => (isIndiaRazorpay ? goIndiaCheckout() : navigate(`/enroll/program/${program.id}?tier=${selectedTier}`))}
                 data-testid={`flagship-enroll-${program.id}`}
                 className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
               >
-                {isIndiaRazorpay ? 'Book with Razorpay' : 'Enroll Now'}
+                Enroll Now
               </button>
             </div>
           ) : (

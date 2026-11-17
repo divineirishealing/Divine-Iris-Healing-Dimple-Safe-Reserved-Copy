@@ -18,7 +18,6 @@ import CustomSection from '../components/CustomSection';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { HomeCheckoutSurfaceProvider } from '../context/HomeCheckoutSurfaceContext';
-import { useSeoPage } from '../context/SeoPageContext';
 import { setCheckoutSurface } from '../lib/checkoutSurfaceStorage';
 
 const COMPONENT_MAP = {
@@ -79,7 +78,6 @@ function mergeHomepageSections(saved) {
 function HomePage({ checkoutSurface = 'website' } = {}) {
   const isIndiaHome = checkoutSurface === 'india';
   const { settings, refreshSettings } = useSiteSettings();
-  const { setPageSeo, clearPageSeo } = useSeoPage();
 
   const sections = useMemo(
     () => mergeHomepageSections(settings?.homepage_sections),
@@ -98,17 +96,6 @@ function HomePage({ checkoutSurface = 'website' } = {}) {
   useEffect(() => {
     setCheckoutSurface(isIndiaHome ? 'india' : 'website');
   }, [isIndiaHome]);
-
-  useEffect(() => {
-    if (!isIndiaHome) return undefined;
-    setPageSeo({
-      title: settings?.seo?.site_title || 'Divine Iris Soulful Healing Studio',
-      description:
-        settings?.seo?.meta_description
-        || 'Transform your life with Divine Iris healing programs. Book upcoming workshops with secure Razorpay checkout.',
-    });
-    return () => clearPageSeo();
-  }, [isIndiaHome, setPageSeo, clearPageSeo, settings?.seo?.site_title, settings?.seo?.meta_description]);
 
   // Scroll to hash target after sections render (handles /#upcoming etc. from other pages)
   useEffect(() => {
