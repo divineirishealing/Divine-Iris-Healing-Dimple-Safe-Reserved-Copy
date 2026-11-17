@@ -83,10 +83,12 @@ async def reconcile_india_landing_razorpay_checkouts(db: AsyncIOMotorDatabase, *
 
     query = {
         "status": {"$in": list(INCOMPLETE_CHECKOUT_STATUSES)},
-        "item_type": "program",
         "$or": [
             {"created_via": "india_landing"},
             {"landing_path": {"$regex": r"^/india/program/"}},
+            {"cart_items.0": {"$exists": True}},
+            {"india_site_checkout": True},
+            {"currency": "inr"},
         ],
     }
     enrollments = await db.enrollments.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)

@@ -155,12 +155,10 @@ async def _find_open_india_landing_enrollment(
         return None
     cursor = db.enrollments.find(
         {
-            "item_id": pid,
-            "item_type": "program",
             "status": {"$in": list(INCOMPLETE_CHECKOUT_STATUSES)},
             "$or": [
-                {"created_via": "india_landing"},
-                {"landing_path": {"$regex": r"^/india/program/"}},
+                {"item_id": pid, "item_type": "program"},
+                {"cart_items.program_id": pid},
             ],
         },
         {"_id": 0},
@@ -203,10 +201,12 @@ async def backfill_india_plink_checkout_orphans(db, *, limit: int = 100) -> int:
     enrollments = await db.enrollments.find(
         {
             "status": {"$in": list(INCOMPLETE_CHECKOUT_STATUSES)},
-            "item_type": "program",
             "$or": [
                 {"created_via": "india_landing"},
                 {"landing_path": {"$regex": r"^/india/program/"}},
+                {"cart_items.0": {"$exists": True}},
+                {"india_site_checkout": True},
+                {"item_type": "program", "currency": "inr"},
             ],
         },
         {"_id": 0},
@@ -459,6 +459,8 @@ async def fulfill_india_program_payment_link_payment(
                     "stripe_session_id": session_id,
                     "ad_utm": {**(open_enrollment.get("ad_utm") or {}), "utm_medium": "razorpay_plink"},
                     "checkout_channel": "india_qr",
+                    "item_id": program_id,
+                    "item_type": "program",
                     "updated_at": now.isoformat(),
                 }
             },

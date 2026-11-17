@@ -220,7 +220,22 @@ function enrollmentOriginKey(originish) {
 function checkoutChannelKey(rowOrEnrollment) {
   const ch = String(rowOrEnrollment?.checkout_channel || '').toLowerCase();
   if (ch) return ch;
-  const legacy = enrollmentOriginKey(rowOrEnrollment?.enrollment_origin);
+  const e = rowOrEnrollment || {};
+  const pay = e.payment || {};
+  const sid = String(pay.stripe_session_id || e.stripe_session_id || '');
+  if (pay.razorpay_payment_link || pay.created_via === 'india_landing_plink') return 'india_qr';
+  if (
+    pay.payment_provider === 'razorpay'
+    || pay.razorpay_order_id
+    || sid.startsWith('rz_')
+    || e.india_site_checkout
+    || (Array.isArray(e.cart_items) && e.cart_items.length > 0)
+    || String(e.landing_path || '').startsWith('/india/')
+    || (String(e.currency || '').toLowerCase() === 'inr' && !sid.startsWith('cs_'))
+  ) {
+    return 'india_page';
+  }
+  const legacy = enrollmentOriginKey(e.enrollment_origin);
   if (legacy === 'dashboard' || legacy === 'payment_link') return legacy;
   return 'stripe';
 }
@@ -725,9 +740,14 @@ const getPaymentMode = (enrollment) => {
   }
   const status = enrollment.status || '';
   if (status.includes('india_payment')) return 'india_bank';
-  if (enrollment.payment?.stripe_session_id || enrollment.stripe_session_id) return 'stripe';
+  const sid = String(enrollment.payment?.stripe_session_id || enrollment.stripe_session_id || '');
+  if (enrollment.payment?.payment_provider === 'razorpay' || sid.startsWith('rz_')) return 'razorpay';
+  if (sid.startsWith('cs_')) return 'stripe';
   if (enrollment.is_india_alt) return 'manual_proof';
   if (enrollment.payment?.amount === 0 || enrollment.total === 0) return 'free';
+  if (enrollment.payment && String(enrollment.payment.currency || enrollment.currency || '').toLowerCase() === 'inr') {
+    return 'razorpay';
+  }
   if (enrollment.payment) return 'stripe';
   return null;
 };

@@ -43,23 +43,27 @@ def resolve_checkout_channel(enrollment: dict, txn: Optional[dict] = None) -> st
         return "india_qr"
 
     landing = str(e.get("landing_path") or "").strip()
-    if created_via == "india_landing" or landing.startswith("/india/"):
+    cart_items = e.get("cart_items") if isinstance(e.get("cart_items"), list) else []
+    has_cart = len(cart_items) > 0
+    india_site = e.get("india_site_checkout") in (True, "true", 1)
+
+    if created_via == "india_landing" or landing.startswith("/india/") or has_cart or india_site:
         return "india_page"
 
     provider = str(t.get("payment_provider") or "").strip().lower()
     pm = str(t.get("payment_method") or e.get("payment_method") or "").strip().lower()
     session = str(t.get("stripe_session_id") or e.get("stripe_session_id") or "").strip()
 
+    # Razorpay reuses stripe_session_id for rz_* internal session keys — not Stripe Checkout.
+    if provider == "razorpay" or pm == "razorpay" or session.startswith("rz_") or t.get("razorpay_order_id") or t.get("razorpay_payment_id"):
+        return "india_page"
+    if str(e.get("booker_country") or "").upper() == "IN" and str(e.get("currency") or "").lower() == "inr":
+        return "india_page"
+    if str(e.get("currency") or "").lower() == "inr" and not session.startswith("cs_"):
+        return "india_page"
+
     if provider == "stripe" or pm == "stripe" or session.startswith("cs_"):
         return "stripe"
-    if provider == "razorpay" or t.get("razorpay_order_id") or t.get("razorpay_payment_id"):
-        if landing.startswith("/india/") or created_via == "india_landing":
-            return "india_page"
-        if str(e.get("booker_country") or "").upper() == "IN" or str(e.get("currency") or "").lower() == "inr":
-            return "india_page"
-        return "india_page"
-    if str(e.get("currency") or "").lower() == "inr" and landing.startswith("/india/"):
-        return "india_page"
 
     stored = str(e.get("checkout_channel") or "").strip().lower()
     if stored in CHECKOUT_CHANNEL_LABELS:

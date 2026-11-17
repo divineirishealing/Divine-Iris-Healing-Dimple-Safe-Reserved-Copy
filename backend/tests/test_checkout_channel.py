@@ -22,3 +22,9 @@ def test_stripe_website():
     t = {"payment_provider": "stripe", "stripe_session_id": "cs_test_123"}
     assert resolve_checkout_channel(e, t) == "stripe"
     assert checkout_channel_label("india_qr") == "India QR"
+
+
+def test_india_cart_rz_session_not_stripe():
+    e = {"currency": "inr", "cart_items": [{"program_id": "p1"}], "booker_country": "IN"}
+    t = {"payment_provider": "razorpay", "stripe_session_id": "rz_abc123", "payment_status": "pending"}
+    assert resolve_checkout_channel(e, t) == "india_page"

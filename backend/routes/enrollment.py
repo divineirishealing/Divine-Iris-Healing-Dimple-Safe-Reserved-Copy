@@ -1141,6 +1141,8 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
                 "step": 4,
                 "status": "checkout_started",
                 "stripe_session_id": session_key,
+                "checkout_channel": "india_page",
+                "india_site_checkout": bool(india_site),
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }
         },
