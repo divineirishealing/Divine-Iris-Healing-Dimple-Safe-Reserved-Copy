@@ -946,7 +946,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
 
           {restPrograms.length > 0 && (
             <div className="hidden lg:block lg:col-span-3 lg:row-start-3">
-              <div className={`grid gap-6 items-stretch ${programGridColsClass(restPrograms.length)}`}>
+              <div className="grid gap-6 items-stretch grid-cols-3">
                 {restPrograms.map(renderUpcomingCard)}
               </div>
             </div>
