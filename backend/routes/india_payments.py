@@ -1376,9 +1376,11 @@ def build_participant_report_rows(
         st = (e.get("status") or "").lower()
         txn = _pick_best_transaction_for_enrollment(e, txns_by_eid.get(eid) or [])
         pay_st = _clean_str((txn or {}).get("payment_status")).lower()
+        display_status = effective_enrollment_status(e, txn)
         is_done = (
             pay_st in ("paid", "complete", "completed")
             or st in done_status
+            or str(display_status or "").lower() in done_status
             or e.get("step") == 5
         )
 
@@ -1468,7 +1470,7 @@ def build_participant_report_rows(
                     "program": program,
                     "home_coming_year": enc_hc_year,
                     "item_type": item_type,
-                    "enrollment_status": _clean_str(e.get("status")),
+                    "enrollment_status": _clean_str(display_status),
                     "enrollment_origin": origin,
                     "booker_name": booker_name,
                     "booker_email": booker_email,
@@ -1497,7 +1499,7 @@ def build_participant_report_rows(
                     "participant_uid": "",
                     "payment_amount": amt,
                     "payment_currency": cur,
-                    "payment_status": pay_st or _clean_str(e.get("status")),
+                    "payment_status": pay_st or _clean_str(display_status),
                     "created_at": created,
                     "paid_at": paid_at,
                     **_payment_tracking_fields_for_report(e, txn),
@@ -1519,7 +1521,7 @@ def build_participant_report_rows(
                 "program": program,
                 "home_coming_year": enc_hc_year if _participant_seat_is_home_coming(p) else "",
                 "item_type": item_type,
-                "enrollment_status": _clean_str(e.get("status")),
+                "enrollment_status": _clean_str(display_status),
                 "enrollment_origin": origin,
                 "booker_name": booker_name,
                 "booker_email": booker_email,
@@ -1548,7 +1550,7 @@ def build_participant_report_rows(
                 "participant_uid": _clean_str(_scalar_field(p, "uid", "UID")),
                 "payment_amount": amt,
                 "payment_currency": cur,
-                "payment_status": pay_st or _clean_str(e.get("status")),
+                "payment_status": pay_st or _clean_str(display_status),
                 "created_at": created,
                 "paid_at": paid_at,
                 **_payment_tracking_fields_for_report(e, txn),
@@ -2755,8 +2757,10 @@ async def list_enrollments():
     """Admin: list all enrollments with payment details (all checkout paths use `enrollments`)."""
     from utils.payment_request_enrollment import backfill_payment_link_enrollments
     from utils.india_program_razorpay_plink import backfill_india_plink_checkout_orphans
+    from utils.razorpay_india_reconcile import reconcile_india_landing_razorpay_checkouts
 
     await backfill_payment_link_enrollments(db, limit=200)
+    await reconcile_india_landing_razorpay_checkouts(db, limit=200)
     await backfill_india_plink_checkout_orphans(db, limit=200)
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
@@ -2829,6 +2833,11 @@ async def reconcile_enrollment_payment(request: Request):
     txns = await db.payment_transactions.find({"enrollment_id": eid}, {"_id": 0}).to_list(50)
     inv = invoice_number or _clean_str((txns[0] or {}).get("invoice_number") if txns else "")
     stripe_key = await get_stripe_api_key()
+    from utils.razorpay_india_reconcile import reconcile_india_landing_razorpay_checkouts
+
+    await reconcile_india_landing_razorpay_checkouts(db, limit=20)
+    txns = await db.payment_transactions.find({"enrollment_id": eid}, {"_id": 0}).to_list(50)
+    enrollment = await db.enrollments.find_one({"id": eid}, {"_id": 0}) or enrollment
     enrollment, txns, meta = await reconcile_enrollment_checkout_from_db(
         db,
         enrollment,
@@ -2859,8 +2868,10 @@ async def participant_enrollment_rows(paid_completed_only: bool = False):
     """
     from utils.payment_request_enrollment import backfill_payment_link_enrollments
     from utils.india_program_razorpay_plink import backfill_india_plink_checkout_orphans
+    from utils.razorpay_india_reconcile import reconcile_india_landing_razorpay_checkouts
 
     await backfill_payment_link_enrollments(db, limit=200)
+    await reconcile_india_landing_razorpay_checkouts(db, limit=200)
     await backfill_india_plink_checkout_orphans(db, limit=200)
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]

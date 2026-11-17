@@ -98,3 +98,43 @@ async def fetch_razorpay_payment(
         detail = http_detail_from_razorpay_response(resp, context="payment fetch")
         raise HTTPException(status_code=502, detail=detail)
     return resp.json()
+
+
+async def fetch_razorpay_payment_link(
+    *,
+    payment_link_id: str,
+    key_id: str,
+    key_secret: str,
+    timeout: float = 30.0,
+) -> dict:
+    plink = (payment_link_id or "").strip()
+    if not plink:
+        raise HTTPException(status_code=400, detail="Missing payment link id.")
+    url = f"{RAZORPAY_PAYMENT_LINKS_URL}/{plink}"
+    async with httpx.AsyncClient(timeout=timeout) as http:
+        resp = await http.get(url, auth=(key_id.strip(), key_secret.strip()))
+    if resp.status_code >= 400:
+        detail = http_detail_from_razorpay_response(resp, context="payment link fetch")
+        raise HTTPException(status_code=502, detail=detail)
+    return resp.json()
+
+
+async def fetch_razorpay_order_payments(
+    *,
+    order_id: str,
+    key_id: str,
+    key_secret: str,
+    timeout: float = 30.0,
+) -> list:
+    oid = (order_id or "").strip()
+    if not oid:
+        return []
+    url = f"https://api.razorpay.com/v1/orders/{oid}/payments"
+    async with httpx.AsyncClient(timeout=timeout) as http:
+        resp = await http.get(url, auth=(key_id.strip(), key_secret.strip()))
+    if resp.status_code >= 400:
+        logger.warning("Razorpay order payments %s: HTTP %s", oid, resp.status_code)
+        return []
+    data = resp.json()
+    items = data.get("items") if isinstance(data, dict) else None
+    return list(items or [])

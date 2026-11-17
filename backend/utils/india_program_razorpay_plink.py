@@ -14,6 +14,7 @@ from utils.awrp_intro_razorpay_plink import (
     _customer_from_payment,
     _frontend_base_url,
     _next_receipt_id,
+    normalize_phone,
     verify_payment_link_callback_signature,
 )
 from utils.razorpay_payment_links import (
@@ -132,30 +133,43 @@ async def _program_id_from_payment_link_cache(
     return pid, tier, landing
 
 
+def _phone_tail(phone: str) -> str:
+    digits = "".join(c for c in (phone or "") if c.isdigit())
+    return digits[-10:] if len(digits) >= 10 else digits
+
+
 async def _find_open_india_landing_enrollment(
     db: AsyncIOMotorDatabase,
     *,
     program_id: str,
     email: str,
+    phone: str = "",
 ) -> Optional[dict]:
     """Booking form left checkout_started; payer used QR payment link instead."""
     from utils.enrollment_checkout_status import INCOMPLETE_CHECKOUT_STATUSES
 
     email_norm = (email or "").strip().lower()
     pid = (program_id or "").strip()
-    if not email_norm or not pid:
+    phone_tail = _phone_tail(normalize_phone(phone) or phone)
+    if not pid or (not email_norm and not phone_tail):
         return None
     cursor = db.enrollments.find(
         {
             "item_id": pid,
             "item_type": "program",
-            "created_via": "india_landing",
             "status": {"$in": list(INCOMPLETE_CHECKOUT_STATUSES)},
+            "$or": [
+                {"created_via": "india_landing"},
+                {"landing_path": {"$regex": r"^/india/program/"}},
+            ],
         },
         {"_id": 0},
     ).sort("created_at", -1)
     async for row in cursor:
-        if (row.get("booker_email") or "").strip().lower() == email_norm:
+        row_email = (row.get("booker_email") or "").strip().lower()
+        if email_norm and row_email == email_norm:
+            return row
+        if phone_tail and _phone_tail(row.get("phone") or "") == phone_tail:
             return row
     return None
 
@@ -189,8 +203,11 @@ async def backfill_india_plink_checkout_orphans(db, *, limit: int = 100) -> int:
     enrollments = await db.enrollments.find(
         {
             "status": {"$in": list(INCOMPLETE_CHECKOUT_STATUSES)},
-            "created_via": "india_landing",
             "item_type": "program",
+            "$or": [
+                {"created_via": "india_landing"},
+                {"landing_path": {"$regex": r"^/india/program/"}},
+            ],
         },
         {"_id": 0},
     ).sort("created_at", -1).limit(limit).to_list(limit)
@@ -215,6 +232,21 @@ async def backfill_india_plink_checkout_orphans(db, *, limit: int = 100) -> int:
             },
             sort=[("paid_at", -1), ("created_at", -1)],
         )
+        if not paid_plink:
+            phone_tail = _phone_tail(enrollment.get("phone") or "")
+            if phone_tail:
+                recent = await db.payment_transactions.find(
+                    {
+                        "razorpay_payment_link": True,
+                        "item_id": program_id,
+                        "payment_status": {"$in": ["paid", "complete", "completed"]},
+                    },
+                    {"_id": 0},
+                ).sort("paid_at", -1).limit(40).to_list(40)
+                for candidate in recent:
+                    if _phone_tail(candidate.get("phone") or "") == phone_tail:
+                        paid_plink = candidate
+                        break
         if not paid_plink:
             continue
 
@@ -315,6 +347,7 @@ async def fulfill_india_program_payment_link_payment(
             from routes.payments import run_enrollment_razorpay_success_hooks
 
             await run_enrollment_razorpay_success_hooks(session_id)
+        await backfill_india_plink_checkout_orphans(db, limit=50)
         return {"ok": True, "session_id": session_id, "already_fulfilled": True}
 
     payment = await fetch_razorpay_payment(
@@ -376,7 +409,12 @@ async def fulfill_india_program_payment_link_payment(
 
     now = datetime.now(timezone.utc)
     order_id = (payment.get("order_id") or "").strip()
-    open_enrollment = await _find_open_india_landing_enrollment(db, program_id=program_id, email=email)
+    open_enrollment = await _find_open_india_landing_enrollment(
+        db,
+        program_id=program_id,
+        email=email,
+        phone=phone,
+    )
 
     participant = {
         "name": name,
