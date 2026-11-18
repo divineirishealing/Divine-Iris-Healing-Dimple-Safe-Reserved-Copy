@@ -174,7 +174,9 @@ async def fulfill_awrp_intro_payment_link_payment(
     payment_link_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create enrollment + emails for a captured Payment Link payment (idempotent)."""
-    pid = (payment_id or "").strip()
+    from utils.razorpay_capture import normalize_razorpay_payment_id, require_captured_razorpay_payment
+
+    pid = normalize_razorpay_payment_id(payment_id)
     if not pid:
         raise HTTPException(status_code=400, detail="Missing razorpay_payment_id.")
 
@@ -192,9 +194,7 @@ async def fulfill_awrp_intro_payment_link_payment(
         key_id=key_id,
         key_secret=key_secret,
     )
-    status = (payment.get("status") or "").lower()
-    if status not in ("captured", "authorized"):
-        raise HTTPException(status_code=400, detail=f"Payment is not complete (status={status}).")
+    require_captured_razorpay_payment(payment, context="awrp_intro_plink")
 
     notes = payment.get("notes") or {}
     if (notes.get("landing") or "") != "awrp-intro" and payment_link_id:

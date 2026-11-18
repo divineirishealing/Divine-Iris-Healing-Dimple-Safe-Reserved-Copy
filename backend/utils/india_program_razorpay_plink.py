@@ -336,7 +336,9 @@ async def fulfill_india_program_payment_link_payment(
     expected_program_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create enrollment + emails for a captured Payment Link payment (idempotent)."""
-    pid = (payment_id or "").strip()
+    from utils.razorpay_capture import normalize_razorpay_payment_id, require_captured_razorpay_payment
+
+    pid = normalize_razorpay_payment_id(payment_id)
     if not pid:
         raise HTTPException(status_code=400, detail="Missing razorpay_payment_id.")
 
@@ -355,9 +357,6 @@ async def fulfill_india_program_payment_link_payment(
         key_id=key_id,
         key_secret=key_secret,
     )
-    status = (payment.get("status") or "").lower()
-    if status not in ("captured", "authorized"):
-        raise HTTPException(status_code=400, detail=f"Payment is not complete (status={status}).")
 
     notes = payment.get("notes") or {}
     program_id = (notes.get("program_id") or notes.get("item_id") or "").strip()
@@ -399,6 +398,47 @@ async def fulfill_india_program_payment_link_payment(
 
     amount_paise = int(payment.get("amount") or 0)
     amount_inr = amount_paise / 100.0 if amount_paise else 0.0
+
+    expected_paise = int((cached or {}).get("amount_paise") or 0)
+    if expected_paise < 100:
+        from routes.enrollment import _per_person_price_for_program
+
+        list_inr = float(_per_person_price_for_program(prog, tier_index, "inr"))
+        expected_paise = int(round(list_inr * 100))
+    require_captured_razorpay_payment(
+        payment,
+        min_amount_paise=expected_paise if expected_paise >= 100 else None,
+        context="india_program_plink",
+    )
+
+    if payment_link_id:
+        try:
+            from utils.razorpay_payment_links import fetch_razorpay_payment_link
+
+            plink_doc = await fetch_razorpay_payment_link(
+                payment_link_id=(payment_link_id or "").strip(),
+                key_id=key_id,
+                key_secret=key_secret,
+            )
+            pl_status = (plink_doc.get("status") or "").lower()
+            if pl_status in ("cancelled", "expired"):
+                raise HTTPException(status_code=400, detail="This payment link is no longer active.")
+            pay_ids = {
+                (p.get("payment_id") or p.get("id") or "").strip()
+                for p in (plink_doc.get("payments") or [])
+            }
+            pay_ids = {normalize_razorpay_payment_id(x) for x in pay_ids if x}
+            if pay_ids and pid not in pay_ids:
+                logger.warning(
+                    "plink %s payment %s not listed on link payments %s",
+                    payment_link_id,
+                    pid,
+                    pay_ids,
+                )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("payment link verify %s: %s", payment_link_id, exc)
 
     name, email, phone = _customer_from_payment(payment)
     if not email:

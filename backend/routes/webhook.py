@@ -189,6 +189,15 @@ async def razorpay_webhook(request: Request):
         pl_notes = pl_ent.get("notes") or {}
         plink_landing = (pl_notes.get("landing") or "").strip()
         plink_program_id = (pl_notes.get("program_id") or pl_notes.get("item_id") or "").strip()
+    elif event == "payment.failed":
+        pay_ent = (ent.get("payment") or {}).get("entity") or {}
+        failed_id = (pay_ent.get("id") or "").strip()
+        logger.warning(
+            "Razorpay payment.failed %s %s",
+            failed_id,
+            pay_ent.get("error_description") or pay_ent.get("error_reason") or "",
+        )
+        return {"status": "ok", "note": "payment_failed_logged"}
     elif event == "payment.captured":
         pay_ent = (ent.get("payment") or {}).get("entity") or {}
         payment_id = (pay_ent.get("id") or "").strip()

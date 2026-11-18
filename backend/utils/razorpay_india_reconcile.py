@@ -40,10 +40,10 @@ def _contact_matches(enrollment: dict, payment: dict) -> bool:
 
 async def _mark_order_payment_paid(db, enrollment: dict, txn: dict, payment: dict) -> bool:
     from routes.payments import run_enrollment_razorpay_success_hooks
+    from utils.razorpay_capture import razorpay_payment_is_captured
 
     pid = (payment.get("id") or "").strip()
-    status = (payment.get("status") or "").lower()
-    if not pid or status not in ("captured", "authorized"):
+    if not pid or not razorpay_payment_is_captured(payment):
         return False
     if transaction_is_paid(txn):
         return False
@@ -153,7 +153,7 @@ async def reconcile_india_landing_razorpay_checkouts(db: AsyncIOMotorDatabase, *
         for entry in payments:
             pay_id = (entry.get("payment_id") or entry.get("id") or "").strip()
             pay_status = (entry.get("status") or "").lower()
-            if not pay_id or pay_status not in ("captured", "authorized", "paid"):
+            if not pay_id or pay_status not in ("captured", "paid"):
                 continue
             try:
                 payment = await fetch_razorpay_payment(
